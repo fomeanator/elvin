@@ -84,7 +84,7 @@ namespace Lvn.UI.Screens
             // A thin steel progress track — the one indicator of the whole boot.
             var track = new VisualElement();
             track.style.width = 300; track.style.height = 3;
-            track.style.marginTop = 14;
+            track.style.marginTop = LvnTokens.Space2;
             track.style.backgroundColor = new Color(1f, 1f, 1f, 0.10f);
             _fill = new VisualElement();
             _fill.style.height = Length.Percent(100);
@@ -95,7 +95,7 @@ namespace Lvn.UI.Screens
 
             _status = new Label("");
             _status.style.fontSize = LvnTokens.TextMicro;
-            _status.style.marginTop = 10;
+            _status.style.marginTop = LvnTokens.Space2;
             _status.style.color = new Color(0.60f, 0.58f, 0.54f); // #9a948a
             _root.Add(_status);
 

@@ -48,7 +48,7 @@ namespace Lvn.UI.Screens
             _chapter.style.unityTextAlign = TextAnchor.MiddleCenter;
             _chapter.style.color = UiColor.Named(_cfg.subtitle_color, LvnTokens.TextDim);
             _chapter.style.fontSize = _cfg.subtitle_size ?? 34f;
-            _chapter.style.marginTop = 14;
+            _chapter.style.marginTop = LvnTokens.Space2;
             _chapter.style.whiteSpace = WhiteSpace.Normal;
             column.Add(_chapter);
 
@@ -58,7 +58,7 @@ namespace Lvn.UI.Screens
             column.Add(_continue);
 
             _menu = MakeButton(LvnWords.Pick("chapter_end.menu", _cfg.menu_label, "To menu"), primary: false);
-            _menu.style.marginTop = 20;
+            _menu.style.marginTop = LvnTokens.Space3;
             _menu.clicked += () => Resolve(false);
             column.Add(_menu);
         }

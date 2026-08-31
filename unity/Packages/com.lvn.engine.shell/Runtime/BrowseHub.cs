@@ -148,7 +148,7 @@ namespace Lvn.UI.Screens
             var avatar = IconButton(LvnIcon.Profile, 28f, _text, () => { if (OnMenu != null) LvnAsync.Fire(OnMenu(), "OpenMenu"); });
             avatar.style.width = 56; avatar.style.height = 56;
             avatar.style.backgroundColor = _theme.SurfaceHi;
-            avatar.style.marginRight = 12;
+            avatar.style.marginRight = LvnTokens.Space2;
             LvnChrome.Border(avatar, _accent, 2f);
             LvnChrome.Round(avatar, _theme.RoundPills ? 28f : _radius);
             profile.Add(avatar);
@@ -168,7 +168,7 @@ namespace Lvn.UI.Screens
             rightGroup.Add(_topPills);
             // daily-rewards gift (badge dot hints there's something to claim)
             var gift = IconButton(LvnIcon.Gift, 24f, _text, () => { if (OnDaily != null) LvnAsync.Fire(OnDaily(), "OpenDaily"); });
-            gift.style.width = 44; gift.style.height = 44; gift.style.marginLeft = 10;
+            gift.style.width = 44; gift.style.height = 44; gift.style.marginLeft = LvnTokens.Space2;
             gift.style.backgroundColor = LvnTokens.Faint;
             LvnChrome.ClearBorder(gift); LvnChrome.Round(gift, LvnTokens.RadiusSm);
             var dot = new Label { pickingMode = PickingMode.Ignore };
@@ -180,7 +180,7 @@ namespace Lvn.UI.Screens
             rightGroup.Add(gift);
             var gear = IconButton(LvnIcon.Settings, 24f, _dim, () => { if (OnMenu != null) LvnAsync.Fire(OnMenu(), "OpenMenu"); });
             _settingsBtn = gear;
-            gear.style.width = 44; gear.style.height = 44; gear.style.marginLeft = 10;
+            gear.style.width = 44; gear.style.height = 44; gear.style.marginLeft = LvnTokens.Space2;
             gear.style.backgroundColor = LvnTokens.Faint;
             LvnChrome.ClearBorder(gear); LvnChrome.Round(gear, LvnTokens.RadiusSm);
             rightGroup.Add(gear);
@@ -188,16 +188,16 @@ namespace Lvn.UI.Screens
             _hubView.Add(topBar);
 
             var brand = new VisualElement();
-            brand.style.marginTop = 2; brand.style.marginBottom = 20;
+            brand.style.marginTop = 2; brand.style.marginBottom = LvnTokens.Space3;
             var eyebrow = ScreenUi.Eyebrow(HubEyebrow, 30f, _accent);
             _hubEyebrow = eyebrow;
-            eyebrow.style.marginBottom = 8;
+            eyebrow.style.marginBottom = LvnTokens.Space1;
             brand.Add(eyebrow);
             _hubTitle = Heading(LvnWords.Pick("browse.title", _cfg.title, ""), 58);
             brand.Add(_hubTitle);
             _hubSubtitle = new Label(); // (kept for API; the eyebrow carries the sub-line)
             var rule = new VisualElement();
-            rule.style.height = 3; rule.style.width = 44; rule.style.marginTop = 12;
+            rule.style.height = 3; rule.style.width = 44; rule.style.marginTop = LvnTokens.Space2;
             rule.style.backgroundColor = _accent; LvnChrome.Round(rule, LvnTokens.RadiusXs);
             brand.Add(rule);
             _hubView.Add(brand);
@@ -238,7 +238,7 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(_detailImage, _radius);
             Edge(_detailImage);
             LvnPicture.Fit(_detailImage);
-            _detailImage.style.marginBottom = 16;
+            _detailImage.style.marginBottom = LvnTokens.Space3;
             _detailImage.style.overflow = Overflow.Hidden;
             _detailImage.style.justifyContent = Justify.FlexEnd;
             // Затемнение под подписью: белый заголовок обязан читаться на любой
@@ -253,7 +253,7 @@ namespace Lvn.UI.Screens
             // в узкой строке возврата мелким кеглем, и экран открывался
             // безымянным: картинка, абзац и кнопка.
             var dCap = new VisualElement { pickingMode = PickingMode.Ignore };
-            dCap.style.paddingLeft = 20; dCap.style.paddingRight = 20; dCap.style.paddingBottom = 16;
+            dCap.style.paddingLeft = LvnTokens.Space3; dCap.style.paddingRight = LvnTokens.Space3; dCap.style.paddingBottom = LvnTokens.Space3;
             _detailBigTitle = Lvn.UI.LvnRedress.Bind(new Label(), () => _detailTarget == null ? string.Empty
                 : _theme.Heading(LvnWords.Name("title", _detailTarget.id, _detailTarget.name)));
             _detailBigTitle.style.color = _titleColor; _detailBigTitle.style.fontSize = LvnTokens.TextDisplay;
@@ -275,8 +275,8 @@ namespace Lvn.UI.Screens
             var dBody = new VisualElement();
             dBody.style.flexGrow = 1;
             dBody.style.backgroundColor = _card;
-            dBody.style.paddingLeft = 18; dBody.style.paddingRight = 18;
-            dBody.style.paddingTop = 16; dBody.style.paddingBottom = 16;
+            dBody.style.paddingLeft = LvnTokens.Space3; dBody.style.paddingRight = LvnTokens.Space3;
+            dBody.style.paddingTop = LvnTokens.Space3; dBody.style.paddingBottom = LvnTokens.Space3;
             LvnChrome.Round(dBody, _radius);
             Edge(dBody, 0.7f);
             _detailDesc = new Label(string.Empty);
@@ -288,7 +288,7 @@ namespace Lvn.UI.Screens
             // Действие и цена в один ряд: стоимость рядом с кнопкой, а не
             // спрятана в её надписи.
             var dActions = ScreenUi.Row();
-            dActions.style.marginTop = 14;
+            dActions.style.marginTop = LvnTokens.Space2;
             // ПОДПИСЬ КНОПКИ ЗАВИСИТ ОТ ДВУХ ВЕЩЕЙ СРАЗУ: от языка и от того,
             // какую новеллу открыли (её цена, её замок). Держать оба ответа
             // порознь — присваивание при открытии и привязку для языка — значит
@@ -307,7 +307,7 @@ namespace Lvn.UI.Screens
             dActions.Add(_detailPlay);
             _detailChips = new VisualElement();
             ScreenUi.Row(_detailChips);
-            _detailChips.style.marginLeft = 12;
+            _detailChips.style.marginLeft = LvnTokens.Space2;
             dActions.Add(_detailChips);
             _detailView.Add(dActions);
             Add(_detailView);
@@ -716,14 +716,14 @@ namespace Lvn.UI.Screens
             LvnChrome.Border(b, new Color(_accent.r, _accent.g, _accent.b, 0.52f), 1f);
 
             b.style.justifyContent = Justify.FlexEnd;
-            b.style.paddingLeft = 24; b.style.paddingRight = 24; b.style.paddingBottom = 24;
+            b.style.paddingLeft = LvnTokens.Space4; b.style.paddingRight = LvnTokens.Space4; b.style.paddingBottom = LvnTokens.Space4;
 
             bool res0 = resume;
             var eyebrow = ScreenUi.Eyebrow(() =>
                 (res0 ? LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue")
                       : LvnWords.Pick("hub.featured", _cfg.featured_text, "Featured")).ToUpperInvariant(),
                 24f, _accent);
-            eyebrow.style.marginBottom = 6;
+            eyebrow.style.marginBottom = LvnTokens.Space1;
             b.Add(eyebrow);
             var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Name("title", t.id, t.name));
             title.style.color = _text; title.style.fontSize = LvnTokens.TextDisplay; title.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -731,7 +731,7 @@ namespace Lvn.UI.Screens
 
             var actions = new VisualElement();
             actions.style.flexDirection = FlexDirection.Row; actions.style.alignItems = Align.Center;
-            actions.style.marginTop = 12;
+            actions.style.marginTop = LvnTokens.Space2;
             var play = new Button(() => { if (locked) { FireLockedHint(LvnWords.Name("title", t.id, t.name), t.locked_hint ?? ""); } else OpenDetail(t, CurrentCollectionOf(t)); })
             { };
             bool lock0 = locked, res1 = resume;
@@ -739,14 +739,14 @@ namespace Lvn.UI.Screens
                 lock0 ? LvnWords.Pick("hub.locked", _cfg.locked_text, "Locked")
                       : res1 ? LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue")
                              : LvnWords.Pick("hub.play", _cfg.play_text, "Play"));
-            play.style.fontSize = LvnTokens.TextLg; play.style.paddingLeft = 26; play.style.paddingRight = 26;
-            play.style.paddingTop = 12; play.style.paddingBottom = 12;
+            play.style.fontSize = LvnTokens.TextLg; play.style.paddingLeft = LvnTokens.Space4; play.style.paddingRight = LvnTokens.Space4;
+            play.style.paddingTop = LvnTokens.Space2; play.style.paddingBottom = LvnTokens.Space2;
             play.style.color = _accentText; play.style.backgroundColor = _accent;
             LvnChrome.ClearBorder(play); LvnChrome.Round(play, LvnTokens.RadiusSm);
             actions.Add(play);
             if (!locked && t.cost != null && t.cost.amount > 0)
             {
-                var chip = CostChip(t.cost); chip.style.marginLeft = 12;
+                var chip = CostChip(t.cost); chip.style.marginLeft = LvnTokens.Space2;
                 actions.Add(chip);
             }
             b.Add(actions);
@@ -802,8 +802,8 @@ namespace Lvn.UI.Screens
         {
             var b = new Button(onClick) { text = text };
             b.style.fontSize = LvnTokens.TextLg;
-            b.style.marginTop = 14;
-            b.style.paddingTop = 14; b.style.paddingBottom = 14;
+            b.style.marginTop = LvnTokens.Space2;
+            b.style.paddingTop = LvnTokens.Space2; b.style.paddingBottom = LvnTokens.Space2;
             b.style.color = _accentText;
             b.style.backgroundColor = _accent;
             LvnChrome.ClearBorder(b); LvnChrome.Round(b, _radius);

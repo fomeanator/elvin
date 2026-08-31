@@ -72,7 +72,7 @@ namespace Lvn.UI.Screens
                 style.height = _baseHeight + insets.x;
             });
             ScreenUi.Row(this, spread: true);
-            style.paddingLeft = 24; style.paddingRight = 24;
+            style.paddingLeft = LvnTokens.Space4; style.paddingRight = LvnTokens.Space4;
             style.backgroundColor = UiColor.Named(_cfg.bg_color, LvnTokens.Veil(0.53f));
             pickingMode = PickingMode.Ignore;
 
@@ -84,7 +84,7 @@ namespace Lvn.UI.Screens
 
             _progressIcon = new VisualElement { pickingMode = PickingMode.Ignore };
             _progressIcon.style.width = 28; _progressIcon.style.height = 28;
-            _progressIcon.style.marginRight = 8;
+            _progressIcon.style.marginRight = LvnTokens.Space1;
             LvnPicture.Fit(_progressIcon, cover: false);
             _progressIcon.style.display = string.IsNullOrEmpty(_cfg.progress_icon_url) ? DisplayStyle.None : DisplayStyle.Flex;
             left.Add(_progressIcon);
@@ -99,7 +99,7 @@ namespace Lvn.UI.Screens
             // title never grows this button).
             _statsBtn = new VisualElement { pickingMode = PickingMode.Position };
             _statsBtn.style.width = 26; _statsBtn.style.height = 26;
-            _statsBtn.style.marginLeft = 16;
+            _statsBtn.style.marginLeft = LvnTokens.Space3;
             LvnIcons.Paint(_statsBtn, LvnIcon.Chart, LvnTokens.Text);
             _statsBtn.style.display = DisplayStyle.None;
             _statsBtn.RegisterCallback<PointerDownEvent>(e =>

@@ -100,10 +100,10 @@ namespace Lvn.UI.Screens
             _card.style.width = Length.Percent(80f);
             _card.style.backgroundColor = UiColor.Named(_cfg.panel_color, LvnTokens.PanelBg);
             LvnChrome.Round(_card, _radius + 4f);
-            _card.style.paddingTop = 24;
-            _card.style.paddingBottom = 20;
-            _card.style.paddingLeft = 24;
-            _card.style.paddingRight = 24;
+            _card.style.paddingTop = LvnTokens.Space4;
+            _card.style.paddingBottom = LvnTokens.Space3;
+            _card.style.paddingLeft = LvnTokens.Space4;
+            _card.style.paddingRight = LvnTokens.Space4;
             Add(_card);
 
             _title = new Label { name = "popup-title" };
@@ -112,7 +112,7 @@ namespace Lvn.UI.Screens
             _title.style.unityFontStyleAndWeight = FontStyle.Bold;
             _title.style.whiteSpace = WhiteSpace.Normal;
             _title.style.unityTextAlign = TextAnchor.MiddleCenter;
-            _title.style.marginBottom = 10;
+            _title.style.marginBottom = LvnTokens.Space2;
             _card.Add(_title);
 
             _message = new Label { name = "popup-message" };
@@ -120,7 +120,7 @@ namespace Lvn.UI.Screens
             _message.style.fontSize = LvnTokens.TextSm;
             _message.style.whiteSpace = WhiteSpace.Normal;
             _message.style.unityTextAlign = TextAnchor.MiddleCenter;
-            _message.style.marginBottom = 20;
+            _message.style.marginBottom = LvnTokens.Space3;
             _card.Add(_message);
 
             _buttons = new VisualElement();
@@ -240,10 +240,10 @@ namespace Lvn.UI.Screens
             b.style.flexGrow = count > 1 ? 1 : 0;
             b.style.minWidth = 120;
             b.style.marginLeft = index > 0 ? 8 : 0;
-            b.style.paddingTop = 12;
-            b.style.paddingBottom = 12;
-            b.style.paddingLeft = 18;
-            b.style.paddingRight = 18;
+            b.style.paddingTop = LvnTokens.Space2;
+            b.style.paddingBottom = LvnTokens.Space2;
+            b.style.paddingLeft = LvnTokens.Space3;
+            b.style.paddingRight = LvnTokens.Space3;
             b.style.color = spec.Primary ? _primaryText : _btnText;
             b.style.backgroundColor = spec.Primary ? _primaryColor : _btnColor;
             b.style.unityTextAlign = TextAnchor.MiddleCenter;

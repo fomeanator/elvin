@@ -122,8 +122,8 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(_panel, LvnTokens.Radius);
             _panel.style.borderTopWidth = 2.5f;
             _panel.style.borderTopColor = LvnTokens.Accent;
-            _panel.style.paddingTop = 14; _panel.style.paddingBottom = 14;
-            _panel.style.paddingLeft = 16; _panel.style.paddingRight = 16;
+            _panel.style.paddingTop = LvnTokens.Space2; _panel.style.paddingBottom = LvnTokens.Space2;
+            _panel.style.paddingLeft = LvnTokens.Space3; _panel.style.paddingRight = LvnTokens.Space3;
             Add(_panel);
 
             // «Во весь рост» прячет плашку — вернуть её обязано ЛЮБОЕ касание

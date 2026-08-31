@@ -118,7 +118,11 @@ func TestTypeScaleDoesNotSpreadFurther(t *testing.T) {
 //
 // Ноль не считается: «убрать отступ» — не ступень шкалы, а его отсутствие.
 func TestSpaceScaleDoesNotSpreadFurther(t *testing.T) {
-	const budget = 448 // мест мимо шкалы на 28.08.2026; только вниз
+	const budget = 83 // 01.09: сведены все, отстоявшие на ±2 (331 место, шаг
+	//                    невидим глазом поодиночке и виден в сумме). Остались
+	//                    волосяные линии (1–5 px — не ступень, а линия) и
+	//                    осознанно крупные (22, 30, 34, 36, 52, 72, 124).
+	//                    Только вниз.
 
 	root := repoRoot(t)
 	scale := map[int]bool{8: true, 12: true, 18: true, 26: true, 40: true, 60: true}

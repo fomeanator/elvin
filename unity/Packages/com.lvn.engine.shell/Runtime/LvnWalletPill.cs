@@ -98,7 +98,7 @@ namespace Lvn.UI.Screens
                 _timer = new Label(string.Empty) { pickingMode = PickingMode.Ignore };
                 _timer.style.color = _look.TextColor;
                 _timer.style.fontSize = Mathf.Max(12f, _look.FontSize - 5f);
-                _timer.style.marginLeft = 6;
+                _timer.style.marginLeft = LvnTokens.Space1;
                 _timer.style.opacity = 0.7f;
                 _timer.style.display = DisplayStyle.None;
                 Add(_timer);
@@ -123,7 +123,7 @@ namespace Lvn.UI.Screens
             {
                 var img = new VisualElement { pickingMode = PickingMode.Ignore };
                 img.style.width = _look.IconSize; img.style.height = _look.IconSize;
-                img.style.marginRight = 6;
+                img.style.marginRight = LvnTokens.Space1;
                 LvnPicture.Photo(img, _look.IconUrl, assets, cover: false);
                 return img;
             }
@@ -135,7 +135,7 @@ namespace Lvn.UI.Screens
             var tint = _look.IconTint ?? look.Tint;
             var ic = LvnIcons.Make(look.Icon, _look.IconSize, tint);
             ic.pickingMode = PickingMode.Ignore;
-            ic.style.marginRight = 6;
+            ic.style.marginRight = LvnTokens.Space1;
             return ic;
         }
 
@@ -143,8 +143,8 @@ namespace Lvn.UI.Screens
         {
             var plus = new Button(onPlus) { text = "+" };
             plus.style.fontSize = _look.FontSize;
-            plus.style.marginLeft = 8;
-            plus.style.paddingLeft = 10; plus.style.paddingRight = 10;
+            plus.style.marginLeft = LvnTokens.Space1;
+            plus.style.paddingLeft = LvnTokens.Space2; plus.style.paddingRight = LvnTokens.Space2;
             plus.style.paddingTop = 1; plus.style.paddingBottom = 1;
             plus.style.color = LvnTokens.OnAccent;
             plus.style.backgroundColor = LvnTokens.Accent;

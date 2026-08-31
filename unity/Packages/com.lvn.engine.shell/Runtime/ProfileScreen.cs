@@ -122,7 +122,7 @@ namespace Lvn.UI.Screens
 
             // ── Top bar: back (‹) + "Профиль" ─────────────────────────────
             var top = ScreenUi.Row();
-            top.style.marginBottom = 14;
+            top.style.marginBottom = LvnTokens.Space2;
             sheet.Add(top);
 
             var titleBlock = new VisualElement();
@@ -188,11 +188,11 @@ namespace Lvn.UI.Screens
         {
             var row = ScreenUi.Row();
             LvnChrome.Card(row);
-            row.style.marginBottom = 10;
-            row.style.paddingTop = 14; row.style.paddingBottom = 14;
-            row.style.paddingLeft = 16; row.style.paddingRight = 16;
+            row.style.marginBottom = LvnTokens.Space2;
+            row.style.paddingTop = LvnTokens.Space2; row.style.paddingBottom = LvnTokens.Space2;
+            row.style.paddingLeft = LvnTokens.Space3; row.style.paddingRight = LvnTokens.Space3;
             var ic = LvnIcons.Make(LvnIcon.Book, 22f, LvnTokens.Accent);
-            ic.style.marginRight = 12;
+            ic.style.marginRight = LvnTokens.Space2;
             row.Add(ic);
             var lbl = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("profile.chapters_read", "Chapters read: {0}",
                                             $"{ChaptersDone} {ChapterWord(ChaptersDone)}"));
@@ -207,9 +207,9 @@ namespace Lvn.UI.Screens
         {
             var card = new VisualElement();
             LvnChrome.Card(card, LvnTokens.SurfaceSoft);
-            card.style.paddingTop = 16; card.style.paddingBottom = 16;
-            card.style.paddingLeft = 16; card.style.paddingRight = 16;
-            card.style.marginBottom = 10;
+            card.style.paddingTop = LvnTokens.Space3; card.style.paddingBottom = LvnTokens.Space3;
+            card.style.paddingLeft = LvnTokens.Space3; card.style.paddingRight = LvnTokens.Space3;
+            card.style.marginBottom = LvnTokens.Space2;
             var lbl = new Label(text);
             lbl.style.color = LvnTokens.TextDim;
             lbl.style.fontSize = LvnTokens.TextSm;
@@ -225,18 +225,18 @@ namespace Lvn.UI.Screens
             var card = new VisualElement();
             card.style.flexDirection = FlexDirection.Column;
             LvnChrome.Card(card, LvnTokens.SurfaceHi, LvnTokens.Radius);
-            card.style.paddingTop = 18;
-            card.style.paddingBottom = 18;
-            card.style.paddingLeft = 18;
-            card.style.paddingRight = 18;
-            card.style.marginBottom = 16;
+            card.style.paddingTop = LvnTokens.Space3;
+            card.style.paddingBottom = LvnTokens.Space3;
+            card.style.paddingLeft = LvnTokens.Space3;
+            card.style.paddingRight = LvnTokens.Space3;
+            card.style.marginBottom = LvnTokens.Space3;
 
             var dossier = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("profile.dossier", "STORY RECORD"));
             dossier.style.color = LvnTokens.Gold;
             dossier.style.fontSize = LvnTokens.TextMicro;
             dossier.style.letterSpacing = 1.9f;
             dossier.style.unityFontStyleAndWeight = FontStyle.Bold;
-            dossier.style.marginBottom = 12;
+            dossier.style.marginBottom = LvnTokens.Space2;
             card.Add(dossier);
 
             var identity = ScreenUi.Row();
@@ -247,7 +247,7 @@ namespace Lvn.UI.Screens
             var avatar = new VisualElement();
             avatar.style.width = avatarSize;
             avatar.style.height = avatarSize;
-            avatar.style.marginRight = 18;
+            avatar.style.marginRight = LvnTokens.Space3;
             avatar.style.alignItems = Align.Center;
             avatar.style.justifyContent = Justify.Center;
             avatar.style.backgroundColor = LvnTokens.SurfaceHi;
@@ -283,7 +283,7 @@ namespace Lvn.UI.Screens
             level.style.color = LvnTokens.Accent;
             level.style.fontSize = LvnTokens.TextSm;
             level.style.marginTop = 2;
-            level.style.marginBottom = 12;
+            level.style.marginBottom = LvnTokens.Space2;
             col.Add(level);
 
             // XP progress: a track with an Accent fill.
@@ -301,7 +301,7 @@ namespace Lvn.UI.Screens
             var xpLabel = new Label($"{LvnPriceTag.Amount(Xp)} / {LvnPriceTag.Amount(next)} XP");
             xpLabel.style.color = LvnTokens.TextDim;
             xpLabel.style.fontSize = LvnTokens.TextXs;
-            xpLabel.style.marginTop = 6;
+            xpLabel.style.marginTop = LvnTokens.Space1;
             col.Add(xpLabel);
 
             return card;
@@ -316,7 +316,7 @@ namespace Lvn.UI.Screens
             row.style.flexDirection = FlexDirection.Row;
             row.style.flexWrap = Wrap.Wrap;
             row.style.justifyContent = Justify.SpaceBetween;
-            row.style.marginBottom = 8;
+            row.style.marginBottom = LvnTokens.Space1;
 
             foreach (var s in stats) row.Add(StatTile(s));
             return row;
@@ -330,14 +330,14 @@ namespace Lvn.UI.Screens
             tile.style.flexGrow = 1;
             tile.style.flexBasis = Length.Percent(22f);
             tile.style.minWidth = 120;
-            tile.style.marginBottom = 10;
-            tile.style.marginRight = 8;
+            tile.style.marginBottom = LvnTokens.Space2;
+            tile.style.marginRight = LvnTokens.Space1;
             tile.style.alignItems = Align.Center;
             LvnChrome.Card(tile);
-            tile.style.paddingTop = 16;
-            tile.style.paddingBottom = 16;
-            tile.style.paddingLeft = 8;
-            tile.style.paddingRight = 8;
+            tile.style.paddingTop = LvnTokens.Space3;
+            tile.style.paddingBottom = LvnTokens.Space3;
+            tile.style.paddingLeft = LvnTokens.Space1;
+            tile.style.paddingRight = LvnTokens.Space1;
 
             var value = new Label(s.Value);
             value.style.color = LvnTokens.Gold;
@@ -363,7 +363,7 @@ namespace Lvn.UI.Screens
             grid.style.flexDirection = FlexDirection.Row;
             grid.style.flexWrap = Wrap.Wrap;
             grid.style.justifyContent = Justify.FlexStart;
-            grid.style.marginBottom = 8;
+            grid.style.marginBottom = LvnTokens.Space1;
 
             foreach (var a in Achievements) grid.Add(Badge(a));
             return grid;
@@ -375,15 +375,15 @@ namespace Lvn.UI.Screens
             badge.style.flexBasis = Length.Percent(23f);
             badge.style.flexGrow = 1;
             badge.style.minWidth = 110;
-            badge.style.marginRight = 8;
-            badge.style.marginBottom = 8;
+            badge.style.marginRight = LvnTokens.Space1;
+            badge.style.marginBottom = LvnTokens.Space1;
             badge.style.alignItems = Align.Center;
             badge.style.backgroundColor = a.Unlocked ? LvnTokens.SurfaceHi : LvnTokens.Surface;
             LvnChrome.Round(badge, LvnTokens.RadiusSm);
-            badge.style.paddingTop = 14;
-            badge.style.paddingBottom = 14;
-            badge.style.paddingLeft = 6;
-            badge.style.paddingRight = 6;
+            badge.style.paddingTop = LvnTokens.Space2;
+            badge.style.paddingBottom = LvnTokens.Space2;
+            badge.style.paddingLeft = LvnTokens.Space1;
+            badge.style.paddingRight = LvnTokens.Space1;
             if (!a.Unlocked) badge.style.opacity = 0.55f;
 
             var icon = LvnIcons.Make(a.Unlocked ? a.Icon : LvnIcon.Lock, 32f,
@@ -395,7 +395,7 @@ namespace Lvn.UI.Screens
             var label = new Label(a.Title);
             label.style.color = a.Unlocked ? LvnTokens.Text : LvnTokens.TextDim;
             label.style.fontSize = LvnTokens.TextXs;
-            label.style.marginTop = 6;
+            label.style.marginTop = LvnTokens.Space1;
             label.style.whiteSpace = WhiteSpace.Normal;
             label.style.unityTextAlign = TextAnchor.MiddleCenter;
             badge.Add(label);
@@ -407,7 +407,7 @@ namespace Lvn.UI.Screens
         private VisualElement BuildRelations()
         {
             var list = new VisualElement();
-            list.style.marginBottom = 8;
+            list.style.marginBottom = LvnTokens.Space1;
             foreach (var r in Relations) list.Add(RelationRow(r));
             return list;
         }
@@ -416,19 +416,19 @@ namespace Lvn.UI.Screens
         {
             var row = new VisualElement();
             LvnChrome.Card(row);
-            row.style.paddingTop = 14;
-            row.style.paddingBottom = 14;
-            row.style.paddingLeft = 16;
-            row.style.paddingRight = 16;
-            row.style.marginBottom = 10;
+            row.style.paddingTop = LvnTokens.Space2;
+            row.style.paddingBottom = LvnTokens.Space2;
+            row.style.paddingLeft = LvnTokens.Space3;
+            row.style.paddingRight = LvnTokens.Space3;
+            row.style.marginBottom = LvnTokens.Space2;
 
             var head = ScreenUi.Row(spread: true);
-            head.style.marginBottom = 8;
+            head.style.marginBottom = LvnTokens.Space1;
             row.Add(head);
 
             var nameRow = ScreenUi.Row();
             var heart = LvnIcons.Make(LvnIcon.Heart, 20f, LvnTokens.Accent);
-            heart.style.marginRight = 7;
+            heart.style.marginRight = LvnTokens.Space1;
             nameRow.Add(heart);
             var name = new Label(r.Name);
             name.style.color = LvnTokens.Text;

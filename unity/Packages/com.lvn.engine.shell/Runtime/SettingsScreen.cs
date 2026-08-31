@@ -67,15 +67,15 @@ namespace Lvn.UI.Screens
             var sheet = Sheet(sideInset: 6f, topInset: 8f,
                               tint: string.IsNullOrEmpty(_cfg.panel_color)
                                         ? (Color?)null : UiColor.Named(_cfg.panel_color, LvnTokens.PanelBg));
-            sheet.style.paddingTop = 22; sheet.style.paddingBottom = 18;
-            sheet.style.paddingLeft = 20; sheet.style.paddingRight = 20;
+            sheet.style.paddingTop = 22; sheet.style.paddingBottom = LvnTokens.Space3;
+            sheet.style.paddingLeft = LvnTokens.Space3; sheet.style.paddingRight = LvnTokens.Space3;
 
             _titleLabel = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("settings.title", _cfg.title, "Settings"));
             var title = _titleLabel;
             LvnChrome.Heading(title);
             title.style.color = UiColor.Named(_cfg.title_color, LvnTokens.Text);
             title.style.fontSize = LvnTokens.TextLg;
-            title.style.marginBottom = 14;
+            title.style.marginBottom = LvnTokens.Space2;
             sheet.Add(title);
 
             // Полоса видна: в настройках она подсказывает, что список
@@ -92,8 +92,8 @@ namespace Lvn.UI.Screens
                 () => LvnWords.Pick("common.close", _cfg.close_text, "Close"));
             var close = _closeButton;
             close.style.fontSize = LvnTokens.TextBase;
-            close.style.marginTop = 12;
-            close.style.paddingTop = 12; close.style.paddingBottom = 12;
+            close.style.marginTop = LvnTokens.Space2;
+            close.style.paddingTop = LvnTokens.Space2; close.style.paddingBottom = LvnTokens.Space2;
             LvnStyler.Plate(close, LvnTokens.Faint, _text, _radius);
             sheet.Add(close);
         }
@@ -192,7 +192,7 @@ namespace Lvn.UI.Screens
             // что готовая строка здесь живёт ровно до следующей сборки.
             var lbl = SectionTitle(() => title, LvnTokens.TextLg);
             lbl.style.marginTop = _sections++ == 0 ? 8 : 26;
-            lbl.style.marginBottom = 8;
+            lbl.style.marginBottom = LvnTokens.Space1;
             _list.Add(lbl);
         }
 
@@ -280,7 +280,7 @@ namespace Lvn.UI.Screens
                 "— And you came anyway. I knew you would."));
             sample.style.whiteSpace = WhiteSpace.Normal;
             sample.style.color = _text;
-            sample.style.marginTop = 12;
+            sample.style.marginTop = LvnTokens.Space2;
             void Fit() => sample.style.fontSize = Lvn.UI.LvnFonts.Size(SampleBaseSize * LvnPrefs.TextScale);
             Fit();
 
@@ -361,7 +361,7 @@ namespace Lvn.UI.Screens
             var slider = Lvn.UI.LvnSlider.Make(min, max, get(), set,
                 onPreview: live ? set : null, accent: _accent);
             slider.style.width = 200;
-            slider.style.marginLeft = 12;
+            slider.style.marginLeft = LvnTokens.Space2;
             row.Add(slider);
             return row;
         }
@@ -438,9 +438,9 @@ namespace Lvn.UI.Screens
         private VisualElement WideRow(string label, string hint, VisualElement control)
         {
             var row = new VisualElement();
-            row.style.marginBottom = 8;
-            row.style.paddingTop = 12;
-            row.style.paddingBottom = 12;
+            row.style.marginBottom = LvnTokens.Space1;
+            row.style.paddingTop = LvnTokens.Space2;
+            row.style.paddingBottom = LvnTokens.Space2;
             var lbl = new Label(label);
             lbl.style.color = _text;
             lbl.style.fontSize = LvnTokens.TextBase;
@@ -452,13 +452,13 @@ namespace Lvn.UI.Screens
                 var h = new Label(hint);
                 h.style.color = _dim;
                 h.style.fontSize = LvnTokens.TextSm;
-                h.style.marginTop = 8;
+                h.style.marginTop = LvnTokens.Space1;
                 h.style.whiteSpace = WhiteSpace.Normal;
                 row.Add(h);
             }
             if (control != null)
             {
-                control.style.marginTop = 12;
+                control.style.marginTop = LvnTokens.Space2;
                 row.Add(control);
             }
             return row;
@@ -473,13 +473,13 @@ namespace Lvn.UI.Screens
             // одной букве (снимок Ильи 28.08). Минимальная ширина держит текст
             // читаемым, а кнопке остаётся переехать на следующую строку.
             row.style.flexWrap = Wrap.Wrap;
-            row.style.marginBottom = 6;
-            row.style.paddingTop = 10; row.style.paddingBottom = 10;
+            row.style.marginBottom = LvnTokens.Space1;
+            row.style.paddingTop = LvnTokens.Space2; row.style.paddingBottom = LvnTokens.Space2;
             var col = new VisualElement();
             col.style.flexGrow = 1;
             col.style.flexShrink = 1;
             col.style.minWidth = new Length(55, LengthUnit.Percent);
-            col.style.marginRight = 12;
+            col.style.marginRight = LvnTokens.Space2;
             var lbl = new Label(label);
             lbl.style.color = _text;
             lbl.style.fontSize = LvnTokens.TextBase;
@@ -510,8 +510,8 @@ namespace Lvn.UI.Screens
         private void StyleValueButton(Button b, bool active)
         {
             b.style.fontSize = LvnTokens.TextSm;
-            b.style.paddingTop = 8; b.style.paddingBottom = 8;
-            b.style.paddingLeft = 16; b.style.paddingRight = 16;
+            b.style.paddingTop = LvnTokens.Space1; b.style.paddingBottom = LvnTokens.Space1;
+            b.style.paddingLeft = LvnTokens.Space3; b.style.paddingRight = LvnTokens.Space3;
             // Роль — «один из вариантов», но палитру приносит новелла
             // (accent_color/text_color в манифесте), поэтому не Choice, а Plate.
             LvnStyler.Plate(b,

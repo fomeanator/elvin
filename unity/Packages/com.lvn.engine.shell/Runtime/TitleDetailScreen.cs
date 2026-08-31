@@ -149,7 +149,7 @@ namespace Lvn.UI.Screens
             body.style.flexShrink = 0;
             body.style.paddingLeft = 30;
             body.style.paddingRight = 30;
-            body.style.paddingTop = 20;
+            body.style.paddingTop = LvnTokens.Space3;
             body.style.paddingBottom = 34;
             _scroll.Add(body);
 
@@ -256,12 +256,12 @@ namespace Lvn.UI.Screens
         private VisualElement Chip(string text)
         {
             var chip = new VisualElement();
-            chip.style.marginRight = 10;
-            chip.style.marginBottom = 10;
-            chip.style.paddingLeft = 14;
-            chip.style.paddingRight = 14;
-            chip.style.paddingTop = 7;
-            chip.style.paddingBottom = 7;
+            chip.style.marginRight = LvnTokens.Space2;
+            chip.style.marginBottom = LvnTokens.Space2;
+            chip.style.paddingLeft = LvnTokens.Space2;
+            chip.style.paddingRight = LvnTokens.Space2;
+            chip.style.paddingTop = LvnTokens.Space1;
+            chip.style.paddingBottom = LvnTokens.Space1;
             chip.style.backgroundColor = LvnTokens.SurfaceHi;
             LvnChrome.Border(chip, LvnTokens.Border, 1f);
             LvnChrome.Round(chip, LvnTokens.RadiusPill); // pill
@@ -281,7 +281,7 @@ namespace Lvn.UI.Screens
             p.style.color = LvnTokens.TextDim;
             p.style.fontSize = LvnTokens.TextSm;
             p.style.whiteSpace = WhiteSpace.Normal;
-            p.style.marginTop = 10;
+            p.style.marginTop = LvnTokens.Space2;
             return p;
         }
 
@@ -331,15 +331,15 @@ namespace Lvn.UI.Screens
             bool locked = state == LvnChapterMark.Locked;
 
             var row = LvnStyler.ListRow(new VisualElement());
-            row.style.marginTop = 12;
-            row.style.paddingLeft = 16;
-            row.style.paddingRight = 16;
+            row.style.marginTop = LvnTokens.Space2;
+            row.style.paddingLeft = LvnTokens.Space3;
+            row.style.paddingRight = LvnTokens.Space3;
 
             var numBadge = new Label(no.ToString());
             numBadge.style.width = 48;
             numBadge.style.height = 48;
             numBadge.style.flexShrink = 0;
-            numBadge.style.marginRight = 16;
+            numBadge.style.marginRight = LvnTokens.Space3;
             numBadge.style.unityTextAlign = TextAnchor.MiddleCenter;
             numBadge.style.fontSize = LvnTokens.TextSm;
             numBadge.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -367,7 +367,7 @@ namespace Lvn.UI.Screens
                 : LvnTokens.TextDim;
             var stateBox = ScreenUi.Row();
             stateBox.style.flexShrink = 0;
-            stateBox.style.marginLeft = 12;
+            stateBox.style.marginLeft = LvnTokens.Space2;
             var stateIcon = LvnIcons.Make(
                 state == LvnChapterMark.Done ? LvnIcon.Check
                     : state == LvnChapterMark.Current || state == LvnChapterMark.Open ? LvnIcon.Play
@@ -402,8 +402,8 @@ namespace Lvn.UI.Screens
             bar.style.flexDirection = FlexDirection.Column; // restart row stacks over the play row
             bar.style.paddingLeft = 30;
             bar.style.paddingRight = 30;
-            bar.style.paddingTop = 16;
-            bar.style.paddingBottom = 18; // + safe inset via ApplySafeArea
+            bar.style.paddingTop = LvnTokens.Space3;
+            bar.style.paddingBottom = LvnTokens.Space3; // + safe inset via ApplySafeArea
             bar.style.borderTopWidth = 1;
             bar.style.borderTopColor = LvnTokens.Border;
             bar.style.backgroundColor = LvnTokens.Bg;
@@ -413,10 +413,10 @@ namespace Lvn.UI.Screens
             if (LvnProgress.Touched(Title))
             {
                 var restart = Lvn.UI.LvnRedress.Bind(new Button(ShowRestartMenu), () => LvnWords.Of("title.restart", "Start over"));
-                restart.style.marginBottom = 12;
+                restart.style.marginBottom = LvnTokens.Space2;
                 restart.style.fontSize = LvnTokens.TextSm;
-                restart.style.paddingTop = 12;
-                restart.style.paddingBottom = 12;
+                restart.style.paddingTop = LvnTokens.Space2;
+                restart.style.paddingBottom = LvnTokens.Space2;
                 LvnStyler.Quiet(restart, LvnTokens.RadiusSm);
                 bar.Add(restart);
             }
@@ -428,9 +428,9 @@ namespace Lvn.UI.Screens
             play.style.flexGrow = 1;
             play.style.flexShrink = 1;
             play.style.fontSize = LvnTokens.TextBase;
-            play.style.paddingTop = 18;
-            play.style.paddingBottom = 18;
-            play.style.marginRight = 14;
+            play.style.paddingTop = LvnTokens.Space3;
+            play.style.paddingBottom = LvnTokens.Space3;
+            play.style.marginRight = LvnTokens.Space2;
             play.style.unityFontStyleAndWeight = FontStyle.Bold;
             LvnStyler.Primary(play, LvnTokens.RadiusSm);
             actionRow.Add(play);
@@ -444,10 +444,10 @@ namespace Lvn.UI.Screens
 
             var cost = new VisualElement();
             cost.style.flexShrink = 0;
-            cost.style.paddingLeft = 16;
-            cost.style.paddingRight = 16;
-            cost.style.paddingTop = 14;
-            cost.style.paddingBottom = 14;
+            cost.style.paddingLeft = LvnTokens.Space3;
+            cost.style.paddingRight = LvnTokens.Space3;
+            cost.style.paddingTop = LvnTokens.Space2;
+            cost.style.paddingBottom = LvnTokens.Space2;
             cost.style.backgroundColor = LvnTokens.SurfaceHi;
             LvnChrome.Round(cost, LvnTokens.RadiusSm);
 

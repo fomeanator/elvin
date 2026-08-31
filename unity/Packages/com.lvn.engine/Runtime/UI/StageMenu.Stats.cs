@@ -78,7 +78,7 @@ namespace Lvn.UI
             row.style.alignItems = Align.Center;
             row.style.justifyContent = Justify.SpaceBetween;
             row.style.height = 66;
-            row.style.marginBottom = 6;
+            row.style.marginBottom = LvnTokens.Space1;
 
             var name = Text(key, 28, FontStyle.Normal);
             name.style.flexGrow = 1;
@@ -172,7 +172,7 @@ namespace Lvn.UI
             var f = new TextField { value = value };
             f.style.width = width;
             f.style.height = 56;
-            f.style.marginLeft = 6; f.style.marginRight = 6;
+            f.style.marginLeft = LvnTokens.Space1; f.style.marginRight = LvnTokens.Space1;
             var input = f.Q("unity-text-input");
             if (input != null)
             {

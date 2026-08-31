@@ -60,10 +60,10 @@ namespace Lvn.UI.Screens
             // ── bottom panel: title, subtitle, (nickname), start, status ──
             var panel = Lvn.UI.LvnChrome.Sheet(new VisualElement());
             panel.style.bottom = Length.Percent(7f);
-            panel.style.paddingTop = 26;
+            panel.style.paddingTop = LvnTokens.Space4;
             panel.style.paddingBottom = 22;
-            panel.style.paddingLeft = 26;
-            panel.style.paddingRight = 26;
+            panel.style.paddingLeft = LvnTokens.Space4;
+            panel.style.paddingRight = LvnTokens.Space4;
             panel.style.backgroundColor = UiColor.Named(_cfg.panel_color, LvnTokens.Veil(0.65f));
             LvnChrome.Round(panel, LvnTokens.Radius);
             Add(panel);
@@ -79,7 +79,7 @@ namespace Lvn.UI.Screens
                 var subtitle = new Label(_cfg.subtitle);
                 subtitle.style.color = UiColor.Named(_cfg.subtitle_color, LvnTokens.TextDim);
                 subtitle.style.fontSize = LvnTokens.TextSm;
-                subtitle.style.marginTop = 6;
+                subtitle.style.marginTop = LvnTokens.Space1;
                 subtitle.style.unityTextAlign = TextAnchor.MiddleCenter;
                 subtitle.style.whiteSpace = WhiteSpace.Normal;
                 panel.Add(subtitle);
@@ -94,8 +94,8 @@ namespace Lvn.UI.Screens
                 var prompt = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("auth.name_prompt", _cfg.name_prompt, "Your name"));
                 prompt.style.color = UiColor.Named(_cfg.subtitle_color, LvnTokens.TextDim);
                 prompt.style.fontSize = LvnTokens.TextSm;
-                prompt.style.marginTop = 20;
-                prompt.style.marginBottom = 8;
+                prompt.style.marginTop = LvnTokens.Space3;
+                prompt.style.marginBottom = LvnTokens.Space1;
                 panel.Add(prompt);
 
                 _field = new TextField { maxLength = _maxLength };
@@ -112,8 +112,8 @@ namespace Lvn.UI.Screens
             var start = Lvn.UI.LvnRedress.Bind(new Button(Confirm), () => LvnWords.Pick("auth.start", _cfg.start_text, "Start"));
             start.style.fontSize = LvnTokens.TextBase;
             start.style.marginTop = 22;
-            start.style.paddingTop = 16;
-            start.style.paddingBottom = 16;
+            start.style.paddingTop = LvnTokens.Space3;
+            start.style.paddingBottom = LvnTokens.Space3;
             start.style.color = UiColor.Named(_cfg.button_text_color, LvnTokens.OnAccent);
             start.style.backgroundColor = UiColor.Named(_cfg.button_color, LvnTokens.Accent);
             LvnChrome.Round(start, LvnTokens.RadiusSm);
@@ -127,7 +127,7 @@ namespace Lvn.UI.Screens
             var provRow = new VisualElement();
             provRow.style.flexDirection = FlexDirection.Row;
             provRow.style.justifyContent = Justify.Center;
-            provRow.style.marginTop = 12;
+            provRow.style.marginTop = LvnTokens.Space2;
             panel.Add(provRow);
             AddProviderButton(provRow, "google", _cfg.show_google ?? true,
                 LvnWords.Pick("auth.google", _cfg.google_text, "Sign in with Google"), textColor);
@@ -140,7 +140,7 @@ namespace Lvn.UI.Screens
             _status = new Label("");
             _status.style.color = UiColor.Named(_cfg.status_color, LvnTokens.TextDim);
             _status.style.fontSize = LvnTokens.TextXs;
-            _status.style.marginTop = 14;
+            _status.style.marginTop = LvnTokens.Space2;
             _status.style.unityTextAlign = TextAnchor.MiddleCenter;
             _status.pickingMode = PickingMode.Ignore;
             panel.Add(_status);
@@ -197,9 +197,9 @@ namespace Lvn.UI.Screens
             if (!allowed || !Lvn.Services.LvnPlatformAuth.Has(provider)) return;
             var b = new Button { text = label };
             b.style.fontSize = LvnTokens.TextSm;
-            b.style.marginLeft = 6; b.style.marginRight = 6;
-            b.style.paddingTop = 10; b.style.paddingBottom = 10;
-            b.style.paddingLeft = 18; b.style.paddingRight = 18;
+            b.style.marginLeft = LvnTokens.Space1; b.style.marginRight = LvnTokens.Space1;
+            b.style.paddingTop = LvnTokens.Space2; b.style.paddingBottom = LvnTokens.Space2;
+            b.style.paddingLeft = LvnTokens.Space3; b.style.paddingRight = LvnTokens.Space3;
             b.style.color = textColor;
             b.style.backgroundColor = new Color(1f, 1f, 1f, 0.10f);
             LvnChrome.Round(b, LvnTokens.RadiusSm);

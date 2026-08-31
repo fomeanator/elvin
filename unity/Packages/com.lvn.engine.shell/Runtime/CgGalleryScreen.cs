@@ -74,17 +74,17 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(sheet, LvnTokens.Radius);
             Add(sheet);
             sheet.style.paddingTop = 22;
-            sheet.style.paddingBottom = 18;
-            sheet.style.paddingLeft = 20;
-            sheet.style.paddingRight = 20;
+            sheet.style.paddingBottom = LvnTokens.Space3;
+            sheet.style.paddingLeft = LvnTokens.Space3;
+            sheet.style.paddingRight = LvnTokens.Space3;
 
             // ── Header: ‹ back · "Галерея" · counter ────────────────────────────
             var header = ScreenUi.Row();
-            header.style.marginBottom = 16;
+            header.style.marginBottom = LvnTokens.Space3;
             sheet.Add(header);
 
             var back = ScreenUi.BackButton(Close, 52f, 36f);
-            back.style.marginRight = 12;
+            back.style.marginRight = LvnTokens.Space2;
             header.Add(back);
 
             var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("nav.gallery", "Gallery"));
@@ -98,10 +98,10 @@ namespace Lvn.UI.Screens
             _counter = new Label();
             _counter.style.color = LvnTokens.Gold;
             _counter.style.fontSize = LvnTokens.TextXs;
-            _counter.style.paddingLeft = 14;
-            _counter.style.paddingRight = 14;
-            _counter.style.paddingTop = 7;
-            _counter.style.paddingBottom = 7;
+            _counter.style.paddingLeft = LvnTokens.Space2;
+            _counter.style.paddingRight = LvnTokens.Space2;
+            _counter.style.paddingTop = LvnTokens.Space1;
+            _counter.style.paddingBottom = LvnTokens.Space1;
             _counter.style.backgroundColor = LvnTokens.Veil(0.35f);
             LvnChrome.Round(_counter, LvnTokens.Radius);
             header.Add(_counter);
@@ -252,7 +252,7 @@ namespace Lvn.UI.Screens
             cell.style.width = Length.Percent(31.5f);
             cell.style.height = 150;
             cell.style.marginRight = Length.Percent(1.5f);
-            cell.style.marginBottom = 12;
+            cell.style.marginBottom = LvnTokens.Space2;
             cell.style.backgroundColor = LvnTokens.Surface;
             LvnChrome.Edge(cell);
             cell.style.overflow = Overflow.Hidden;
@@ -273,10 +273,10 @@ namespace Lvn.UI.Screens
                 cap.style.left = 0;
                 cap.style.right = 0;
                 cap.style.bottom = 0;
-                cap.style.paddingTop = 6;
-                cap.style.paddingBottom = 6;
-                cap.style.paddingLeft = 10;
-                cap.style.paddingRight = 10;
+                cap.style.paddingTop = LvnTokens.Space1;
+                cap.style.paddingBottom = LvnTokens.Space1;
+                cap.style.paddingLeft = LvnTokens.Space2;
+                cap.style.paddingRight = LvnTokens.Space2;
                 cap.style.backgroundColor = LvnTokens.Veil(0.55f);
                 cap.pickingMode = PickingMode.Ignore;
                 cell.Add(cap);

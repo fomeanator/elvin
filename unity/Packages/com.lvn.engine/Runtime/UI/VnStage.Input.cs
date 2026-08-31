@@ -155,7 +155,7 @@ namespace Lvn.UI
                     Theme != null ? Theme.SpeakerColor : LvnTokens.Accent);
                 prompt.style.fontSize = Theme != null ? Theme.BodyFontSize : 30;
                 prompt.style.whiteSpace = WhiteSpace.Normal;
-                prompt.style.marginBottom = 18;
+                prompt.style.marginBottom = LvnTokens.Space3;
                 LvnFonts.Apply(prompt, Theme?.Font);
                 panel.Add(prompt);
             }
@@ -168,7 +168,7 @@ namespace Lvn.UI
                 badge.style.color = UiColor.Named(NameInput.prompt_color,
                     Theme != null ? Theme.SpeakerColor : LvnTokens.Accent);
                 badge.style.fontSize = (Theme != null ? Theme.BodyFontSize : 30) * 0.7f;
-                badge.style.marginBottom = 6;
+                badge.style.marginBottom = LvnTokens.Space1;
                 LvnFonts.Apply(badge, Theme?.Font);
                 panel.Add(badge);
             }
@@ -180,7 +180,7 @@ namespace Lvn.UI
             if (max <= 0 && NameInput?.max_length > 0) max = NameInput.max_length.Value;
             if (max > 0) field.maxLength = max;
             field.style.fontSize = Theme != null ? Theme.BodyFontSize : 30;
-            field.style.marginBottom = 20;
+            field.style.marginBottom = LvnTokens.Space3;
             LvnFonts.Apply(field, Theme?.Font);
             // Красится ВНУТРЕННИЙ элемент поля: у TextField своя подложка, и
             // цвет, поставленный снаружи, до неё не доходит.

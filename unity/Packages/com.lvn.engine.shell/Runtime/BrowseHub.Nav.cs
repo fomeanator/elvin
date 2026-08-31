@@ -72,7 +72,7 @@ namespace Lvn.UI.Screens
             nav.style.flexDirection = FlexDirection.Row;
             nav.style.alignItems = Align.Stretch;
             nav.style.flexShrink = 0;
-            nav.style.paddingBottom = 8; nav.style.paddingTop = 8;
+            nav.style.paddingBottom = LvnTokens.Space1; nav.style.paddingTop = LvnTokens.Space1;
             nav.style.borderTopWidth = _theme.EdgeWidth > 0f ? _theme.EdgeWidth : 1f;
             nav.style.borderTopColor = _theme.EdgeWidth > 0f ? _theme.EdgeColor : _border;
             // Панель непрозрачна: под ней проезжает лента, и полупрозрачный низ
@@ -154,7 +154,7 @@ namespace Lvn.UI.Screens
             tab.style.flexGrow = 1; tab.style.flexBasis = 0;
             tab.style.alignItems = Align.Center;
             tab.style.justifyContent = Justify.FlexStart;
-            tab.style.paddingTop = 6; tab.style.paddingBottom = 6;
+            tab.style.paddingTop = LvnTokens.Space1; tab.style.paddingBottom = LvnTokens.Space1;
             const bool active = false; // подсветку ведёт SetActiveTab
 
             // Активную вкладку помечает ЧЕРТА СВЕРХУ, а не только цвет: черта
@@ -163,7 +163,7 @@ namespace Lvn.UI.Screens
             var mark = new VisualElement { pickingMode = PickingMode.Ignore };
             mark.style.height = 3; mark.style.width = 26;
             mark.style.backgroundColor = Color.clear;
-            mark.style.marginBottom = 6;
+            mark.style.marginBottom = LvnTokens.Space1;
             tab.Add(mark);
 
             var iconSlot = new VisualElement { pickingMode = PickingMode.Ignore };

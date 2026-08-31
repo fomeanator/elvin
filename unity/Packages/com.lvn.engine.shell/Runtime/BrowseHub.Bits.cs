@@ -64,7 +64,7 @@ namespace Lvn.UI.Screens
         {
             var chip = ScreenUi.Row();
             chip.style.backgroundColor = LvnTokens.Veil(0.28f);
-            chip.style.paddingLeft = 10; chip.style.paddingRight = 10;
+            chip.style.paddingLeft = LvnTokens.Space2; chip.style.paddingRight = LvnTokens.Space2;
             chip.style.paddingTop = 4; chip.style.paddingBottom = 4;
             LvnChrome.Round(chip, LvnTokens.RadiusSm);
             return chip;
@@ -94,7 +94,7 @@ namespace Lvn.UI.Screens
             var col = new VisualElement();
             ScreenUi.Stretch(col);
             col.style.flexDirection = FlexDirection.Column;
-            col.style.paddingTop = 28; col.style.paddingBottom = 24;
+            col.style.paddingTop = LvnTokens.Space4; col.style.paddingBottom = LvnTokens.Space4;
             col.style.paddingLeft = 30; col.style.paddingRight = 30;
             return col;
         }
@@ -102,7 +102,7 @@ namespace Lvn.UI.Screens
         private VisualElement BackBar(out Label title, System.Action onBack)
         {
             var bar = ScreenUi.Row();
-            bar.style.marginBottom = 14;
+            bar.style.marginBottom = LvnTokens.Space2;
             // Источник, а не готовая строка: при смене языка подпись обязана
             // спроситься заново (правило Переодевания).
             var back = Lvn.UI.LvnRedress.Bind(new Button(onBack),
@@ -113,7 +113,7 @@ namespace Lvn.UI.Screens
             LvnChrome.ClearBorder(back); LvnChrome.Round(back, _radius);
             bar.Add(back);
             title = Heading("", 30);
-            title.style.marginLeft = 12;
+            title.style.marginLeft = LvnTokens.Space2;
             bar.Add(title);
             return bar;
         }

@@ -59,7 +59,7 @@ namespace Lvn.UI
             _pane = () => ConfirmOverwrite(label, slotName);
             var p = Panel(L("save", "Save"));
             var msg = Text(string.Format(L("overwrite_q", "Overwrite {0}?"), label), 26, FontStyle.Normal);
-            msg.style.marginBottom = 12;
+            msg.style.marginBottom = LvnTokens.Space2;
             p.Add(msg);
             p.Add(Item(L("overwrite", "Overwrite"), () =>
             {
@@ -97,7 +97,7 @@ namespace Lvn.UI
             _pane = LoadFailedNotice;
             var p = Panel(L("load", "Load"));
             var msg = Text(L("load_failed", "Could not load this save."), 26, FontStyle.Normal);
-            msg.style.marginBottom = 12;
+            msg.style.marginBottom = LvnTokens.Space2;
             p.Add(msg);
             p.Add(Item(L("close", "Close"), () => ShowSlots(false)));
         }
@@ -107,11 +107,11 @@ namespace Lvn.UI
         {
             var row = new Button(onClick);
             row.style.height = 56;
-            row.style.marginBottom = 6;
+            row.style.marginBottom = LvnTokens.Space1;
             var tint = _theme.MenuTextColor;
             row.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.06f);
             row.style.unityTextAlign = TextAnchor.MiddleLeft;
-            row.style.paddingLeft = 12;
+            row.style.paddingLeft = LvnTokens.Space2;
             row.style.flexDirection = FlexDirection.Row;
             row.style.alignItems = Align.Center;
             LvnChrome.Round(row, Mathf.Max(4f, _theme.MenuCornerRadius - 4f));
@@ -127,7 +127,7 @@ namespace Lvn.UI
                 var img = new Image { image = thumb, scaleMode = ScaleMode.ScaleAndCrop, name = "slot-thumb" };
                 img.style.width = 80;
                 img.style.height = 45;
-                img.style.marginRight = 10;
+                img.style.marginRight = LvnTokens.Space2;
                 img.style.flexShrink = 0;
                 LvnChrome.Round(img, LvnTokens.RadiusXs);
                 row.Add(img);

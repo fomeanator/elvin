@@ -41,13 +41,13 @@ namespace Lvn.UI
             foreach (var (who, text, style) in backlog)
             {
                 var line = new VisualElement();
-                line.style.marginBottom = 8;
+                line.style.marginBottom = LvnTokens.Space1;
                 if (style == "choice")
                 {
                     // The branch the player took — indented, accented, arrowed.
                     var mark = Text("▸ " + text, 22, FontStyle.Italic);
                     mark.style.color = _theme.MenuFabColor;
-                    line.style.marginLeft = 14;
+                    line.style.marginLeft = LvnTokens.Space2;
                     line.Add(mark);
                 }
                 else
@@ -100,7 +100,7 @@ namespace Lvn.UI
                 var cell = new VisualElement();
                 cell.style.width = Length.Percent(31);
                 cell.style.marginRight = Length.Percent(2);
-                cell.style.marginBottom = 12;
+                cell.style.marginBottom = LvnTokens.Space2;
 
                 var frame = new VisualElement();
                 frame.style.height = 110;

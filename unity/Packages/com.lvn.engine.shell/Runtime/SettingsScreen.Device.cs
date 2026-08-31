@@ -36,12 +36,12 @@ namespace Lvn.UI.Screens
             status.style.color = _dim;
             status.style.fontSize = LvnTokens.TextSm;
             status.style.whiteSpace = WhiteSpace.Normal;
-            status.style.marginBottom = 8;
+            status.style.marginBottom = LvnTokens.Space1;
             box.Add(status);
 
             // Полоса: «сколько уже у меня» видно глазом, а не арифметикой.
             var track = Lvn.UI.LvnStyler.Track(new VisualElement(), 8f);
-            track.style.marginBottom = 12;
+            track.style.marginBottom = LvnTokens.Space2;
             track.style.display = DisplayStyle.None;
             var fill = Lvn.UI.LvnStyler.Fill(new VisualElement(), 4f, _accent);
             fill.style.height = 8;
@@ -54,13 +54,13 @@ namespace Lvn.UI.Screens
             buttons.style.flexWrap = Wrap.Wrap;
             var btn = new Button { text = "…" };
             StyleValueButton(btn, true);
-            btn.style.marginRight = 8;
-            btn.style.marginBottom = 8;
+            btn.style.marginRight = LvnTokens.Space1;
+            btn.style.marginBottom = LvnTokens.Space1;
             btn.SetEnabled(false);
             buttons.Add(btn);
             var erase = Lvn.UI.LvnRedress.Bind(new Button(), () => LvnWords.Of("device.erase", "Erase"));
             StyleValueButton(erase, false);
-            erase.style.marginBottom = 8;
+            erase.style.marginBottom = LvnTokens.Space1;
             erase.style.display = DisplayStyle.None;
             buttons.Add(erase);
             box.Add(buttons);

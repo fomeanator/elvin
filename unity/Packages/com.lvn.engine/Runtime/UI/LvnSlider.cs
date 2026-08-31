@@ -41,14 +41,14 @@ namespace Lvn.UI
             var s = new Slider(min, max) { value = value };
             var acc = accent ?? LvnTokens.Accent;
             s.style.height = 40;
-            s.style.marginTop = 6;
+            s.style.marginTop = LvnTokens.Space1;
 
             VisualElement fill = null;
             var tracker = s.Q("unity-tracker");
             if (tracker != null)
             {
                 tracker.style.height = TrackHeight;
-                tracker.style.marginTop = 16;
+                tracker.style.marginTop = LvnTokens.Space3;
                 tracker.style.backgroundColor = track ?? LvnTokens.Track;
                 // Кружок вчетверо выше дорожки и торчит за её края — это
                 // нормально и должно быть видно: обрезка превратила бы его в

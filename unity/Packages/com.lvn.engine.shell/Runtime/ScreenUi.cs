@@ -87,10 +87,10 @@ namespace Lvn.UI.Screens
             sheet.style.left = 10; sheet.style.right = 10;
             sheet.style.top = Length.Percent(39f);   // лицо героини остаётся в чистой зоне
             sheet.style.bottom = 132;                // дырка нижнего меню
-            sheet.style.paddingTop = 18;
-            sheet.style.paddingBottom = 14;
-            sheet.style.paddingLeft = 18;
-            sheet.style.paddingRight = 18;
+            sheet.style.paddingTop = LvnTokens.Space3;
+            sheet.style.paddingBottom = LvnTokens.Space2;
+            sheet.style.paddingLeft = LvnTokens.Space3;
+            sheet.style.paddingRight = LvnTokens.Space3;
             SceneSheet(sheet, 0.92f);
         }
 
@@ -135,8 +135,8 @@ namespace Lvn.UI.Screens
             lbl.style.fontSize = LvnTokens.TextBase;
             lbl.style.unityFontStyleAndWeight = FontStyle.Bold;
             lbl.style.whiteSpace = WhiteSpace.Normal;   // длинный заголовок переносится, а не режется
-            lbl.style.marginTop = 8;
-            lbl.style.marginBottom = 10;
+            lbl.style.marginTop = LvnTokens.Space1;
+            lbl.style.marginBottom = LvnTokens.Space2;
             return LvnChrome.Heading(lbl);
         }
 

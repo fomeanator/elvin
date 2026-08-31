@@ -129,7 +129,7 @@ namespace Lvn.UI.Screens
             _row.style.borderBottomColor = LvnTokens.Border;
             _row.style.height = RowH;
             ScreenUi.Row(_row);
-            _row.style.paddingLeft = 12; _row.style.paddingRight = 12;
+            _row.style.paddingLeft = LvnTokens.Space2; _row.style.paddingRight = LvnTokens.Space2;
             Add(_row);
 
             _row.Add(Logo());
@@ -163,7 +163,7 @@ namespace Lvn.UI.Screens
             _miniProgress.style.top = 8;
             _miniProgress.style.left = 12;
             _miniProgress.style.height = 42;
-            _miniProgress.style.paddingLeft = 13; _miniProgress.style.paddingRight = 13;
+            _miniProgress.style.paddingLeft = LvnTokens.Space2; _miniProgress.style.paddingRight = LvnTokens.Space2;
             _miniProgress.style.justifyContent = Justify.Center;
             var pbg = LvnTokens.PanelBg;
             _miniProgress.style.backgroundColor = new Color(pbg.r, pbg.g, pbg.b, 0.72f);
@@ -191,8 +191,8 @@ namespace Lvn.UI.Screens
             _gameRow.style.borderBottomColor = LvnTokens.Border;
             ScreenUi.Row(_gameRow);
             _gameRow.style.justifyContent = Justify.SpaceAround;
-            _gameRow.style.paddingTop = 10; _gameRow.style.paddingBottom = 12;
-            _gameRow.style.paddingLeft = 8; _gameRow.style.paddingRight = 8;
+            _gameRow.style.paddingTop = LvnTokens.Space2; _gameRow.style.paddingBottom = LvnTokens.Space2;
+            _gameRow.style.paddingLeft = LvnTokens.Space1; _gameRow.style.paddingRight = LvnTokens.Space1;
             _gameRow.style.display = DisplayStyle.None;
             _gameRow.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             // Подписи игровой панели — через словарь: зашитые по-русски, они делали
@@ -213,8 +213,8 @@ namespace Lvn.UI.Screens
         {
             var b = new VisualElement();
             b.style.alignItems = Align.Center;
-            b.style.paddingTop = 6; b.style.paddingBottom = 6;
-            b.style.paddingLeft = 14; b.style.paddingRight = 14;
+            b.style.paddingTop = LvnTokens.Space1; b.style.paddingBottom = LvnTokens.Space1;
+            b.style.paddingLeft = LvnTokens.Space2; b.style.paddingRight = LvnTokens.Space2;
             LvnChrome.Round(b, LvnTokens.RadiusSm);
             var ic = LvnIcons.Make(icon, 28f, LvnTokens.Accent);
             ic.pickingMode = PickingMode.Ignore;
@@ -252,7 +252,7 @@ namespace Lvn.UI.Screens
                 _miniProgress.style.display = DisplayStyle.None;
                 _row.style.display = DisplayStyle.Flex;
                 _gameRow.style.top = _safeTop + RowH;
-                _gameRow.style.paddingTop = 10;
+                _gameRow.style.paddingTop = LvnTokens.Space2;
                 _gameRow.style.display = DisplayStyle.Flex;
                 _row.style.translate = new Translate(0f, -slide);
                 _gameRow.style.translate = new Translate(0f, -slide);
@@ -327,7 +327,7 @@ namespace Lvn.UI.Screens
         {
             var b = new VisualElement();
             b.style.width = 52; b.style.height = 52;
-            b.style.marginLeft = 10;
+            b.style.marginLeft = LvnTokens.Space2;
             b.style.alignItems = Align.Center;
             b.style.justifyContent = Justify.Center;
             LvnChrome.Round(b, LvnTokens.RadiusSm);
