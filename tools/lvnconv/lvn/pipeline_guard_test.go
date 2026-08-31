@@ -1,9 +1,12 @@
 package lvn
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -118,3 +121,55 @@ func TestКопияГрамматикиВРасширенииНеФорк(t *tes
 // вычислителю — то есть к тому, кто их и исполняет. Ровно та расстановка, при
 // которой две стороны согласны, а третья тихо уезжает: так уже протухли
 // золотые эталоны.
+
+// Схема манифеста СНЯТА с DTO и не отстаёт.
+//
+// Правда о полях живёт в `LvnUiConfig.cs`: Newtonsoft молча пропускает
+// незнакомое имя, поэтому `titel_color` не даёт ни ошибки, ни строчки — цвет
+// просто остаётся умолчанием. Переписать схему на Go значило бы завести
+// очередное зеркало; она снимается генератором, а этот страж требует, чтобы
+// снимок был свежим — как у сгенерированной grammar.js.
+func TestСхемаМанифестаНеОтстаётОтDTO(t *testing.T) {
+	root := repoRoot(t)
+	raw, err := os.ReadFile(filepath.Join(root, "unity", "Packages", "com.lvn.engine",
+		"Runtime", "Content", "LvnUiConfig.cs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fresh := ScrapeManifestSchema(string(raw))
+	if len(fresh) < 15 {
+		t.Fatalf("снялось всего %d классов — разбор промахнулся, поправь ScrapeManifestSchema", len(fresh))
+	}
+	stored := ManifestSchema{}
+	blob, err := os.ReadFile(filepath.Join(root, "tools", "lvnconv", "lvn", "manifest-fields.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(blob, &stored); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(fresh, stored) {
+		var missing, extra []string
+		for cls, fields := range fresh {
+			for f := range fields {
+				if stored[cls][f] == "" {
+					missing = append(missing, cls+"."+f)
+				}
+			}
+		}
+		for cls, fields := range stored {
+			for f := range fields {
+				if fresh[cls][f] == "" {
+					extra = append(extra, cls+"."+f)
+				}
+			}
+		}
+		sort.Strings(missing)
+		sort.Strings(extra)
+		t.Fatalf("схема манифеста отстала от DTO.\n"+
+			"  нет в снимке: %v\n  лишнее в снимке: %v\n"+
+			"Перегенерируйте: (cd tools/lvnconv && go run ./cmd/lvn-genschema)\n"+
+			"Пока снимок отстал, новое поле манифеста будет объявляться несуществующим.",
+			missing, extra)
+	}
+}

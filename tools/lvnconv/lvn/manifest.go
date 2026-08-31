@@ -55,7 +55,7 @@ var appearWords = []string{"fade", "rise", "pop", "slide_up", "up", "slide_down"
 // одному слову. «mode» бывает и у анимации (`mode=queue`), поэтому закрытый
 // список привязан к полному пути, а не к имени поля.
 var ManifestWordsByPath = map[string][]string{
-	"ui.hud.mode": {"full", "choices"},
+	"ui.hud.mode": {"always", "full", "choices"},
 }
 
 // ValidateManifest проверяет то, что можно проверить без схемы.
@@ -65,30 +65,68 @@ func ValidateManifest(data []byte) []Issue {
 		return []Issue{{Index: -1, Op: "manifest", Sev: SevError, Msg: "не разбирается как JSON: " + err.Error()}}
 	}
 	var out []Issue
-	var walk func(node any, path string, depth int)
-	walk = func(node any, path string, depth int) {
+	var walk func(node any, path, class string, depth int)
+	walk = func(node any, path, class string, depth int) {
 		if depth > 24 {
 			return
 		}
 		switch n := node.(type) {
 		case map[string]any:
+			fields := manifestSchema[class]
 			for k, v := range n {
 				here := k
 				if path != "" {
 					here = path + "." + k
 				}
+				// ИМЯ ПОЛЯ, КОТОРОГО НЕТ. Newtonsoft молча пропускает
+				// незнакомое, поэтому `titel_color` не даёт ни ошибки, ни
+				// строчки: цвет просто остаётся умолчанием, и автор ищет
+				// причину глазами. Спрашиваем СНЯТУЮ схему — там, где класс
+				// известен.
+				next := ""
+				if fields != nil {
+					t, known := fields[k]
+					if !known {
+						msg := fmt.Sprintf("%s — такого поля нет, оно будет пропущено", here)
+						if sg := suggest(k, keysOf(fields)); sg != "" {
+							msg += fmt.Sprintf(" — может быть %q?", sg)
+						}
+						out = append(out, Issue{Index: -1, Op: "manifest", Sev: SevWarning, Msg: msg})
+						continue
+					}
+					next = t
+				}
 				if s, ok := v.(string); ok && s != "" {
 					checkManifestValue(&out, here, k, s)
 				}
-				walk(v, here, depth+1)
+				walk(v, here, next, depth+1)
 			}
 		case []any:
 			for i, v := range n {
-				walk(v, fmt.Sprintf("%s[%d]", path, i), depth+1)
+				walk(v, fmt.Sprintf("%s[%d]", path, i), class, depth+1)
 			}
 		}
 	}
-	walk(root, "", 0)
+	// Схему знаем только про поддерево `ui` — она снята с LvnUiConfig.
+	// Остальной манифест (titles, collections, sprites) описан другими DTO, и
+	// врать про него нельзя: там имена не проверяются, только значения.
+	if top, ok := root.(map[string]any); ok {
+		for k, v := range top {
+			class := ""
+			if k == "ui" {
+				class = "LvnUiConfig"
+			}
+			walk(v, k, class, 1)
+		}
+	}
+	return out
+}
+
+func keysOf(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
 	return out
 }
 
