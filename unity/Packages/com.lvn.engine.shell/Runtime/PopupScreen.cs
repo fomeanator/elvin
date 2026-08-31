@@ -142,6 +142,7 @@ namespace Lvn.UI.Screens
             // запертую карточку они и идут подряд — вешали игру в том месте,
             // где ждали ответа. Метка поколения отвечает на «а экран ещё мой?».
             int gen = ++_showGen;
+            bool wasUp = _open;   // вопрос сменяет вопрос — карточка уже видна
             if (_open) { _tcs?.TrySetResult(-1); _tcs = null; }
             _open = true;
             _dismissable = dismissable;
@@ -158,7 +159,10 @@ namespace Lvn.UI.Screens
             for (int i = 0; i < list.Count; i++) _buttons.Add(MakeButton(list[i], i, list.Count));
 
             style.display = DisplayStyle.Flex;
-            await ScreenFx.FadeAsync(this, 0f, 1f, 0.18f, ct);
+            // Смена вопроса не мигает: карточка уже на экране, и проявлять её
+            // с нуля значит погасить и зажечь заново — игрок читает это как
+            // сбой, а не как новый вопрос.
+            await ScreenFx.FadeAsync(this, wasUp ? 1f : 0f, 1f, 0.18f, ct);
             // Убрали посреди появления (хозяин свернулся) или сменили вторым
             // вопросом — не парковаться на ожидании, которое некому решить.
             if (gen != _showGen || !_open) return -1;
@@ -177,9 +181,16 @@ namespace Lvn.UI.Screens
                 if (gen == _showGen)
                 {
                     await ScreenFx.FadeAsync(this, 1f, 0f, 0.18f, CancellationToken.None);
-                    style.display = DisplayStyle.None;
-                    _open = false;
-                    _tcs = null;
+                    // И ЕЩЁ РАЗ ПОСЛЕ ЗАТУХАНИЯ. Одной проверки до него мало:
+                    // гаснем 0,18 с, и это целое окно, за которое экран может
+                    // занять новый вопрос — тогда три строки ниже уберут за
+                    // НИМ, и висяк вернётся, только на 180 мс уже.
+                    if (gen == _showGen)
+                    {
+                        style.display = DisplayStyle.None;
+                        _open = false;
+                        _tcs = null;
+                    }
                 }
             }
             return result;
