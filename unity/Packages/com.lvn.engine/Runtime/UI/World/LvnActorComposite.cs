@@ -251,23 +251,27 @@ namespace Lvn.UI.World
         private void FinishCrossfade(int gen)
         {
             if (gen != _crossfadeGeneration) return;
-            if (_rig != null) _rig.gameObject.SetActive(true);
-            RestoreLiveLayers();
-            if (_proxy != null) _proxy.gameObject.SetActive(false);
-            if (_material != null)
-            {
-                _material.SetFloat(WardrobeModeId, 0f);
-                _material.SetFloat(WardrobeProgressId, 0f);
-                _material.SetFloat(WardrobeFromTopId, 0f);
-            }
-            _rig = null;
-            _active = false;
+            Settle();
         }
 
         /// <summary>Restore the authored live layers at a fully opaque hand-off.</summary>
         internal void End()
         {
-            _crossfadeGeneration++;
+            _crossfadeGeneration++;   // идущий кроссфейд перестаёт быть новейшим
+            Settle();
+        }
+
+        /// <summary>
+        /// ОСЕСТЬ: подмена уходит, живые слои возвращаются, материал забывает
+        /// про переодевание.
+        ///
+        /// <para>Шесть шагов, и они одни и те же для двух поводов — кроссфейд
+        /// доиграл сам или его оборвали снаружи. Написаны они были дважды
+        /// подряд, отличаясь одной строкой в начале: там, где проверка
+        /// поколения, здесь — его смена.</para>
+        /// </summary>
+        private void Settle()
+        {
             if (_rig != null) _rig.gameObject.SetActive(true);
             RestoreLiveLayers();
             if (_proxy != null) _proxy.gameObject.SetActive(false);
