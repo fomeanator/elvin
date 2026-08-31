@@ -183,3 +183,65 @@ func TestСхемаМанифестаНеОтстаётОтDTO(t *testing.T) {
 			missing, extra)
 	}
 }
+
+// Каждый дом, названный в каноне, существует.
+//
+// Канон домов (`docs/where-things-live.md`) — первое, что читает и человек, и
+// агент, прежде чем решить, куда класть работу. Он уже врал сегодня трижды:
+// про охват стража, про имя переименованного файла и про свечение темы. Ссылка
+// на дом, которого нет, хуже отсутствия строки: по ней пойдут искать.
+//
+// Обратную сторону (дом есть, а в каноне не назван) проверять нечем: не всякий
+// класс — дом, и решает это человек.
+func TestДомаКанонаСуществуют(t *testing.T) {
+	root := repoRoot(t)
+	canon, err := os.ReadFile(filepath.Join(root, "docs", "where-things-live.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	named := map[string]bool{}
+	for _, m := range regexp.MustCompile(`(?m)^\| `+"`"+`([A-Za-z][\w.]*)`+"`").FindAllStringSubmatch(string(canon), -1) {
+		named[m[1]] = true
+	}
+	if len(named) < 80 {
+		t.Fatalf("в каноне названо всего %d домов — похоже, разбор таблицы промахнулся", len(named))
+	}
+	// Ищем по всем местам, где дом может жить: рантайм и редактор движка,
+	// оболочка, сервисы, стражи, сервер, веб-плеер и тестовая оснастка.
+	var haystack strings.Builder
+	for _, pat := range []string{
+		"unity/Packages/*/Runtime", "unity/Packages/*/Editor", "unity/Packages/*/Tests",
+		"tools/lvnconv/lvn", "tools/lvnconv/internal", "server", "panel/public/play",
+	} {
+		dirs, _ := filepath.Glob(filepath.Join(root, filepath.FromSlash(pat)))
+		for _, d := range dirs {
+			_ = filepath.Walk(d, func(p string, info os.FileInfo, err error) error {
+				if err != nil || info.IsDir() {
+					return nil
+				}
+				switch strings.ToLower(filepath.Ext(p)) {
+				case ".cs", ".go", ".js":
+					b, err := os.ReadFile(p)
+					if err == nil {
+						haystack.Write(b)
+					}
+				}
+				return nil
+			})
+		}
+	}
+	hay := haystack.String()
+	var ghosts []string
+	for n := range named {
+		// Составное имя («LvnPlayer.TraceKey») ищем по первой части: дом это
+		// тип, остальное — его дверь.
+		if !strings.Contains(hay, strings.Split(n, ".")[0]) {
+			ghosts = append(ghosts, n)
+		}
+	}
+	sort.Strings(ghosts)
+	if len(ghosts) > 0 {
+		t.Fatalf("канон называет дома, которых в коде нет: %v\n"+
+			"Переименовали или удалили — поправьте канон: по такой строке пойдут искать.", ghosts)
+	}
+}

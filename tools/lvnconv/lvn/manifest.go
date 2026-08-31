@@ -45,8 +45,14 @@ var ManifestWords = map[string][]string{
 	"speaker_focus": {"dim", "solo"},
 	"tap_burst":     {"hearts"},
 	"appear":        appearWords,
-	"box_appear":    appearWords,
 }
+
+// ServerAddedKeys — ключи, которые в манифест дописывает САМ СЕРВЕР, а не
+// автор. `rev` он ставит на каждой записи и требует обратно на следующей
+// (защита от гонки двух редакторов), но в DTO движка его нет и быть не
+// должно. Без этого списка гейт выдавал находку на КАЖДОМ сохранении — ровно
+// то, после чего проверку перестают читать.
+var ServerAddedKeys = map[string]bool{"rev": true}
 
 var appearWords = []string{"fade", "rise", "pop", "slide_up", "up", "slide_down", "down",
 	"slide_left", "left", "slide_right", "right", "drop", "unfold"}
@@ -94,6 +100,10 @@ func ValidateManifest(data []byte) []Issue {
 				// Ключ на `$` — заметка автора в JSON, а не поле: так пишут
 				// комментарии там, где их нет в языке (см. grammar.json).
 				if strings.HasPrefix(k, "$") {
+					continue
+				}
+				// Служебное поле сервера — не авторское.
+				if depth == 0 && ServerAddedKeys[k] {
 					continue
 				}
 				// ИМЯ ПОЛЯ, КОТОРОГО НЕТ. Newtonsoft молча пропускает

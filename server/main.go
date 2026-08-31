@@ -876,6 +876,12 @@ func (s *server) handleAdminAsset(w http.ResponseWriter, r *http.Request) {
 			// приложения. Только предупреждения: схемы у нас нет, судим по
 			// конвенции имён (см. checkManifest).
 			findings = s.checkManifest(body)
+			// В ЛОГ ТОЖЕ. Находка, уехавшая только в ответ, видна автору в
+			// панели и невидима оператору — а он единственный, кто смотрит на
+			// прод целиком.
+			if len(findings.Warnings) > 0 {
+				log.Printf("manifest PUT %s: %d warning(s): %s", rel, len(findings.Warnings), strings.Join(findings.Warnings, "; "))
+			}
 		}
 		if isLvnPath(rel) {
 			findings = s.checkLvn(rel, body)
@@ -896,7 +902,10 @@ func (s *server) handleAdminAsset(w http.ResponseWriter, r *http.Request) {
 		// делась игра»). Правило: rev в теле обязан совпадать с rev на диске;
 		// сервер инкрементирует rev сам при каждой записи — вперёд и только
 		// вперёд. Старая копия получает 409 с инструкцией, а не тихую победу.
-		if rel == "manifest.json" {
+		// Тот же предикат, что и у гейта выше: два правила «это манифест»,
+		// записанные по-разному в двадцати строках друг от друга, — дверь, про
+		// которую однажды забудут.
+		if isManifestPath(rel) {
 			newBody, code, msg := s.manifestRevGate(body)
 			if code != 0 {
 				log.Printf("manifest PUT rejected: %s", msg)
