@@ -463,3 +463,46 @@ func TestRowsComeFromScreenUi(t *testing.T) {
 			"разойдутся выравниванием.", count, budget)
 	}
 }
+
+// КЛЮЧ, ПРИВЯЗАННЫЙ К НОВЕЛЛЕ, СТРОИТ ЗАПИСНАЯ КНИЖКА.
+//
+// Хранилищ на новеллу несколько — сейвы, галерея, прочитанное, статы, — и
+// каждое строило ключ само. Приставки у них разные и такими и останутся
+// (сменить приставку значит потерять чужие сохранения), а вот «а если новеллы
+// нет» имело ТРИ ответа: «default», пустая строка и ключ с точкой на конце.
+// Из-за последнего пустое имя и отсутствующее уезжали в РАЗНЫЕ ящики — одно и
+// то же «нет новеллы», записанное дважды.
+//
+// Признак возврата: склейка приставки с именем новеллы на месте.
+func TestTitleKeysComeFromKeep(t *testing.T) {
+	root := repoRoot(t)
+	// «lvn_что-то_» + titleId или интерполяция $"lvn.что-то.{titleId…}"
+	hand := regexp.MustCompile(`"lvn[._][\w.]*"\s*\+\s*\(?\s*(?:string\.IsNullOrEmpty\()?title|\$"lvn[._][\w.]*\{title`)
+
+	var found []string
+	scanned := 0
+	for _, rel := range storageRoots {
+		_ = filepath.Walk(filepath.Join(root, rel), func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+				return nil
+			}
+			if strings.Contains(filepath.ToSlash(path), "/Tests/") {
+				return nil
+			}
+			scanned++
+			for i, l := range strings.Split(stripComments(string(mustRead(t, path))), "\n") {
+				if hand.MatchString(l) {
+					found = append(found, fmt.Sprintf("%s:%d", filepath.Base(path), i+1))
+				}
+			}
+			return nil
+		})
+	}
+	atLeast(t, scanned, 100, "просмотренных файлов")
+	if len(found) > 0 {
+		t.Errorf("ключ новеллы склеен на месте (%d):\n  %s\n\n"+
+			"Возьмите LvnKeep.Scoped(приставка, id): иначе «нет новеллы» снова получит "+
+			"несколько ответов, и одна и та же пустота ляжет в разные ящики.",
+			len(found), strings.Join(found, "\n  "))
+	}
+}

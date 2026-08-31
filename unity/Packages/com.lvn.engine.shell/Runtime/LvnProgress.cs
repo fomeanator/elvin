@@ -18,9 +18,9 @@ namespace Lvn.UI.Screens
     /// </summary>
     public static class LvnProgress
     {
-        private static string CurKey(string titleId) => "lvn_chapter_" + (titleId ?? "");
-        private static string CurNumKey(string titleId) => "lvn_chapter_num_" + (titleId ?? "");
-        private static string ReachedKey(string titleId) => "lvn_reached_" + (titleId ?? "");
+        private static string CurKey(string titleId) => Lvn.LvnKeep.Scoped("lvn_chapter_", titleId);
+        private static string CurNumKey(string titleId) => Lvn.LvnKeep.Scoped("lvn_chapter_num_", titleId);
+        private static string ReachedKey(string titleId) => Lvn.LvnKeep.Scoped("lvn_reached_", titleId);
 
         /// <summary>Record that the player is (now) in this chapter. Bumps
         /// Reached when this is the furthest chapter so far.</summary>
@@ -307,8 +307,8 @@ namespace Lvn.UI.Screens
         // play loop snapshots the seed vars on every fresh chapter entry; the
         // picker requests a restart, and the loop seeds from the checkpoint.
 
-        private static string EntryKey(string titleId) => "lvn_entry_" + (titleId ?? "");
-        private static string RestartKey(string titleId) => "lvn_restart_" + (titleId ?? "");
+        private static string EntryKey(string titleId) => Lvn.LvnKeep.Scoped("lvn_entry_", titleId);
+        private static string RestartKey(string titleId) => Lvn.LvnKeep.Scoped("lvn_restart_", titleId);
 
         /// <summary>Snapshot the variables as they were entering a chapter.</summary>
         public static void SaveCheckpoint(string titleId, string chapterId, JObject vars)

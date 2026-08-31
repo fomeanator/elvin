@@ -12,7 +12,7 @@ namespace Lvn.UI
     /// </summary>
     public static class LvnGalleryStore
     {
-        private static string Key(string titleId) => $"lvn.gallery.{titleId ?? "default"}";
+        private static string Key(string titleId) => LvnKeep.Scoped("lvn.gallery.", titleId);
 
         /// <summary>The set of unlocked item ids for a title (a fresh copy).</summary>
         public static HashSet<string> Unlocked(string titleId)
