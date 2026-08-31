@@ -379,3 +379,38 @@ func TestЗаголовокРазделаСобираютОдинРаз(t *testi
 // и мнемоники настроения, поля команд — только шестнадцать цифр, а подсказки
 // редактора — вторую треть набора. Автор писал одно слово в трёх местах и в
 // двух получал молчание: «эффект не сработал», хотя цвета просто не нашли.
+
+// Уход фигуры — своя работа, не начало чужой.
+//
+// Он жил внутри показа сорока строками с ранним возвратом, и самая длинная
+// работа рантайма (379 строк) начиналась с чужой темы. Хуже: общий путь ЖДАЛ
+// те самые слои, которые собирался увести, — на медленной сети фигура
+// оставалась в кадре целыми тактами после своего ухода.
+func TestУходФигурыОтдельноОтПоказа(t *testing.T) {
+	path := filepath.Join(repoRoot(t), "unity", "Packages", "com.lvn.engine",
+		"Runtime", "UI", "VnStage.Actors.cs")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := stripCommentsAndStrings(string(raw))
+	if !strings.Contains(src, "private void HideActor(string id, JObject cmd)") {
+		t.Fatal("HideActor пропал — уход снова растворился в показе")
+	}
+	// Уходу арт не нужен: он не должен ждать загрузку слоёв.
+	body := methodBody(t, path, "private void HideActor(string id, JObject cmd)")
+	// Именно ОЖИДАНИЕ и ДОБЫЧА арта; отпустить закреплённые слои
+	// (RepinSceneSprites) уход как раз обязан.
+	for _, wait := range []string{"await ", "ResolveActorArt", "LoadSprite"} {
+		if strings.Contains(body, wait) {
+			t.Fatalf("HideActor снова ждёт арт (%q) — фигура останется в кадре "+
+				"на всё время загрузки того, что собиралась увести", wait)
+		}
+	}
+	// И показ не должен опять начинаться с ветки ухода.
+	show := methodBody(t, path, "private async Task ApplyActorAsync(JObject cmd, bool wardrobeSwap = false,")
+	if n := strings.Count(show, "\n"); n > 360 {
+		t.Fatalf("ApplyActorAsync снова разросся (%d строк): у самой длинной работы "+
+			"рантайма темы отделяются, а не копятся", n)
+	}
+}
