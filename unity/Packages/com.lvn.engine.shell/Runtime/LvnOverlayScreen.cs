@@ -159,10 +159,9 @@ namespace Lvn.UI.Screens
 
         protected VisualElement Sheet(float sideInset = 5f, float topInset = 6f, Color? tint = null)
         {
-            var sheet = new VisualElement();
-            sheet.style.position = Position.Absolute;
-            sheet.style.left = Length.Percent(sideInset);
-            sheet.style.right = Length.Percent(sideInset);
+            // Геометрия — у ОГРАНКИ: та же, что у всплывающей панели, только
+            // отступ меньше (лист экрана — почти весь экран).
+            var sheet = Lvn.UI.LvnChrome.Sheet(new VisualElement(), sideInset);
             sheet.style.top = Length.Percent(topInset);
             sheet.style.bottom = Length.Percent(topInset);
             Add(sheet);

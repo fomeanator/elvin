@@ -85,13 +85,15 @@ namespace Lvn.UI.Screens
             _radius = _cfg.corner_radius ?? LvnTokens.RadiusSm;
 
             ScreenUi.Stretch(this);
-            style.backgroundColor = UiColor.Named(_cfg.scrim_color, LvnTokens.Scrim);
+            // Закрытие тапом мимо — только у попапа, который вправе закрыться
+            // без ответа; у вопроса с выбором его нет.
+            Lvn.UI.LvnChrome.Scrim(this, () => { if (_dismissable) Resolve(-1); },
+                UiColor.Named(_cfg.scrim_color, LvnTokens.Scrim));
             style.justifyContent = Justify.Center;
             style.alignItems = Align.Center;
             style.opacity = 0f;
             style.display = DisplayStyle.None;
             // Tapping the scrim (not the card) dismisses — but only when allowed.
-            RegisterCallback<ClickEvent>(e => { if (e.target == this && _dismissable) Resolve(-1); });
 
             _card = new VisualElement();
             _card.style.maxWidth = 560;

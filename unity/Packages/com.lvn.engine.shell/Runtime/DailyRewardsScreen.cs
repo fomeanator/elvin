@@ -94,11 +94,10 @@ namespace Lvn.UI.Screens
         {
             _assets = assets;
 
-            style.backgroundColor = LvnTokens.Scrim;
+            Lvn.UI.LvnChrome.Scrim(this, Close);
             style.alignItems = Align.Center;
             style.justifyContent = Justify.Center;
             // tap the scrim (not the card) to close
-            RegisterCallback<ClickEvent>(evt => { if (evt.target == this) Close(); });
 
             // ── The centred modal card (capped width, auto height) ─────────────
             var card = new VisualElement();

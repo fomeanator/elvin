@@ -59,8 +59,7 @@ namespace Lvn.UI.Screens
             _accent = UiColor.Named(_cfg.accent_color, LvnTokens.Accent);
             _radius = _cfg.corner_radius ?? 12f;
 
-            style.backgroundColor = UiColor.Named(_cfg.scrim_color, LvnTokens.Scrim);
-            RegisterCallback<ClickEvent>(e => { if (e.target == this) Close(); });
+            Lvn.UI.LvnChrome.Scrim(this, Close, UiColor.Named(_cfg.scrim_color, LvnTokens.Scrim));
 
             // Поля шире общих — настройки длинный список, ему нужен воздух по
             // краям. Цвет от новеллы передаём ЯВНО: до этого он ставился строкой

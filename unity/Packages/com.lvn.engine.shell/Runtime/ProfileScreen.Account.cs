@@ -21,9 +21,7 @@ namespace Lvn.UI.Screens
             row.style.flexDirection = FlexDirection.Row;
             row.style.alignItems = Align.Center;
             row.style.justifyContent = Justify.SpaceBetween;
-            row.style.backgroundColor = new Color(LvnTokens.Surface.r, LvnTokens.Surface.g, LvnTokens.Surface.b, 0.88f);
-            LvnChrome.BorderSoft(row, 0.64f);
-            LvnChrome.Round(row, LvnTokens.RadiusSm);
+            LvnChrome.Card(row, LvnTokens.SurfaceSoft);
             row.style.marginTop = 6; row.style.marginBottom = 10;
             row.style.paddingTop = 14; row.style.paddingBottom = 14;
             row.style.paddingLeft = 16; row.style.paddingRight = 16;
@@ -56,9 +54,7 @@ namespace Lvn.UI.Screens
             row.style.flexDirection = FlexDirection.Row;
             row.style.alignItems = Align.Center;
             row.style.justifyContent = Justify.SpaceBetween;
-            row.style.backgroundColor = LvnTokens.Surface;
-            LvnChrome.BorderSoft(row, 0.64f);
-            LvnChrome.Round(row, LvnTokens.RadiusSm);
+            LvnChrome.Card(row);
             row.style.marginBottom = 10;
             row.style.paddingTop = 14; row.style.paddingBottom = 14;
             row.style.paddingLeft = 16; row.style.paddingRight = 16;

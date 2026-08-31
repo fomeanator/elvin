@@ -116,6 +116,17 @@ namespace Lvn.UI
 
         /// <summary>Прежнее имя двери: токен темы или hex. Теперь окно в общий
         /// словарь — набор слов у цвета один, где бы его ни писали.</summary>
+        /// <summary>Тот же цвет, но прозрачнее или плотнее. Собиралось по
+        /// месту из трёх составляющих — а «тот же цвет с другой плотностью» и
+        /// есть работа дома цвета.</summary>
+        public static Color WithAlpha(Color c, float alpha) => new Color(c.r, c.g, c.b, alpha);
+
+        /// <summary>Светлее / темнее на долю — к белому и к чёрному. Пара жила
+        /// приватной у витрины, хотя ею красят и карточки, и кромки.</summary>
+        public static Color Lighter(Color c, float amount) => Color.Lerp(c, Color.white, amount);
+
+        public static Color Darker(Color c, float amount) => Color.Lerp(c, Color.black, amount);
+
         public static Color Token(string name, Color fallback) => Named(name, fallback);
 
         /// <summary>

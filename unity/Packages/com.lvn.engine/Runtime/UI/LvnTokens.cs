@@ -25,6 +25,14 @@ namespace Lvn.UI
         public static Color Bg        => LvnTheme.Current.Bg;
         public static Color Surface   => LvnTheme.Current.Surface;
         public static Color SurfaceHi => LvnTheme.Current.SurfaceHi;
+
+        /// <summary>Поверхность, сквозь которую видно сцену: та же, но не
+        /// глухая. Собиралась по месту из трёх составляющих цвета и числа
+        /// 0.88 — дважды, и каждый раз заново.</summary>
+        public static Color SurfaceSoft
+        {
+            get { var c = Surface; return new Color(c.r, c.g, c.b, 0.88f); }
+        }
         public static Color Border    => LvnTheme.Current.Border;
         public static Color Text      => LvnTheme.Current.Text;
         public static Color TextDim   => LvnTheme.Current.TextDim;

@@ -845,11 +845,9 @@ namespace Lvn.UI.Screens
         /// </summary>
         private StyleBackground PosterFallbackImage(bool useAccent)
             => useAccent && _theme.AccentPlaceholders
-                ? Gradient(Lighten(_accent, 0.05f), Darken(_accent, 0.55f))
-                : Gradient(Lighten(_card, 0.14f), Darken(_card, 0.35f));
+                ? Gradient(UiColor.Lighter(_accent, 0.05f), UiColor.Darker(_accent, 0.55f))
+                : Gradient(UiColor.Lighter(_card, 0.14f), UiColor.Darker(_card, 0.35f));
 
-        private static Color Lighten(Color c, float a) => Color.Lerp(c, Color.white, a);
-        private static Color Darken(Color c, float a) => Color.Lerp(c, Color.black, a);
 
         /// <summary>
         /// Переключение между тремя видами хаба — с движением, а не подменой.

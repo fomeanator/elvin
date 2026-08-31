@@ -135,10 +135,7 @@ namespace Lvn.UI.Screens
                 tcs.TrySetResult(url);
             }
 
-            var panel = new VisualElement();
-            panel.style.position = Position.Absolute;
-            panel.style.left = Length.Percent(8f);
-            panel.style.right = Length.Percent(8f);
+            var panel = Lvn.UI.LvnChrome.Sheet(new VisualElement());
             panel.style.top = Length.Percent(18f);
             panel.style.paddingTop = 20;
             panel.style.paddingBottom = 20;
