@@ -65,13 +65,16 @@ async function inlineAssets(doc, catalog, extraAssets = {}, resolve = (u) => u) 
  * скачивание осталось там, где ему место, — в браузере.
  */
 export async function buildHtml(title, lvnJson, catalog = {}, extraAssets = {}, resolve = (u) => u) {
-  const [core, expr, color] = await Promise.all([
+  const [core, expr, color, place] = await Promise.all([
     fetch("core.js").then((r) => r.text()),
     fetch("expr.js").then((r) => r.text()),
     // Словарь цвета едет в сборку тем же способом, что и остальные модули:
     // без него экспортированная игра отдавала бы слово прямо в CSS и красила
     // бы `warm` ни во что, а `green` — в тёмный.
     fetch("color.js").then((r) => r.text()),
+    // Словарь мест — туда же: без него экспортированная игра знала бы три
+    // слова из девяти и ставила «за кадром» в центр.
+    fetch("place.js").then((r) => r.text()),
   ]);
   const doc = JSON.parse(lvnJson);
   const { assetMap, usedCatalog } = await inlineAssets(doc, catalog, extraAssets, resolve);
@@ -84,6 +87,7 @@ export async function buildHtml(title, lvnJson, catalog = {}, extraAssets = {}, 
     .replaceAll("__TITLE__", escapeHtml(title || "LVN story"))
     .replace("__EXPR__", strip(expr))
     .replace("__COLOR__", strip(color))
+    .replace("__PLACE__", strip(place))
     .replace("__CORE__", strip(core))
     .replace("__DOC__", "<" + "script id=\"lvn-doc\" type=\"application/json\">"
       + JSON.stringify({ doc, assets: assetMap, catalog: usedCatalog }).replace(/<\/script/gi, "<\\/script")
@@ -192,6 +196,7 @@ __DOC__
 <script>
 __EXPR__
 __COLOR__
+__PLACE__
 __CORE__
 
 // ── lean standalone renderer (a distilled app.js without the editor) ──
@@ -304,7 +309,7 @@ function applyStage(cmd) {
           else { img.style.left = "0"; img.style.top = "0"; img.style.width = "100%"; img.style.height = "100%"; }
           node.appendChild(img);
         }
-        const bx = typeof cmd.x === "number" ? cmd.x : cmd.position === "left" ? 0.22 : cmd.position === "right" ? 0.78 : 0.5;
+        const bx = typeof cmd.x === "number" ? cmd.x : slotX(cmd.position);
         node.style.left = (bx * 100) + "%";
         node.style.height = ((typeof cmd.height === "number" ? cmd.height : 0.8) * 100) + "%";
         node.style.aspectRatio = String(entity.aspect || 0.6);
@@ -314,7 +319,7 @@ function applyStage(cmd) {
       if (!node && url) { node = document.createElement("img"); node.dataset.id = cmd.id; $id("actors").appendChild(node); }
       if (!node) break;
       if (url && node.tagName === "IMG") node.src = art(url);
-      const x = typeof cmd.x === "number" ? cmd.x : cmd.position === "left" ? 0.22 : cmd.position === "right" ? 0.78 : 0.5;
+      const x = typeof cmd.x === "number" ? cmd.x : slotX(cmd.position);
       node.style.left = (x * 100) + "%";
       if (typeof cmd.width === "number") node.style.maxWidth = (cmd.width * 100) + "%";
       break;

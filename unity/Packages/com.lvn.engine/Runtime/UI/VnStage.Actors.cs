@@ -627,6 +627,8 @@ namespace Lvn.UI
         // numeric x is authorial composition (embraces, crowds) — never touched.
 
         internal const float SlotClaimRadius = 0.08f;
-        private static readonly float[] StandardSlotXs = { 0.12f, 0.25f, 0.38f, 0.50f, 0.62f, 0.75f, 0.88f };
+        // Те же числа были выписаны здесь второй раз, руками: поменяй место в
+        // словаре — и расталкивание толпы осталось бы со старым.
+        private static float[] StandardSlotXs => Placement.StandingSlotXs;
     }
 }

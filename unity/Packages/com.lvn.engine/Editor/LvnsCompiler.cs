@@ -422,9 +422,16 @@ namespace Lvn.Editor
                                     {
                                         case "hide": ac["show"] = false; break;
                                         case "show": ac["show"] = true; break;
+                                        // Словарь мест — один (Placement.SlotNames).
+                                        // «center_left» и «center_right» здесь не
+                                        // значились, и слово молча становилось
+                                        // ЭМОЦИЕЙ: герой получал не место, а
+                                        // эмоцию, которой у него нет.
                                         case "left":
                                         case "right":
                                         case "center":
+                                        case "center_left":
+                                        case "center_right":
                                         case "far_left":
                                         case "far_right":
                                         case "offscreen_left":

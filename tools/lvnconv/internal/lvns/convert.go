@@ -646,7 +646,11 @@ func convertWith(src string, outer *nestCtx) (*Doc, error) {
 								ac["show"] = false
 							case "show":
 								ac["show"] = true
-							case "left", "right", "center", "far_left", "far_right", "offscreen_left", "offscreen_right":
+							// Словарь мест — один (Placement.SlotNames в движке).
+							// center_left/center_right здесь не значились, и слово
+							// молча становилось ЭМОЦИЕЙ.
+							case "left", "right", "center", "center_left", "center_right",
+								"far_left", "far_right", "offscreen_left", "offscreen_right":
 								ac["position"] = t
 							default:
 								ac["emotion"] = t // pose / emotion axis value

@@ -190,7 +190,11 @@ var EnumValues = map[string]map[string][]string{
 	"audio":     {"channel": {"music", "ambient", "sfx"}, "action": {"play", "stop"}},
 	"camera":    {"action": {"shake", "zoom", "pan", "reset"}},
 	"sfx":       {"aura_style": {"basic", "guard", "fire", "frost", "storm", "shadow", "holy", "space", "distortion", "spirit", "ascendant"}},
-	"actor":     {"position": {"left", "center", "right", "far_left", "far_right", "offscreen_left", "offscreen_right"}},
+	// Словарь мест — один (Placement.SlotNames в движке, enums.actor.position
+	// в грамматике). center_left/center_right движок знал, а здесь их не было:
+	// валидатор ругался на место, которое рантайм понимает.
+	"actor": {"position": {"offscreen_left", "far_left", "left", "center_left", "center",
+		"center_right", "right", "far_right", "offscreen_right"}},
 	"ui": {"layer": {"hud", "over"}, "when": {"always", "idle", "say", "choice"},
 		"appear": {"fade", "rise", "pop", "slide_up", "slide_down", "slide_left", "slide_right", "drop", "unfold"}},
 }
@@ -1368,4 +1372,3 @@ var durationSpelling = map[string]string{
 	"blur": "duration", "camera": "duration", "hint": "duration",
 	"fx": "dur", "sfx": "dur", "portal": "dur", "bg3d": "dur", "cutscene": "dur",
 }
-
