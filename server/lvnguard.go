@@ -80,8 +80,12 @@ func isLvnPath(rel string) bool {
 	return strings.EqualFold(filepath.Ext(rel), ".lvn")
 }
 
+// isManifestPath — регистронезависимо, как и isLvnPath рядом: `rel` приходит
+// из URL без нормализации, а на регистронезависимой файловой системе
+// `Manifest.json` пишет ТОТ ЖЕ файл. Разные правила у двух соседних предикатов
+// — это дверь, про которую забыли.
 func isManifestPath(rel string) bool {
-	return filepath.ToSlash(rel) == "manifest.json"
+	return strings.EqualFold(filepath.ToSlash(rel), "manifest.json")
 }
 
 // checkManifest — тот же гейт, но для МАНИФЕСТА.

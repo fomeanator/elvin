@@ -47,7 +47,11 @@ var (
 // нужны, а промах ловит страж (он же и требует перегенерации).
 func ScrapeManifestSchema(src string) ManifestSchema {
 	out := ManifestSchema{}
-	lines := strings.Split(src, "\n")
+	// ОБЪЯВЛЕНИЕ БЫВАЕТ В НЕСКОЛЬКО СТРОК. `words_locales` — словарь словарей,
+	// его тип не влезает в строку, и построчный разбор терял поле целиком:
+	// гейт объявлял несуществующим словарь переводов оболочки, который автор
+	// деплоит на каждой правке. Склеиваем незакрытые объявления перед разбором.
+	lines := joinDeclarations(strings.Split(src, "\n"))
 	cur, alias := "", ""
 	for _, ln := range lines {
 		if m := reClass.FindStringSubmatch(ln); m != nil {
@@ -112,4 +116,39 @@ func simpleInner(t string) string {
 		t = t[i+1:]
 	}
 	return strings.TrimSpace(strings.TrimSuffix(t, "[]"))
+}
+
+// joinDeclarations склеивает объявление, растянутое на несколько строк, в одну.
+// Признак незакрытого — строка начинается как объявление поля и не кончается
+// на `;`. Комментарии и тела методов не трогаются: у них другое начало.
+func joinDeclarations(lines []string) []string {
+	// Хвостовой комментарий не делает объявление незакрытым: строка
+	// `public string url; // адрес` кончается КОММЕНТАРИЕМ, и без этой
+	// обрезки склейка ехала вперёд до следующей точки с запятой, съедая по
+	// дороге объявления классов. Так потерялось семнадцать из сорока пяти.
+	bare := func(s string) string {
+		s = strings.TrimSpace(s)
+		if i := strings.Index(s, "//"); i >= 0 {
+			s = strings.TrimSpace(s[:i])
+		}
+		return s
+	}
+	out := make([]string, 0, len(lines))
+	for i := 0; i < len(lines); i++ {
+		ln := lines[i]
+		t := bare(ln)
+		// Объявление КЛАССА (скобка у него на следующей строке) и методы сюда
+		// не попадают: склеив класс с его первой строкой, разбор потерял бы
+		// сразу семнадцать классов — проверено.
+		if strings.HasPrefix(t, "public ") && !strings.HasSuffix(t, ";") &&
+			!strings.HasSuffix(t, "{") && !strings.Contains(t, "(") &&
+			!strings.Contains(t, " class ") && !strings.Contains(t, " enum ") {
+			for i+1 < len(lines) && !strings.HasSuffix(bare(ln), ";") {
+				i++
+				ln = strings.TrimRight(ln, " \t") + " " + strings.TrimSpace(lines[i])
+			}
+		}
+		out = append(out, ln)
+	}
+	return out
 }

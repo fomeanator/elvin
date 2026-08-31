@@ -397,7 +397,8 @@
     "title": "TitleCardConfig",
     "transitions": "TransitionsConfig",
     "wardrobe": "WardrobeConfig",
-    "words": "map:string"
+    "words": "map:string",
+    "words_locales": "map:string"
   },
   "LvnWardrobeItem": {
     "color": "string",
