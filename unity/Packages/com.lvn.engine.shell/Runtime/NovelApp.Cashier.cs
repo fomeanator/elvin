@@ -36,7 +36,11 @@ namespace Lvn.UI.Screens
             if (cost.Free) return true;
             // The entry was paid when the title was FIRST started — «Продолжить»
             // (or menu-exit + Play) must not charge the same entry again.
-            if (LvnProgress.Reached(title) > 0) return true;
+            // ВХОД УЖЕ ОПЛАЧЕН — спрашиваем НАЛИЧИЕ потолка, а не его величину.
+            // Ноль это законный номер главы: у новеллы, чьи главы нумерованы с
+            // нуля, потолок записан нулём, «больше нуля» ложно — и плата
+            // бралась заново при КАЖДОМ возврате в уже оплаченную новеллу.
+            if (LvnProgress.HasReached(title)) return true;
 
             return await ChargeWithStoreAsync(cost.Currency, cost.Amount,
                 "title:" + title.id, "You need more to start this.");

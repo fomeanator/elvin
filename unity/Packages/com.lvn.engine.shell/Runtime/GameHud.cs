@@ -103,7 +103,7 @@ namespace Lvn.UI.Screens
             _statsBtn = new VisualElement { pickingMode = PickingMode.Position };
             _statsBtn.style.width = 26; _statsBtn.style.height = 26;
             _statsBtn.style.marginLeft = 16;
-            LvnIcons.Paint(_statsBtn, LvnIcon.Chart, LvnTokens.Text, 0f, LvnTheme.Current.IconGlow);
+            LvnIcons.Paint(_statsBtn, LvnIcon.Chart, LvnTokens.Text);
             _statsBtn.style.display = DisplayStyle.None;
             _statsBtn.RegisterCallback<PointerDownEvent>(e =>
             {

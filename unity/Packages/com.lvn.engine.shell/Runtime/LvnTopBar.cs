@@ -219,7 +219,7 @@ namespace Lvn.UI.Screens
             b.style.paddingTop = 6; b.style.paddingBottom = 6;
             b.style.paddingLeft = 14; b.style.paddingRight = 14;
             LvnChrome.Round(b, 12f);
-            var ic = LvnIcons.Make(icon, 28f, LvnTokens.Accent, 0f, LvnTheme.Current.IconGlow);
+            var ic = LvnIcons.Make(icon, 28f, LvnTokens.Accent);
             ic.pickingMode = PickingMode.Ignore;
             b.Add(ic);
             var l = Lvn.UI.LvnRedress.Bind(new Label(), label);

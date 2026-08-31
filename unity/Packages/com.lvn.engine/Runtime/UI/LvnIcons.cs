@@ -45,14 +45,29 @@ namespace Lvn.UI
         /// <param name="color">цвет линии</param>
         /// <param name="stroke">толщина линии; 0 — пропорционально размеру</param>
         /// <param name="glow">свечение под линией: 0 — нет, 1 — заметное</param>
+        /// <summary>
+        /// Значок нужного размера и цвета.
+        ///
+        /// <para>СВЕЧЕНИЕ ПО УМОЛЧАНИЮ БЕРЁТСЯ У ТЕМЫ. Оно её примета:
+        /// «Полночь» светит вполсилы, «Кибер» — в полную. Раньше умолчанием
+        /// был НОЛЬ, и тему приходилось называть в каждом вызове руками — из
+        /// тридцати называли в двенадцати. Восемнадцать значков жили без
+        /// свечения не по замыслу, а потому что о нём забыли, и в одном ряду
+        /// оказывались светящиеся и тусклые.</para>
+        ///
+        /// <para>Явный ноль остаётся законным: нижняя навигация гасит свечение
+        /// намеренно — там значок сам по себе приглушён, и ореол вокруг
+        /// тусклого читается как грязь.</para>
+        /// </summary>
         public static VisualElement Make(LvnIcon icon, float size, Color color,
-                                         float stroke = 0f, float glow = 0f)
+                                         float stroke = 0f, float? glow = null)
         {
+            float g = glow ?? LvnTheme.Current.IconGlow;
             var el = new Drawn { pickingMode = PickingMode.Ignore };
             el.style.width = size;
             el.style.height = size;
             el.style.flexShrink = 0;   // иначе в тесной строке иконка схлопнется в ноль
-            Paint(el, icon, color, stroke, glow);
+            Paint(el, icon, color, stroke, g);
             return el;
         }
 
@@ -121,7 +136,7 @@ namespace Lvn.UI
 
         /// <summary>Готовый значок валюты нужного размера.</summary>
         public static VisualElement MakeCurrency(string currency, float size)
-            => Make(ForCurrency(currency), size, CurrencyColor(currency), 0f, LvnTheme.Current.IconGlow);
+            => Make(ForCurrency(currency), size, CurrencyColor(currency));
 
         /// <summary>Рисует иконку в уже существующем элементе — когда размер
         /// задаёт раскладка, а не мы.</summary>

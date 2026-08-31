@@ -284,7 +284,7 @@ namespace Lvn.UI
                     break;
                 case "icon":
                     el = LvnIcons.Make(IconByName((string)n["name"]), 24f,
-                                       Color(n["color"], LvnTokens.Text), 0f, LvnTheme.Current.IconGlow);
+                                       Color(n["color"], LvnTokens.Text));
                     break;
                 case "image":
                     el = new VisualElement();

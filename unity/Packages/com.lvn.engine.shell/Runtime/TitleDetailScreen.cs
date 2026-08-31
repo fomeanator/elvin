@@ -403,7 +403,7 @@ namespace Lvn.UI.Screens
                 state == ChapterMark.Done ? LvnIcon.Check
                     : state == ChapterMark.Current || state == ChapterMark.Open ? LvnIcon.Play
                     : LvnIcon.Lock,
-                17f, stateColor, 0f, LvnTheme.Current.IconGlow);
+                17f, stateColor);
             stateIcon.style.marginRight = 5;
             stateBox.Add(stateIcon);
             var stateLbl = new Label(state == ChapterMark.Done ? LvnWords.Of("chapter.done", "finished")
@@ -441,7 +441,7 @@ namespace Lvn.UI.Screens
 
             // "Начать заново" — only once there's progress worth restarting; sits
             // right under the Play action so it reads as a secondary option.
-            if (Title != null && (LvnProgress.Current(Title) != null || LvnProgress.Reached(Title) > 0))
+            if (Title != null && (LvnProgress.Current(Title) != null || LvnProgress.HasReached(Title)))
             {
                 var restart = Lvn.UI.LvnRedress.Bind(new Button(ShowRestartMenu), () => LvnWords.Of("title.restart", "Start over"));
                 restart.style.marginBottom = 12;

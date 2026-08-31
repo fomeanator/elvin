@@ -41,7 +41,11 @@ namespace Lvn.UI.Screens
                     if (t == null || string.IsNullOrEmpty(t.id)) continue;
                     var cur = LvnProgress.Current(t);
                     int reached = LvnProgress.Reached(t);
-                    if (cur == null && reached <= 0) continue;
+                    // Дочитанная новелла: точку снял финал, потолок остался.
+                    // «Потолок не больше нуля» выбрасывало из бэкапа новеллу,
+                    // чьи главы нумерованы с нуля, — переустановка возвращала
+                    // её непочатой, и воронка игралась заново.
+                    if (cur == null && !LvnProgress.HasReached(t)) continue;
                     titles[t.id] = new JObject
                     {
                         ["cur"] = cur?.id,
@@ -130,7 +134,7 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(LvnPrefs.PlayerName)) return false;
             if (manifest?.titles != null)
                 foreach (var t in manifest.titles)
-                    if (t != null && (LvnProgress.Current(t) != null || LvnProgress.Reached(t) > 0))
+                    if (t != null && (LvnProgress.Current(t) != null || LvnProgress.HasReached(t)))
                         return false;
             return true;
         }

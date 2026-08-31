@@ -54,7 +54,7 @@ namespace Lvn.UI.Screens
             allText.style.unityFontStyleAndWeight = FontStyle.Bold;
             allText.style.letterSpacing = _theme.Tracking;
             all.Add(allText);
-            var allArrow = LvnIcons.Make(LvnIcon.Chevron, 20f, _accent, 0f, _theme.IconGlow);
+            var allArrow = LvnIcons.Make(LvnIcon.Chevron, 20f, _accent);
             allArrow.style.marginLeft = 4;
             all.Add(allArrow);
             all.RegisterCallback<ClickEvent>(_ => ShowCollection(c));

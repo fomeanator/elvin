@@ -57,7 +57,7 @@ namespace Lvn.UI.Screens
             row.style.alignItems = Align.Center;
             row.style.justifyContent = Justify.SpaceBetween;
             row.style.backgroundColor = LvnTokens.Surface;
-            LvnChrome.BorderSoft(row, 0.55f);
+            LvnChrome.BorderSoft(row, 0.64f);
             LvnChrome.Round(row, LvnTokens.RadiusSm);
             row.style.marginBottom = 10;
             row.style.paddingTop = 14; row.style.paddingBottom = 14;

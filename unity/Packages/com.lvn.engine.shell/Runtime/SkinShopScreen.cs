@@ -119,7 +119,7 @@ namespace Lvn.UI.Screens
             LvnChrome.Border(balancePill, new Color(LvnTokens.Gold.r, LvnTokens.Gold.g, LvnTokens.Gold.b, 0.4f), 1f);
             topBar.Add(balancePill);
 
-            var diamond = LvnIcons.Make(LvnIcon.Gem, 22f, LvnTokens.Gold, 0f, LvnTheme.Current.IconGlow);
+            var diamond = LvnIcons.Make(LvnIcon.Gem, 22f, LvnTokens.Gold);
             diamond.style.marginRight = 8;
             balancePill.Add(diamond);
 
