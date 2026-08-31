@@ -399,68 +399,17 @@ namespace Lvn.UI
                 for (int i = 0; i < urls.Count; i++)
                     loads[i] = LoadLayerAsync(urls[i]);
 
-                // «СИЛУЭТ-ПРОЯВЛЕНИЕ» (идея Ильи): медленная СЕТЬ не задерживает
-                // выход актёра. Включается ТОЛЬКО когда байтов нет локально —
-                // ни в кэше (любой файл показа), ни в сиде APK: локальные байты
-                // декодируются за сотни мс, и заготовка лишь мигала бы на каждой
-                // смене эмоции (живой репорт «уменьшилась и прыгает»). Актёр
-                // входит вовремя крошечной @mini-заготовкой, затемнённой тинтом;
-                // полный арт доезжает фоном и проявляет его кроссфейдом облика.
-                bool bytesLocal = true;
-                // Силуэт — только для ПЕРВОГО входа: на уже видимом актёре
-                // затемнённая заготовка читается как «вспышка» посреди смены
-                // лица/наряда (живой репорт) — видимый держит прежний облик,
-                // пока едет новый, и меняется одним кроссфейдом.
-                if ((Theme?.LoadingSilhouette ?? true) && placement.Show
-                    && IsCharacterCommand(cmd) && !wardrobeSwap && !wasVisibleBeforeShow
-                    && (Assets as CachingAssets)?.Loader is Lvn.Content.ContentLoader cl)
+                switch (await ShowSilhouetteAsync(id, cmd, art, placement, onClick, loads,
+                                                  wardrobeSwap, wasVisibleBeforeShow, epoch, lane, gen))
                 {
-                    foreach (var u in urls)
-                        if (!cl.HasLocalSpriteBytes(u)) { bytesLocal = false; break; }
-                }
-                if (!bytesLocal)
-                {
-                    var allLoads = Task.WhenAll(loads);
-                    if (await Task.WhenAny(allLoads, Task.Delay(250)) != allLoads)
-                    {
-                        var mini = new List<Sprite>(urls.Count);
-                        var miniIds = layerIds != null ? new List<string>(urls.Count) : null;
-                        var miniRects = layerRects != null ? new List<Vector4>(urls.Count) : null;
-                        var miniDefs = layerDefs != null ? new List<SpriteCatalog.ResolvedLayer>(urls.Count) : null;
-                        for (int i = 0; i < urls.Count; i++)
-                        {
-                            var mu = Lvn.Content.DownloadPolicy.MiniVariant(urls[i]);
-                            if (mu == null) continue;
-                            Sprite ms = null;
-                            try { ms = await Assets.LoadSpriteAsync(mu, _cts.Token); }
-                            catch (OperationCanceledException) { return; }
-                            catch { /* мини недоступен — слой пропускается */ }
-                            if (ms == null) continue;
-                            mini.Add(ms);
-                            miniIds?.Add(i < urlIds.Count ? urlIds[i] : null);
-                            miniRects?.Add(i < urlRects.Count ? urlRects[i] : Vector4.zero);
-                            miniDefs?.Add(i < urlDefs.Count ? urlDefs[i] : default);
-                        }
-                        // ЗАГОТОВКА ВЫХОДИТ ЦЕЛОЙ ИЛИ НЕ ВЫХОДИТ ВОВСЕ.
-                        // Раньше она собиралась из тех слоёв, у кого нашёлся
-                        // @mini, а остальные молча пропускались — и на экран
-                        // выходила фигура БЕЗ ЛИЦА (партнёрский репорт 29.08:
-                        // «базовый баг», первая сессия, пролог). Ждать лишние
-                        // полсекунды честнее, чем показать человека без лица:
-                        // задержку игрок читает как загрузку, безликость — как
-                        // сломанную игру.
-                        if (mini.Count == urls.Count && _clock.MayTouch(epoch, lane, gen))
-                        {
-                            var silPl = placement;
-                            silPl.Silhouette = true;
-                            LvnLog.Trace($"[lvn-actor] {id}: силуэт-заготовка ({mini.Count} слоёв) — полный арт доедет фоном");
-                            _renderer?.ApplyActor(id, mini, silPl, onClick, miniIds, miniRects, miniDefs);
-                            RepinSceneSprites("actor:" + id, mini); // заготовка на экране — держим
-                            _memory.SetWhere(id, silPl); // полный apply увидит «уже видим» → кроссфейд-проявление
-                            wasVisibleBeforeShow = true;
-                            visibilityChanged = false;
-                        }
-                    }
+                    case Stopgap.Cancelled:
+                        return;
+                    case Stopgap.Shown:
+                        // Заготовка уже на экране: полный арт обязан ПРОЯВИТЬСЯ
+                        // кроссфейдом, а не отыграть вход заново.
+                        wasVisibleBeforeShow = true;
+                        visibilityChanged = false;
+                        break;
                 }
 
                 for (int i = 0; i < urls.Count; i++)
@@ -556,6 +505,88 @@ namespace Lvn.UI
         /// останавливает всё своё движение (<c>StopAll</c>), и вернуть его в
         /// кадр без этого шага значило бы вернуть неподвижную куклу.</para>
         /// </summary>
+        /// <summary>Чем кончилась попытка вывести заготовку.</summary>
+        private enum Stopgap
+        {
+            /// <summary>Заготовка не понадобилась или не собралась целиком —
+            /// показ идёт обычным путём, ждём полный арт.</summary>
+            None,
+            /// <summary>Заготовка на экране: актёр уже виден.</summary>
+            Shown,
+            /// <summary>Сцену закрыли посреди ожидания — показ прекращается.</summary>
+            Cancelled,
+        }
+
+        /// <summary>
+        /// СИЛУЭТ-ЗАГОТОВКА: МЕДЛЕННАЯ СЕТЬ НЕ ЗАДЕРЖИВАЕТ ВЫХОД АКТЁРА.
+        ///
+        /// <para>Актёр входит вовремя крошечной <c>@mini</c>-заготовкой,
+        /// затемнённой тинтом; полный арт доезжает фоном и проявляет его
+        /// кроссфейдом облика.</para>
+        ///
+        /// <para>ТОЛЬКО КОГДА БАЙТОВ НЕТ ЛОКАЛЬНО — ни в кэше, ни в сиде APK.
+        /// Локальные байты декодируются за сотни миллисекунд, и заготовка лишь
+        /// мигала бы на каждой смене эмоции («уменьшилась и прыгает»).</para>
+        ///
+        /// <para>ТОЛЬКО НА ПЕРВОМ ВХОДЕ. На уже видимом актёре затемнённая
+        /// заготовка читается как вспышка посреди смены лица: видимый держит
+        /// прежний облик, пока едет новый, и меняется одним кроссфейдом.</para>
+        ///
+        /// <para>И ТОЛЬКО ЦЕЛИКОМ. Раньше заготовка собиралась из тех слоёв, у
+        /// кого нашёлся <c>@mini</c>, а остальные молча пропускались — и на
+        /// экран выходила фигура БЕЗ ЛИЦА (партнёрский репорт 29.08, первая
+        /// сессия, пролог). Ждать лишние полсекунды честнее: задержку игрок
+        /// читает как загрузку, безликость — как сломанную игру.</para>
+        /// </summary>
+        private async Task<Stopgap> ShowSilhouetteAsync(
+            string id, JObject cmd, ActorArt art, Placement placement, System.Action onClick,
+            Task<Sprite>[] loads, bool wardrobeSwap, bool wasVisibleBeforeShow,
+            int epoch, string lane, int gen)
+        {
+            if (!(Theme?.LoadingSilhouette ?? true) || !placement.Show
+                || !IsCharacterCommand(cmd) || wardrobeSwap || wasVisibleBeforeShow
+                || !((Assets as CachingAssets)?.Loader is Lvn.Content.ContentLoader cl))
+                return Stopgap.None;
+
+            var urls = art.Urls;
+            bool allLocal = true;
+            foreach (var u in urls)
+                if (!cl.HasLocalSpriteBytes(u)) { allLocal = false; break; }
+            if (allLocal) return Stopgap.None; // всё лежит рядом — полный арт успеет сам
+
+            var allLoads = Task.WhenAll(loads);
+            if (await Task.WhenAny(allLoads, Task.Delay(250)) == allLoads)
+                return Stopgap.None; // успели за четверть секунды — заготовка ни к чему
+
+            var mini = new List<Sprite>(urls.Count);
+            var miniIds = art.Ids != null ? new List<string>(urls.Count) : null;
+            var miniRects = art.Rects != null ? new List<Vector4>(urls.Count) : null;
+            var miniDefs = art.Defs != null ? new List<SpriteCatalog.ResolvedLayer>(urls.Count) : null;
+            for (int i = 0; i < urls.Count; i++)
+            {
+                var mu = Lvn.Content.DownloadPolicy.MiniVariant(urls[i]);
+                if (mu == null) continue;
+                Sprite ms = null;
+                try { ms = await Assets.LoadSpriteAsync(mu, _cts.Token); }
+                catch (OperationCanceledException) { return Stopgap.Cancelled; }
+                catch { /* мини недоступен — слой пропускается */ }
+                if (ms == null) continue;
+                mini.Add(ms);
+                miniIds?.Add(i < art.Ids.Count ? art.Ids[i] : null);
+                miniRects?.Add(i < art.Rects.Count ? art.Rects[i] : Vector4.zero);
+                miniDefs?.Add(i < art.Defs.Count ? art.Defs[i] : default);
+            }
+            if (mini.Count != urls.Count || !_clock.MayTouch(epoch, lane, gen)) return Stopgap.None;
+
+            var silPl = placement;
+            silPl.Silhouette = true;
+            LvnLog.Trace($"[lvn-actor] {id}: силуэт-заготовка ({mini.Count} слоёв) — полный арт доедет фоном");
+            _renderer?.ApplyActor(id, mini, silPl, onClick, miniIds, miniRects, miniDefs);
+            RepinSceneSprites("actor:" + id, mini);   // заготовка на экране — держим
+            _memory.SetWhere(id, silPl);              // полный apply увидит «уже видим» → проявление
+            return Stopgap.Shown;
+        }
+
         /// <summary>
         /// ВО ЧТО ФИГУРА ОДЕТА — слои, которые надо нарисовать по этой команде.
         ///

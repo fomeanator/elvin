@@ -32,7 +32,11 @@ func TestФигураВыходитЦелой(t *testing.T) {
 	}
 	src := string(b)
 
-	if !strings.Contains(src, "mini.Count == urls.Count") {
+	// Правило одно, а записать его можно двумя сторонами: «показываем, если
+	// собралось всё» и «уходим, если собралось не всё». Страж держит ПРАВИЛО,
+	// поэтому принимает обе — и краснеет, только когда сверки нет вовсе.
+	if !strings.Contains(src, "mini.Count == urls.Count") &&
+		!strings.Contains(src, "mini.Count != urls.Count") {
 		t.Error("силуэт-заготовка снова показывается неполной:\n" +
 			"  условие показа обязано сверять mini.Count == urls.Count.\n" +
 			"  Слой без @mini пропускается молча — и на экран выходит фигура без лица.\n" +
@@ -40,7 +44,8 @@ func TestФигураВыходитЦелой(t *testing.T) {
 			"  безликость — как сломанную игру.")
 	}
 
-	if !strings.Contains(src, "layers.Count == urls.Count") {
+	if !strings.Contains(src, "layers.Count == urls.Count") &&
+		!strings.Contains(src, "layers.Count != urls.Count") {
 		t.Error("облик закрепляется, не будучи надетым целиком:\n" +
 			"  _actorLook[id] = look разрешён только при layers.Count == urls.Count.\n" +
 			"  Иначе проверка «облик тот же и арт цел» отвечает «да» на неполную фигуру,\n" +

@@ -783,24 +783,22 @@ namespace Lvn.UI.Screens
         /// живёт в моторике движка — полосы обязаны ехать в один такт.</summary>
         public const int NavEntranceMs = Lvn.UI.LvnMotion.Curtain;
 
-        /// <summary>Вход экрана хаба: контент фейдом, нижняя навигация
-        /// ВЫЕЗЖАЕТ СНИЗУ — один раз на показ (зовёт оболочка при Show).</summary>
+        /// <summary>Экран заряжен на вход: уведён за кромку и ждёт своего
+        /// движения. Пока флаг стоит, никакой обычный показ вида его не
+        /// выставляет — иначе меню появляется раньше собственного входа.</summary>
+        private bool _entranceArmed;
+
         /// <summary>
-        /// ЗАРЯДИТЬ ВХОД: контент главной погашен, нижнее меню уведено за
-        /// кромку — ЕЩЁ ДО ПОКАЗА экрана.
+        /// ЗАРЯДИТЬ ВХОД: страница главной уведена за кромку, нижнее меню — под
+        /// экран, ЕЩЁ ДО ПОКАЗА.
         ///
-        /// <para>Гасить их в момент старта движения поздно: на старте
+        /// <para>Уводить их в момент старта движения поздно: на старте
         /// приложения хаб показывается под брендовой вуалью и ждёт её ухода уже
         /// нарисованным, а при возврате из главы между показом и первым кадром
         /// анимации остаётся щель. В обоих случаях заголовок успевал мелькнуть
         /// готовым и только потом начинал проявляться («заголовки тоже opacity
         /// 0 должны по умолчанию» — Илья 28.08).</para>
         /// </summary>
-        /// <summary>Экран заряжен на вход: уведён за кромку и ждёт своего
-        /// движения. Пока флаг стоит, никакой обычный показ вида его не
-        /// выставляет — иначе меню появляется раньше собственного входа.</summary>
-        private bool _entranceArmed;
-
         public void ArmEntrance()
         {
             _entranceArmed = true;
@@ -854,16 +852,11 @@ namespace Lvn.UI.Screens
         {
             if (_hubView == null) return;
             float from = EntranceOffset();
-            _hubView.style.translate = new Translate(from, 0f);
-            _hubView.experimental.animation
-                // ВДВОЕ БЫСТРЕЕ ПОЛОС (Илья 28.08): страница идёт длинный путь
-                // через весь экран, и на общем сроке этот путь читался как
-                // медленное ползание, тогда как полосы проходят свою кромку за
-                // то же время почти мгновенно.
-                .Start(0f, 1f, Lvn.UI.LvnMotion.Ms(Lvn.UI.LvnMotion.Curtain / 2), (e, p) =>
-                    // Та же кривая, что у полос: медленно трогается, разгоняется.
-                    e.style.translate = new Translate(Mathf.Lerp(from, 0f, p * p * p), 0f))
-                .OnCompleted(() => _hubView.style.translate = new Translate(0f, 0f));
+            // ВДВОЕ БЫСТРЕЕ ПОЛОС (Илья 28.08): страница идёт длинный путь через
+            // весь экран, и на общем сроке этот путь читался как медленное
+            // ползание, тогда как полосы проходят свою кромку почти мгновенно.
+            Lvn.UI.LvnMotion.Enter(_hubView, Lvn.UI.LvnMotion.Curtain / 2,
+                k => _hubView.style.translate = new Translate(Mathf.Lerp(from, 0f, k), 0f));
         }
 
         /// <summary>
@@ -886,15 +879,8 @@ namespace Lvn.UI.Screens
             nav.style.opacity = 1f;
             // 120%, а не 100%: под панелью ещё живёт отступ безопасной зоны,
             // и на «сотне» её кромка остаётся видна у нижнего края.
-            void Put(float k) => nav.style.translate = new Translate(0f, Length.Percent(120f * (1f - k)));
-            Put(0f);
-            nav.experimental.animation
-               .Start(0f, 1f, Lvn.UI.LvnMotion.Ms(NavEntranceMs), (e, p) =>
-                   // Ease-IN (просьба Ильи 28.08: «в начале медленно, в конце
-                   // сильнее»): панель трогается еле заметно и разгоняется к
-                   // месту — движение читается как подъём, а не как выброс.
-                   Put(p * p * p))
-               .OnCompleted(() => nav.style.translate = new Translate(0f, 0f));
+            Lvn.UI.LvnMotion.Enter(nav, NavEntranceMs,
+                k => nav.style.translate = new Translate(0f, Length.Percent(120f * (1f - k))));
         }
 
         // One collection as a streaming-style row: a header (name + "Все →") over

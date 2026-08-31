@@ -437,13 +437,9 @@ namespace Lvn.UI.Screens
 
         public void PlayEntrance()
         {
-            void Put(float k) => _row.style.translate = new Translate(0f, Length.Percent(-120f * (1f - k)));
-            Put(0f);
             _row.style.opacity = 1f;
-            int ms = Lvn.UI.LvnMotion.Ms(Lvn.UI.LvnMotion.Curtain);
-            _row.experimental.animation
-                .Start(0f, 1f, ms, (e, p) => Put(p * p * p))   // медленно → разгон
-                .OnCompleted(RestoreEntrance);
+            Lvn.UI.LvnMotion.Enter(_row, Lvn.UI.LvnMotion.Curtain,
+                k => _row.style.translate = new Translate(0f, Length.Percent(-120f * (1f - k))));
         }
 
         /// <summary>Встать на место немедленно — зовёт Швейцар, если вход
