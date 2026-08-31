@@ -433,5 +433,55 @@ namespace Lvn.Tests
             Assert.DoesNotThrow(() => rig.Ui(@"{'op':'ui','id':'нетакого','action':'hide'}"));
             Assert.DoesNotThrow(() => rig.Ui(@"{'op':'ui','id':'нетакого','action':'drop'}"));
         }
+
+        // ── центр ───────────────────────────────────────────────────────────
+
+        [Test]
+        public void ЦентрНеОтнимаетСмещениеУВхода()
+        {
+            // `at=center` держался на translate(-50%,-50%) — том же свойстве, в
+            // которое пишет вход. `appear` доводил смещение до нуля, и узел
+            // оставался «центрированным» СВОИМ ЛЕВЫМ ВЕРХНИМ УГЛОМ навсегда:
+            // окно уезжало вправо вниз и больше не возвращалось.
+            var rig = new Rig();
+            rig.Ui(@"{'op':'ui','id':'окно','tree':{
+                'kind':'panel','id':'рамка','at':'center','appear':'up',
+                'children':[{'kind':'text','id':'слово','text':'привет'}]}}");
+
+            var node = rig.Hud.Q("рамка");
+            Assert.NotNull(node, "узел с at=center не найден");
+
+            // Вход отыгран до конца — смещение обнулено, как и бывает в игре.
+            node.style.translate = new Translate(0, 0);
+
+            var wrap = node.parent;
+            Assert.AreNotSame(rig.Hud, wrap,
+                "центр обязан держаться рамкой: иначе вход и центрирование делят одно свойство");
+            Assert.AreEqual(Justify.Center, wrap.style.justifyContent.value,
+                "рамка не центрирует по горизонтали");
+            Assert.AreEqual(Align.Center, wrap.style.alignItems.value,
+                "рамка не центрирует по вертикали");
+            Assert.AreEqual(PickingMode.Ignore, wrap.pickingMode,
+                "рамка во весь родитель обязана пропускать касания насквозь");
+        }
+
+        [Test]
+        public void ЦентрНеПереходитНаДетей()
+        {
+            // Решение о рамке принимается при разборе раскладки, а исполняется
+            // после сборки детей — а дети идут этим же путём. Не сними флаг
+            // сразу — рамку получит ПЕРВЫЙ РЕБЁНОК вместо родителя, и в центре
+            // окажется не окно, а его первая строка.
+            var rig = new Rig();
+            rig.Ui(@"{'op':'ui','id':'окно','tree':{
+                'kind':'panel','id':'рамка','at':'center','children':[
+                    {'kind':'text','id':'строка','text':'привет'},
+                    {'kind':'text','id':'вторая','text':'пока'}]}}");
+
+            var line = rig.Hud.Q("строка");
+            Assert.NotNull(line);
+            Assert.AreSame(rig.Hud.Q("рамка"), line.parent,
+                "ребёнок завёрнут в чужую рамку — центрирование протекло вниз");
+        }
     }
 }

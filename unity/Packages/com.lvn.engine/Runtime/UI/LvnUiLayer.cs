@@ -310,7 +310,7 @@ namespace Lvn.UI
             if (nodeAppear != LvnAppearKind.None)
                 el.schedule.Execute(() => LvnAppear.Play(el, nodeAppear, true)).StartingIn(1);
 
-            ApplyLayout(el, n);
+            bool center = ApplyLayout(el, n);
             ApplyLook(el, n, tree);
 
             // Дети кладутся в contentContainer: у ScrollView он не сам элемент.
@@ -343,6 +343,21 @@ namespace Lvn.UI
                     }
                     host.Add(child);
                 }
+            }
+            // Центрирование просило рамку (см. `at=center`): узел остаётся
+            // собой — с именем, привязками и входом, — а место ему держит
+            // рамка во весь родитель.
+            if (center)
+            {
+                var wrap = new VisualElement { pickingMode = PickingMode.Ignore };
+                wrap.style.position = Position.Absolute;
+                wrap.style.left = 0; wrap.style.right = 0;
+                wrap.style.top = 0; wrap.style.bottom = 0;
+                wrap.style.justifyContent = Justify.Center;
+                wrap.style.alignItems = Align.Center;
+                el.style.position = Position.Relative;
+                wrap.Add(el);
+                return wrap;
             }
             return el;
         }
@@ -426,7 +441,10 @@ namespace Lvn.UI
 
         // ── раскладка ───────────────────────────────────────────────────────
 
-        private static void ApplyLayout(VisualElement el, JObject n)
+        /// <summary>Возвращает true, если узел просил центр: раскладка сама
+        /// центрировать его не может — это делает рамка вокруг, которую
+        /// ставит сборщик (см. <c>at=center</c>).</summary>
+        private static bool ApplyLayout(VisualElement el, JObject n)
         {
             var s = el.style;
             s.flexDirection = (string)n["dir"] == "row" ? FlexDirection.Row : FlexDirection.Column;
@@ -477,11 +495,15 @@ namespace Lvn.UI
                 case "right":
                     s.position = Position.Absolute; s.right = 0; s.top = 0; s.bottom = 0; break;
                 case "center":
-                    s.position = Position.Absolute;
-                    s.left = Length.Percent(50f); s.top = Length.Percent(50f);
-                    s.translate = new Translate(Length.Percent(-50f), Length.Percent(-50f));
-                    break;
+                    // ЦЕНТР ДЕРЖИТСЯ РАСКЛАДКОЙ, А НЕ СМЕЩЕНИЕМ. Он стоял на
+                    // translate(-50%,-50%) — том же свойстве, в которое пишут
+                    // виды входа: `appear=up` доводил смещение до нуля и
+                    // оставлял узел «центрированным» левым верхним углом,
+                    // НАВСЕГДА. Узел заворачивается в невидимую рамку во весь
+                    // родитель и центрируется ею — смещение остаётся свободным.
+                    return true;
             }
+            return false;
         }
 
         private static void ApplyPad(JToken t, Action<Length> set)

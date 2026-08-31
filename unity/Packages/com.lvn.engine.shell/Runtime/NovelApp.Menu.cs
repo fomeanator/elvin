@@ -109,7 +109,7 @@ namespace Lvn.UI.Screens
             // Короткий фейд читался как сбой картинки.
             var bg = MenuCanvasCmd(canvas, MenuReturnFadeSeconds);
             LvnLog.Trace($"[lvn-menu] передача кадра: полотно={(bg != null ? "меню" : "прежнее")}, "
-                       + $"остаётся={fav ?? "-"}, облик известен={(!string.IsNullOrEmpty(fav) && Stage.KnowsLook(fav))}");
+                       + $"остаётся={fav ?? "-"}, облик известен={(!string.IsNullOrEmpty(fav) && Stage.RememberedByScript(fav))}");
             Stage.HandOver(bg, fav);
             _menuBgSet = bg != null;   // полотно уже стоит — второй раз его не ставим
             // Героиня выходит ПОСЛЕ фона, а не вместе с ним: сначала мир, потом
