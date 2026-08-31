@@ -312,7 +312,10 @@ namespace Lvn.UI.Screens
             Loading = new LoadingScreen(ui.loading, assets); Add(Loading);
             Title = new TitleCard(ui.title, assets); Add(Title);
             Hud = new GameHud(ui.hud, assets); Add(Hud);
-            HudChoicesOnly = string.Equals(ui.hud?.mode, "choices", System.StringComparison.OrdinalIgnoreCase);
+            // Режим интерфейса — закрытое слово: всё, кроме «choices», молча
+            // означало полный HUD, включая опечатку в нём же.
+            HudChoicesOnly = Lvn.UI.LvnAuthorWord.Pick(ui.hud?.mode, "ui.hud.mode", "full",
+                                                       "full", "choices") == "choices";
             // Between-chapters screen: opt-in via manifest ui.chapter_end (absent
             // → chapters flow seamlessly, the historical behaviour).
             if (ui.chapter_end != null) { ChapterEnd = new ChapterEndScreen(ui.chapter_end, assets); Add(ChapterEnd); }

@@ -1059,3 +1059,41 @@ func TestВстроенныеФункцииСверяютсяСДвижком(t 
 		}
 	}
 }
+
+// Закрытое слово из манифеста читают через дом, а не switch с молчаливым default.
+//
+// Манифест НЕ проходит через структурный гейт — в отличие от скриптов, — и об
+// опечатке в нём сказать больше некому: ни компилятор, ни валидатор его не
+// читают. Значит, говорит тот, кто исполняет. Раньше он молчал: опечатка в
+// теме отдавала «Полночь», и киберпанковая игра открывалась в облике по
+// умолчанию.
+func TestЗакрытоеСловоАвтораЧитаютЧерезДом(t *testing.T) {
+	root := repoRoot(t)
+	// Дом на месте и жалуется один раз на пару «поле + слово».
+	home, err := os.ReadFile(filepath.Join(root, "unity", "Packages", "com.lvn.engine",
+		"Runtime", "UI", "LvnAuthorWord.cs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`_said.Add(field + "=" + w)`, "LogWarning"} {
+		if !strings.Contains(string(home), want) {
+			t.Fatalf("в LvnAuthorWord пропало %q — дисциплина жалобы держится на нём", want)
+		}
+	}
+	// Известные потребители спрашивают ЕГО.
+	for _, c := range []struct{ path, anchor string }{
+		{filepath.Join("unity", "Packages", "com.lvn.engine", "Runtime", "UI", "LvnTheme.cs"), "ui.browse.theme"},
+		{filepath.Join("unity", "Packages", "com.lvn.engine", "Runtime", "UI", "LvnAppear.cs"), `"appear"`},
+		{filepath.Join("unity", "Packages", "com.lvn.engine.shell", "Runtime", "NovelShell.cs"), "ui.hud.mode"},
+	} {
+		raw, err := os.ReadFile(filepath.Join(root, c.path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		src := string(raw)
+		if !strings.Contains(src, "LvnAuthorWord.Pick") || !strings.Contains(src, c.anchor) {
+			t.Fatalf("%s: закрытое слово читают мимо дома — опечатка автора снова "+
+				"обернётся молчаливым умолчанием", filepath.Base(c.path))
+		}
+	}
+}
