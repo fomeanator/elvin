@@ -675,3 +675,47 @@ func TestFreshContentReachesEveryone(t *testing.T) {
 			len(found), strings.Join(found, "\n  "))
 	}
 }
+
+// «ИСТОЧНИК ДОСТУПЕН» И «СКОЛЬКО ЖДАТЬ ПЕРЕД ПОВТОРОМ» — по одному ответу.
+//
+// Офлайн-признак говорит про СЕТЬ, а файлы в сборке никуда не деваются:
+// локальный источник доступен всегда. Оговорку эту писали от руки и
+// по-разному — где-то `IsLocal || !IsOffline`, где-то один `!IsOffline`, — и
+// локальная сборка считалась офлайновой ровно там, где про неё забыли.
+//
+// Пауза перед повтором — та же история: у движка есть LvnBackoff, а рядом
+// заводилась своя лесенка «700 × попытка». «Сколько ждать» не может зависеть
+// от того, какой файл споткнулся.
+func TestReachabilityAndBackoffHaveOneAnswer(t *testing.T) {
+	root := repoRoot(t)
+	handRolled := regexp.MustCompile(`IsLocal\s*\|\|\s*!\s*\w*\.?LvnNetworkStatus\.IsOffline`)
+	handPause := regexp.MustCompile(`Task\.Delay\(\s*\d+\s*\*\s*attempt`)
+
+	var found []string
+	scanned := 0
+	_ = filepath.Walk(filepath.Join(root, "unity/Packages"), func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+			return nil
+		}
+		p := filepath.ToSlash(path)
+		if strings.Contains(p, "/Tests/") || strings.HasSuffix(p, "ContentLoader.Disk.cs") {
+			return nil // сам дом ответа
+		}
+		scanned++
+		for i, l := range strings.Split(stripComments(string(mustRead(t, path))), "\n") {
+			if handRolled.MatchString(l) {
+				found = append(found, fmt.Sprintf("%s:%d — доступность вручную", filepath.Base(path), i+1))
+			}
+			if handPause.MatchString(l) {
+				found = append(found, fmt.Sprintf("%s:%d — своя лесенка пауз", filepath.Base(path), i+1))
+			}
+		}
+		return nil
+	})
+	atLeast(t, scanned, 100, "просмотренных файлов")
+	if len(found) > 0 {
+		t.Errorf("сетевое правило написано на месте (%d):\n  %s\n\n"+
+			"Спросите loader.Reachable и LvnBackoff.DelaySeconds.",
+			len(found), strings.Join(found, "\n  "))
+	}
+}

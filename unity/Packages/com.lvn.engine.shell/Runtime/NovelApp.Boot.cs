@@ -196,7 +196,7 @@ namespace Lvn.UI.Screens
                 LvnAsync.Fire(PinConnectivityAsync(probeTask, Mark), "BootProbe");
                 LvnAsync.Fire(CatchUpManifestAsync(manifestTask, versionsTask), "ManifestCatchUp");
                 manifest = cached;
-                online = !LvnNetworkStatus.IsOffline; // проба уточнит через миг
+                online = _assets.Loader.Reachable; // проба уточнит через миг
                 // Имя игры — авторское, из каталога (заголовок хаба).
                 BootVeil.Splash(cached.ui?.browse?.title ?? Application.productName);
                 Mark("manifest (вчерашний кэш — сеть догоняет)");

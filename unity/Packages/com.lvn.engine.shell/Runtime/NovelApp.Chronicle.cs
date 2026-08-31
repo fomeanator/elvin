@@ -166,7 +166,7 @@ namespace Lvn.UI.Screens
             // to enter the chapter from connectivity + what's on disk. A local
             // bundle reports everything cached/reachable, so it plays instantly;
             // an online client degrades gracefully and never hangs.
-            bool online = _assets.Loader.IsLocal || !LvnNetworkStatus.IsOffline;
+            bool online = _assets.Loader.Reachable;
             var readiness = OfflinePolicy.ComputeReadiness(
                 _assets.Loader.IsScriptCached(chapter.script_url),
                 chapter.assets,
