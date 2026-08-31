@@ -80,6 +80,32 @@ func isLvnPath(rel string) bool {
 	return strings.EqualFold(filepath.Ext(rel), ".lvn")
 }
 
+func isManifestPath(rel string) bool {
+	return filepath.ToSlash(rel) == "manifest.json"
+}
+
+// checkManifest — тот же гейт, но для МАНИФЕСТА.
+//
+// Скрипты проходили структурную проверку, манифест — нет: его писали на диск
+// после разбора JSON и всё. А это весь облик приложения: темы, цвета, экраны,
+// подборки. Опечатка молча давала умолчание, и автор видел не ошибку, а
+// «почему-то не так», причём УЖЕ у игрока.
+//
+// Только предупреждения, и намеренно: схемы манифеста здесь нет (она в
+// C#-DTO), проверка идёт по конвенции имён, а хост вправе класть в манифест
+// своё. Отказывать на неполном знании нельзя — молчать тоже.
+func (s *server) checkManifest(data []byte) lvnFindings {
+	var f lvnFindings
+	for _, iss := range lvn.ValidateManifest(data) {
+		if iss.Sev == lvn.SevError {
+			f.Errors = append(f.Errors, iss.Msg)
+		} else {
+			f.Warnings = append(f.Warnings, iss.Msg)
+		}
+	}
+	return f
+}
+
 // checkLvn parses and validates one compiled script's bytes. rel is the
 // content-relative destination: it is used ONLY to locate the project's
 // ext-grammar sidecar, so an unwritten file (an importer's output) checks

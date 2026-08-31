@@ -677,3 +677,70 @@ func TestЗакрытоеСловоАвтораЧитаютЧерезДом(t *t
 		}
 	}
 }
+
+// Словарь цвета у проверки манифеста — тот же, что у движка.
+//
+// Манифест не проходил через гейт вовсе, и `title_color: "acccent"` молча
+// давал умолчание. Теперь проверка есть, но она сама стала ЕЩЁ ОДНИМ зеркалом
+// словаря — значит, обязана сверяться с исполнителем, как все прочие.
+func TestСловарьЦветаПроверкиМанифестаСовпадаетСДвижком(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join(repoRoot(t), "unity", "Packages", "com.lvn.engine",
+		"Runtime", "UI", "UiColor.cs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cs := string(raw)
+	at := strings.Index(cs, "public static Color Named(")
+	end := strings.Index(cs, "public static Color Token(")
+	if at < 0 || end < at {
+		t.Fatal("UiColor.Named пропал — словарь держится на нём")
+	}
+	engine := map[string]bool{}
+	for _, m := range regexp.MustCompile(`case "([a-z_]+)":`).FindAllStringSubmatch(cs[at:end], -1) {
+		engine[m[1]] = true
+	}
+	for w := range engine {
+		if !inSet(ColorWords, w) {
+			t.Fatalf("движок знает цвет %q, а проверка манифеста нет — "+
+				"пожалуется на работающее поле", w)
+		}
+	}
+	for _, w := range ColorWords {
+		if !engine[w] {
+			t.Fatalf("проверка манифеста считает %q цветом, а движок его не знает", w)
+		}
+	}
+}
+
+// Закрытые слова манифеста у проверки — те же, что читает рантайм.
+func TestЗакрытыеСловаМанифестаСовпадаютСРантаймом(t *testing.T) {
+	root := repoRoot(t)
+	read := func(rel string) string {
+		b, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
+	}
+	// Каждое слово, которое проверка считает допустимым, обязано стоять в
+	// вызове LvnAuthorWord.Pick у того, кто это поле читает.
+	for _, c := range []struct{ field, file string }{
+		{"theme", "unity/Packages/com.lvn.engine/Runtime/UI/LvnTheme.cs"},
+		{"speaker_focus", "unity/Packages/com.lvn.engine/Runtime/UI/VnStage.Dialogue.cs"},
+		{"tap_burst", "unity/Packages/com.lvn.engine/Runtime/UI/VnStage.cs"},
+	} {
+		src := read(c.file)
+		for _, w := range ManifestWords[c.field] {
+			if !strings.Contains(src, `"`+w+`"`) {
+				t.Fatalf("проверка манифеста разрешает %s=%q, а %s этого слова не знает — "+
+					"автор напишет его и получит умолчание", c.field, w, filepath.Base(c.file))
+			}
+		}
+	}
+	shell := read("unity/Packages/com.lvn.engine.shell/Runtime/NovelShell.cs")
+	for _, w := range ManifestWordsByPath["ui.hud.mode"] {
+		if !strings.Contains(shell, `"`+w+`"`) {
+			t.Fatalf("проверка манифеста разрешает ui.hud.mode=%q, а оболочка его не знает", w)
+		}
+	}
+}
