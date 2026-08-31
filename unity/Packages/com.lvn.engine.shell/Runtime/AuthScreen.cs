@@ -112,7 +112,7 @@ namespace Lvn.UI.Screens
                 if (!string.IsNullOrEmpty(_cfg.field_url)) LvnPicture.Skin(_field, _cfg.field_url, _assets);
             }
 
-            var start = new Button(Confirm) { text = LvnWords.Pick("auth.start", _cfg.start_text, "Start") };
+            var start = Lvn.UI.LvnRedress.Bind(new Button(Confirm), () => LvnWords.Pick("auth.start", _cfg.start_text, "Start"));
             start.style.fontSize = Lvn.UI.LvnFonts.Size(32f);
             start.style.marginTop = 22;
             start.style.paddingTop = 16;

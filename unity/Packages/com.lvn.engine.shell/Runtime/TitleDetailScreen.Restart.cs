@@ -35,7 +35,7 @@ namespace Lvn.UI.Screens
                 && (LvnProgress.Current(Title) != null || LvnProgress.Reached(Title) > 0);
             if (hasProgress)
             {
-                var cont = new Button(Play) { text = LvnWords.Of("hub.continue", "Continue") };
+                var cont = Lvn.UI.LvnRedress.Bind(new Button(Play), () => LvnWords.Of("hub.continue", "Continue"));
                 cont.style.flexShrink = 0;
                 cont.style.marginTop = 14;
                 cont.style.fontSize = Lvn.UI.LvnFonts.Size(28f);
@@ -94,7 +94,7 @@ namespace Lvn.UI.Screens
             col.Add(whereLbl);
             row.Add(col);
 
-            var load = new Button(onLoad) { text = LvnWords.Of("saves.load", "Load") };
+            var load = Lvn.UI.LvnRedress.Bind(new Button(onLoad), () => LvnWords.Of("saves.load", "Load"));
             load.SetEnabled(onLoad != null);
             load.style.flexShrink = 0;
             load.style.marginLeft = 12;

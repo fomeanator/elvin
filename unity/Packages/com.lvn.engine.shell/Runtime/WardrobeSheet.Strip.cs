@@ -422,7 +422,8 @@ namespace Lvn.UI.Screens
             plate.style.paddingLeft = 6; plate.style.paddingRight = 6;
             card.Add(plate);
 
-            var name = new Label(Lvn.Content.LvnWords.Name("skin", item.value, item.name)) { pickingMode = PickingMode.Ignore };
+            var name = Lvn.UI.LvnRedress.Bind(new Label { pickingMode = PickingMode.Ignore },
+                () => Lvn.Content.LvnWords.Name("skin", item.value, item.name));
             name.name = "card-name";
             name.style.color = _text;
             name.style.fontSize = Lvn.UI.LvnFonts.Size(25f);

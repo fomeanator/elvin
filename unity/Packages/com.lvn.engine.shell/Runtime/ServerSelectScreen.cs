@@ -213,7 +213,7 @@ namespace Lvn.UI.Screens
             });
             panel.Add(field);
 
-            var connect = new Button(() => Confirm(field.value)) { text = LvnWords.Of("server.connect", "Connect") };
+            var connect = Lvn.UI.LvnRedress.Bind(new Button(() => Confirm(field.value)), () => LvnWords.Of("server.connect", "Connect"));
             connect.style.marginTop = 12;
             connect.style.fontSize = Lvn.UI.LvnFonts.Size(18f);
             connect.style.paddingTop = 10;

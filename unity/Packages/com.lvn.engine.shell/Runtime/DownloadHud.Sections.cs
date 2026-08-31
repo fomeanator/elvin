@@ -29,8 +29,8 @@ namespace Lvn.UI.Screens
             if (off)
             {
                 var card = SectionCard();
-                card.Add(SectionTitle(LvnWords.Of("dl.offline_title", "Play offline")));
-                card.Add(Hint(LvnWords.Of("dl.offline_hint", "Everything already downloaded is available: the ticked chapters below open on a plane with no network. Download the whole game and read anywhere; purchases work offline too and sync later.")));
+                card.Add(CardHeading(() => LvnWords.Of("dl.offline_title", "Play offline")));
+                card.Add(Hint(() => LvnWords.Of("dl.offline_hint", "Everything already downloaded is available: the ticked chapters below open on a plane with no network. Download the whole game and read anywhere; purchases work offline too and sync later.")));
                 var chapters = ChaptersInfo?.Invoke();
                 if (chapters != null)
                     foreach (var (label, cached) in chapters)
@@ -41,8 +41,8 @@ namespace Lvn.UI.Screens
             if (pend > 0)
             {
                 var card = SectionCard();
-                card.Add(SectionTitle(LvnWords.Of("dl.pending_title", "Waiting to send")));
-                card.Add(Hint(off
+                card.Add(CardHeading(() => LvnWords.Of("dl.pending_title", "Waiting to send")));
+                card.Add(Hint(() => off
                     ? LvnWords.Of("dl.pending_offline", "{n} events — purchases and progress are saved on the device and leave for the server as soon as there is a network.", pend)
                     : LvnWords.Of("dl.pending_sending", "Sending to the server: {n} events (purchases, progress).", pend)));
                 _sections.Add(card);
@@ -51,7 +51,7 @@ namespace Lvn.UI.Screens
             if (Center != null && Center.Queue.Count > 0)
             {
                 var card = SectionCard();
-                card.Add(SectionTitle(LvnWords.Of("dl.queue_title", "Download queue")));
+                card.Add(CardHeading(() => LvnWords.Of("dl.queue_title", "Download queue")));
                 foreach (var e in Center.Queue)
                     card.Add(QueueRow(e));
                 _sections.Add(card);
@@ -62,8 +62,8 @@ namespace Lvn.UI.Screens
             if (missing.Item2 > 0 && DownloadAll != null && !(Center != null && Center.Queue.Count > 0))
             {
                 var card = SectionCard();
-                card.Add(SectionTitle(LvnWords.Of("dl.all_title", "The whole game with you")));
-                card.Add(Hint(LvnWords.Of("dl.all_hint", "Download once and play with no network: chapters, art and music stay on the device.")));
+                card.Add(CardHeading(() => LvnWords.Of("dl.all_title", "The whole game with you")));
+                card.Add(Hint(() => LvnWords.Of("dl.all_hint", "Download once and play with no network: chapters, art and music stay on the device.")));
                 var offer = CurrentChapterOffer?.Invoke();
                 if (offer != null)
                 {
@@ -151,9 +151,20 @@ namespace Lvn.UI.Screens
             return v;
         }
 
-        private Label SectionTitle(string text)
+        /// <summary>
+        /// ЗАГОЛОВОК КАРТОЧКИ — не заголовок экрана (тот живёт у оболочки
+        /// экранов и вдвое крупнее). Раньше звался так же, `SectionTitle`, и
+        /// это была ловушка: два разных размера под одним именем в одном
+        /// пространстве имён.
+        ///
+        /// <para>ИСТОЧНИК, А НЕ ГОТОВАЯ СТРОКА. Готовая обрывает связь со
+        /// словарём: смена языка на лету перестраивала всё вокруг, а «Играть
+        /// офлайн», «Ждут отправки» и «Очередь загрузки» оставались на прежнем
+        /// языке до ближайшей смены данных.</para>
+        /// </summary>
+        private Label CardHeading(System.Func<string> text)
         {
-            var l = new Label(text);
+            var l = Lvn.UI.LvnRedress.Bind(new Label(), text);
             l.pickingMode = PickingMode.Ignore;
             l.style.color = LvnTokens.Text;
             l.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
@@ -162,9 +173,11 @@ namespace Lvn.UI.Screens
             return l;
         }
 
-        private Label Hint(string text)
+        /// <summary>Пояснение под заголовком карточки — тоже от источника, по
+        /// той же причине.</summary>
+        private Label Hint(System.Func<string> text)
         {
-            var l = new Label(text);
+            var l = Lvn.UI.LvnRedress.Bind(new Label(), text);
             l.pickingMode = PickingMode.Ignore;
             l.style.color = LvnTokens.TextDim;
             l.style.fontSize = Lvn.UI.LvnFonts.Size(19f);

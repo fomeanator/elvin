@@ -82,27 +82,33 @@ namespace Lvn.UI.Screens
             row.Add(col);
 
             var danger = new Color(0.86f, 0.28f, 0.32f);
-            var btn = new Button { text = LvnWords.Of("account.delete_do", "Delete") };
+            // НАДПИСЬ ЧИТАЕТ СОСТОЯНИЕ, А НЕ НАЗНАЧАЕТСЯ ПО ШАГАМ. Со сменой
+            // языка привязка перечитывает источник: назначь надпись руками — и
+            // взведённая кнопка вернула бы вид «Удалить», оставшись взведённой.
+            // Следующее нажатие удалило бы аккаунт без переспроса.
+            bool armed = false;
+            var btn = Lvn.UI.LvnRedress.Bind(new Button(), () => armed
+                ? LvnWords.Of("account.delete_sure", "Really delete?")
+                : LvnWords.Of("account.delete_do", "Delete"));
             btn.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
             btn.style.paddingTop = 10; btn.style.paddingBottom = 10;
             btn.style.paddingLeft = 16; btn.style.paddingRight = 16;
             LvnStyler.Plate(btn, LvnTokens.Faint, danger, LvnTokens.RadiusSm);
 
-            bool armed = false;
             btn.clicked += () =>
             {
                 if (!armed)
                 {
                     // Первое нажатие только взводит; через 4 с кнопка остывает.
                     armed = true;
-                    btn.text = LvnWords.Of("account.delete_sure", "Really delete?");
+                    Lvn.UI.LvnRedress.Refresh(btn);
                     btn.style.backgroundColor = danger;
                     btn.style.color = Color.white;
                     btn.schedule.Execute(() =>
                     {
                         if (!armed) return;
                         armed = false;
-                        btn.text = LvnWords.Of("account.delete_do", "Delete");
+                        Lvn.UI.LvnRedress.Refresh(btn);
                         btn.style.backgroundColor = LvnTokens.Faint;
                         btn.style.color = danger;
                     }).ExecuteLater(LvnMotion.Ms(ArmedWindowMs));
@@ -149,7 +155,7 @@ namespace Lvn.UI.Screens
             idLabel.style.flexGrow = 1;
             footer.Add(idLabel);
 
-            var copy = new Button { text = LvnWords.Of("settings.copy", "Copy") };
+            var copy = Lvn.UI.LvnRedress.Bind(new Button(), () => LvnWords.Of("settings.copy", "Copy"));
             copy.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
             copy.style.paddingTop = 10;
             copy.style.paddingBottom = 10;

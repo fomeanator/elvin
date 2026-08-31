@@ -51,7 +51,6 @@ namespace Lvn.UI.Screens
         {
             if (_title != null) _title.text = LvnWords.Pick("wardrobe.title", _cfg.title, "Wardrobe");
             if (_peekLabel != null) _peekLabel.text = LvnWords.Pick("wardrobe.peek", _cfg.peek_text, "Full height");
-            if (_cancel != null) _cancel.text = LvnWords.Pick("wardrobe.cancel", _cfg.cancel_text, "Cancel");
             RefreshConfirm();     // «Выбрать» / «Купить за N» — своя логика подписи
             RebuildStrip();       // плитки несут названия нарядов
             RebuildSubRow(false); // подписи подосей («Основа», «Цвет волос»)
@@ -372,7 +371,8 @@ namespace Lvn.UI.Screens
             actions.style.marginTop = 12;
             Add(actions);
 
-            _cancel = new Button(Cancel) { text = LvnWords.Pick("wardrobe.cancel", _cfg.cancel_text, "Cancel") };
+            _cancel = Lvn.UI.LvnRedress.Bind(new Button(Cancel),
+                () => LvnWords.Pick("wardrobe.cancel", _cfg.cancel_text, "Cancel"));
             _cancel.style.fontSize = Lvn.UI.LvnFonts.Size(28f);
             _cancel.style.flexGrow = 1;
             _cancel.style.flexBasis = 0;
@@ -753,7 +753,8 @@ namespace Lvn.UI.Screens
                     // Подпись подоси («Основа», «Цвет волос») — через словарь:
                     // она стоит рядом с переведёнными плитками и остаётся
                     // последним русским словом в английском гардеробе.
-                    var lbl = new Label(Lvn.Content.LvnWords.Name("axis", sub, slot?.name));
+                    var lbl = Lvn.UI.LvnRedress.Bind(new Label(),
+                        () => Lvn.Content.LvnWords.Name("axis", sub, slot?.name));
                     lbl.style.color = _dim;
                     lbl.style.fontSize = LvnTokens.TextSm;
                     lbl.style.marginLeft = any ? 22 : 0; // зазор между слотами
