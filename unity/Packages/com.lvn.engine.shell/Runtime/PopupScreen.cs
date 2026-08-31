@@ -45,7 +45,25 @@ namespace Lvn.UI.Screens
         private readonly float _radius;
 
         private TaskCompletionSource<int> _tcs;
-        private bool _open;
+        private bool _openFlag;
+
+        /// <summary>Алерт на экране. Пишется ТОЛЬКО здесь, и этим же движением
+        /// он встаёт на стопку поверхностей Режиссёра. Раньше «алерт открыт»
+        /// знал только сам экран, и спрашивали его, заглядывая в стиль показа
+        /// снаружи; Режиссёр — тот, кто отвечает на «кто сейчас наверху», —
+        /// про алерт не знал ничего, и сцена закрывала свою панель из-под
+        /// поднятого над ней вопроса.</summary>
+        private bool _open
+        {
+            get => _openFlag;
+            set
+            {
+                if (_openFlag == value) return;
+                _openFlag = value;
+                if (value) Lvn.UI.LvnScreenDirector.Current.Open(Lvn.UI.LvnScreenDirector.Alert);
+                else Lvn.UI.LvnScreenDirector.Current.Close(Lvn.UI.LvnScreenDirector.Alert);
+            }
+        }
         private bool _dismissable;
 
         /// <summary>True while a popup is on screen (blocks the scene beneath).</summary>

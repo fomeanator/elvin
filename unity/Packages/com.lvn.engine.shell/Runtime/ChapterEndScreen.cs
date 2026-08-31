@@ -13,7 +13,7 @@ namespace Lvn.UI.Screens
     /// false → return to the menu. Purely presentational: the chapter loop in
     /// NovelApp owns what "next" means.
     /// </summary>
-    public sealed class ChapterEndScreen : VisualElement
+    public sealed class ChapterEndScreen : VisualElement, ILvnHides
     {
         private readonly ChapterEndConfig _cfg;
         private readonly Label _title;
@@ -91,6 +91,17 @@ namespace Lvn.UI.Screens
             _continue.style.display = hasNext ? DisplayStyle.Flex : DisplayStyle.None;
             style.display = DisplayStyle.Flex;
             return _tcs.Task;
+        }
+
+        /// <summary>Уйти с экрана и ОТПУСТИТЬ ждущего: экран конца главы
+        /// держит цикл глав, и убранный молча он бы его подвесил. Своего ухода
+        /// у него не было вовсе, поэтому набор экранов гасил показ мимо него —
+        /// ровно тот случай, ради которого метка и заведена.</summary>
+        public void Hide()
+        {
+            style.display = DisplayStyle.None;
+            _tcs?.TrySetResult(false);   // некуда продолжать — значит, в меню
+            _tcs = null;
         }
 
         private void Resolve(bool next)

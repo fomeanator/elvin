@@ -151,3 +151,92 @@ func TestУходЭкранаРешаетсяОднимПравилом(t *testi
 			"набор закроет его вполсилы: прозрачность, просмотрщик или ожидание останутся", e.Name())
 	}
 }
+
+// «Назад» решает ОДИН — Режиссёр.
+//
+// Сцена спрашивала его, а оболочка перебирала признаки сама, и алерта в этой
+// картине не было вовсе: поднятый над сюжетной панелью вопрос оставлял верхней
+// панель, и «назад» закрывал её из-под вопроса. Теперь обе стороны читают одну
+// стопку, а алерт в неё встаёт.
+func TestНазадРешаетРежиссёрАНеПризнакиНаМесте(t *testing.T) {
+	nav := filepath.Join(shellRuntimeDir(t), "NovelShell.Navigation.cs")
+	body := methodBody(t, nav, "private void Update()")
+	if !strings.Contains(body, "BackTarget") {
+		t.Fatalf("оболочка снова решает «кто наверху» сама — спрашивать надо Режиссёра.\n%s", nav)
+	}
+	if strings.Contains(body, "Popup") {
+		t.Fatalf("оболочка снова заглядывает в показ алерта напрямую — он поверхность Режиссёра.\n%s", nav)
+	}
+	popup := filepath.Join(shellRuntimeDir(t), "PopupScreen.cs")
+	raw, err := os.ReadFile(popup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(raw)
+	for _, want := range []string{
+		"LvnScreenDirector.Current.Open(Lvn.UI.LvnScreenDirector.Alert)",
+		"LvnScreenDirector.Current.Close(Lvn.UI.LvnScreenDirector.Alert)",
+	} {
+		if !strings.Contains(src, want) {
+			t.Fatalf("PopupScreen перестал вставать на стопку поверхностей (%q) — "+
+				"без этого «назад» снова закроет панель из-под вопроса.\n%s", want, popup)
+		}
+	}
+	// Признак «алерт открыт» пишется в одном месте — иначе стопка и экран
+	// разойдутся, и разойдутся молча.
+	if n := strings.Count(src, "_openFlag = "); n != 1 {
+		t.Fatalf("PopupScreen: «алерт открыт» пишется в %d местах, а должно в одном "+
+			"(через свойство _open, которое и ведёт стопку)", n)
+	}
+}
+
+// Экран, который ЖДЁТ ответа, обязан уметь уйти.
+//
+// Экран конца главы держал ожидание всего цикла глав, а своего ухода не имел
+// вовсе — и набор гасил ему показ мимо: экран исчезал, а цикл повисал. Сторож
+// на непростой уход этого не ловил: тот смотрит только на экраны, у которых
+// Hide() уже есть.
+func TestЖдущийЭкранУмеетУйти(t *testing.T) {
+	dir := shellRuntimeDir(t)
+	// Экраны, которые оболочка вносит в набор: только с них и спрос.
+	nav, err := os.ReadFile(filepath.Join(dir, "NovelShell.cs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	inSet := regexp.MustCompile(`(?m)\bAdd\((\w+)\)`)
+	names := map[string]bool{}
+	for _, m := range inSet.FindAllStringSubmatch(stripCommentsAndStrings(string(nav)), -1) {
+		names[m[1]] = true
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decl := regexp.MustCompile(`(?:sealed |abstract |partial )*class (\w+)\s*:`)
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".cs") {
+			continue
+		}
+		raw, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		src := string(raw)
+		if !strings.Contains(src, "TaskCompletionSource") {
+			continue
+		}
+		owner := decl.FindStringSubmatch(src)
+		if owner == nil {
+			continue
+		}
+		// Имя поля в оболочке — имя класса без суффикса Screen; сверяем оба.
+		short := strings.TrimSuffix(owner[1], "Screen")
+		if !names[owner[1]] && !names[short] {
+			continue // в набор не входит — уборка его не касается
+		}
+		if !strings.Contains(src, "ILvnHides") && !strings.Contains(src, "LvnOverlayScreen") {
+			t.Fatalf("%s: экран ждёт ответа (TaskCompletionSource) и входит в набор, "+
+				"но уходить не умеет — уборка погасит показ мимо него, и ждущий повиснет", e.Name())
+		}
+	}
+}
