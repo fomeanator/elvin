@@ -44,12 +44,7 @@ namespace Lvn.UI.Screens
             panel.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             root.Add(panel);
 
-            var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("stats.title", "Your stats"));
-            title.style.color = LvnTokens.Text;
-            title.style.fontSize = Lvn.UI.LvnFonts.Size(30f);
-            title.style.unityFontStyleAndWeight = FontStyle.Bold;
-            title.style.marginBottom = 8;
-            panel.Add(title);
+            panel.Add(ScreenUi.SectionHeader(() => LvnWords.Of("stats.title", "Your stats")));
 
             var scroll = Lvn.UI.LvnScroll.Vertical(showScroller: true);
             scroll.style.flexShrink = 1;

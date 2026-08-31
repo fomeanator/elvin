@@ -170,7 +170,7 @@ namespace Lvn.UI.Screens
 
             if (!Minimal && Achievements.Count > 0)
             {
-                _body.Add(SectionHeader(LvnWords.Of("profile.achievements", "Achievements")));
+                _body.Add(ScreenUi.SectionHeader(LvnWords.Of("profile.achievements", "Achievements")));
                 _body.Add(BuildAchievements());
             }
 
@@ -178,7 +178,7 @@ namespace Lvn.UI.Screens
             // минимальном профиле: это то, ради чего игрок сюда заходит.
             // Пустоту не прячем, а объясняем: игрок должен знать, что здесь
             // вырастет и от чего (живой репорт «там пустота, смысл какой»).
-            _body.Add(SectionHeader(LvnWords.Of("profile.relations", "Relationships")));
+            _body.Add(ScreenUi.SectionHeader(LvnWords.Of("profile.relations", "Relationships")));
             if (Relations.Count > 0) _body.Add(BuildRelations());
             else _body.Add(HintCard(
                 LvnWords.Of("profile.relations_empty", "The first choice already bends the story. Start a chapter and your ties appear here.")));
@@ -480,17 +480,6 @@ namespace Lvn.UI.Screens
             return row;
         }
 
-
-        private Label SectionHeader(string text)
-        {
-            var lbl = new Label(text);
-            lbl.style.color = LvnTokens.Text;
-            lbl.style.fontSize = Lvn.UI.LvnFonts.Size(28f);
-            lbl.style.unityFontStyleAndWeight = FontStyle.Bold;
-            lbl.style.marginTop = 8;
-            lbl.style.marginBottom = 10;
-            return LvnChrome.Heading(lbl);
-        }
 
 
         // Склонение держит словарь: правило зависит от языка, а не от экрана.

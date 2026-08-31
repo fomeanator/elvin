@@ -296,7 +296,7 @@ namespace Lvn.UI.Screens
             var section = new VisualElement();
             section.style.flexShrink = 0;
             section.style.marginTop = 34;
-            section.Add(SectionHeader(LvnWords.Of("stats.title", "Your stats")));
+            section.Add(ScreenUi.SectionHeader(LvnWords.Of("stats.title", "Your stats")));
 
             foreach (var s in Title.stats)
                 if (s != null)
@@ -314,7 +314,7 @@ namespace Lvn.UI.Screens
             var section = new VisualElement();
             section.style.flexShrink = 0;
             section.style.marginTop = 36;
-            section.Add(SectionHeader(LvnWords.Of("chapters.title", "Chapters")));
+            section.Add(ScreenUi.SectionHeader(LvnWords.Of("chapters.title", "Chapters")));
 
             // «Что с этой главой» спрашиваем у дома: правило одно на все три
             // списка глав в приложении, а жило оно здесь одним выражением, и
@@ -477,16 +477,6 @@ namespace Lvn.UI.Screens
 
 
         // ── shared bits ──────────────────────────────────────────────────────
-        private static Label SectionHeader(string text)
-        {
-            var lbl = new Label(text);
-            lbl.style.flexShrink = 0;
-            lbl.style.color = LvnTokens.Text;
-            lbl.style.fontSize = Lvn.UI.LvnFonts.Size(30f);
-            lbl.style.unityFontStyleAndWeight = FontStyle.Bold;
-            return LvnChrome.Heading(lbl);
-        }
-
         // Затемнение под подписью героя: тот же дом, что рисует фон витрины.
         // Здесь стояла своя текстура со своим кэшем и своей кривой — два
         // рисователя одного градиента, и правка попадала в один из них.

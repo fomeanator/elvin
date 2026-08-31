@@ -106,6 +106,40 @@ namespace Lvn.UI.Screens
 
         /// <summary>A full-width, centre-aligned absolute label placed at a vertical
         /// fraction of its parent. Ignores pointer input (overlay text).</summary>
+        /// <summary>
+        /// ЗАГОЛОВОК РАЗДЕЛА внутри экрана — «Главы», «Достижения», «Ваши
+        /// статы», шапка окна перезапуска.
+        ///
+        /// <para>Собирался четырьмя способами: две частные копии в двух
+        /// экранах (30 и 28 кеглем) и два набора строк на месте. Двое из
+        /// четверых ПРОПУСКАЛИ огранку темы — и на «Кибере» половина
+        /// заголовков шла капсом с разрядкой, а половина обычным текстом, в
+        /// одном и том же экране.</para>
+        ///
+        /// <para>Не путать с <c>LvnOverlayScreen.SectionTitle</c>: тот —
+        /// заголовок ЭКРАНА в шапке (крупнее, живёт всю жизнь экрана и потому
+        /// принимает источник). Этот живёт внутри тела, которое пересобирают
+        /// целиком.</para>
+        /// </summary>
+        public static Label SectionHeader(string text) => DressHeader(new Label(text));
+
+        /// <summary>Тот же заголовок, но со связью со словарём — для тела,
+        /// которое пересобирают НЕ целиком.</summary>
+        public static Label SectionHeader(System.Func<string> text)
+            => DressHeader(Lvn.UI.LvnRedress.Bind(new Label(), text));
+
+        private static Label DressHeader(Label lbl)
+        {
+            lbl.style.flexShrink = 0;
+            lbl.style.color = LvnTokens.Text;
+            lbl.style.fontSize = Lvn.UI.LvnFonts.Size(30f);
+            lbl.style.unityFontStyleAndWeight = FontStyle.Bold;
+            lbl.style.whiteSpace = WhiteSpace.Normal;   // длинный заголовок переносится, а не режется
+            lbl.style.marginTop = 8;
+            lbl.style.marginBottom = 10;
+            return LvnChrome.Heading(lbl);
+        }
+
         public static Label CenterLabel(float topFraction, Color color, float size)
         {
             var l = new Label();
