@@ -886,3 +886,90 @@ func TestСловарьПереходовФигурыОдин(t *testing.T) {
 		t.Fatalf("наборы сошлись — обнови этот сторож и канон: разница больше не разница")
 	}
 }
+
+// Стили ауры: валидатор знает СИНОНИМЫ, а не только канонические имена.
+//
+// Синонимы (`ice`, `thunder`, `dark`, `void`…) знал только рантайм, и
+// валидатор ругался на законное слово: `aura_style=ice` получал «is not a
+// known value» да ещё и совет «may be fire?» — прямо противоположную стихию.
+// Ложная тревога дороже молчания: автор идёт править работающий код.
+func TestСтилиАурыВключаяСинонимы(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join(repoRoot(t), "unity", "Packages", "com.lvn.engine",
+		"Runtime", "UI", "World", "LvnSpriteFxDriver.cs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(raw)
+	from := strings.Index(src, `case "guard":`)
+	to := strings.Index(src[from:], "default:")
+	if from < 0 || to < 0 {
+		t.Fatal("разбор aura_style не найден — поправь якорь сторожа")
+	}
+	engine := map[string]bool{}
+	for _, m := range regexp.MustCompile(`case "([a-z_]+)":`).FindAllStringSubmatch(src[from:from+to], -1) {
+		engine[m[1]] = true
+	}
+	if len(engine) < 20 {
+		t.Fatalf("стилей ауры всего %d — похоже, якорь промахнулся", len(engine))
+	}
+	for w := range engine {
+		if !inSet(AuraStyles, w) {
+			t.Fatalf("рантайм понимает стиль %q, а валидатор ругается на него — "+
+				"жалоба на работающий код, да ещё и с советом взять другую стихию", w)
+		}
+	}
+	for _, w := range AuraStyles {
+		if !engine[w] {
+			t.Fatalf("валидатор считает %q стилем, а рантайм его не знает — "+
+				"возьмёт basic и напишет об этом только в лог", w)
+		}
+	}
+}
+
+// Вид узла дерева `ui` — словарь, а не тайна рантайма.
+//
+// Неизвестный вид не давал ошибки: LvnUiLayer падал в `default` и делал ПУСТУЮ
+// ПАНЕЛЬ. Опечатка «buton» превращала кнопку в невидимый прямоугольник — экран
+// собирался, кнопки на нём не было, и в логе ни строчки.
+func TestВидыУзловДереваUiОдинСловарь(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join(repoRoot(t), "unity", "Packages", "com.lvn.engine",
+		"Runtime", "UI", "LvnUiLayer.cs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := stripCommentsAndStrings(string(raw))
+	// Виды, у которых своя ветка: от разбора `kind` до `default`.
+	from := strings.Index(string(raw), `string kind = (string)n["kind"]`)
+	if from < 0 {
+		t.Fatal("разбор kind не найден — поправь якорь сторожа")
+	}
+	to := strings.Index(string(raw)[from:], "default:")
+	if to < 0 {
+		t.Fatal("default у видов узлов не найден")
+	}
+	own := map[string]bool{}
+	for _, m := range regexp.MustCompile(`case "([a-z_]+)":`).FindAllStringSubmatch(string(raw)[from:from+to], -1) {
+		own[m[1]] = true
+	}
+	if len(own) < 5 {
+		t.Fatalf("видов со своей веткой всего %d — похоже, якорь промахнулся: %v", len(own), own)
+	}
+	for w := range own {
+		if !inSet(UiNodeKinds, w) {
+			t.Fatalf("рантайм умеет узел %q, а валидатор о нём не знает — "+
+				"пожалуется на работающее дерево", w)
+		}
+	}
+	// Контейнеры живут в `default` и по коду не отличимы — они перечислены в
+	// валидаторе вручную, и это единственное, что тут можно проверить.
+	for _, container := range []string{"panel", "row", "column"} {
+		if !inSet(UiNodeKinds, container) {
+			t.Fatalf("контейнер %q пропал из словаря — автор получит жалобу на самый частый узел", container)
+		}
+		if own[container] {
+			t.Fatalf("у %q появилась своя ветка — обнови комментарий словаря: "+
+				"он утверждает, что контейнеры живут в default", container)
+		}
+	}
+	_ = src
+}

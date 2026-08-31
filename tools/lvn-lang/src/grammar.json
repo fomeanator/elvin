@@ -420,16 +420,30 @@
     "sfx": {
       "aura_style": [
         "basic",
+        "neutral",
+        "plain",
         "guard",
+        "ward",
+        "protection",
         "fire",
         "frost",
+        "ice",
         "storm",
+        "thunder",
         "shadow",
+        "dark",
         "holy",
+        "light",
         "space",
+        "void",
         "distortion",
+        "rift",
         "spirit",
-        "ascendant"
+        "soul",
+        "aether",
+        "ascendant",
+        "monarch",
+        "overlord"
       ]
     },
     "actor": {
@@ -608,16 +622,30 @@
     ],
     "aura_style": [
       "basic",
+      "neutral",
+      "plain",
       "guard",
+      "ward",
+      "protection",
       "fire",
       "frost",
+      "ice",
       "storm",
+      "thunder",
       "shadow",
+      "dark",
       "holy",
+      "light",
       "space",
+      "void",
       "distortion",
+      "rift",
       "spirit",
-      "ascendant"
+      "soul",
+      "aether",
+      "ascendant",
+      "monarch",
+      "overlord"
     ],
     "prop": [
       "x",
@@ -658,6 +686,17 @@
       "burn",
       "drift",
       "side"
+    ],
+    "kind": [
+      "panel",
+      "row",
+      "column",
+      "text",
+      "button",
+      "bar",
+      "icon",
+      "image",
+      "scroll"
     ]
   },
   "op_docs": {

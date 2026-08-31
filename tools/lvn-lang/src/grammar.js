@@ -441,16 +441,30 @@ export const ATTR_VALUES = {
   ],
   "aura_style": [
     "basic",
+    "neutral",
+    "plain",
     "guard",
+    "ward",
+    "protection",
     "fire",
     "frost",
+    "ice",
     "storm",
+    "thunder",
     "shadow",
+    "dark",
     "holy",
+    "light",
     "space",
+    "void",
     "distortion",
+    "rift",
     "spirit",
-    "ascendant"
+    "soul",
+    "aether",
+    "ascendant",
+    "monarch",
+    "overlord"
   ],
   "prop": [
     "x",
@@ -491,6 +505,17 @@ export const ATTR_VALUES = {
     "burn",
     "drift",
     "side"
+  ],
+  "kind": [
+    "panel",
+    "row",
+    "column",
+    "text",
+    "button",
+    "bar",
+    "icon",
+    "image",
+    "scroll"
   ]
 };
 

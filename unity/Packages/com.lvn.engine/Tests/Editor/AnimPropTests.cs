@@ -25,6 +25,10 @@ namespace Lvn.Tests
             Assert.IsFalse(LvnAnimProp.IsKnown("opacity"), "правильное имя — alpha");
             Assert.IsFalse(LvnAnimProp.IsKnown("rot"), "правильное имя — rotation");
             Assert.IsFalse(LvnAnimProp.IsKnown("Alpha"), "имена свойств разбираются точно, регистр значим");
+            // Не выдумка: `scale_x` лежал в фикстуре компилятора этого же
+            // репозитория — описку никто не замечал, потому что замечать было
+            // нечем.
+            Assert.IsFalse(LvnAnimProp.IsKnown("scale_x"), "правильное имя — scalex, без подчёркивания");
         }
 
         [Test]
@@ -59,6 +63,35 @@ namespace Lvn.Tests
             // там, где его читают. Второй вызов обязан молчать.
             Assert.IsFalse(LvnAnimProp.Check(prop, "слой"));
             LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
+        public void МолчаниеЗапоминаетсяПоИмени_АНеНаВесьЗапуск()
+        {
+            // Замолкать нужно про ОДНО имя, а не про свойства вообще. Общая
+            // задвижка спрятала бы вторую описку автора за первой: он починил
+            // бы одну строку, а вторая осталась бы такой же немой — и лог,
+            // который он перечитывает, сказал бы, что всё в порядке.
+            var первое = "промах_а_" + System.Guid.NewGuid().ToString("N").Substring(0, 8);
+            var второе = "промах_б_" + System.Guid.NewGuid().ToString("N").Substring(0, 8);
+
+            LogAssert.Expect(LogType.Warning, new Regex(Regex.Escape(первое)));
+            LvnAnimProp.Check(первое);
+
+            LogAssert.Expect(LogType.Warning, new Regex(Regex.Escape(второе)));
+            LvnAnimProp.Check(второе);
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
+        public void ЖалобаНазываетСлойЧтобыБылоГдеИскать()
+        {
+            // «Свойство неизвестно» без адреса — это «ищи по всей главе».
+            // Слой называют, потому что у куклы треков десятки и промах в
+            // одном из них иначе не найти.
+            var prop = "промах_слоя_" + System.Guid.NewGuid().ToString("N").Substring(0, 8);
+            LogAssert.Expect(LogType.Warning, new Regex("волосы"));
+            LvnAnimProp.Check(prop, "волосы");
         }
 
         [Test]

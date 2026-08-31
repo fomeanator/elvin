@@ -189,7 +189,7 @@ var EnumValues = map[string]map[string][]string{
 	"particles": {"type": {"rain", "snow"}},
 	"audio":     {"channel": {"music", "ambient", "sfx"}, "action": {"play", "stop"}},
 	"camera":    {"action": {"shake", "zoom", "pan", "reset"}},
-	"sfx":       {"aura_style": {"basic", "guard", "fire", "frost", "storm", "shadow", "holy", "space", "distortion", "spirit", "ascendant"}},
+	"sfx":       {"aura_style": AuraStyles},
 	// Словарь мест — один (Placement.SlotNames в движке, enums.actor.position
 	// в грамматике). center_left/center_right движок знал, а здесь их не было:
 	// валидатор ругался на место, которое рантайм понимает.
@@ -205,6 +205,36 @@ var EnumValues = map[string]map[string][]string{
 	"obj": {"enter": ActorTransitions, "exit": ActorTransitions},
 	"ui": {"layer": {"hud", "over"}, "when": {"always", "idle", "say", "choice"},
 		"appear": {"fade", "rise", "pop", "slide_up", "slide_down", "slide_left", "slide_right", "drop", "unfold"}},
+}
+
+// UiNodeKinds — из чего собирают дерево `ui`. Словарь знал только рантайм, и
+// неизвестный вид не давал ошибки: LvnUiLayer падал в `default` и делал ПУСТУЮ
+// ПАНЕЛЬ. Опечатка «buton» превращала кнопку в невидимый прямоугольник —
+// экран собирался, кнопки на нём не было, и в логе ни строчки.
+//
+// `panel`, `row` и `column` живут в том же `default` намеренно (это и есть
+// контейнер), поэтому их не отличить по коду — они перечислены здесь.
+var UiNodeKinds = []string{
+	"panel", "row", "column",
+	"text", "button", "bar", "icon", "image", "scroll",
+}
+
+// AuraStyles — стили ауры, ВМЕСТЕ С СИНОНИМАМИ. Синонимы знал только рантайм,
+// и валидатор ругался на законное слово: `aura_style=ice` получал «is not a
+// known value» да ещё и совет «may be fire?» — прямо противоположную стихию.
+// Ложная тревога дороже молчания: автор идёт править работающий код.
+var AuraStyles = []string{
+	"basic", "neutral", "plain",
+	"guard", "ward", "protection",
+	"fire",
+	"frost", "ice",
+	"storm", "thunder",
+	"shadow", "dark",
+	"holy", "light",
+	"space", "void",
+	"distortion", "rift",
+	"spirit", "soul", "aether",
+	"ascendant", "monarch", "overlord",
 }
 
 // ActorTransitions — как фигура входит и уходит. Пустое значение законно:
@@ -532,6 +562,33 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 				}
 			}
 		}
+		// ВИД УЗЛА ДЕРЕВА `ui` — тоже закрытый словарь рантайма. Неизвестный
+		// вид становится пустой панелью: экран собирается, кнопки на нём нет,
+		// в логе ни строчки.
+		if op == "ui" {
+			var walk func(any, int)
+			walk = func(n any, depth int) {
+				node, ok := n.(map[string]any)
+				if !ok || depth > 16 {
+					return
+				}
+				if kind, _ := node["kind"].(string); kind != "" && !inSet(UiNodeKinds, kind) {
+					msg := fmt.Sprintf("узел kind=%q — такого вида нет, будет пустая панель (есть: %s)",
+						kind, strings.Join(UiNodeKinds, ", "))
+					if sg := suggest(kind, UiNodeKinds); sg != "" {
+						msg += fmt.Sprintf(" — может быть %q?", sg)
+					}
+					addWarn(i, op, msg)
+				}
+				if kids, ok := node["children"].([]any); ok {
+					for _, k := range kids {
+						walk(k, depth+1)
+					}
+				}
+			}
+			walk(c["tree"], 0)
+		}
+
 		// СВОЙСТВО ТРЕКА — закрытый словарь, и знал его только рантайм.
 		// Компилятор `prop=` не смотрел вовсе, валидатор тоже, а грамматика
 		// его даже не подсказывала: автор писал естественное «opacity» вместо
