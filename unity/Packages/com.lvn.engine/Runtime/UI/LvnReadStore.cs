@@ -15,7 +15,7 @@ namespace Lvn.UI
     /// </summary>
     public static class LvnReadStore
     {
-        private static string Key(string titleId) => $"lvn.read.{titleId ?? "default"}";
+        private static string Key(string titleId) => LvnKeep.Scoped("lvn.read.", titleId);
 
         // One live set per title; loaded lazily, written back coalesced.
         private static readonly Dictionary<string, HashSet<ulong>> _cache

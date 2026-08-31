@@ -37,7 +37,7 @@ namespace Lvn.UI
         public const string AutoSlot = "auto";
 
         private static string Key(string titleId) =>
-            "lvn_slots_" + (string.IsNullOrEmpty(titleId) ? "default" : titleId);
+            LvnKeep.Scoped("lvn_slots_", titleId);
 
         // ── thumbnails ───────────────────────────────────────────────────────
         // A small scene screenshot per manual slot, stored as a PNG FILE (images

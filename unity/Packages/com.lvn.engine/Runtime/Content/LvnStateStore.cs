@@ -32,7 +32,7 @@ namespace Lvn.Content
     /// </summary>
     public sealed class LocalStateStore : ILvnStateStore
     {
-        internal static string Key(string titleId) => "lvn_state_" + (titleId ?? "");
+        internal static string Key(string titleId) => Lvn.LvnKeep.Scoped("lvn_state_", titleId);
 
         /// <summary>Забыть переменные новеллы вместе с базой синхронизации.
         /// База уходит обязательно: оставшись, она объявила бы стёртые значения
@@ -91,7 +91,7 @@ namespace Lvn.Content
         // server" — those keys win over the server's copy in a conflict; keys we
         // didn't touch take the other device's values.
 
-        internal static string BaseKey(string titleId) => "lvn_state_base_" + (titleId ?? "");
+        internal static string BaseKey(string titleId) => Lvn.LvnKeep.Scoped("lvn_state_base_", titleId);
 
         internal static JObject ReadBase(string titleId)
         {
