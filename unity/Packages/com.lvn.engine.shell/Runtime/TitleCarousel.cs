@@ -32,7 +32,6 @@ namespace Lvn.UI.Screens
         // три шанса разойтись. Считается один раз, из темы.
         private readonly Color _playBg;
 
-        private static Color WithAlpha(Color c, float a) => new Color(c.r, c.g, c.b, a);
 
         private readonly float _cardWFrac, _cardHFrac, _gapFrac;
         private float _stride = 1f;
@@ -69,7 +68,7 @@ namespace Lvn.UI.Screens
             // Неактивная точка: цвет темы, но исходная яркость. Track (13%)
             // для индикатора страницы слишком тускл — дорожка полосы и
             // точка решают разные задачи.
-            _dotColor = UiColor.Named(_cfg.dot_color, WithAlpha(LvnTokens.Text, 0.33f));
+            _dotColor = UiColor.Named(_cfg.dot_color, UiColor.WithAlpha(LvnTokens.Text, 0.33f));
             _dotActiveColor = UiColor.Named(_cfg.dot_active_color, LvnTokens.Text);
 
             ScreenUi.Stretch(this);

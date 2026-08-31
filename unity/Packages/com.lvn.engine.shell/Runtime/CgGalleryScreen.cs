@@ -56,11 +56,9 @@ namespace Lvn.UI.Screens
             // галерея честнее выдуманной и не шумит в сеть.
 
             ScreenUi.Stretch(this);
-            style.backgroundColor = LvnTokens.Scrim;
+            Lvn.UI.LvnChrome.Scrim(this, Close);
             style.opacity = 0f;
             style.display = DisplayStyle.None;
-            // tap the scrim (not the sheet) to close
-            RegisterCallback<ClickEvent>(evt => { if (evt.target == this) Close(); });
 
             // СВОЙ ЛИСТ, а не общий Sheet(): галерея — единственный накладной
             // экран, не наследующий LvnOverlayScreen, и базы у неё нет. Перевод
@@ -127,8 +125,10 @@ namespace Lvn.UI.Screens
 
             _viewerImage = new VisualElement { pickingMode = PickingMode.Ignore };
             _viewerImage.style.position = Position.Absolute;
-            _viewerImage.style.left = Length.Percent(8f);
-            _viewerImage.style.right = Length.Percent(8f);
+            // Поля те же, что у панелей, а поведение своё: картинка НЕ ловит
+            // тапы (pickingMode Ignore) — закрывать её должен фон под ней.
+            _viewerImage.style.left = Length.Percent(Lvn.UI.LvnChrome.SheetSidePercent);
+            _viewerImage.style.right = Length.Percent(Lvn.UI.LvnChrome.SheetSidePercent);
             _viewerImage.style.top = Length.Percent(10f);
             _viewerImage.style.bottom = Length.Percent(14f);
             LvnPicture.Fit(_viewerImage, cover: false);

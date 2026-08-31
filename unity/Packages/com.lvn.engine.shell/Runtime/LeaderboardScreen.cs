@@ -62,9 +62,8 @@ namespace Lvn.UI.Screens
             _assets = assets;
             Entries = DemoEntries();
 
-            style.backgroundColor = LvnTokens.Scrim;
+            Lvn.UI.LvnChrome.Scrim(this, Close);
             // tap the scrim (not the sheet) to close
-            RegisterCallback<ClickEvent>(evt => { if (evt.target == this) Close(); });
 
             var sheet = Sheet();   // положение и вид — общие; поля свои
             sheet.style.paddingTop = 20;

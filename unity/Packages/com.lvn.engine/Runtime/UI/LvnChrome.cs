@@ -29,6 +29,84 @@ namespace Lvn.UI
         /// Тринадцать копий одной строки означают тринадцать мест, куда надо
         /// зайти, чтобы поменять огранку темы, и одно из них всегда забывают.
         /// </summary>
+        /// <summary>Мягкость кромки карточки. Число стояло восемью копиями —
+        /// одинаковое, но безымянное, и «чуть светлее» пришлось бы править
+        /// восемь раз, надеясь не пропустить девятую.</summary>
+        public const float CardBorderStrength = 0.64f;
+
+        /// <summary>
+        /// КАРТОЧКА — поверхность, мягкая кромка, скруглённый угол. Три
+        /// действия, которые в оболочке всегда идут вместе: строка профиля,
+        /// плитка достижения, пак в магазине, ряд настроек.
+        ///
+        /// <para>Фон и радиус остаются доводкой вызывающего (выделенный пак
+        /// светлее, крупная карточка круглее) — но по умолчанию берутся у
+        /// темы, и тогда карточка везде одна и та же.</para>
+        /// </summary>
+        public static T Card<T>(T el, Color? bg = null, float? radius = null) where T : VisualElement
+        {
+            if (el == null) return el;
+            el.style.backgroundColor = bg ?? LvnTokens.Surface;
+            BorderSoft(el, CardBorderStrength);
+            Round(el, radius ?? LvnTokens.RadiusSm);
+            return el;
+        }
+
+        /// <summary>
+        /// ЗАТЕМНЕНИЕ, ПО КОТОРОМУ ЗАКРЫВАЮТ, — вторая половина всплывающего
+        /// листа: фон под ним и правило «тап мимо листа закрывает».
+        ///
+        /// <para>Правило было написано семью экранами и ДВУМЯ РАЗНЫМИ
+        /// событиями: четыре закрывались по клику (нажал и отпустил на
+        /// затемнении), два — по нажатию, то есть в момент касания. Разница
+        /// видна пальцем: с нажатием случайный промах при перетаскивании
+        /// закрывает панель, не дав отвести палец обратно. Правильное здесь —
+        /// клик: закрывает намеренный тап, а не всякое касание.</para>
+        ///
+        /// <para>Тап ВНУТРИ листа сюда не доходит — за это отвечает
+        /// <see cref="Sheet{T}"/>, ставящий на панель заслон.</para>
+        /// </summary>
+        public static T Scrim<T>(T root, System.Action onDismiss, Color? color = null) where T : VisualElement
+        {
+            if (root == null) return root;
+            root.style.backgroundColor = color ?? LvnTokens.Scrim;
+            if (onDismiss != null)
+                root.RegisterCallback<ClickEvent>(e => { if (e.target == root) onDismiss(); });
+            return root;
+        }
+
+        /// <summary>Отступ всплывающей панели от боков экрана — доля ширины.
+        /// Число было написано пятью экранами по отдельности, причём двумя
+        /// записями сразу (<c>Percent(8f)</c> и <c>Percent(8)</c>): менять
+        /// «поля приложения» пришлось бы искать глазами.</summary>
+        public const float SheetSidePercent = 8f;
+
+        /// <summary>
+        /// ЛИСТ ПОВЕРХ СЦЕНЫ — общая часть всякой всплывающей панели: она
+        /// лежит абсолютно, отступает от боков на <see cref="SheetSidePercent"/>
+        /// и НЕ ПРОПУСКАЕТ тап внутрь себя дальше — иначе нажатие на панель
+        /// закрывает её же, потому что затемнение под ней слушает то же
+        /// событие.
+        ///
+        /// <para>Высоту (сверху, снизу, потолок) и поля лист выбирает сам:
+        /// у списка сохранений и у формы входа они разные по смыслу, и сводить
+        /// их значило бы придумывать общее там, где его нет.</para>
+        ///
+        /// <para>Отступ бывает ДВУХ ЗАМЫСЛОВ, и оба живут через этот примитив:
+        /// всплывающая панель отступает на 8% (<see cref="SheetSidePercent"/>),
+        /// а лист накладного ЭКРАНА — на 5%, потому что он и есть почти весь
+        /// экран. Два числа — два замысла; две РЕАЛИЗАЦИИ были лишними.</para>
+        /// </summary>
+        public static T Sheet<T>(T el, float sidePercent = SheetSidePercent) where T : VisualElement
+        {
+            if (el == null) return el;
+            el.style.position = Position.Absolute;
+            el.style.left = Length.Percent(sidePercent);
+            el.style.right = Length.Percent(sidePercent);
+            el.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
+            return el;
+        }
+
         public static void Round(VisualElement el, float r)
         {
             if (el == null) return;

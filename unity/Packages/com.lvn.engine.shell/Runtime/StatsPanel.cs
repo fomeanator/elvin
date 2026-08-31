@@ -27,21 +27,16 @@ namespace Lvn.UI.Screens
             doc.sortingOrder = 50; // above the shell (30), below boot-time overlays
             var root = doc.rootVisualElement;
             root.style.flexGrow = 1;
-            root.style.backgroundColor = LvnTokens.Scrim;
+            Lvn.UI.LvnChrome.Scrim(root, Hide);
             root.pickingMode = PickingMode.Position;
-            root.RegisterCallback<PointerDownEvent>(e => { if (e.target == root) Hide(); });
 
-            var panel = new VisualElement();
-            panel.style.position = Position.Absolute;
-            panel.style.left = Length.Percent(8f);
-            panel.style.right = Length.Percent(8f);
+            var panel = LvnChrome.Sheet(new VisualElement());
             panel.style.top = Length.Percent(14f);
             panel.style.maxHeight = Length.Percent(72f);
             panel.style.backgroundColor = LvnTokens.PanelBg;
             panel.style.paddingTop = 22; panel.style.paddingBottom = 18;
             panel.style.paddingLeft = 22; panel.style.paddingRight = 22;
             LvnChrome.Round(panel, LvnTokens.RadiusSm + 4f);
-            panel.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             root.Add(panel);
 
             panel.Add(ScreenUi.SectionHeader(() => LvnWords.Of("stats.title", "Your stats")));

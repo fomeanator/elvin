@@ -296,3 +296,88 @@ func TestAuthoredCaptionsGoThroughWords(t *testing.T) {
 			len(found), strings.Join(found, "\n  "))
 	}
 }
+
+// ЗАКРЫТИЕ ТАПОМ МИМО ЛИСТА — ОДНО ПРАВИЛО НА ВСЕХ.
+//
+// «Тап мимо панели закрывает» было написано семью экранами и двумя разными
+// событиями: четыре по клику (нажал и отпустил на затемнении), два по нажатию
+// — то есть в момент касания. Разница видна пальцем: с нажатием случайный
+// промах при перетаскивании закрывает панель, не дав отвести палец обратно.
+//
+// Признак возврата: экран сам сравнивает цель события с собой и закрывается.
+func TestDismissByTapHasOneRule(t *testing.T) {
+	root := repoRoot(t)
+	const home = "LvnChrome.cs"
+	dismiss := regexp.MustCompile(`\.target\s*==\s*\w+.*\b(Close|Hide|Dismiss)\s*\(`)
+
+	var found []string
+	scanned := 0
+	for _, rel := range storageRoots {
+		_ = filepath.Walk(filepath.Join(root, rel), func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+				return nil
+			}
+			slash := filepath.ToSlash(path)
+			if strings.HasSuffix(slash, home) || strings.Contains(slash, "/Tests/") {
+				return nil
+			}
+			scanned++
+			for i, line := range strings.Split(stripComments(string(mustRead(t, path))), "\n") {
+				if dismiss.MatchString(line) {
+					found = append(found, fmt.Sprintf("%s:%d", filepath.Base(path), i+1))
+				}
+			}
+			return nil
+		})
+	}
+	atLeast(t, scanned, 100, "просмотренных файлов")
+	if len(found) > 0 {
+		t.Errorf("экран закрывает себя сам по тапу мимо (%d):\n  %s\n\n"+
+			"Правило живёт в LvnChrome.Scrim(корень, закрыть): иначе у экранов "+
+			"снова разойдётся событие — клик против нажатия.",
+			len(found), strings.Join(found, "\n  "))
+	}
+}
+
+// ХРАПОВИК РАДИУСА: числу скругления, вписанному на месте, позволено только
+// убывать.
+//
+// Соседний страж (TestFullRoundingGoesThroughChrome) добился, чтобы скругление
+// шло через Рамочника, и там же сказано зачем: «скругление у панели, кнопки и
+// карточки обязано меняться ОДНИМ движением — темой; место, вписавшее 12
+// руками, из темы выпадает молча». Через дом оно теперь идёт — а ЧИСЛО
+// по-прежнему вписывают: пятьдесят два места и четырнадцать разных значений
+// (3, 4, 5, 6, 8, 10, 12, 14, 16, 18, 22, 28…), между которыми глазом нет
+// разницы, а темой их не подвинуть.
+//
+// Свести разом нельзя — это меняет вид, а вид согласован отдельно
+// (docs/visual-standards.md). Поэтому страж не требует чистоты: он не даёт
+// стать хуже. Порог опускается по мере сведения; поднимать его нельзя.
+func TestRadiusComesFromTheThemeOrShrinks(t *testing.T) {
+	const budget = 53 // числовых радиусов на 01.09.2026; только вниз
+
+	root := repoRoot(t)
+	numeric := regexp.MustCompile(`Round\(\s*[\w.]+\s*,\s*\d`)
+
+	count, scanned := 0, 0
+	for _, rel := range storageRoots {
+		_ = filepath.Walk(filepath.Join(root, rel), func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+				return nil
+			}
+			if strings.Contains(filepath.ToSlash(path), "/Tests/") {
+				return nil
+			}
+			scanned++
+			count += len(numeric.FindAllString(stripComments(string(mustRead(t, path))), -1))
+			return nil
+		})
+	}
+	atLeast(t, scanned, 100, "просмотренных файлов")
+	if count > budget {
+		t.Errorf("радиусов, вписанных числом, стало %d при пороге %d.\n\n"+
+			"Возьмите LvnTokens.Radius / RadiusSm — или добавьте ступень в тему "+
+			"осознанно, но не заводите ещё одно число «на глаз»: темой его потом не подвинуть.",
+			count, budget)
+	}
+}

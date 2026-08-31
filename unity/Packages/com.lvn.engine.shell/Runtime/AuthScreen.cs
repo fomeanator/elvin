@@ -58,10 +58,7 @@ namespace Lvn.UI.Screens
             Add(logo);
 
             // ── bottom panel: title, subtitle, (nickname), start, status ──
-            var panel = new VisualElement();
-            panel.style.position = Position.Absolute;
-            panel.style.left = Length.Percent(8f);
-            panel.style.right = Length.Percent(8f);
+            var panel = Lvn.UI.LvnChrome.Sheet(new VisualElement());
             panel.style.bottom = Length.Percent(7f);
             panel.style.paddingTop = 26;
             panel.style.paddingBottom = 22;

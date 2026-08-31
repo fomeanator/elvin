@@ -412,9 +412,7 @@ namespace Lvn.UI.Screens
             var card = new VisualElement();
             card.style.width = Length.Percent(wide ? 100f : 48.5f);
             card.style.marginBottom = 14;
-            card.style.backgroundColor = pack.Best ? LvnTokens.SurfaceHi : LvnTokens.Surface;
-            LvnChrome.Round(card, LvnTokens.Radius);
-            LvnChrome.BorderSoft(card, 0.64f);
+            LvnChrome.Card(card, pack.Best ? LvnTokens.SurfaceHi : LvnTokens.Surface, LvnTokens.Radius);
             card.style.overflow = Overflow.Hidden;
             if (pack.Best)
             {

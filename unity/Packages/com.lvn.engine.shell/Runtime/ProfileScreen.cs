@@ -191,9 +191,7 @@ namespace Lvn.UI.Screens
             var row = new VisualElement();
             row.style.flexDirection = FlexDirection.Row;
             row.style.alignItems = Align.Center;
-            row.style.backgroundColor = LvnTokens.Surface;
-            LvnChrome.BorderSoft(row, 0.64f);
-            LvnChrome.Round(row, LvnTokens.RadiusSm);
+            LvnChrome.Card(row);
             row.style.marginBottom = 10;
             row.style.paddingTop = 14; row.style.paddingBottom = 14;
             row.style.paddingLeft = 16; row.style.paddingRight = 16;
@@ -212,9 +210,7 @@ namespace Lvn.UI.Screens
         private VisualElement HintCard(string text)
         {
             var card = new VisualElement();
-            card.style.backgroundColor = new Color(LvnTokens.Surface.r, LvnTokens.Surface.g, LvnTokens.Surface.b, 0.88f);
-            LvnChrome.BorderSoft(card, 0.64f);
-            LvnChrome.Round(card, LvnTokens.RadiusSm);
+            LvnChrome.Card(card, LvnTokens.SurfaceSoft);
             card.style.paddingTop = 16; card.style.paddingBottom = 16;
             card.style.paddingLeft = 16; card.style.paddingRight = 16;
             card.style.marginBottom = 10;
@@ -232,9 +228,7 @@ namespace Lvn.UI.Screens
         {
             var card = new VisualElement();
             card.style.flexDirection = FlexDirection.Column;
-            card.style.backgroundColor = LvnTokens.SurfaceHi;
-            LvnChrome.Round(card, LvnTokens.Radius + 2f);
-            LvnChrome.BorderSoft(card, 0.64f);
+            LvnChrome.Card(card, LvnTokens.SurfaceHi, LvnTokens.Radius + 2f);
             card.style.paddingTop = 18;
             card.style.paddingBottom = 18;
             card.style.paddingLeft = 18;
@@ -345,9 +339,7 @@ namespace Lvn.UI.Screens
             tile.style.marginBottom = 10;
             tile.style.marginRight = 8;
             tile.style.alignItems = Align.Center;
-            tile.style.backgroundColor = LvnTokens.Surface;
-            LvnChrome.BorderSoft(tile, 0.64f);
-            LvnChrome.Round(tile, LvnTokens.RadiusSm);
+            LvnChrome.Card(tile);
             tile.style.paddingTop = 16;
             tile.style.paddingBottom = 16;
             tile.style.paddingLeft = 8;
@@ -429,9 +421,7 @@ namespace Lvn.UI.Screens
         private VisualElement RelationRow(Relation r)
         {
             var row = new VisualElement();
-            row.style.backgroundColor = LvnTokens.Surface;
-            LvnChrome.BorderSoft(row, 0.64f);
-            LvnChrome.Round(row, LvnTokens.RadiusSm);
+            LvnChrome.Card(row);
             row.style.paddingTop = 14;
             row.style.paddingBottom = 14;
             row.style.paddingLeft = 16;

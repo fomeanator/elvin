@@ -201,12 +201,10 @@ namespace Lvn.UI
             // Full-screen scrim: swallows every tap; tapping empty space closes.
             _scrim = new VisualElement();
             LvnChrome.Stretch(_scrim);
-            _scrim.style.backgroundColor = _theme.MenuScrimColor;
-            _scrim.RegisterCallback<PointerDownEvent>(e =>
-            {
-                e.StopPropagation();
-                if (e.target == _scrim) Close();
-            });
+            LvnChrome.Scrim(_scrim, Close, _theme.MenuScrimColor);
+            // Заслон остаётся: нажатие не должно проваливаться на сцену под
+            // меню — иначе тап по затемнению ещё и листает реплику.
+            _scrim.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             Add(_scrim);
 
             if (_pendingPane == "history") { _pendingPane = null; ShowHistory(); }
@@ -253,15 +251,12 @@ namespace Lvn.UI
         {
             DestroyThumbs();
             _scrim.Clear();
-            var p = new VisualElement();
-            p.style.position = Position.Absolute;
-            p.style.left = Length.Percent(8); p.style.right = Length.Percent(8);
+            var p = LvnChrome.Sheet(new VisualElement());
             p.style.top = Length.Percent(12); p.style.bottom = Length.Percent(12);
             p.style.backgroundColor = _theme.MenuBgColor;
             p.style.paddingLeft = 18; p.style.paddingRight = 18;
             p.style.paddingTop = 14; p.style.paddingBottom = 14;
             LvnChrome.Round(p, _theme.MenuCornerRadius + 2f);
-            p.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             _scrim.Add(p);
 
             var head = new VisualElement();
