@@ -59,7 +59,7 @@ namespace Lvn.UI
                 Skipping = false; // something needs the player — gear down
                 return;
             }
-            if (InputBlocked || _chromeHidden || _awaitingWait || _awaitingInput) return; // paused, not cancelled
+            if (InputBlocked || _chromeHidden || StageBusy) return; // paused, not cancelled
             if (_dialogue != null && _dialogue.IsRevealing) { _dialogue.Complete(); return; }
             if (_awaitingTap)
             {
@@ -91,6 +91,30 @@ namespace Lvn.UI
             set => _inputBlockedFlag = value;
         }
         private bool _inputBlockedFlag;
+
+        /// <summary>
+        /// СЦЕНА ЗАНЯТА САМА СОБОЙ — идёт `wait` или открыта форма ввода.
+        ///
+        /// <para>Ни листание, ни авточтение в это время работать не должны:
+        /// они бы проскочили паузу, которую поставил автор, и съели строку,
+        /// которую игрок ещё печатает.</para>
+        ///
+        /// <para>Пара флагов складывалась в четырёх местах, и в каждом чуть
+        /// по-своему. Пока их складывают руками, «а этот случай тоже сюда?» —
+        /// вопрос, который каждый раз решают заново.</para>
+        /// </summary>
+        private bool StageBusy => _awaitingWait || _awaitingInput;
+
+        /// <summary>
+        /// ТАП СЕЙЧАС НЕ НАШ — его забирает не продвижение истории.
+        ///
+        /// <para>Форма ввода забирает касание целиком. `wait` его глотает — НО
+        /// НЕ НА ЭКРАНЕ С ГОРЯЧИМИ ТОЧКАМИ: там щелчок обязан дойти до точки и
+        /// снять таймер, иначе поиск предмета замирает навсегда. Оговорку
+        /// помнили в двух местах из двух — но записана она была дважды, и
+        /// второй раз комментарием «то же, что выше».</para>
+        /// </summary>
+        private bool TapNotOurs => _awaitingInput || (_awaitingWait && _hotspots.Count == 0);
 
         /// <summary>«Не принимать ввод до этого момента» — обычный барьер, и
         /// держит его Хронометрист, как все прочие сроки сцены.</summary>
@@ -145,7 +169,7 @@ namespace Lvn.UI
         {
             if (!LvnPrefs.AutoAdvance || InputBlocked || _chromeHidden
                 || !Playing || _player.AtChoice
-                || !_awaitingTap || _awaitingWait || _awaitingInput
+                || !_awaitingTap || StageBusy
                 || EntryGatePending
                 || _dialogue == null || _dialogue.IsRevealing)
             {

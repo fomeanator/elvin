@@ -95,10 +95,7 @@ namespace Lvn.UI
             if (PanelPeeking) { SetPanelPeek(false); evt.StopPropagation(); return; }
             if (InputBlocked) return; // an overlay (quick menu) owns the screen
             if (!Playing) return;
-            if (_awaitingInput) return;
-            // A `wait` swallows input — EXCEPT on a timed hotspot screen (icons +
-            // wait), where the click must reach the hotspot and cancel the timer.
-            if (_awaitingWait && _hotspots.Count == 0) return;
+            if (TapNotOurs) return;   // форма ввода или `wait` (см. оговорку про точки)
             if (evt.target is Button) return; // buttons (choices etc.) own their press
 
             _pressTracking = true;
@@ -196,10 +193,11 @@ namespace Lvn.UI
             if (InputBlocked) { LogSwallow("InputBlocked (панель/окно держит ввод)"); return; }
             if (EntryGatePending) { LogSwallow("EntryGatePending (карточка главы)"); return; }
             if (!Playing) return;
-            if (_awaitingInput) { LogSwallow("awaitingInput (форма ввода)"); return; }
-            // Same exception as OnPointerDown: a timed hotspot screen stays
-            // clickable through the wait.
-            if (_awaitingWait && _hotspots.Count == 0) { LogSwallow("awaitingWait (оп wait ещё идёт)"); return; }
+            if (TapNotOurs)
+            {
+                LogSwallow(_awaitingInput ? "awaitingInput (форма ввода)" : "awaitingWait (оп wait ещё идёт)");
+                return;
+            }
 
             // Canvas-scene hotspots: there's no uGUI raycaster, so a tap is routed
             // here. Test it against each obj's normalized placement rect (top-left
