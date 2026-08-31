@@ -20,7 +20,7 @@ namespace Lvn.UI.Screens
     /// slot, a ◀ item name ▶ carousel, one big confirm with the total price.
     /// Opened by <c>ext wardrobe_show char=id</c> (the story holds meanwhile).
     /// </summary>
-    public sealed partial class WardrobeSheet : VisualElement, Lvn.UI.ILvnRedress
+    public sealed partial class WardrobeSheet : VisualElement, Lvn.UI.ILvnRedress, ILvnHides
     {
         private readonly WardrobeConfig _cfg;
         private readonly DialogueConfig _dlg;

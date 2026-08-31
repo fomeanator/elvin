@@ -131,23 +131,44 @@ namespace Lvn.UI.Screens
             Hub?.SetActiveTab(0, instant: true);
         }
 
+        // ── НАБОР ЭКРАНОВ ВЕДЁТ СЕБЯ САМ ──
+        // Перечень был написан от руки в ShowOnly, и дописать туда новый экран
+        // забывали: таблица лидеров, экран конца главы и гардеробная вкладка в
+        // него так и не попали. Держался он на втором ручном перечне — на том,
+        // что каждый экран ещё и прячут поимённо сразу после создания. Два
+        // списка одного набора, и оба надо было не забыть. Механизм уехал в
+        // LvnScreenSet, здесь остался вопрос «что чем является».
+        private readonly LvnScreenSet _screens = new LvnScreenSet();
+
+        /// <summary>Внести ЭКРАН: в дерево и в набор. Он поднимается скрытым —
+        /// показывает его тот, кто его открывает.</summary>
         private void Add(VisualElement el)
         {
+            if (el == null) return;
+            LvnChrome.Stretch(el);
+            _root.Add(el);
+            _screens.Add(el);
+        }
+
+        /// <summary>Внести ОСНАСТКУ — верхний бар и кружок загрузок. Она живёт
+        /// ПОВЕРХ любого экрана и переживает «убрать всё»: бар — единый верх
+        /// приложения, кружок показывает качанное из любого места, даже из-под
+        /// алерта (живой репорт «закрыл — и остановилось»).</summary>
+        private void AddChrome(VisualElement el)
+        {
+            if (el == null) return;
             LvnChrome.Stretch(el);
             _root.Add(el);
         }
 
-        private void ShowOnly()
-        {
-            Hide(Boot); Hide(Carousel); Hide(Hub); Hide(Loading); Hide(Title); Hide(Hud);
-            Auth?.Hide();
-            Settings?.Hide();
-            Detail?.Hide(); Gallery?.Hide(); Profile?.Hide(); Daily?.Hide();
-            SkinShop?.Hide(); PackShop?.Hide(); PackShopModal?.Hide();
-        }
+        /// <summary>Убрать все экраны — приложение поднимается на чистом.</summary>
+        private void ShowOnly() => _screens.HideAll();
 
         private static void Show(VisualElement el) { if (el != null) el.style.display = DisplayStyle.Flex; }
 
-        private static void Hide(VisualElement el) { if (el != null) el.style.display = DisplayStyle.None; }
+        /// <summary>Убрать один экран — тем же правилом, что и весь набор:
+        /// у кого уход свой, тот уходит сам. Раньше это решалось на глаз в
+        /// месте вызова, и заставка гасла, не вернув себе непрозрачность.</summary>
+        private static void Hide(VisualElement el) => LvnScreenSet.Shut(el);
     }
 }

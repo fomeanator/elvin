@@ -18,7 +18,7 @@ namespace Lvn.UI.Screens
     /// Mirrors <see cref="StoreScreen"/>'s overlay contract: a TCS-gated
     /// <see cref="ShowAsync"/> that fades in, parks until Close, then fades out.
     /// </summary>
-    public sealed class CgGalleryScreen : VisualElement, Lvn.UI.ILvnRedress
+    public sealed class CgGalleryScreen : VisualElement, Lvn.UI.ILvnRedress, ILvnHides
     {
         /// <summary>One gallery entry: its art url, a caption, and whether the player
         /// has unlocked it. Locked entries never reveal the image.</summary>

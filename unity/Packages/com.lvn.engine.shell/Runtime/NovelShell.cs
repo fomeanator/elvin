@@ -287,18 +287,18 @@ namespace Lvn.UI.Screens
             // оболочки (песочница, демо) не переодевалась вовсе.
             Lvn.UI.LvnRedress.Register(_root);
 
-            Boot = new BootScreen(ui.boot, assets); Boot.Hide(); Add(Boot);
+            Boot = new BootScreen(ui.boot, assets); Add(Boot);
             // Единая атмосфера меню (решение Ильи 26.08): ОДИН живой
             // параллакс-фон под всеми экранами оболочки. Создаётся после
             // хаба (он выбирает тему), встаёт ПЕРВЫМ ребёнком корня; в игре
             // прячется — сцена живёт в документе ПОД оболочкой.
-            Carousel = new TitleCarousel(_manifest.titles, ui.carousel, assets); Hide(Carousel); Add(Carousel);
+            Carousel = new TitleCarousel(_manifest.titles, ui.carousel, assets); Add(Carousel);
             Hub = new BrowseHub(ui.browse, assets); Hub.SetData(_manifest.collections, _manifest.titles);
-            Hide(Hub); Add(Hub);
+            Add(Hub);
             BuildAtmosphere();
-            Loading = new LoadingScreen(ui.loading, assets); Loading.Hide(); Add(Loading);
-            Title = new TitleCard(ui.title, assets); Title.Hide(); Add(Title);
-            Hud = new GameHud(ui.hud, assets); Hide(Hud); Add(Hud);
+            Loading = new LoadingScreen(ui.loading, assets); Add(Loading);
+            Title = new TitleCard(ui.title, assets); Add(Title);
+            Hud = new GameHud(ui.hud, assets); Add(Hud);
             HudChoicesOnly = string.Equals(ui.hud?.mode, "choices", System.StringComparison.OrdinalIgnoreCase);
             // Between-chapters screen: opt-in via manifest ui.chapter_end (absent
             // → chapters flow seamlessly, the historical behaviour).
@@ -315,22 +315,22 @@ namespace Lvn.UI.Screens
             // below settings in z-order, so we must hide settings first).
             if (Auth != null)
                 Settings.OnSignIn = async () => { Settings.Hide(); await Auth.AskAsync(); };
-            Settings.Hide(); Add(Settings);
-            Detail = new TitleDetailScreen(assets); Detail.Hide(); Add(Detail);
-            Gallery = new CgGalleryScreen(assets); Gallery.Hide(); Add(Gallery);
-            Profile = new ProfileScreen(assets); Profile.Hide(); Add(Profile);
-            Daily = new DailyRewardsScreen(assets); Daily.Hide(); Add(Daily);
-            Leaderboard = new LeaderboardScreen(assets); Leaderboard.Hide(); Add(Leaderboard);
-            SkinShop = new SkinShopScreen(assets); SkinShop.Hide(); Add(SkinShop);
-            PackShop = new PackShopScreen(assets); PackShop.Hide(); Add(PackShop);
-            PackShopModal = new PackShopScreen(assets, modal: true); PackShopModal.Hide(); Add(PackShopModal);
+            Add(Settings);
+            Detail = new TitleDetailScreen(assets); Add(Detail);
+            Gallery = new CgGalleryScreen(assets); Add(Gallery);
+            Profile = new ProfileScreen(assets); Add(Profile);
+            Daily = new DailyRewardsScreen(assets); Add(Daily);
+            Leaderboard = new LeaderboardScreen(assets); Add(Leaderboard);
+            SkinShop = new SkinShopScreen(assets); Add(SkinShop);
+            PackShop = new PackShopScreen(assets); Add(PackShop);
+            PackShopModal = new PackShopScreen(assets, modal: true); Add(PackShopModal);
             // Какую площадку показывать «бесплатной» карточкой — решает игра
             // (ui.store.ad_placement): движок не выбирает за неё, чем торговать.
             PackShop.AdPlacement = ui.store?.ad_placement;
             PackShopModal.AdPlacement = ui.store?.ad_placement;
             // The popup sits ABOVE everything so a "not enough currency → buy?"
             // confirm can appear over an open store/settings, and warnings over any.
-            Popup = new PopupScreen(ui.popup); Popup.Hide(); Add(Popup);
+            Popup = new PopupScreen(ui.popup); Add(Popup);
 
             // ── СЛОИ (решение Ильи 26.08: «расставь нормально слои») ──
             // Порядок add'ов истории — не архитектура: настройки оказывались
@@ -346,7 +346,7 @@ namespace Lvn.UI.Screens
             void Reparent(VisualElement el, VisualElement layer)
             { if (el != null) { el.RemoveFromHierarchy(); layer.Add(el); } }
             WardrobeTab = new WardrobeTabScreen(_manifest, _assets);
-            WardrobeTab.Hide();
+            Add(WardrobeTab);
             // Покупка в меню-гардеробе идёт через кошелёк; нехватка средств
             // ведёт в БЫСТРЫЙ модальный магазин прямо поверх вкладки.
             WardrobeTab.OpenStore = () => OpenPackShopAsync();
@@ -375,7 +375,7 @@ namespace Lvn.UI.Screens
             // кружок загрузок — отдельный оверлей ПОВЕРХ бара, в центре его
             // строки (морф попапа растёт из центра).
             TopBar = new Lvn.UI.Screens.LvnTopBar();
-            Add(TopBar);
+            AddChrome(TopBar);
             // Приложение поднимается — экран чист. Режиссёр статический, и в
             // редакторе Stop→Play его память переживает прогон: без сброса
             // «глава идёт» досталась бы в наследство от прошлого запуска.
@@ -396,7 +396,7 @@ namespace Lvn.UI.Screens
             if (assets is CachingAssets ca)
             {
                 DownloadHud = new Lvn.UI.Screens.DownloadHud();
-                Add(DownloadHud);
+                AddChrome(DownloadHud);
                 _root.schedule.Execute(() =>
                 {
                     DownloadHud.Tick(ca.Loader.Transfers());

@@ -1,0 +1,72 @@
+using System.Collections.Generic;
+using UnityEngine.UIElements;
+
+namespace Lvn.UI.Screens
+{
+    /// <summary>
+    /// Экран, у которого УХОД — не только «выключить показ».
+    ///
+    /// <para>У большинства экранов оболочки свой <c>Hide()</c>, и он делает
+    /// больше, чем прячет: возвращает прозрачность в исходную (иначе экран
+    /// всплывёт полупрозрачным), закрывает просмотрщик картинки, снимает
+    /// ожидание ответа. Оболочка про это знала выборочно: одни экраны она
+    /// закрывала их же <c>Hide()</c>, другие — просто гасила показ, и какие
+    /// именно, решал порядок, в котором их когда-то дописали.</para>
+    ///
+    /// <para>Пометка нужна, потому что «умеет закрыться сам» — это про экран, а
+    /// не про того, кто его закрывает. Знать поимённо, у кого уход особый,
+    /// вызывающему не положено.</para>
+    /// </summary>
+    public interface ILvnHides
+    {
+        /// <summary>Уйти с экрана целиком — вместе со своим состоянием.</summary>
+        void Hide();
+    }
+
+    /// <summary>
+    /// НАБОР ЭКРАНОВ — кто вообще есть у оболочки и как их всех разом убрать.
+    ///
+    /// <para>Список был написан от руки, и в него забывали дописывать: три
+    /// экрана в нём так и не появились. Держался он на втором ручном списке —
+    /// каждый экран ещё и прятали поимённо сразу после создания. Два перечня
+    /// одного набора, и оба надо было не забыть.</para>
+    ///
+    /// <para>Здесь набор ведёт себя сам: дверь одна, она же и записывает, и
+    /// закрывает вошедшего — экран поднимается скрытым, а показывает его тот,
+    /// кто его открывает.</para>
+    /// </summary>
+    public sealed class LvnScreenSet
+    {
+        private readonly List<VisualElement> _all = new List<VisualElement>();
+
+        /// <summary>Сколько экранов в наборе (для тестов и диагностики).</summary>
+        public int Count => _all.Count;
+
+        /// <summary>Внести экран в набор и сразу убрать его с глаз.</summary>
+        public T Add<T>(T el) where T : VisualElement
+        {
+            if (el == null) return null;
+            _all.Add(el);
+            Shut(el);
+            return el;
+        }
+
+        /// <summary>Убрать с экрана всё, что в наборе.</summary>
+        public void HideAll()
+        {
+            for (int i = 0; i < _all.Count; i++) Shut(_all[i]);
+        }
+
+        /// <summary>Есть ли экран в наборе.</summary>
+        public bool Has(VisualElement el) => el != null && _all.Contains(el);
+
+        /// <summary>ЕДИНОЕ ПРАВИЛО УХОДА: у кого есть свой — зовём его, у
+        /// остальных гасим показ.</summary>
+        public static void Shut(VisualElement el)
+        {
+            if (el == null) return;
+            if (el is ILvnHides own) { own.Hide(); return; }
+            el.style.display = DisplayStyle.None;
+        }
+    }
+}

@@ -21,7 +21,7 @@ namespace Lvn.UI.Screens
     /// остаётся висеть на обещании, которое никто уже не выполнит, — экран
     /// закрыт, а вызвавший его код ждёт вечно.</para>
     /// </summary>
-    public abstract class LvnOverlayScreen : VisualElement, Lvn.UI.ILvnRedress
+    public abstract class LvnOverlayScreen : VisualElement, Lvn.UI.ILvnRedress, ILvnHides
     {
         /// <summary>
         /// ЭКРАН РОЖДАЕТСЯ РАСТЯНУТЫМ И СПРЯТАННЫМ.

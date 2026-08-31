@@ -19,7 +19,7 @@ namespace Lvn.UI.Screens
     /// pressed, or −1 if the popup was dismissed (scrim tap / cancellation).
     /// Themed from <see cref="PopupConfig"/> (manifest <c>ui.popup</c>).
     /// </summary>
-    public sealed class PopupScreen : VisualElement
+    public sealed class PopupScreen : VisualElement, ILvnHides
     {
         /// <summary>One button in a popup: its label and whether it's the
         /// highlighted primary/confirm action.</summary>
