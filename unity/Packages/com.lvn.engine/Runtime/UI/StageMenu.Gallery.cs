@@ -140,8 +140,7 @@ namespace Lvn.UI
             DestroyThumbs();
             _scrim.Clear();
             var img = new Image { scaleMode = ScaleMode.ScaleToFit };
-            img.style.position = Position.Absolute;
-            img.style.left = 0; img.style.right = 0; img.style.top = 0; img.style.bottom = 0;
+            LvnChrome.Stretch(img);
             _scrim.Add(img);
             LoadCg(img, item.url);
             img.RegisterCallback<PointerDownEvent>(e => { e.StopPropagation(); ShowGallery(); });

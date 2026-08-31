@@ -677,35 +677,12 @@ namespace Lvn.UI
         /// работает».</para>
         /// </summary>
         private System.Action ClickActionFrom(JToken clickField)
+            => LvnClick.From(clickField, GoOnClick, SetVarsOnClick);
+
+        private void SetVarsOnClick(JObject ops)
         {
-            if (clickField == null) return null;
-
-            if (clickField.Type == JTokenType.Object)
-            {
-                var clickObj = (JObject)clickField;
-                var target = (string)clickObj["goto"];
-                var setOps = clickObj["set"] as JObject;
-                return () =>
-                {
-                    if (_player == null) return;
-                    if (setOps != null)
-                        foreach (var prop in setOps.Properties())
-                            _player.Vars[prop.Name] = prop.Value;
-                    if (!string.IsNullOrEmpty(target)) _player.GoTo(target);
-                    StopWaitingForPlayer();
-                    _player.Advance();
-                };
-            }
-
-            var label = (string)clickField;
-            if (string.IsNullOrEmpty(label)) return null;
-            return () =>
-            {
-                if (_player == null) return;
-                _player.GoTo(label);
-                StopWaitingForPlayer();
-                _player.Advance();
-            };
+            if (_player == null || ops == null) return;
+            foreach (var prop in ops.Properties()) _player.Vars[prop.Name] = prop.Value;
         }
 
         private async Task ApplyActorAnimsAsync(string id, JObject cmd, Placement placement,

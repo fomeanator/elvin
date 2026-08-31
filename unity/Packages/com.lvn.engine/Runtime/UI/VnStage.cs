@@ -259,8 +259,7 @@ namespace Lvn.UI
             _fx = new FxLayer();
 
             _labelLayer = new VisualElement { name = "vn-labels", pickingMode = PickingMode.Ignore };
-            _labelLayer.style.position = Position.Absolute;
-            _labelLayer.style.left = 0; _labelLayer.style.right = 0; _labelLayer.style.top = 0; _labelLayer.style.bottom = 0;
+            LvnChrome.Stretch(_labelLayer);
 
             // Шрифт темы — на корень: unityFontDefinition наследуется вниз, и
             // сцена, интерфейс и диалог получают одну гарнитуру разом. Ставить

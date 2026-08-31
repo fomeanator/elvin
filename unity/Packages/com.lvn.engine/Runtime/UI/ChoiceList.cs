@@ -26,11 +26,7 @@ namespace Lvn.UI
         public ChoiceList(VnTheme theme)
         {
             _theme = theme ?? new VnTheme();
-            style.position = Position.Absolute;
-            style.left = 0;
-            style.right = 0;
-            style.top = 0;
-            style.bottom = 0;
+            LvnChrome.Stretch(this);
             style.paddingLeft = _theme.EdgePadding;
             style.paddingRight = _theme.EdgePadding;
             style.paddingBottom = _theme.BottomPadding;

@@ -33,6 +33,7 @@ namespace Lvn.UI
         private readonly Func<string, JToken> _varOf;
         private readonly Func<IReadOnlyDictionary<string, JToken>> _vars;
         private readonly Action<string> _goTo;
+        private readonly Action<JObject> _setVars;
         private readonly Func<VisualElement, string, System.Threading.Tasks.Task> _loadImage;
 
         // Дерево по имени: `ui бой { … }` повторно — это замена того же дерева.
@@ -61,10 +62,14 @@ namespace Lvn.UI
             public string Last;    // что показано сейчас — чтобы не трогать зря
         }
 
+        /// <param name="setVars">записать переменные из объектной формы
+        /// <c>on_click</c>. Необязателен: без него нажатие отработает одним
+        /// переходом — так собирают слой стенды, где переменные не пишут.</param>
         public LvnUiLayer(VisualElement hudHost, VisualElement overHost,
                           Func<IReadOnlyDictionary<string, JToken>> vars,
                           Action<string> goTo,
-                          Func<VisualElement, string, System.Threading.Tasks.Task> loadImage = null)
+                          Func<VisualElement, string, System.Threading.Tasks.Task> loadImage = null,
+                          Action<JObject> setVars = null)
         {
             _hud = Fill("lvn-ui", hudHost);
             _over = overHost == null || ReferenceEquals(overHost, hudHost) ? _hud : Fill("lvn-ui-over", overHost);
@@ -72,6 +77,7 @@ namespace Lvn.UI
             _varOf = null;
             _goTo = goTo;
             _loadImage = loadImage;
+            _setVars = setVars;
 
             // ОБНОВЛЕНИЕ ОПРОСОМ, а не по сигналу об изменении переменной.
             // Сигнала в движке нет, а добавлять его означало бы менять
@@ -93,8 +99,7 @@ namespace Lvn.UI
         private static VisualElement Fill(string name, VisualElement host)
         {
             var el = new VisualElement { name = name, pickingMode = PickingMode.Ignore };
-            el.style.position = Position.Absolute;
-            el.style.left = 0; el.style.right = 0; el.style.top = 0; el.style.bottom = 0;
+            LvnChrome.Stretch(el);
             host.Add(el);
             return el;
         }
@@ -275,8 +280,13 @@ namespace Lvn.UI
                     b.style.borderLeftWidth = 0; b.style.borderRightWidth = 0;
                     b.style.borderTopWidth = 0;
                     b.style.unityTextAlign = TextAnchor.MiddleCenter;
-                    var target = (string)n["on_click"];
-                    if (!string.IsNullOrEmpty(target)) b.clicked += () => _goTo?.Invoke(target);
+                    // ЧТО ЗНАЧИТ НАЖАТИЕ — решает общий дом (LvnClick), тот же,
+                    // что у фигуры на сцене. Здесь поле приводили к строке
+                    // напрямую, и объектная форма `{goto, set}` — законная в
+                    // сцене и описанная в документации — БРОСАЛА: дерево не
+                    // строилось, и у игрока пропадал весь интерфейс.
+                    var onClick = LvnClick.From(n["on_click"], l => _goTo?.Invoke(l), _setVars);
+                    if (onClick != null) b.clicked += onClick;
                     PressDepth(b, Num(n["radius"], 0));
                     el = b;
                     break;
@@ -350,9 +360,7 @@ namespace Lvn.UI
             if (center)
             {
                 var wrap = new VisualElement { pickingMode = PickingMode.Ignore };
-                wrap.style.position = Position.Absolute;
-                wrap.style.left = 0; wrap.style.right = 0;
-                wrap.style.top = 0; wrap.style.bottom = 0;
+                LvnChrome.Stretch(wrap);
                 wrap.style.justifyContent = Justify.Center;
                 wrap.style.alignItems = Align.Center;
                 el.style.position = Position.Relative;
@@ -386,8 +394,7 @@ namespace Lvn.UI
             }
 
             var veil = new VisualElement { pickingMode = PickingMode.Ignore };
-            veil.style.position = Position.Absolute;
-            veil.style.left = 0; veil.style.right = 0; veil.style.top = 0; veil.style.bottom = 0;
+            LvnChrome.Stretch(veil);
             veil.style.backgroundColor = new Color(1f, 1f, 1f, 0f);
             if (radius > 0f)
             {
@@ -485,7 +492,7 @@ namespace Lvn.UI
             switch ((string)n["at"])
             {
                 case "fill":
-                    s.position = Position.Absolute; s.left = 0; s.right = 0; s.top = 0; s.bottom = 0; break;
+                    LvnChrome.Stretch(el); break;
                 case "top":
                     s.position = Position.Absolute; s.left = 0; s.right = 0; s.top = 0; break;
                 case "bottom":

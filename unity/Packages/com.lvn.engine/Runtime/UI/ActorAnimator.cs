@@ -473,7 +473,12 @@ namespace Lvn.UI
         internal static float ArcTime(LvnAnimTrack x, LvnAnimTrack y, float t, float dur, ref float[] cache)
         {
             cache ??= BuildArcTable(x, y, dur);
-            float u = Ease(x.ease, Mathf.Clamp01(t / dur));
+            // Путь — ОДНО движение, и разгон у него один. Брали его только с
+            // дорожки screen_x: `ease`, написанный автором на screen_y, молча
+            // не действовал — путь ехал ровно там, где написано «с ускорением»,
+            // и сказать об этом было некому. Берём первый названный.
+            var ease = !string.IsNullOrEmpty(x.ease) ? x.ease : y.ease;
+            float u = Ease(ease, Mathf.Clamp01(t / dur));
             return WarpProgress(cache, u, dur);
         }
 

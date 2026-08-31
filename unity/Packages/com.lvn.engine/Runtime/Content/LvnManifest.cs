@@ -375,8 +375,12 @@ namespace Lvn.Content
                     foreach (var c in s.chapters)
                         if (c != null)
                             list.Add(c);
-            list.Sort((a, b) => a.number.CompareTo(b.number));
-            return list;
+            // УСТОЙЧИВО: List.Sort устойчивость НЕ обещает и на списках
+            // длиннее полутора десятков её не даёт. У глав с одинаковым
+            // номером (битый импорт) порядок гулял бы от запуска к запуску — и
+            // «продолжить» приводило бы то в одну главу, то в другую.
+            return new List<LvnChapter>(
+                System.Linq.Enumerable.OrderBy(list, c => c.number));
         }
 
         /// <summary>ПЕРВАЯ ГЛАВА — с наименьшим НОМЕРОМ, а не первая

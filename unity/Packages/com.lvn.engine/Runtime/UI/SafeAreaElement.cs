@@ -27,8 +27,7 @@ namespace Lvn.UI
         {
             name = "safe-area";
             pickingMode = PickingMode.Ignore; // container itself never eats taps
-            style.position = Position.Absolute;
-            style.left = 0; style.top = 0; style.right = 0; style.bottom = 0;
+            LvnChrome.Stretch(this);
 
             RegisterCallback<AttachToPanelEvent>(_ => Refresh());
             RegisterCallback<GeometryChangedEvent>(_ => Refresh());
