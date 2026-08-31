@@ -42,10 +42,16 @@ namespace Lvn.UI
         /// первый кадр игрок видит до первого опроса.</summary>
         public void Bind(VisualElement el, string field, JToken raw)
         {
+            if (raw == null) return;
             string str = raw.Type == JTokenType.String ? (string)raw : raw.ToString();
-            if (str != null && str.Contains("{"))
-                _bindings.Add(new Binding { El = el, Field = field, Expr = str });
-            Set(el, field, str);
+            bool live = str != null && str.Contains("{");
+            if (live) _bindings.Add(new Binding { El = el, Field = field, Expr = str });
+            // ЖИВОЕ СКРЫТИЕ НАЧИНАЕТ ЖИЗНЬ ВИДИМЫМ. Сырой шаблон — непустая
+            // незнакомая строка, а в разметке такая означает СОГЛАСИЕ: узел с
+            // `hide="{gold < 10}"` уходил в невидимость до первого опроса, а
+            // если переменных ещё нет — так и оставался. Безопасное умолчание
+            // у скрытия одно: показать.
+            Set(el, field, live && field == "hide" ? "" : str);
         }
 
         /// <summary>Пересчитать всё живое под текущими переменными.</summary>

@@ -125,10 +125,20 @@ namespace Lvn.UI
         // означать разное в разных слоях.
         internal static Color Color(string s, Color def) => UiColor.Token(s, def);
 
+        /// <summary>Значок по ИМЕНИ. Незнакомое имя — звезда-заглушка: у автора
+        /// опечатка, а у игрока должно остаться что-то видимое.
+        ///
+        /// <para>ЧИСЛО ИМЕНЕМ НЕ СЧИТАЕТСЯ. Разбор перечисления принимает и
+        /// числа: `icon name=5` молча давал шестой по счёту значок, а
+        /// `name=999` — значение, которого в перечислении нет вовсе, и на
+        /// экране оставалась ДЫРКА в ряду — ни значка, ни заглушки, ни
+        /// жалобы.</para></summary>
         internal static LvnIcon IconByName(string name)
         {
             if (string.IsNullOrEmpty(name)) return LvnIcon.Star;
-            return Enum.TryParse<LvnIcon>(name, true, out var ic) ? ic : LvnIcon.Star;
+            if (int.TryParse(name, out _)) return LvnIcon.Star;
+            return Enum.TryParse<LvnIcon>(name, true, out var ic) && Enum.IsDefined(typeof(LvnIcon), ic)
+                ? ic : LvnIcon.Star;
         }
     }
 }

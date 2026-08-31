@@ -68,7 +68,16 @@ namespace Lvn
             // access — resolve by navigating the root object here.
             if (vars != null && key.IndexOf('.') > 0)
             {
-                var nested = ResolvePath(key, vars);
+                // ПОПЫТКА, А НЕ ПРИГОВОР. Точка в ключе ещё не значит путь:
+                // `{global.rep + 1}` — это ВЫРАЖЕНИЕ, и разбор пути на нём
+                // бросает JsonException — чужое исключение, мимо перехвата
+                // ниже. Оно уходило наверх из шага чтеца и РОНЯЛО ГЛАВУ посреди
+                // сцены, а автор всего лишь поставил пробелы вокруг плюса:
+                // `{global.rep+1}` работал, `{global.rep + 1}` убивал игру.
+                // Не путь — значит пробуем выражением, как и обещано шапкой.
+                JToken nested = null;
+                try { nested = ResolvePath(key, vars); }
+                catch { /* ключ оказался выражением, а не путём */ }
                 if (nested != null)
                     return nested.Type == JTokenType.Null ? "" : nested.ToString();
             }
