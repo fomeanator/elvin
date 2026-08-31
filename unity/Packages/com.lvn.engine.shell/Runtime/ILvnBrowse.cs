@@ -24,7 +24,7 @@ namespace Lvn.UI.Screens
     /// при этом рапортовала об успехе: тот самый молчаливый отказ, про который
     /// соседняя строка обработчика диплинка пишет «худший вид отказа».</para>
     /// </summary>
-    public interface ILvnBrowse
+    public interface ILvnBrowse : ILvnContentAware
     {
         /// <summary>Поверхность витрины — её показывают и прячут.</summary>
         VisualElement View { get; }
@@ -39,7 +39,7 @@ namespace Lvn.UI.Screens
         /// и срабатывает в тот же миг. false — новеллы с таким id нет.</summary>
         bool RequestTitle(string titleId);
 
-        /// <summary>Приехал свежий манифест: обновить содержимое витрины.</summary>
-        void SetContent(LvnManifest manifest);
+        // «Приехал свежий манифест» — общая пометка ILvnContentAware: витрина
+        // держится на нём так же, как вкладка гардероба и магазин.
     }
 }

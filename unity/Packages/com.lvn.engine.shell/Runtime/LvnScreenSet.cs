@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Lvn.Content;
 using UnityEngine.UIElements;
 
 namespace Lvn.UI.Screens
@@ -21,6 +22,27 @@ namespace Lvn.UI.Screens
     {
         /// <summary>Уйти с экрана целиком — вместе со своим состоянием.</summary>
         void Hide();
+    }
+
+    /// <summary>
+    /// Экран, который ЖИВЁТ МАНИФЕСТОМ: его содержимое приезжает с контентом и
+    /// обязано меняться вместе с ним.
+    ///
+    /// <para>Свежий манифест развозили поимённо — витрине, вкладке гардероба,
+    /// двум магазинам, — и список этот держался на памяти пишущего. Он уже
+    /// подводил: «без этой строки вкладка гардероба одна оставалась на прежнем
+    /// содержимом, пока соседние экраны показывали новое». Забыть строку легко,
+    /// а увидеть последствие — нет: экран не падает, он просто показывает
+    /// вчерашнее.</para>
+    ///
+    /// <para>Пометка нужна ровно затем же, зачем <see cref="ILvnHides"/>: «живу
+    /// манифестом» — свойство ЭКРАНА, а не знание того, кто манифест привёз.
+    /// Новый экран с пометкой получает обновления с первого дня.</para>
+    /// </summary>
+    public interface ILvnContentAware
+    {
+        /// <summary>Приехал свежий манифест.</summary>
+        void SetContent(LvnManifest manifest);
     }
 
     /// <summary>
@@ -61,6 +83,15 @@ namespace Lvn.UI.Screens
         public void HideAll()
         {
             for (int i = 0; i < _all.Count; i++) Shut(_all[i]);
+        }
+
+        /// <summary>Развезти свежий манифест всем, кто на нём держится.
+        /// Кто именно — знает набор, а не вызывающий.</summary>
+        public void SetContent(LvnManifest manifest)
+        {
+            if (manifest == null) return;
+            for (int i = 0; i < _all.Count; i++)
+                (_all[i] as ILvnContentAware)?.SetContent(manifest);
         }
 
         /// <summary>Есть ли экран в наборе.</summary>

@@ -17,7 +17,7 @@ namespace Lvn.UI.Screens
     /// персонажа в ростере назначает фаворита меню — он тут же встаёт на
     /// передний план всех экранов.
     /// </summary>
-    public sealed class WardrobeTabScreen : LvnOverlayScreen
+    public sealed class WardrobeTabScreen : LvnOverlayScreen, ILvnContentAware
     {
         // НЕ readonly: контент обновляется на лету (ApplyLiveUpdate), и вкладка
         // обязана узнать об этом наравне с каруселью и хабом. Пока поле было
@@ -29,7 +29,8 @@ namespace Lvn.UI.Screens
         /// <summary>Принять свежий манифест. Лист пересоберётся при следующем
         /// открытии: перестраивать его сейчас значило бы дёрнуть примерку из-под
         /// игрока, если вкладка открыта.</summary>
-        public void SetManifest(LvnManifest manifest)
+        /// <inheritdoc cref="ILvnContentAware.SetContent"/>
+        public void SetContent(LvnManifest manifest)
         {
             if (manifest == null) return;
             _manifest = manifest;

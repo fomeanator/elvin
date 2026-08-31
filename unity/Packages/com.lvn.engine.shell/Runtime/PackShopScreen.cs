@@ -24,7 +24,7 @@ namespace Lvn.UI.Screens
     /// billing can wire it to the same <see cref="LvnWallet.VerifyPurchaseAsync"/>
     /// pattern <see cref="StoreScreen"/> uses.
     /// </summary>
-    public sealed class PackShopScreen : LvnOverlayScreen
+    public sealed class PackShopScreen : LvnOverlayScreen, ILvnContentAware
     {
         private enum Ribbon { None, Popular, Value, BestPrice }
 
@@ -370,6 +370,12 @@ namespace Lvn.UI.Screens
         /// <summary>Какую площадку показывать бесплатной карточкой. Пусто —
         /// карточки нет: движок не выбирает за игру, чем она торгует.</summary>
         public string AdPlacement;
+
+        /// <inheritdoc cref="ILvnContentAware.SetContent"/>
+        /// <remarks>Чем торгует «бесплатная» карточка магазина, игра решает
+        /// манифестом — и решение обязано доезжать вместе с ним.</remarks>
+        public void SetContent(LvnManifest manifest) =>
+            AdPlacement = manifest?.ui?.store?.ad_placement;
 
         private void BuildTabs()
         {
