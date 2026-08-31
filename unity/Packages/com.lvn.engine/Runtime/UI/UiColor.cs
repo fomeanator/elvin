@@ -38,16 +38,31 @@ namespace Lvn.UI
         }
 
         /// <summary>
-        /// Имя токена действующей темы (<c>accent</c>, <c>panel</c>, <c>veil</c>…)
-        /// или hex. Неизвестное имя — fallback И предупреждение: опечатка иначе
-        /// молча даёт прозрачный цвет, и «нарисовалось не то» приходится искать
-        /// глазами.
+        /// ЦВЕТ ПО ИМЕНИ — ОДИН СЛОВАРЬ НА ВЕСЬ ЯЗЫК.
+        ///
+        /// <para>Их было три, и у каждого свой набор слов. Дерево <c>ui</c>
+        /// знало токены темы, но не знало ни <c>warm</c>, ни <c>sepia</c>.
+        /// Команды кадра (<c>tint</c>, <c>flash</c>) знали настроения, но не
+        /// знали <c>accent</c>. А поля команд (<c>fx ink_color=</c>) не знали
+        /// ни того, ни другого — только шестнадцать цифр и имена HTML. Автор
+        /// писал одно слово в трёх местах и в двух из них получал молчание:
+        /// «эффект не сработал», хотя сработал — цвета просто не нашли.</para>
+        ///
+        /// <para>Порядок слов не случаен. Имена движка стоят ПЕРЕД HTML
+        /// намеренно: «green» в HTML — тёмно-зелёный (#008000), а в движке
+        /// яркий (0,1,0), и молча сменить его значило бы перекрасить уже
+        /// написанные главы. Остальные семь совпадают, но лежат рядом, чтобы
+        /// набор читался как один список.</para>
+        ///
+        /// <para>Регистр не важен: <c>Accent</c> и <c>accent</c> — одно слово.
+        /// Раньше первый вариант тихо уходил в HTML и не находился там.</para>
         /// </summary>
-        public static Color Token(string name, Color fallback)
+        public static Color Named(string name, Color fallback)
         {
             if (string.IsNullOrEmpty(name)) return fallback;
-            switch (name)
+            switch (name.ToLowerInvariant())
             {
+                // Токены действующей темы.
                 case "bg": return LvnTokens.Bg;
                 case "surface": return LvnTokens.Surface;
                 case "surface_hi": return LvnTokens.SurfaceHi;
@@ -61,12 +76,36 @@ namespace Lvn.UI
                 case "border": return LvnTokens.Border;
                 case "veil": return LvnTokens.Scrim;
                 case "clear": return new Color(0, 0, 0, 0);
+                // Имена движка (см. про «green» выше).
+                case "white": return Color.white;
+                case "black": return Color.black;
+                case "red": return Color.red;
+                case "blue": return Color.blue;
+                case "green": return Color.green;
+                case "yellow": return Color.yellow;
+                case "cyan": return Color.cyan;
+                case "magenta": return Color.magenta;
+                // Мнемоники настроения — готовые оттенки, которые зовут словом.
+                case "cold":
+                case "tint_cold": return new Color(0.6f, 0.7f, 1f, 1f);
+                case "warm":
+                case "tint_warm": return new Color(1f, 0.85f, 0.7f, 1f);
+                case "sepia": return new Color(0.76f, 0.6f, 0.42f, 1f);
             }
-            if (ColorUtility.TryParseHtmlString(name, out var c)) return c;
+            // Всё остальное — общий разбор: «#rrggbb», «#rrggbbaa», «ff0000»
+            // без решётки и прочие имена HTML.
+            if (TryParse(name, out var c)) return c;
+            // Опечатка автора — жалоба, а не молчаливая подмена: без неё
+            // «нарисовалось не то» приходится искать глазами по всему скрипту.
+            // Незакрытая подстановка — не опечатка: её ещё не подставили.
             if (!name.Contains("{"))
                 Debug.LogWarning($"[lvn-ui] неизвестный цвет \"{name}\" — беру цвет по умолчанию");
             return fallback;
         }
+
+        /// <summary>Прежнее имя двери: токен темы или hex. Теперь окно в общий
+        /// словарь — набор слов у цвета один, где бы его ни писали.</summary>
+        public static Color Token(string name, Color fallback) => Named(name, fallback);
 
         /// <summary>
         /// Цвет из поля команды. Пусто — текущее значение молча; мусор —
@@ -77,9 +116,10 @@ namespace Lvn.UI
         {
             var text = (string)cmd?[key];
             if (string.IsNullOrEmpty(text)) return current;
-            if (TryParse(text, out var c)) return c;
-            Debug.LogWarning($"[lvn-ui] {key}=\"{text}\" — не цвет, оставляю прежний");
-            return current;
+            // Через общий словарь: поле команды понимало ТОЛЬКО шестнадцать
+            // цифр, и «ink_color=warm» молча оставляло прежний цвет, хотя
+            // соседняя команда то же слово понимала.
+            return Named(text, current);
         }
     }
 }
