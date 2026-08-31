@@ -789,14 +789,32 @@ func TestСловарьСвойствАнимацииОдин(t *testing.T) {
 	// Валидатор и подсказки знают объединение — но пусть знают ЕГО, а не
 	// половину.
 	engine := map[string]bool{}
+	sides := map[string]map[string]bool{}
 	for _, name := range []string{"Whole", "Layered"} {
 		block := regexp.MustCompile(`(?s)` + name + ` = new HashSet<string>\s*\{(.*?)\n        \};`).
 			FindStringSubmatch(string(csRaw))
 		if block == nil {
 			t.Fatalf("LvnAnimProp.%s не найден — поправь якорь сторожа", name)
 		}
+		sides[name] = map[string]bool{}
 		for _, m := range regexp.MustCompile(`"([a-z_]+)"`).FindAllStringSubmatch(block[1], -1) {
 			engine[m[1]] = true
+			sides[name][m[1]] = true
+		}
+	}
+	// КОНТЕКСТ ТОЖЕ СВЕРЯЕТСЯ. Проверка была плоской там, где исполнитель
+	// контекстный: `frame` без слоя и `screen_x` со слоем проходили молча,
+	// чтобы потом молча же ничего не сыграть.
+	for side, want := range map[string][]string{"Whole": AnimPropsWhole, "Layered": AnimPropsLayered} {
+		for _, w := range want {
+			if !sides[side][w] {
+				t.Fatalf("валидатор разрешает %q для %s, а рантайм там его не принимает", w, side)
+			}
+		}
+		for w := range sides[side] {
+			if !inSet(want, w) {
+				t.Fatalf("рантайм принимает %q для %s, а валидатор пожалуется", w, side)
+			}
 		}
 	}
 	if len(engine) != 10 {
@@ -1085,6 +1103,8 @@ func TestЗакрытоеСловоАвтораЧитаютЧерезДом(t *t
 		{filepath.Join("unity", "Packages", "com.lvn.engine", "Runtime", "UI", "LvnTheme.cs"), "ui.browse.theme"},
 		{filepath.Join("unity", "Packages", "com.lvn.engine", "Runtime", "UI", "LvnAppear.cs"), `"appear"`},
 		{filepath.Join("unity", "Packages", "com.lvn.engine.shell", "Runtime", "NovelShell.cs"), "ui.hud.mode"},
+		{filepath.Join("unity", "Packages", "com.lvn.engine", "Runtime", "UI", "VnStage.cs"), "ui.stage.tap_burst"},
+		{filepath.Join("unity", "Packages", "com.lvn.engine", "Runtime", "UI", "VnStage.Dialogue.cs"), "ui.stage.speaker_focus"},
 	} {
 		raw, err := os.ReadFile(filepath.Join(root, c.path))
 		if err != nil {

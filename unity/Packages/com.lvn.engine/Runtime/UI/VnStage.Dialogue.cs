@@ -298,7 +298,11 @@ namespace Lvn.UI
 
         private void ApplySpeakerSolo(string speakerId)
         {
-            if (Theme == null || Theme.SpeakerFocus != "solo") return;
+            // Через дом закрытого слова: опечатка в `ui.stage.speaker_focus`
+            // молча означала «dim», и режим новеллы просто не включался.
+            if (Theme == null) return;
+            if (LvnAuthorWord.Pick(Theme.SpeakerFocus, "ui.stage.speaker_focus", "dim",
+                                   "dim", "solo") != "solo") return;
 
             if (!string.IsNullOrEmpty(speakerId))
             {
