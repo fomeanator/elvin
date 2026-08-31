@@ -71,7 +71,7 @@ namespace Lvn.UI.Screens
             sheet.style.top = Length.Percent(6f);
             sheet.style.bottom = Length.Percent(6f);
             sheet.style.backgroundColor = LvnTokens.PanelBg;
-            LvnChrome.Round(sheet, LvnTokens.Radius + 4f);
+            LvnChrome.Round(sheet, LvnTokens.Radius);
             Add(sheet);
             sheet.style.paddingTop = 22;
             sheet.style.paddingBottom = 18;
@@ -92,20 +92,20 @@ namespace Lvn.UI.Screens
             var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("nav.gallery", "Gallery"));
             LvnChrome.Heading(title);
             title.style.color = LvnTokens.Text;
-            title.style.fontSize = Lvn.UI.LvnFonts.Size(42f);
+            title.style.fontSize = LvnTokens.TextLg;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
             title.style.flexGrow = 1;
             header.Add(title);
 
             _counter = new Label();
             _counter.style.color = LvnTokens.Gold;
-            _counter.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
+            _counter.style.fontSize = LvnTokens.TextXs;
             _counter.style.paddingLeft = 14;
             _counter.style.paddingRight = 14;
             _counter.style.paddingTop = 7;
             _counter.style.paddingBottom = 7;
-            _counter.style.backgroundColor = Lvn.UI.LvnTokens.Veil(0.35f);
-            LvnChrome.Round(_counter, 14f);
+            _counter.style.backgroundColor = LvnTokens.Veil(0.35f);
+            LvnChrome.Round(_counter, LvnTokens.Radius);
             header.Add(_counter);
 
             // ── Grid of tiles ──────────────────────────────────────────────────
@@ -118,7 +118,7 @@ namespace Lvn.UI.Screens
 
             // ── Fullscreen viewer (hidden until a tile is opened) ──────────────
             _viewer = ScreenUi.Stretch(new VisualElement());
-            _viewer.style.backgroundColor = Lvn.UI.LvnTokens.Veil(0.92f);
+            _viewer.style.backgroundColor = LvnTokens.Veil(0.92f);
             _viewer.style.display = DisplayStyle.None;
             _viewer.RegisterCallback<ClickEvent>(evt => { if (evt.target == _viewer) CloseViewer(); });
             Add(_viewer);
@@ -158,7 +158,7 @@ namespace Lvn.UI.Screens
             _viewerCaption.style.bottom = Length.Percent(5f);
             _viewerCaption.style.unityTextAlign = TextAnchor.MiddleCenter;
             _viewerCaption.style.color = LvnTokens.Text;
-            _viewerCaption.style.fontSize = Lvn.UI.LvnFonts.Size(28f);
+            _viewerCaption.style.fontSize = LvnTokens.TextBase;
             _viewerCaption.pickingMode = PickingMode.Ignore;
             _viewer.Add(_viewerCaption);
 
@@ -279,13 +279,13 @@ namespace Lvn.UI.Screens
                 cap.style.paddingBottom = 6;
                 cap.style.paddingLeft = 10;
                 cap.style.paddingRight = 10;
-                cap.style.backgroundColor = Lvn.UI.LvnTokens.Veil(0.55f);
+                cap.style.backgroundColor = LvnTokens.Veil(0.55f);
                 cap.pickingMode = PickingMode.Ignore;
                 cell.Add(cap);
 
                 var capLabel = new Label(entry.Caption);
                 capLabel.style.color = LvnTokens.Text;
-                capLabel.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
+                capLabel.style.fontSize = LvnTokens.TextXs;
                 capLabel.pickingMode = PickingMode.Ignore;
                 cap.Add(capLabel);
 
@@ -312,7 +312,7 @@ namespace Lvn.UI.Screens
                 q.style.right = 0;
                 q.style.bottom = Length.Percent(14f);
                 q.style.unityTextAlign = TextAnchor.MiddleCenter;
-                q.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
+                q.style.fontSize = LvnTokens.TextXs;
                 q.style.color = LvnTokens.TextDim;
                 q.pickingMode = PickingMode.Ignore;
                 cell.Add(q);
@@ -368,7 +368,7 @@ namespace Lvn.UI.Screens
             b.style.position = Position.Absolute;
             b.style.top = Length.Percent(46f);
             LvnStyler.IconSlot(b, 60f, 30f);
-            b.style.fontSize = Lvn.UI.LvnFonts.Size(42f);
+            b.style.fontSize = LvnTokens.TextLg;
         }
 
         // ── Demo data ──────────────────────────────────────────────────────────

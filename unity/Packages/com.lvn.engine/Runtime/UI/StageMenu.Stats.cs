@@ -180,9 +180,9 @@ namespace Lvn.UI
                 input.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.08f);
                 input.style.color = _theme.MenuTextColor;
                 input.style.unityTextAlign = TextAnchor.MiddleCenter;
-                input.style.fontSize = Lvn.UI.LvnFonts.Size(27f);
+                input.style.fontSize = LvnTokens.TextBase;
                 LvnChrome.ClearBorder(input);
-                LvnChrome.Round(input, 6f);
+                LvnChrome.Round(input, LvnTokens.RadiusXs);
             }
             LvnFonts.Apply(f, _theme.Font);
             return f;
@@ -192,12 +192,12 @@ namespace Lvn.UI
         {
             var b = new Button(onClick) { text = glyph };
             b.style.width = 60; b.style.height = 56;
-            b.style.fontSize = Lvn.UI.LvnFonts.Size(32f);
+            b.style.fontSize = LvnTokens.TextBase;
             b.style.color = _theme.MenuTextColor;
             var tint = _theme.MenuTextColor;
             b.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.08f);
             LvnChrome.ClearBorder(b);
-            LvnChrome.Round(b, 6f);
+            LvnChrome.Round(b, LvnTokens.RadiusXs);
             LvnFonts.Apply(b, _theme.Font);
             return b;
         }

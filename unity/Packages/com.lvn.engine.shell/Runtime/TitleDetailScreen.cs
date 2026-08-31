@@ -213,7 +213,7 @@ namespace Lvn.UI.Screens
             overTitle.style.right = 30;
             overTitle.style.bottom = 22;
             overTitle.style.color = LvnTokens.Text;
-            overTitle.style.fontSize = Lvn.UI.LvnFonts.Size(46f);
+            overTitle.style.fontSize = LvnTokens.TextXl;
             overTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
             overTitle.style.whiteSpace = WhiteSpace.Normal;
             overTitle.pickingMode = PickingMode.Ignore;
@@ -226,12 +226,12 @@ namespace Lvn.UI.Screens
             var back = new Button(Back) { text = "‹" };
             _backBtn = back;
             back.style.position = Position.Absolute; back.style.left = 20; back.style.top = 16;
-            back.style.fontSize = Lvn.UI.LvnFonts.Size(36f); back.style.width = 56; back.style.height = 56;
+            back.style.fontSize = LvnTokens.TextLg; back.style.width = 56; back.style.height = 56;
             back.style.paddingTop = 0; back.style.paddingBottom = 0;
             back.style.unityTextAlign = TextAnchor.MiddleCenter;
             back.style.color = LvnTokens.Text;
             back.style.backgroundColor = new Color(0f, 0f, 0f, 0.45f);
-            LvnChrome.ClearBorder(back); LvnChrome.Round(back, 28f);
+            LvnChrome.ClearBorder(back); LvnChrome.Round(back, LvnTokens.RadiusLg);
             hero.Add(back);
 
             return hero;
@@ -264,11 +264,11 @@ namespace Lvn.UI.Screens
             chip.style.paddingBottom = 7;
             chip.style.backgroundColor = LvnTokens.SurfaceHi;
             LvnChrome.Border(chip, LvnTokens.Border, 1f);
-            LvnChrome.Round(chip, 999f); // pill
+            LvnChrome.Round(chip, LvnTokens.RadiusPill); // pill
 
             var lbl = new Label(text);
             lbl.style.color = LvnTokens.TextDim;
-            lbl.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
+            lbl.style.fontSize = LvnTokens.TextXs;
             chip.Add(lbl);
             return chip;
         }
@@ -279,7 +279,7 @@ namespace Lvn.UI.Screens
             var p = new Label(ShownSynopsis);
             p.style.flexShrink = 0;
             p.style.color = LvnTokens.TextDim;
-            p.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
+            p.style.fontSize = LvnTokens.TextSm;
             p.style.whiteSpace = WhiteSpace.Normal;
             p.style.marginTop = 10;
             return p;
@@ -341,17 +341,17 @@ namespace Lvn.UI.Screens
             numBadge.style.flexShrink = 0;
             numBadge.style.marginRight = 16;
             numBadge.style.unityTextAlign = TextAnchor.MiddleCenter;
-            numBadge.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
+            numBadge.style.fontSize = LvnTokens.TextSm;
             numBadge.style.unityFontStyleAndWeight = FontStyle.Bold;
             numBadge.style.color = state == LvnChapterMark.Current ? LvnTokens.OnAccent : LvnTokens.Text;
             numBadge.style.backgroundColor = state == LvnChapterMark.Current ? LvnTokens.Accent : LvnTokens.SurfaceHi;
-            LvnChrome.Round(numBadge, 24f);
+            LvnChrome.Round(numBadge, LvnTokens.RadiusLg);
             row.Add(numBadge);
 
             var nameLbl = new Label(name);
             nameLbl.style.flexGrow = 1;
             nameLbl.style.flexShrink = 1;
-            nameLbl.style.fontSize = Lvn.UI.LvnFonts.Size(26f);
+            nameLbl.style.fontSize = LvnTokens.TextSm;
             nameLbl.style.overflow = Overflow.Hidden;
             nameLbl.style.textOverflow = TextOverflow.Ellipsis;
             nameLbl.style.whiteSpace = WhiteSpace.NoWrap;
@@ -380,7 +380,7 @@ namespace Lvn.UI.Screens
             var stateLbl = new Label(state == LvnChapterMark.Done ? LvnWords.Of("chapter.done", "finished")
                 : state == LvnChapterMark.Current ? LvnWords.Of("chapter.current", "current")
                 : state == LvnChapterMark.Open ? LvnWords.Of("chapter.available", "available") : LvnWords.Of("chapter.locked", "locked"));
-            stateLbl.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
+            stateLbl.style.fontSize = LvnTokens.TextXs;
             stateLbl.style.color = stateColor;
             stateBox.Add(stateLbl);
             row.Add(stateBox);
@@ -416,7 +416,7 @@ namespace Lvn.UI.Screens
             {
                 var restart = Lvn.UI.LvnRedress.Bind(new Button(ShowRestartMenu), () => LvnWords.Of("title.restart", "Start over"));
                 restart.style.marginBottom = 12;
-                restart.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
+                restart.style.fontSize = LvnTokens.TextSm;
                 restart.style.paddingTop = 12;
                 restart.style.paddingBottom = 12;
                 LvnStyler.Quiet(restart, LvnTokens.RadiusSm);
@@ -431,7 +431,7 @@ namespace Lvn.UI.Screens
             var play = Lvn.UI.LvnRedress.Bind(new Button(Play), () => LvnWords.Of("hub.play", "Play"));
             play.style.flexGrow = 1;
             play.style.flexShrink = 1;
-            play.style.fontSize = Lvn.UI.LvnFonts.Size(30f);
+            play.style.fontSize = LvnTokens.TextBase;
             play.style.paddingTop = 18;
             play.style.paddingBottom = 18;
             play.style.marginRight = 14;

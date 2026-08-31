@@ -76,7 +76,7 @@ namespace Lvn.UI.Screens
             _root.pickingMode = PickingMode.Position;
 
             _pct = new Label("0%");
-            _pct.style.fontSize = Lvn.UI.LvnFonts.Size(30f);
+            _pct.style.fontSize = LvnTokens.TextBase;
             _pct.style.color = new Color(0.81f, 0.78f, 0.74f); // #cfc8bd
             _pct.style.unityFontStyleAndWeight = FontStyle.Bold;
             _root.Add(_pct);
@@ -94,7 +94,7 @@ namespace Lvn.UI.Screens
             _root.Add(track);
 
             _status = new Label("");
-            _status.style.fontSize = Lvn.UI.LvnFonts.Size(14f);
+            _status.style.fontSize = LvnTokens.TextMicro;
             _status.style.marginTop = 10;
             _status.style.color = new Color(0.60f, 0.58f, 0.54f); // #9a948a
             _root.Add(_status);
@@ -107,7 +107,7 @@ namespace Lvn.UI.Screens
             brand.pickingMode = PickingMode.Ignore;
 
             var word = new Label(Lvn.LvnEngine.Name);
-            word.style.fontSize = Lvn.UI.LvnFonts.Size(30f);
+            word.style.fontSize = LvnTokens.TextBase;
             word.style.unityFontStyleAndWeight = FontStyle.Bold;
             word.style.letterSpacing = 9;
             word.style.color = new Color(0.83f, 0.87f, 0.91f); // полированная сталь
@@ -120,7 +120,7 @@ namespace Lvn.UI.Screens
             brand.Add(word);
 
             var ver = new Label("v" + Lvn.LvnEngine.Version);
-            ver.style.fontSize = Lvn.UI.LvnFonts.Size(12f);
+            ver.style.fontSize = LvnTokens.TextMicro;
             ver.style.marginTop = 3;
             ver.style.letterSpacing = 3;
             ver.style.color = new Color(0.38f, 0.40f, 0.43f); // блёклый серый
@@ -182,7 +182,7 @@ namespace Lvn.UI.Screens
                 {
                     pickingMode = PickingMode.Ignore,
                 };
-                _brandTitle.style.fontSize = Lvn.UI.LvnFonts.Size(42f);
+                _brandTitle.style.fontSize = LvnTokens.TextLg;
                 _brandTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
                 _brandTitle.style.letterSpacing = 6;
                 _brandTitle.style.unityTextAlign = TextAnchor.MiddleCenter;

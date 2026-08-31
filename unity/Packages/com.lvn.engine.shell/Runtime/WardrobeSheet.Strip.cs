@@ -132,14 +132,19 @@ namespace Lvn.UI.Screens
                     // пальца сразу после тапа, читалось как «не применилось,
                     // жми второй раз» (живой репорт 28.08).
                     StyleEmotions(reveal: false);
-                }) { text = EmotionLabel(v) };
+                });
+                // ИСТОЧНИК, А НЕ ГОТОВАЯ СТРОКА: подпись эмоции переводится, и
+                // созданная строкой она оставалась на прежнем языке до тех пор,
+                // пока лист не пересоберут (уход на другой экран и обратно) —
+                // живой репорт 01.09.
+                Lvn.UI.LvnRedress.Bind(chip, () => EmotionLabel(value));
                 chip.name = "emo-" + v;
                 chip.style.height = 44;
                 chip.style.marginBottom = 8;
                 chip.style.flexShrink = 0;
                 chip.style.paddingLeft = 16; chip.style.paddingRight = 16;
-                chip.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
-                LvnChrome.Round(chip, 22f);
+                chip.style.fontSize = LvnTokens.TextXs;
+                LvnChrome.Round(chip, LvnTokens.RadiusLg);
                 Smooth(chip, LvnMotion.Normal, "background-color", "color");
                 _emotions.Add(chip);
             }
@@ -354,7 +359,7 @@ namespace Lvn.UI.Screens
             badge.style.backgroundColor = new Color(0f, 0f, 0f, 0.62f);
             badge.style.paddingLeft = 8; badge.style.paddingRight = 8;
             badge.style.paddingTop = 3; badge.style.paddingBottom = 3;
-            LvnChrome.Round(badge, 10f);
+            LvnChrome.Round(badge, LvnTokens.RadiusSm);
             return badge;
         }
 
@@ -366,6 +371,11 @@ namespace Lvn.UI.Screens
             // Крупнее (Илья 27.08): плитка подросла, арт занимает почти всю
             // её площадь (~+70%), имя заметно больше (~+50%).
             var card = new VisualElement();
+            // КАРТОЧКА НАЗЫВАЕТ СЕБЯ. На витрине «Моё» лента собрана из разных
+            // осей, а подсветка искала текущую по НОМЕРУ в пределах вкладки —
+            // номер там ничего не значит, и зелёная отметка не появлялась
+            // вовсе (живой репорт 01.09). По имени видно, что это за вещь.
+            card.name = "card-" + axis + "/" + item.value;
             card.style.width = 150; card.style.height = 208;
             card.style.marginRight = 10;
             card.style.flexShrink = 0;
@@ -426,7 +436,7 @@ namespace Lvn.UI.Screens
                 () => Lvn.Content.LvnWords.Name("skin", item.value, item.name));
             name.name = "card-name";
             name.style.color = _text;
-            name.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
+            name.style.fontSize = LvnTokens.TextSm;
             name.style.unityTextAlign = TextAnchor.MiddleCenter;
             name.style.overflow = Overflow.Hidden;
             name.style.textOverflow = TextOverflow.Ellipsis;
@@ -519,13 +529,19 @@ namespace Lvn.UI.Screens
             int cur = _tab != null && _index.TryGetValue(_tab, out var i) ? i : 0;
             for (int k = 0; k < _stripCards.Count; k++)
             {
-                bool on = k == cur;
+                // На «Моё» отмечается НАДЕТОЕ, а не k-я карточка: лента там из
+                // разных осей, и номер вкладки к ней отношения не имеет.
+                bool on = _tab == AllTab ? IsWornCard(_stripCards[k]) : k == cur;
                 LvnChrome.Border(_stripCards[k],
                     on ? _accent : new Color(1f, 1f, 1f, 0.12f), on ? 2.5f : 1.5f);
             }
-            if (cur >= 0 && cur < _stripCards.Count)
+            // Довозим В КАДР ТУ ЖЕ карточку, что и отметили, — иначе на «Моё»
+            // лента уезжала к безразличной k-й, а отмеченная оставалась за краем.
+            VisualElement target = null;
+            if (_tab == AllTab) { foreach (var c in _stripCards) if (IsWornCard(c)) { target = c; break; } }
+            else if (cur >= 0 && cur < _stripCards.Count) target = _stripCards[cur];
+            if (target != null)
             {
-                var target = _stripCards[cur];
                 // Отложенно — после лейаута; к этому моменту ленту могли уже
                 // перестроить (смена оси, покупка, переоткрытие листа), и чужая
                 // карточка роняет ScrollTo ArgumentException'ом (живой лог).
@@ -535,6 +551,19 @@ namespace Lvn.UI.Screens
                     _strip.ScrollTo(target);
                 });
             }
+        }
+
+        /// <summary>Надета ли вещь этой карточки: имя карточки — «ось/значение»,
+        /// и ответ даёт костюмер по её оси.</summary>
+        private bool IsWornCard(VisualElement card)
+        {
+            var id = card?.name;
+            if (string.IsNullOrEmpty(id) || !id.StartsWith("card-")) return false;
+            int slash = id.IndexOf('/');
+            if (slash < 0) return false;
+            var axis = id.Substring(5, slash - 5);
+            var value = id.Substring(slash + 1);
+            return !string.IsNullOrEmpty(axis) && CurrentValueOf(axis) == value;
         }
 
         internal void Step(int dir)

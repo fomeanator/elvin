@@ -215,7 +215,7 @@ namespace Lvn.UI.Screens
             peek.Add(peekIcon);
             _peekLabel = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("wardrobe.peek", _cfg.peek_text, "Full height"));
             var peekLabel = _peekLabel;
-            peekLabel.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
+            peekLabel.style.fontSize = LvnTokens.TextXs;
             peekLabel.style.marginLeft = 8;
             peekLabel.style.color = LvnTokens.Text;
             peek.Add(peekLabel);
@@ -353,7 +353,7 @@ namespace Lvn.UI.Screens
             _itemName = new Label("");
             _itemName.style.flexGrow = 1;
             _itemName.style.color = _text;
-            _itemName.style.fontSize = Lvn.UI.LvnFonts.Size(28f);
+            _itemName.style.fontSize = LvnTokens.TextBase;
             _itemName.style.unityTextAlign = TextAnchor.MiddleCenter;
             _itemName.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
             _itemName.style.marginLeft = 10; _itemName.style.marginRight = 10;
@@ -373,7 +373,7 @@ namespace Lvn.UI.Screens
 
             _cancel = Lvn.UI.LvnRedress.Bind(new Button(Cancel),
                 () => LvnWords.Pick("wardrobe.cancel", _cfg.cancel_text, "Cancel"));
-            _cancel.style.fontSize = Lvn.UI.LvnFonts.Size(28f);
+            _cancel.style.fontSize = LvnTokens.TextBase;
             _cancel.style.flexGrow = 1;
             _cancel.style.flexBasis = 0;
             _cancel.style.marginRight = 10;
@@ -383,7 +383,7 @@ namespace Lvn.UI.Screens
             actions.Add(_cancel);
 
             _confirm = new Button(() => LvnAsync.Fire(ConfirmAsync(), "Confirm"));
-            _confirm.style.fontSize = Lvn.UI.LvnFonts.Size(28f);
+            _confirm.style.fontSize = LvnTokens.TextBase;
             _confirm.style.flexGrow = 1;
             _confirm.style.flexBasis = 0;
             _confirm.style.paddingTop = 14;
@@ -398,7 +398,7 @@ namespace Lvn.UI.Screens
             _confirmRow.style.alignItems = Align.Center;
             _confirmRow.style.flexGrow = 1;
             _confirmLabel = new Label(string.Empty) { pickingMode = PickingMode.Ignore };
-            _confirmLabel.style.fontSize = Lvn.UI.LvnFonts.Size(28f);
+            _confirmLabel.style.fontSize = LvnTokens.TextBase;
             _confirmRow.Add(_confirmLabel);
             _confirm.Add(_confirmRow);
             actions.Add(_confirm);
@@ -534,7 +534,7 @@ namespace Lvn.UI.Screens
                 b.style.alignItems = Align.Center;
                 b.style.marginLeft = 6; b.style.marginRight = 6;
                 b.style.paddingLeft = 18; b.style.paddingRight = 20;
-                LvnChrome.Round(b, 28f);
+                LvnChrome.Round(b, LvnTokens.RadiusLg);
                 Smooth(b, LvnMotion.Normal, "background-color", "border-top-color",
                     "border-right-color", "border-bottom-color", "border-left-color");
                 b.userData = axis;
@@ -567,7 +567,7 @@ namespace Lvn.UI.Screens
                 var ax = axis; var slotName = slot?.name;
                 Lvn.UI.LvnRedress.Bind(lbl, () => Lvn.Content.LvnWords.Name("axis", ax, slotName));
                 lbl.name = "ax-label";
-                lbl.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
+                lbl.style.fontSize = LvnTokens.TextSm;
                 lbl.style.whiteSpace = WhiteSpace.NoWrap;
                 lbl.style.color = _text;
                 Smooth(lbl, LvnMotion.Normal, "color");
@@ -585,7 +585,7 @@ namespace Lvn.UI.Screens
                 all.style.alignItems = Align.Center;
                 all.style.marginLeft = 6; all.style.marginRight = 6;
                 all.style.paddingLeft = 18; all.style.paddingRight = 20;
-                LvnChrome.Round(all, 28f);
+                LvnChrome.Round(all, LvnTokens.RadiusLg);
                 Smooth(all, LvnMotion.Normal, "background-color", "border-top-color",
                     "border-right-color", "border-bottom-color", "border-left-color");
                 all.userData = AllTab;
@@ -600,7 +600,7 @@ namespace Lvn.UI.Screens
                 var lblA = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("wardrobe.mine", "Mine"));
                 lblA.pickingMode = PickingMode.Ignore;
                 lblA.name = "ax-label";
-                lblA.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
+                lblA.style.fontSize = LvnTokens.TextSm;
                 lblA.style.whiteSpace = WhiteSpace.NoWrap;
                 lblA.style.color = _text;
                 Smooth(lblA, LvnMotion.Normal, "color");

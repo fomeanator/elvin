@@ -201,7 +201,7 @@ namespace Lvn.UI.Screens
             var lbl = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("profile.chapters_read", "Chapters read: {0}",
                                             $"{ChaptersDone} {ChapterWord(ChaptersDone)}"));
             lbl.style.color = LvnTokens.Text;
-            lbl.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
+            lbl.style.fontSize = LvnTokens.TextSm;
             row.Add(lbl);
             return row;
         }
@@ -216,7 +216,7 @@ namespace Lvn.UI.Screens
             card.style.marginBottom = 10;
             var lbl = new Label(text);
             lbl.style.color = LvnTokens.TextDim;
-            lbl.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
+            lbl.style.fontSize = LvnTokens.TextSm;
             lbl.style.whiteSpace = WhiteSpace.Normal;
             card.Add(lbl);
             return card;
@@ -228,7 +228,7 @@ namespace Lvn.UI.Screens
         {
             var card = new VisualElement();
             card.style.flexDirection = FlexDirection.Column;
-            LvnChrome.Card(card, LvnTokens.SurfaceHi, LvnTokens.Radius + 2f);
+            LvnChrome.Card(card, LvnTokens.SurfaceHi, LvnTokens.Radius);
             card.style.paddingTop = 18;
             card.style.paddingBottom = 18;
             card.style.paddingLeft = 18;
@@ -237,7 +237,7 @@ namespace Lvn.UI.Screens
 
             var dossier = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("profile.dossier", "STORY RECORD"));
             dossier.style.color = LvnTokens.Gold;
-            dossier.style.fontSize = Lvn.UI.LvnFonts.Size(17f);
+            dossier.style.fontSize = LvnTokens.TextMicro;
             dossier.style.letterSpacing = 1.9f;
             dossier.style.unityFontStyleAndWeight = FontStyle.Bold;
             dossier.style.marginBottom = 12;
@@ -276,7 +276,7 @@ namespace Lvn.UI.Screens
 
             var name = new Label(Lvn.UI.LvnPlayerName.Display);
             name.style.color = LvnTokens.Text;
-            name.style.fontSize = Lvn.UI.LvnFonts.Size(34f);
+            name.style.fontSize = LvnTokens.TextLg;
             name.style.unityFontStyleAndWeight = FontStyle.Bold;
             col.Add(name);
 
@@ -287,7 +287,7 @@ namespace Lvn.UI.Screens
 
             var level = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("profile.level", "Level {0}", Level));
             level.style.color = LvnTokens.Accent;
-            level.style.fontSize = Lvn.UI.LvnFonts.Size(26f);
+            level.style.fontSize = LvnTokens.TextSm;
             level.style.marginTop = 2;
             level.style.marginBottom = 12;
             col.Add(level);
@@ -306,7 +306,7 @@ namespace Lvn.UI.Screens
 
             var xpLabel = new Label($"{LvnPriceTag.Amount(Xp)} / {LvnPriceTag.Amount(next)} XP");
             xpLabel.style.color = LvnTokens.TextDim;
-            xpLabel.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
+            xpLabel.style.fontSize = LvnTokens.TextXs;
             xpLabel.style.marginTop = 6;
             col.Add(xpLabel);
 
@@ -347,13 +347,13 @@ namespace Lvn.UI.Screens
 
             var value = new Label(s.Value);
             value.style.color = LvnTokens.Gold;
-            value.style.fontSize = Lvn.UI.LvnFonts.Size(36f);
+            value.style.fontSize = LvnTokens.TextLg;
             value.style.unityFontStyleAndWeight = FontStyle.Bold;
             tile.Add(value);
 
             var caption = new Label(s.Caption);
             caption.style.color = LvnTokens.TextDim;
-            caption.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
+            caption.style.fontSize = LvnTokens.TextXs;
             caption.style.marginTop = 4;
             caption.style.whiteSpace = WhiteSpace.Normal;
             caption.style.unityTextAlign = TextAnchor.MiddleCenter;
@@ -400,7 +400,7 @@ namespace Lvn.UI.Screens
 
             var label = new Label(a.Title);
             label.style.color = a.Unlocked ? LvnTokens.Text : LvnTokens.TextDim;
-            label.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
+            label.style.fontSize = LvnTokens.TextXs;
             label.style.marginTop = 6;
             label.style.whiteSpace = WhiteSpace.Normal;
             label.style.unityTextAlign = TextAnchor.MiddleCenter;
@@ -443,13 +443,13 @@ namespace Lvn.UI.Screens
             nameRow.Add(heart);
             var name = new Label(r.Name);
             name.style.color = LvnTokens.Text;
-            name.style.fontSize = Lvn.UI.LvnFonts.Size(26f);
+            name.style.fontSize = LvnTokens.TextSm;
             nameRow.Add(name);
             head.Add(nameRow);
 
             var pct = new Label($"{Mathf.RoundToInt(r.Affection * 100f)}%");
             pct.style.color = LvnTokens.Accent;
-            pct.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
+            pct.style.fontSize = LvnTokens.TextSm;
             pct.style.unityFontStyleAndWeight = FontStyle.Bold;
             head.Add(pct);
 

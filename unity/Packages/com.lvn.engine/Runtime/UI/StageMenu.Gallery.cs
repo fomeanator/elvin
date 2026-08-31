@@ -107,7 +107,7 @@ namespace Lvn.UI
                 frame.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
                 frame.style.justifyContent = Justify.Center;
                 frame.style.alignItems = Align.Center;
-                LvnChrome.Round(frame, 8f);
+                LvnChrome.Round(frame, LvnTokens.RadiusXs);
                 cell.Add(frame);
 
                 if (open)

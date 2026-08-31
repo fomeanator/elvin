@@ -58,7 +58,6 @@ namespace Lvn.UI.Screens
         /// его увидеть никаким путём, а сервис умел отдавать данные.</summary>
         public LeaderboardScreen Leaderboard { get; private set; }
         /// <summary>The wardrobe / skin shop.</summary>
-        public SkinShopScreen SkinShop { get; private set; }
         /// <summary>The currency-pack shop — ВКЛАДКА ленты (прозрачная страница).</summary>
         public PackShopScreen PackShop { get; private set; }
         /// <summary>Быстрый магазин — МОДАЛЬ со своим фоном: плюсик валют, гейт
@@ -341,7 +340,6 @@ namespace Lvn.UI.Screens
             Profile = new ProfileScreen(assets); Add(Profile);
             Daily = new DailyRewardsScreen(assets); Add(Daily);
             Leaderboard = new LeaderboardScreen(assets); Add(Leaderboard);
-            SkinShop = new SkinShopScreen(assets); Add(SkinShop);
             PackShop = new PackShopScreen(assets); Add(PackShop);
             PackShopModal = new PackShopScreen(assets, modal: true); Add(PackShopModal);
             // Какую площадку показывать «бесплатной» карточкой — решает игра
@@ -380,7 +378,6 @@ namespace Lvn.UI.Screens
             Reparent(Detail, popupLayer);
             Reparent(Gallery, popupLayer);
             Reparent(Daily, popupLayer);
-            Reparent(SkinShop, popupLayer);
             Reparent(PackShopModal, popupLayer);
             _root.Add(tabsLayer);
             _root.Add(popupLayer);
@@ -477,12 +474,6 @@ namespace Lvn.UI.Screens
             => ShowModalAsync(Daily, ct);
         public Task OpenLeaderboardAsync(CancellationToken ct = default)
             => ShowModalAsync(Leaderboard, ct);
-        /// <summary>Витрина скинов. НЕ ПОДКЛЮЧЕНА: экран показывает выдуманный
-        /// каталог (демо-вёрстка), и точки входа у него нет — гардероб ведёт
-        /// свою торговлю сам. Дверь оставлена хосту, который приведёт витрину к
-        /// настоящим данным.</summary>
-        public Task OpenSkinShopAsync(CancellationToken ct = default)
-            => ShowModalAsync(SkinShop, ct);
         /// <summary>Быстрый магазин — модаль со своим фоном (вкладка ленты —
         /// отдельный инстанс, её открывает TabGoTo(1)).</summary>
         public Task OpenPackShopAsync(CancellationToken ct = default)

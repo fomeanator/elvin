@@ -380,8 +380,8 @@ namespace Lvn.UI
             {
                 hintIcon.style.backgroundColor = accent;
                 hintIcon.style.color = bg;
-                hintIcon.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
-                LvnChrome.Round(hintIcon, 18f);
+                hintIcon.style.fontSize = LvnTokens.TextSm;
+                LvnChrome.Round(hintIcon, LvnTokens.Radius);
                 if (Theme != null) LvnFonts.Apply(hintIcon, Theme.Font);
             }
             _hintLabel.text = TextInterpolation.Apply(text, _player?.Vars);

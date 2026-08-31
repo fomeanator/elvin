@@ -77,7 +77,7 @@ namespace Lvn.UI.Screens
 
         private static void OnChoicePicked(int index, string text, float seconds, int at)
             => Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.ChoicePick,
-                ("option", index), ("text", text), ("seconds", System.Math.Round(seconds, 1)), ("at", at));
+                ("option", index), ("text", text), ("seconds", System.Math.Round(seconds, 2)), ("at", at));
 
         /// <summary>
         /// Отдаёт аналитике операции, которых рантайм не знает, и обнуляет

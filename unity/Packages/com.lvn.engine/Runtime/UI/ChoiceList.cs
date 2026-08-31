@@ -130,7 +130,7 @@ namespace Lvn.UI
                 track.style.height = 6;
                 track.style.marginBottom = _theme.ChoiceSpacing;
                 track.style.backgroundColor = new Color(1f, 1f, 1f, 0.15f);
-                LvnChrome.Round(track, 3f);
+                LvnChrome.Round(track, LvnTokens.RadiusXs);
                 _timerFill = new VisualElement();
                 _timerFill.style.height = Length.Percent(100);
                 _timerFill.style.backgroundColor = _theme.ChoiceCostColor;

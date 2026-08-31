@@ -350,13 +350,20 @@ func TestDismissByTapHasOneRule(t *testing.T) {
 // (3, 4, 5, 6, 8, 10, 12, 14, 16, 18, 22, 28…), между которыми глазом нет
 // разницы, а темой их не подвинуть.
 //
-// Свести разом нельзя — это меняет вид, а вид согласован отдельно
-// (docs/visual-standards.md). Поэтому страж не требует чистоты: он не даёт
-// стать хуже. Порог опускается по мере сведения; поднимать его нельзя.
+// 01.09 сведено: Илья попросил единый вид, и все пятьдесят мест взяли ступень
+// темы. Лестница получила две недостающие — RadiusXs=6 (засечка, дорожка
+// шкалы) и RadiusLg=28 (лист, диалоговая плашка, как в visual-standards), — а
+// «таблетка» (999) названа RadiusPill. Дальше правило простое: берёшь ступень;
+// нужна новая — заводи её в теме, и она появится у всех сразу.
 func TestRadiusComesFromTheThemeOrShrinks(t *testing.T) {
-	const budget = 53 // числовых радиусов на 01.09.2026; только вниз
+	const budget = 1 // 01.09: все скругления у ступеней темы; остаётся один
+	//                  «без скругления» (Round(el, 0) — не ступень, а её отсутствие)
 
 	root := repoRoot(t)
+	// ТОЛЬКО СКРУГЛЕНИЕ. `Math.Round(seconds, 2)` — округление числа, а не
+	// угла: страж уже принял его за радиус и потребовал взять ступень темы
+	// (правка прошла компиляцию как «float вместо decimal»).
+	arithmetic := regexp.MustCompile(`\b(?:Math|Mathf)\.Round\(`)
 	numeric := regexp.MustCompile(`Round\(\s*[\w.]+\s*,\s*\d`)
 
 	count, scanned := 0, 0
@@ -369,7 +376,8 @@ func TestRadiusComesFromTheThemeOrShrinks(t *testing.T) {
 				return nil
 			}
 			scanned++
-			count += len(numeric.FindAllString(stripComments(string(mustRead(t, path))), -1))
+			text := arithmetic.ReplaceAllString(stripComments(string(mustRead(t, path))), "ARITH(")
+			count += len(numeric.FindAllString(text, -1))
 			return nil
 		})
 	}

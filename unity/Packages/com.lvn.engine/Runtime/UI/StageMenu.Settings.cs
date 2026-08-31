@@ -56,7 +56,7 @@ namespace Lvn.UI
             var btn = new Button { text = Caption(LvnLocale.Chosen) };
             btn.style.minWidth = 150;
             btn.style.height = 48;
-            btn.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
+            btn.style.fontSize = LvnTokens.TextSm;
             btn.style.paddingLeft = 18; btn.style.paddingRight = 18;
             LvnStyler.Primary(btn, 14f);
             LvnFonts.Apply(btn, _theme.Font);
@@ -89,12 +89,12 @@ namespace Lvn.UI
         private void StyleOption(Button b, bool active)
         {
             var tint = _theme.MenuTextColor;
-            b.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
+            b.style.fontSize = LvnTokens.TextSm;
             b.style.whiteSpace = WhiteSpace.Normal;   // крупный кегль и широкая гарнитура переносятся
             b.style.paddingLeft = 14; b.style.paddingRight = 14;
             b.style.paddingTop = 8; b.style.paddingBottom = 8;
             LvnChrome.ClearBorder(b);
-            LvnChrome.Round(b, 10f);
+            LvnChrome.Round(b, LvnTokens.RadiusSm);
             b.style.backgroundColor = active
                 ? new Color(tint.r, tint.g, tint.b, 0.28f)
                 : new Color(tint.r, tint.g, tint.b, 0.10f);
@@ -127,7 +127,7 @@ namespace Lvn.UI
             var card = new VisualElement();
             var tint = _theme.MenuTextColor;
             card.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.06f);
-            LvnChrome.Round(card, 12f);
+            LvnChrome.Round(card, LvnTokens.RadiusSm);
             card.style.paddingLeft = 16; card.style.paddingRight = 16;
             card.style.paddingTop = 12; card.style.paddingBottom = 12;
             card.style.marginBottom = 10;
@@ -180,13 +180,13 @@ namespace Lvn.UI
             var offBg = new Color(tint.r, tint.g, tint.b, 0.18f);
             var track = new VisualElement();
             track.style.width = 64; track.style.height = 36;
-            LvnChrome.Round(track, 18f);
+            LvnChrome.Round(track, LvnTokens.Radius);
             track.style.flexDirection = FlexDirection.Row;
             track.style.alignItems = Align.Center;
             track.style.paddingLeft = 4; track.style.paddingRight = 4;
             var knob = new VisualElement();
             knob.style.width = 28; knob.style.height = 28;
-            LvnChrome.Round(knob, 14f);
+            LvnChrome.Round(knob, LvnTokens.Radius);
             knob.style.backgroundColor = Color.white;
             knob.pickingMode = PickingMode.Ignore;
             track.Add(knob);

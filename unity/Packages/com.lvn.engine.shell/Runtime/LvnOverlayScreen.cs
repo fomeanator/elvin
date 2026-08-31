@@ -97,7 +97,7 @@ namespace Lvn.UI.Screens
             sheet.style.backgroundColor = tint.HasValue
                 ? bg : new Color(bg.r, bg.g, bg.b, 0.94f);
             LvnChrome.Edge(sheet);
-            LvnChrome.Round(sheet, fullscreen ? 0f : LvnTokens.Radius + 6f);
+            LvnChrome.Round(sheet, fullscreen ? 0f : LvnTokens.RadiusLg);
             // Акцентная кромка сверху — «крышка» попапа: даёт листу край,
             // которого не хватало на тёмном полотне.
             sheet.style.borderTopWidth = 2.5f;

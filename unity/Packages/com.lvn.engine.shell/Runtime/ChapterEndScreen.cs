@@ -68,7 +68,7 @@ namespace Lvn.UI.Screens
             var b = new Button { text = text };
             b.style.width = Length.Percent(100f);
             b.style.minHeight = 120;
-            b.style.fontSize = Lvn.UI.LvnFonts.Size(40f);
+            b.style.fontSize = LvnTokens.TextLg;
             b.style.unityFontStyleAndWeight = FontStyle.Bold;
             b.style.color = UiColor.Named(_cfg.button_text_color, LvnTokens.Text);
             b.style.backgroundColor = primary

@@ -93,7 +93,7 @@ namespace Lvn.UI.Screens
             tabs.style.marginBottom = 18;
             tabs.style.backgroundColor = LvnTokens.Surface;
             LvnChrome.Edge(tabs);
-            LvnChrome.Round(tabs, LvnTokens.RadiusSm + 4f);
+            LvnChrome.Round(tabs, LvnTokens.Radius);
             tabs.style.paddingLeft = 4; tabs.style.paddingRight = 4;
             tabs.style.paddingTop = 4; tabs.style.paddingBottom = 4;
             sheet.Add(tabs);
@@ -159,7 +159,7 @@ namespace Lvn.UI.Screens
         private Button Pill(string text, System.Action onClick)
         {
             var b = new Button(onClick) { text = text };
-            b.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
+            b.style.fontSize = LvnTokens.TextSm;
             b.style.paddingTop = 10; b.style.paddingBottom = 10;
             b.style.paddingLeft = 24; b.style.paddingRight = 24;
             b.style.marginLeft = 0; b.style.marginRight = 0;
@@ -218,7 +218,7 @@ namespace Lvn.UI.Screens
 
             // Rank badge.
             var badge = new Label(place.ToString());
-            badge.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
+            badge.style.fontSize = LvnTokens.TextSm;
             badge.style.unityFontStyleAndWeight = FontStyle.Bold;
             badge.style.color = LvnTokens.OnAccent;
             badge.style.backgroundColor = first ? LvnTokens.Gold
@@ -226,12 +226,12 @@ namespace Lvn.UI.Screens
             badge.style.unityTextAlign = TextAnchor.MiddleCenter;
             badge.style.width = 34; badge.style.height = 34;
             badge.style.marginTop = -16;
-            LvnChrome.Round(badge, 17f);
+            LvnChrome.Round(badge, LvnTokens.Radius);
             col.Add(badge);
 
             var name = new Label(e.Name);
             name.style.color = LvnTokens.Text;
-            name.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
+            name.style.fontSize = LvnTokens.TextSm;
             name.style.marginTop = 8;
             name.style.unityFontStyleAndWeight = first ? FontStyle.Bold : FontStyle.Normal;
             name.style.unityTextAlign = TextAnchor.MiddleCenter;
@@ -282,7 +282,7 @@ namespace Lvn.UI.Screens
             // Rank number — tabular, right-aligned in a fixed gutter.
             var rank = new Label(e.Rank.ToString());
             rank.style.width = 42;
-            rank.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
+            rank.style.fontSize = LvnTokens.TextSm;
             rank.style.color = e.IsYou ? LvnTokens.Accent : LvnTokens.TextDim;
             rank.style.unityFontStyleAndWeight = e.IsYou ? FontStyle.Bold : FontStyle.Normal;
             rank.style.unityTextAlign = TextAnchor.MiddleRight;
@@ -300,7 +300,7 @@ namespace Lvn.UI.Screens
 
             var name = new Label(e.Name);
             name.style.color = LvnTokens.Text;
-            name.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
+            name.style.fontSize = LvnTokens.TextSm;
             name.style.unityFontStyleAndWeight = e.IsYou ? FontStyle.Bold : FontStyle.Normal;
             name.style.whiteSpace = WhiteSpace.NoWrap;
             name.style.overflow = Overflow.Hidden;
@@ -309,7 +309,7 @@ namespace Lvn.UI.Screens
             if (e.IsYou)
             {
                 var you = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("leaderboard.you", "You"));
-                you.style.fontSize = Lvn.UI.LvnFonts.Size(18f);
+                you.style.fontSize = LvnTokens.TextXs;
                 you.style.color = LvnTokens.OnAccent;
                 you.style.backgroundColor = LvnTokens.Accent;
                 you.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -317,13 +317,13 @@ namespace Lvn.UI.Screens
                 you.style.marginLeft = 10;
                 you.style.paddingLeft = 10; you.style.paddingRight = 10;
                 you.style.paddingTop = 2; you.style.paddingBottom = 2;
-                LvnChrome.Round(you, 11f);
+                LvnChrome.Round(you, LvnTokens.RadiusSm);
                 nameCol.Add(you);
             }
 
             var score = new Label(LvnPriceTag.Amount(e.Score));
             score.style.color = e.IsYou ? LvnTokens.Text : LvnTokens.TextDim;
-            score.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
+            score.style.fontSize = LvnTokens.TextSm;
             score.style.unityFontStyleAndWeight = e.IsYou ? FontStyle.Bold : FontStyle.Normal;
             score.style.minWidth = 110;
             score.style.unityTextAlign = TextAnchor.MiddleRight;

@@ -59,7 +59,6 @@ namespace Lvn.Tests
             yield return Case("PopupScreen", () => new PopupScreen(null));
             yield return Case("ProfileScreen", () => new ProfileScreen(a));
             yield return Case("SettingsScreen", () => new SettingsScreen(null, a));
-            yield return Case("SkinShopScreen", () => new SkinShopScreen(a));
             yield return Case("TitleCard", () => new TitleCard(null, a));
             yield return Case("TitleDetailScreen", () => new TitleDetailScreen(a));
             yield return Case("WardrobeTabScreen", () => new WardrobeTabScreen(new LvnManifest(), a));

@@ -188,13 +188,13 @@ namespace Lvn.UI.Screens
             var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("downloads.title", "Downloads"));
             title.pickingMode = PickingMode.Ignore;
             title.style.color = LvnTokens.Text;
-            title.style.fontSize = Lvn.UI.LvnFonts.Size(28f);
+            title.style.fontSize = LvnTokens.TextBase;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
             head.Add(title);
 
             var close = new Label("×");
             close.style.color = LvnTokens.TextDim;
-            close.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
+            close.style.fontSize = LvnTokens.TextSm;
             close.style.paddingTop = 6; close.style.paddingBottom = 6;
             close.style.paddingLeft = 10; close.style.paddingRight = 6;
             close.RegisterCallback<ClickEvent>(e => { e.StopPropagation(); SetExpanded(false); });
@@ -222,7 +222,7 @@ namespace Lvn.UI.Screens
             _file = new Label("");
             _file.pickingMode = PickingMode.Ignore;
             _file.style.color = LvnTokens.Text;
-            _file.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
+            _file.style.fontSize = LvnTokens.TextSm;
             _file.style.unityFontStyleAndWeight = FontStyle.Bold;
             _file.style.overflow = Overflow.Hidden;
             _file.style.textOverflow = TextOverflow.Ellipsis;
@@ -232,7 +232,7 @@ namespace Lvn.UI.Screens
             _kind = new Label("");
             _kind.pickingMode = PickingMode.Ignore;
             _kind.style.color = LvnTokens.TextDim;
-            _kind.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
+            _kind.style.fontSize = LvnTokens.TextXs;
             _kind.style.marginTop = 3;
             col.Add(_kind);
 
@@ -245,7 +245,7 @@ namespace Lvn.UI.Screens
             info.style.marginTop = 10;
             info.style.backgroundColor = LvnTokens.Faint;
             LvnChrome.Edge(info);
-            LvnChrome.Round(info, 14f);
+            LvnChrome.Round(info, LvnTokens.Radius);
             info.style.paddingTop = 10; info.style.paddingBottom = 6;
             info.style.paddingLeft = 14; info.style.paddingRight = 14;
             info.style.flexDirection = FlexDirection.Row;

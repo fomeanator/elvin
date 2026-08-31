@@ -94,7 +94,7 @@ namespace Lvn.UI.Screens
 
             _progressLabel = new Label("0%") { pickingMode = PickingMode.Ignore };
             _progressLabel.style.color = UiColor.Named(_cfg.progress_color, LvnTokens.Text);
-            _progressLabel.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
+            _progressLabel.style.fontSize = LvnTokens.TextSm;
             left.Add(_progressLabel);
 
             // Tap to see the title's live stats (trait pairs + relationships) —
