@@ -109,10 +109,8 @@ namespace Lvn.Content
         /// <summary>Рост героини у створа и где она стоит — доли кадра. У
         /// портала она мельче, чем в витрине: рядом со створом важен масштаб
         /// перехода, а не её лицо.</summary>
-        public float? doll_height, doll_x;
+        public float? doll_height;
 
-        /// <summary>Подписи. Пустое — движковые умолчания.</summary>
-        public string enter_label, waiting_label, locked_label, title_label;
     }
 
     /// <summary>Between-screen choreography: how the shell's surfaces hand off
@@ -162,8 +160,6 @@ namespace Lvn.Content
         public string card_color;     // item card fill; default #1c1c22
         public string accent_color;   // equipped ring / action fill; default #c8a050
         public string accent_text_color; // action button text; default #14141a
-        public string preview_bg_color;  // behind the character; default #101015
-        public string preview_bg_image;  // optional content-url scene behind the heroine
         public float? corner_radius;  // default 12
 
         public string equip_text;     // default "Equip"
@@ -267,12 +263,9 @@ namespace Lvn.Content
         public string text_color;     // card titles / balances; default #f2eee1
         public string dim_text_color; // bonus line, status; default #9a948a
         public string card_color;     // pack card fill; default #1c1c22
-        public string buy_color;      // buy button fill; default #c8a050
-        public string buy_text_color; // buy button text; default #14141a
         public float? corner_radius;  // sheet/card rounding; default 12
 
         public string buy_text;       // button label when a pack has no price; default "Get"
-        public string ad_text;        // rewarded-ad card button; default "Watch ad"
         public string close_text;     // default "Close" (гардероб как отдельный экран)
         public string cancel_text;    // закрыть примерку НЕ сохраняя; default "Отменить"
         public string peek_text;      // «посмотреть наряд во весь рост»; default "Во весь рост"
@@ -284,22 +277,6 @@ namespace Lvn.Content
         public Dictionary<string, string> currency_icons; // currency → content url (cards + HUD pills)
         public Dictionary<string, string> currency_names; // currency → display name (default: the raw key)
 
-        // Sections: packs are grouped by their catalog `section` id, shown in the
-        // order sections first appear in the (server-sorted) catalog. This maps a
-        // section id to a display heading; a missing id falls back to the raw id,
-        // and packs with no section render as one unlabelled group (legacy).
-        public Dictionary<string, string> section_titles;
-        public string section_title_color; // section heading color; default title_color
-
-        // "Pay from Russia" (or any region) banner, pinned at the top of each
-        // section. When pay_banner_url is set the banner opens it via the
-        // LvnWebView seam (in-app web view if the host plugged one, else the
-        // system browser). Shown only to RU-region users unless pay_banner_always.
-        public string pay_banner_text;   // e.g. "Как оплатить из России →"
-        public string pay_banner_url;    // instructions page; empty → no banner
-        public string pay_banner_color;  // banner fill; default a warm accent tint
-        public string pay_banner_text_color; // banner text; default text_color
-        public bool? pay_banner_always;  // show to everyone, not just RU; default false
     }
 
     /// <summary>The universal popup/dialog overlay (PopupScreen): a modal card
@@ -355,7 +332,6 @@ namespace Lvn.Content
         public string on_text;         // "On"
         public string off_text;        // "Off"
         public string language_label;  // "Language"
-        public string original_lang_text; // the script's inline language; default "Original"
         public string uid_label;       // "Player ID"
         public string copy_text;       // "Copy"
         public string copied_text;     // "Copied"
@@ -663,7 +639,6 @@ namespace Lvn.Content
         public string locked_text;       // lock badge on a gated card; default "🔒"
         public string cost_text;         // cost chip, "{0}" = amount; default "{0}"
         public string all_text;          // slider "see all" link; default "Все"
-        public string more_text;         // card details button; default "Подробнее"
         public string featured_text;     // featured-banner eyebrow; default "Рекомендуем"
         public string continue_text;     // resume banner label; default "Продолжить"
         public string library_text;      // auto row for un-collected titles; default "Новеллы"
@@ -804,10 +779,8 @@ namespace Lvn.Content
     {
         public bool? enabled;            // the manifest switch; default true when the section exists
         public string bg_url;            // full-screen backdrop
-        public string hero_url;          // optional character art
         public string field_url;         // optional text-field background art
         public string button_url;        // optional confirm-button art
-        public string badge_url;         // optional speaker-name badge art
 
         public string bg_color;          // default #101015
         public string prompt;            // default "Enter your name"
