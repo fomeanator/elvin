@@ -6,6 +6,7 @@ import { Player, trackStage as trackStageCore, replayStage } from "./core.js";
 import { interpolate } from "./expr.js";
 import { attach as attachHighlight } from "./highlight.js";
 import { exportHtml } from "./export.js";
+import { lvnColor } from "./color.js";
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -538,7 +539,7 @@ function applyStageDom(cmd, vars) {
       entry.el.style.left = (cmd.x ?? 4) + "%";
       entry.el.style.top = (cmd.y ?? 4) + "%";
       entry.el.style.fontSize = ((cmd.size ?? 24) * 0.6) + "px";
-      entry.el.style.color = cmd.color || "#f1e4c9";
+      entry.el.style.color = lvnColor(cmd.color, "#f1e4c9");
       break;
     }
     case "audio": {
@@ -561,7 +562,7 @@ function applyStageDom(cmd, vars) {
     case "fade": {
       const veil = $("veil");
       const to = cmd.to || "black";
-      veil.style.background = to === "white" ? "#fff" : "#000";
+      veil.style.background = lvnColor(to, "#000");
       veil.style.opacity = to === "clear" ? 0 : 1;
       if (to !== "clear") setTimeout(() => { veil.style.opacity = 0; }, 650);
       break;
@@ -574,7 +575,7 @@ function applyStageDom(cmd, vars) {
     }
     case "tint": {
       const veil = $("veil");
-      veil.style.background = cmd.color || "#000";
+      veil.style.background = lvnColor(cmd.color, "#000");
       veil.style.opacity = cmd.alpha ?? 0.3;
       break;
     }

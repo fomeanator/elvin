@@ -65,9 +65,13 @@ async function inlineAssets(doc, catalog, extraAssets = {}, resolve = (u) => u) 
  * скачивание осталось там, где ему место, — в браузере.
  */
 export async function buildHtml(title, lvnJson, catalog = {}, extraAssets = {}, resolve = (u) => u) {
-  const [core, expr] = await Promise.all([
+  const [core, expr, color] = await Promise.all([
     fetch("core.js").then((r) => r.text()),
     fetch("expr.js").then((r) => r.text()),
+    // Словарь цвета едет в сборку тем же способом, что и остальные модули:
+    // без него экспортированная игра отдавала бы слово прямо в CSS и красила
+    // бы `warm` ни во что, а `green` — в тёмный.
+    fetch("color.js").then((r) => r.text()),
   ]);
   const doc = JSON.parse(lvnJson);
   const { assetMap, usedCatalog } = await inlineAssets(doc, catalog, extraAssets, resolve);
@@ -79,6 +83,7 @@ export async function buildHtml(title, lvnJson, catalog = {}, extraAssets = {}, 
   const html = TEMPLATE
     .replaceAll("__TITLE__", escapeHtml(title || "LVN story"))
     .replace("__EXPR__", strip(expr))
+    .replace("__COLOR__", strip(color))
     .replace("__CORE__", strip(core))
     .replace("__DOC__", "<" + "script id=\"lvn-doc\" type=\"application/json\">"
       + JSON.stringify({ doc, assets: assetMap, catalog: usedCatalog }).replace(/<\/script/gi, "<\\/script")
@@ -186,6 +191,7 @@ body { font: 16px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; background:
 __DOC__
 <script>
 __EXPR__
+__COLOR__
 __CORE__
 
 // ── lean standalone renderer (a distilled app.js without the editor) ──
@@ -320,15 +326,15 @@ function applyStage(cmd) {
       if (!entry) { const el = document.createElement("div"); el.className = "hud-label"; $id("hud").appendChild(el); entry = { el, template: "" }; hudLabels.set(cmd.id, entry); }
       if (cmd.text) entry.template = cmd.text;
       entry.el.style.left = (cmd.x ?? 4) + "%"; entry.el.style.top = (cmd.y ?? 4) + "%";
-      entry.el.style.fontSize = ((cmd.size ?? 24) * 0.6) + "px"; entry.el.style.color = cmd.color || "#f1e4c9";
+      entry.el.style.fontSize = ((cmd.size ?? 24) * 0.6) + "px"; entry.el.style.color = lvnColor(cmd.color, "#f1e4c9");
       break;
     }
     case "fade": { const v = $id("veil"); const to = cmd.to || "black";
-      v.style.background = to === "white" ? "#fff" : "#000";
+      v.style.background = lvnColor(to, "#000");
       v.style.opacity = to === "clear" ? 0 : 1;
       if (to !== "clear") setTimeout(() => { v.style.opacity = 0; }, 650); break; }
     case "dim": { const v = $id("veil"); v.style.background = "#000"; v.style.opacity = cmd.alpha ?? 0.4; break; }
-    case "tint": { const v = $id("veil"); v.style.background = cmd.color || "#000"; v.style.opacity = cmd.alpha ?? 0.3; break; }
+    case "tint": { const v = $id("veil"); v.style.background = lvnColor(cmd.color, "#000"); v.style.opacity = cmd.alpha ?? 0.3; break; }
     case "audio": if (cmd.channel === "sfx" && cmd.action !== "stop" && cmd.url) { new Audio(art(cmd.url)).play().catch(() => {}); break; }
       if (cmd.channel === "music") {
       if (cmd.action === "stop") { window.__m && window.__m.pause(); break; }

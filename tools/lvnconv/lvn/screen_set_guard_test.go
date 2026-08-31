@@ -530,3 +530,53 @@ func TestАдресРазбираетДомАНеМестоВызова(t *testi
 		}
 	}
 }
+
+// Веб-плеер знает те же слова цвета, что и движок.
+//
+// Плеер отдавал слово ПРЯМО В CSS: «accent», «warm», «sepia» браузер молча
+// игнорирует, а «green» в CSS — ТЁМНЫЙ #008000, тогда как в движке зелёный
+// яркий. Один и тот же скрипт в приложении и по Share-ссылке давал разный
+// зелёный — расхождение рантаймов, которое видит только игрок.
+func TestВебПлеерЗнаетТеЖеСловаЦвета(t *testing.T) {
+	root := repoRoot(t)
+	csRaw, err := os.ReadFile(filepath.Join(root, "unity", "Packages", "com.lvn.engine",
+		"Runtime", "UI", "UiColor.cs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cs := string(csRaw)
+	at := strings.Index(cs, "public static Color Named(")
+	end := strings.Index(cs, "public static Color Token(")
+	if at < 0 || end < at {
+		t.Fatal("UiColor.Named пропал — словарь держится на нём")
+	}
+	engine := map[string]bool{}
+	for _, m := range regexp.MustCompile(`case "([a-z_]+)":`).FindAllStringSubmatch(cs[at:end], -1) {
+		engine[m[1]] = true
+	}
+	jsRaw, err := os.ReadFile(filepath.Join(root, "panel", "public", "play", "color.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	js := map[string]bool{}
+	// Слова — ключи трёх таблиц словаря; значения бывают любые, ключи всегда
+	// в начале строки после отступа.
+	for _, m := range regexp.MustCompile(`(?m)^  ([a-z_]+): `).FindAllStringSubmatch(string(jsRaw), -1) {
+		js[m[1]] = true
+	}
+	if len(js) < 20 {
+		t.Fatalf("в словаре плеера всего %d слов — похоже, якорь сторожа промахнулся", len(js))
+	}
+	for w := range engine {
+		if !js[w] {
+			t.Fatalf("движок знает цвет %q, а веб-плеер нет — одна и та же глава "+
+				"в приложении и по ссылке покрасится по-разному", w)
+		}
+	}
+	for w := range js {
+		if !engine[w] {
+			t.Fatalf("веб-плеер знает цвет %q, которого нет у движка — "+
+				"расхождение в другую сторону, но того же рода", w)
+		}
+	}
+}
