@@ -24,6 +24,37 @@ namespace Lvn.UI.Screens
 
         /// <summary>Record that the player is (now) in this chapter. Bumps
         /// Reached when this is the furthest chapter so far.</summary>
+        /// <summary>
+        /// ПРОГРЕСС СДВИНУЛСЯ — знать об этом обязан не только тот, кто его
+        /// сдвинул.
+        ///
+        /// <para>Точка продолжения живёт в ТРЁХ местах: записная книжка
+        /// устройства, облачный свёрток и серверные переменные. Держать их в
+        /// согласии полагалось звонящему: после каждого хода прогресса он
+        /// должен был позвать сведение. Четверо звали (пауза, стирание, начало
+        /// и конец главы), а ЭКРАНЫ — нет: игрок выбирал главу в списке или
+        /// просил переиграть, приложение закрывали, и облачная копия оставалась
+        /// со старой точкой. Восстановление возвращало игрока туда, откуда он
+        /// уже ушёл.</para>
+        ///
+        /// <para>Список того, что надо не забыть, помнят не все — поэтому его
+        /// здесь и нет: дом сам говорит, что сдвинулся, а слушает его один
+        /// хост. Восстановление из свёртка (<see cref="RestoreMarker"/>) молчит
+        /// намеренно: оно и есть тот, кто раскладывает свёрток обратно, и
+        /// отвечать на себя ему незачем.</para>
+        /// </summary>
+        public static event System.Action Moved;
+
+        private static void Announce()
+        {
+            try { Moved?.Invoke(); }
+            catch (System.Exception e)
+            {
+                // Слушатель уронил ход прогресса — а прогресс уже записан.
+                Debug.LogWarning("[lvn-progress] слушатель хода упал: " + e.Message);
+            }
+        }
+
         // ЗАКРЫТО НАРУЖУ НАМЕРЕННО: снаружи у каждого события прогресса свой
         // глагол (выбрал / переиграть / началась / дочитана / загрузил сейв).
         // Общий SetCurrent не говорит, ЧТО произошло, — а от этого зависит,
@@ -37,9 +68,10 @@ namespace Lvn.UI.Screens
                 // The NUMBER rides along: a re-import that renames chapter ids must
                 // not orphan the marker — position is the player's, ids are ours.
                 LvnKeep.Put(CurNumKey(title.id), chapter.number);
-                if (chapter.number > Reached(title))
+                if (!HasReached(title) || chapter.number > Reached(title))
                     LvnKeep.Put(ReachedKey(title.id), chapter.number);
             }
+            Announce();
         }
 
         /// <summary>
@@ -131,6 +163,24 @@ namespace Lvn.UI.Screens
             title == null ? 0 : LvnKeep.Get(ReachedKey(title.id), 0);
 
         /// <summary>
+        /// ДОШЁЛ ЛИ ХОТЬ ДО ЧЕГО-НИБУДЬ — вопрос отдельный от «докуда».
+        ///
+        /// <para>Потолок и «ничего не начинали» жили одним числом: ноль значил
+        /// и то и другое. А НОЛЬ — ЗАКОННЫЙ НОМЕР ГЛАВЫ: вводная новелла
+        /// начинается именно с него, и вся воронка приложения — тоже. Из-за
+        /// совпадения потолок такой главы не записывался («ноль не больше
+        /// нуля»), и новелла, целиком состоящая из пилота, НИКОГДА не
+        /// становилась пройденной: игрок дочитал её до конца, а карточка
+        /// показывает пустую полосу — и так каждый раз, сколько бы он её ни
+        /// прошёл.</para>
+        ///
+        /// <para>Спрашиваем не значение, а НАЛИЧИЕ записи: её отсутствие и есть
+        /// «ничего не начинали».</para>
+        /// </summary>
+        public static bool HasReached(LvnTitle title)
+            => title != null && LvnKeep.Get(ReachedKey(title.id), int.MinValue) != int.MinValue;
+
+        /// <summary>
         /// НОВЕЛЛА ПРОЙДЕНА? Дошли до её последней главы, и она закончилась:
         /// продолжения нет, а самая дальняя достигнутая — последняя.
         ///
@@ -151,9 +201,9 @@ namespace Lvn.UI.Screens
             if (title == null) return false;
             var chapters = title.ChaptersOf();
             if (chapters.Count == 0) return false;
-            int reached = Reached(title);
-            if (reached <= 0) return false;
-            return Current(title) == null && reached >= chapters[chapters.Count - 1].number;
+            if (!HasReached(title)) return false;
+            return Current(title) == null
+                && Reached(title) >= chapters[chapters.Count - 1].number;
         }
 
         /// <summary>
@@ -170,8 +220,8 @@ namespace Lvn.UI.Screens
             var chapters = title.ChaptersOf();
             if (chapters.Count == 0) return 0;
             if (Finished(title)) return chapters.Count;
+            if (!HasReached(title)) return 0;
             int reached = Reached(title);
-            if (reached <= 0) return 0;
             // Считаем по СПИСКУ, а не по номеру: номера глав необязательно идут
             // с единицы и подряд (у импортированных новелл они бывают любыми).
             int done = 0;
@@ -207,6 +257,7 @@ namespace Lvn.UI.Screens
                 LvnKeep.Drop(CurKey(title.id));
                 LvnKeep.Drop(CurNumKey(title.id));
             }
+            Announce();
         }
 
         /// <summary>Vault restore: re-plant a marker recovered from the progress
@@ -219,7 +270,7 @@ namespace Lvn.UI.Screens
                 LvnKeep.Put(CurKey(titleId), chapterId);
                 LvnKeep.Put(CurNumKey(titleId), number);
             }
-            if (reached > LvnKeep.Get(ReachedKey(titleId), 0))
+            if (reached > LvnKeep.Get(ReachedKey(titleId), int.MinValue))
                 LvnKeep.Put(ReachedKey(titleId), reached);
         }
 
@@ -345,7 +396,7 @@ namespace Lvn.UI.Screens
             bool freshStart = resume == null;
             if (resume != null) chapter = resume;
 
-            if (resume == null && Reached(title) > 0 && chapter != null)
+            if (resume == null && HasReached(title) && chapter != null)
                 RequestRestart(title?.id, chapter.id);
 
             var entrySlot = LvnSaveStore.Get(title?.id, LvnSaveStore.AutoSlot);
@@ -370,6 +421,7 @@ namespace Lvn.UI.Screens
                 LvnKeep.Drop(EntryKey(titleId));
                 LvnKeep.Drop(RestartKey(titleId));
             }
+            Announce();
         }
     }
 }

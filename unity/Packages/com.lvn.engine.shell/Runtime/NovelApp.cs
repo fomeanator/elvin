@@ -300,6 +300,14 @@ namespace Lvn.UI.Screens
             LvnPrefs.Changed -= OnPrefsMaybeLocale;
             _leash.Hold(() => LvnPrefs.Changed += OnPrefsMaybeLocale,
                         () => LvnPrefs.Changed -= OnPrefsMaybeLocale);
+
+            // ХОД ПРОГРЕССА СВОДИТ ХОСТ, а не тот, кто его сделал. Раньше
+            // сведение звали руками после каждого хода — и звали не все:
+            // экраны (выбор главы в списке, «переиграть», сброс новеллы)
+            // двигали точку молча, и облачная копия оставалась со старой.
+            LvnProgress.Moved -= SyncProgressVault;
+            _leash.Hold(() => LvnProgress.Moved += SyncProgressVault,
+                        () => LvnProgress.Moved -= SyncProgressVault);
         }
 
         /// <summary>

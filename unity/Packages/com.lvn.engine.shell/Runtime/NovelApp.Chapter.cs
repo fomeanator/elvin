@@ -167,10 +167,9 @@ namespace Lvn.UI.Screens
         /// </summary>
         private void AnnounceChapterStart(LvnTitle title, LvnChapter chapter)
         {
-            LvnProgress.StartChapter(title, chapter);
+            LvnProgress.StartChapter(title, chapter);   // ход прогресса сводит свёрток сам
             EnterChapterContext(title, chapter);
             lock (_reachedLabels) _reachedLabels.Clear();
-            SyncProgressVault();
             ChapterStarted?.Invoke(title, chapter);
             Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.ChapterStart,
                 ("title", title?.id), ("chapter", chapter.id));
