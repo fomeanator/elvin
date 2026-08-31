@@ -1,0 +1,66 @@
+{
+  "id": "say-unset-dotted-name",
+  "title": "A typo in a dotted name shows as {key}, not as nothing",
+  "why": "Interpolation has one job besides showing values: making a typo VISIBLE. An unset bare name renders as the literal `{key}` for exactly that reason — the author sees the braces and finds the mistake. A dotted name is the same kind of mistake and by far the likelier one: imported stats are namespaced (`Way.Moral`, `Relationships.Ivan`), so the author types two words instead of one and has two chances to slip. C# treated a dot as proof of an EXPRESSION and rendered nothing at all: the number vanished mid-sentence with no trace, and the author had no way to tell a wrong name from a wrong value. The browser player showed the braces. Two runtimes, one question, opposite answers — and the silent one was in the app the player actually runs. Пустое значение по пути показывается так же, как промах: отличить «пути нет» от «путь есть, значение пусто» не умеет ни один рантайм — оба спрашивают значение и получают «ничего». Раз отличить нельзя, ответ обязан быть один, и выбран полезный автору.",
+  "runtimes": [
+    "csharp",
+    "js"
+  ],
+  "doc": {
+    "scene": "conformance",
+    "script": [
+      {
+        "op": "set",
+        "key": "Way.Moral",
+        "value": 4
+      },
+      {
+        "op": "set",
+        "key": "Way.Blank",
+        "value": null
+      },
+      {
+        "op": "say",
+        "text": "Верно: {Way.Moral}."
+      },
+      {
+        "op": "say",
+        "text": "Опечатка в корне: {Wai.Moral}."
+      },
+      {
+        "op": "say",
+        "text": "Опечатка в поле: {Way.Morral}."
+      },
+      {
+        "op": "say",
+        "text": "Пустое по пути: {Way.Blank}."
+      },
+      {
+        "op": "say",
+        "text": "Выражение остаётся выражением: {Way.Moral + 1}."
+      }
+    ]
+  },
+  "expect": {
+    "stops": [
+      {
+        "say": "Верно: 4."
+      },
+      {
+        "say": "Опечатка в корне: {Wai.Moral}."
+      },
+      {
+        "say": "Опечатка в поле: {Way.Morral}."
+      },
+      {
+        "say": "Пустое по пути: {Way.Blank}."
+      },
+      {
+        "say": "Выражение остаётся выражением: 5."
+      },
+      {
+        "end": true
+      }
+    ]
+  }
+}
