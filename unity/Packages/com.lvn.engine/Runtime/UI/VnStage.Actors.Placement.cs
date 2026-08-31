@@ -98,6 +98,11 @@ namespace Lvn.UI
         {
             ownerId = null;
             if (hasExplicitX) return desired;
+            // УШЕДШИЙ ЗА КАДР НЕ УЧАСТВУЕТ В ТОЛКОТНЕ. Двое, уведённые в одну
+            // кулису, считались занявшими одно место, и второго «расталкивание»
+            // возвращало на ближайший свободный слот — то есть В КАДР, к левому
+            // краю. Актёр, которого автор убрал со сцены, выходил обратно.
+            if (desired < 0f || desired > 1f) return desired;
             var taken = new List<float>();
             foreach (var kv in visible)
             {

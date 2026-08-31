@@ -254,7 +254,10 @@ namespace Lvn.UI
                 // re-emits position= on each emotion change, so the sticky merge recomputes
                 // X from SlotX (0.25/0.75) and would snap the actor back to the un-spread
                 // column after the first line. Only when X came from position, not x=.
-                if (cmd["x"] == null && cmd["position"] != null && Theme.ActorSpread != 1f)
+                // Кроме УШЕДШИХ ЗА КАДР: сжатие ряда к центру втягивало их
+                // обратно, и «уйти за кулису» превращалось в «шаг влево».
+                if (cmd["x"] == null && cmd["position"] != null && Theme.ActorSpread != 1f
+                    && placement.X >= 0f && placement.X <= 1f)
                     placement.X = 0.5f + (placement.X - 0.5f) * Theme.ActorSpread;
             }
             // Layered/boned entities declare the aspect their art was authored in —
