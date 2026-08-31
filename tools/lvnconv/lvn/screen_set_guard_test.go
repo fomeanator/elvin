@@ -1,6 +1,7 @@
 package lvn
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -579,6 +580,36 @@ func TestВебПлеерЗнаетТеЖеСловаЦвета(t *testing.T) {
 				"расхождение в другую сторону, но того же рода", w)
 		}
 	}
+
+	// СЛОВ МАЛО — НУЖНЫ ЗНАЧЕНИЯ. Первая версия этого сторожа сверяла только
+	// состав, и подмена «green» на HTML-ный тёмный проходила зелёной: ровно
+	// тот баг, ради которого всё делалось, мог вернуться молча. А «yellow»
+	// уже успел разойтись — у движка это Unity-шный (1, 0.922, 0.016), у
+	// плеера был чистый #ffff00.
+	//
+	// Сверяем ту треть словаря, где значение — константа движка, а не тема:
+	// имена движка. Токены темы у площадки СВОИ намеренно (облик её), а
+	// мнемоники заданы долями и сравнивать их по строке нечестно.
+	engineHex := map[string]string{
+		"white": "#ffffff", "black": "#000000", "red": "#ff0000", "blue": "#0000ff",
+		"green": "#00ff00", "yellow": "#ffeb04", "cyan": "#00ffff", "magenta": "#ff00ff",
+	}
+	jsHex := map[string]string{}
+	for _, m := range regexp.MustCompile(`(?m)^  ([a-z_]+): "(#[0-9a-f]{6})",`).FindAllStringSubmatch(string(jsRaw), -1) {
+		jsHex[m[1]] = m[2]
+	}
+	for w, want := range engineHex {
+		got, ok := jsHex[w]
+		if !ok {
+			t.Fatalf("у веб-плеера цвет %q задан не шестнадцатеричной константой — "+
+				"сверить его с движком нечем", w)
+		}
+		if got != want {
+			t.Fatalf("цвет %q: у движка %s, у веб-плеера %s.\n"+
+				"Одна и та же вспышка красится по-разному в приложении и по ссылке — "+
+				"а слова при этом совпадают, потому сторож и сверяет ЗНАЧЕНИЯ", w, want, got)
+		}
+	}
 }
 
 // Авторский цвет из манифеста читают СЛОВАРЁМ, а не hex-разбором.
@@ -683,6 +714,59 @@ func TestСловарьМестОдинВоВсехРантаймах(t *testing
 			if !truth[w] {
 				t.Fatalf("%s: знает место %q, которого у движка нет", side.path, w)
 			}
+		}
+	}
+}
+
+// У мест сверяются не только слова, но и ДОЛИ.
+//
+// Первая версия сторожа сверяла состав словаря — и веб-плеер мог знать те же
+// девять имён с другими долями, оставаясь зелёным. Ровно так уже разошлись
+// цвета: слова совпадали, «yellow» — нет.
+func TestДолиМестСовпадаютСДвижком(t *testing.T) {
+	root := repoRoot(t)
+	csRaw, err := os.ReadFile(filepath.Join(root, "unity", "Packages", "com.lvn.engine",
+		"Runtime", "UI", "Placement.cs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := regexp.MustCompile(`(?s)public static float SlotX\(string position\)(.*?)\n        \}`).
+		FindStringSubmatch(string(csRaw))
+	if body == nil {
+		t.Fatal("SlotX не найден — поправь якорь сторожа")
+	}
+	engine := map[string]string{}
+	for _, m := range regexp.MustCompile(`case "([a-z_]+)": return (-?[0-9.]+)f;`).
+		FindAllStringSubmatch(body[1], -1) {
+		engine[m[1]] = strings.TrimSuffix(m[2], ".")
+	}
+	if len(engine) != 9 {
+		t.Fatalf("в SlotX %d мест, ожидалось 9", len(engine))
+	}
+	jsRaw, err := os.ReadFile(filepath.Join(root, "panel", "public", "play", "place.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	js := map[string]string{}
+	for _, m := range regexp.MustCompile(`(?m)^  ([a-z_]+): (-?[0-9.]+),`).
+		FindAllStringSubmatch(string(jsRaw), -1) {
+		js[m[1]] = m[2]
+	}
+	num := func(s string) float64 {
+		var f float64
+		if _, err := fmt.Sscanf(s, "%g", &f); err != nil {
+			t.Fatalf("не число: %q", s)
+		}
+		return f
+	}
+	for w, want := range engine {
+		got, ok := js[w]
+		if !ok {
+			t.Fatalf("у веб-плеера нет доли для места %q", w)
+		}
+		if num(got) != num(want) {
+			t.Fatalf("место %q: у движка %s, у веб-плеера %s.\n"+
+				"Одна и та же сцена расставит героев по-разному в приложении и по ссылке", w, want, got)
 		}
 	}
 }

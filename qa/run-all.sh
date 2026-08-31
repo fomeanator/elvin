@@ -93,6 +93,30 @@ else
   log "WARN: go не найден — стражи формы и языка не проверены"
 fi
 
+# ── 0b. СТРАЖИ ВЕБ-ПОЛОВИНЫ (node) ─────────────────────────────────────────
+# Веб-плеер и экспортированная игра — такие же рантаймы языка, как движок, и
+# их правила надо проверять тем же циклом. Жили эти тесты только в CI-джобе
+# панели, а она до них не доходила: перед ними стоит линтер, и он красный.
+# Проверка, которую никто не гоняет, — не проверка.
+if command -v node >/dev/null 2>&1; then
+  log "node: упаковка экспорта"
+  out=$(node "$REPO_ROOT/conformance/export-check.mjs" "$REPO_ROOT/panel/public/play" 2>&1) \
+    && [ "$out" = "[]" ] \
+    || { log "FAIL: упаковка экспорта — $out"; fail=1; }
+  if [ -d "$REPO_ROOT/panel/node_modules" ]; then
+    log "node: тесты панели"
+    (cd "$REPO_ROOT/panel" && npm test --silent >/dev/null 2>&1) \
+      || { log "FAIL: npm test в panel/ — подробности: (cd panel && npm test)"; fail=1; }
+  else
+    log "WARN: panel/node_modules нет — тесты панели пропущены (npm i --prefix panel)"
+  fi
+  log "node: грамматика"
+  (cd "$REPO_ROOT/tools/lvn-lang" && node --test >/dev/null 2>&1) \
+    || { log "FAIL: node --test в tools/lvn-lang"; fail=1; }
+else
+  log "WARN: node не найден — веб-половина не проверена"
+fi
+
 # ── 0. Go-сервер для PlayMode-смоука (BootSmokeTests поднимает его сам) ─────
 mkdir -p "$REPO_ROOT/qa/bin"
 if command -v go >/dev/null 2>&1; then
