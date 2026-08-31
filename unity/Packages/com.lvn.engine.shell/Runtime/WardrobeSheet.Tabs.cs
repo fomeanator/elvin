@@ -102,7 +102,7 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(b, 27f);
             var fallback = new Color(0.30f, 0.31f, 0.35f, 0.9f);
             b.style.backgroundColor = string.IsNullOrEmpty(item.color)
-                ? fallback : UiColor.Parse(item.color, fallback);
+                ? fallback : UiColor.Named(item.color, fallback);
             if (none)
                 b.Add(LvnIcons.Make(LvnIcon.Close, 22f, _text));
             else if (string.IsNullOrEmpty(item.color) && !string.IsNullOrEmpty(item.icon))

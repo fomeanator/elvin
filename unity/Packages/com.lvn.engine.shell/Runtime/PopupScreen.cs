@@ -76,16 +76,16 @@ namespace Lvn.UI.Screens
         public PopupScreen(PopupConfig cfg)
         {
             _cfg = cfg ?? new PopupConfig();
-            _text = UiColor.Parse(_cfg.text_color, LvnTokens.Text);
-            _titleColor = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
-            _btnColor = UiColor.Parse(_cfg.button_color, LvnTokens.Faint);
-            _btnText = UiColor.Parse(_cfg.button_text_color, _text);
-            _primaryColor = UiColor.Parse(_cfg.primary_color, LvnTokens.Accent);
-            _primaryText = UiColor.Parse(_cfg.primary_text_color, LvnTokens.OnAccent);
+            _text = UiColor.Named(_cfg.text_color, LvnTokens.Text);
+            _titleColor = UiColor.Named(_cfg.title_color, LvnTokens.Text);
+            _btnColor = UiColor.Named(_cfg.button_color, LvnTokens.Faint);
+            _btnText = UiColor.Named(_cfg.button_text_color, _text);
+            _primaryColor = UiColor.Named(_cfg.primary_color, LvnTokens.Accent);
+            _primaryText = UiColor.Named(_cfg.primary_text_color, LvnTokens.OnAccent);
             _radius = _cfg.corner_radius ?? LvnTokens.RadiusSm;
 
             ScreenUi.Stretch(this);
-            style.backgroundColor = UiColor.Parse(_cfg.scrim_color, LvnTokens.Scrim);
+            style.backgroundColor = UiColor.Named(_cfg.scrim_color, LvnTokens.Scrim);
             style.justifyContent = Justify.Center;
             style.alignItems = Align.Center;
             style.opacity = 0f;
@@ -96,7 +96,7 @@ namespace Lvn.UI.Screens
             _card = new VisualElement();
             _card.style.maxWidth = 560;
             _card.style.width = Length.Percent(80f);
-            _card.style.backgroundColor = UiColor.Parse(_cfg.panel_color, LvnTokens.PanelBg);
+            _card.style.backgroundColor = UiColor.Named(_cfg.panel_color, LvnTokens.PanelBg);
             LvnChrome.Round(_card, _radius + 4f);
             _card.style.paddingTop = 24;
             _card.style.paddingBottom = 20;

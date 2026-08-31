@@ -51,14 +51,14 @@ namespace Lvn.UI.Screens
 
             _chapter = new Label();
             _chapter.style.unityTextAlign = TextAnchor.MiddleCenter;
-            _chapter.style.color = UiColor.Parse(_cfg.chapter_color, LvnTokens.Text);
+            _chapter.style.color = UiColor.Named(_cfg.chapter_color, LvnTokens.Text);
             _chapter.style.fontSize = _cfg.chapter_size ?? 64f;
             _chapter.style.unityFontStyleAndWeight = FontStyle.Bold;
             _card.Add(_chapter);
 
             _subtitle = new Label();
             _subtitle.style.unityTextAlign = TextAnchor.MiddleCenter;
-            _subtitle.style.color = UiColor.Parse(_cfg.subtitle_color, LvnTokens.TextDim);
+            _subtitle.style.color = UiColor.Named(_cfg.subtitle_color, LvnTokens.TextDim);
             _subtitle.style.fontSize = _cfg.subtitle_size ?? 34f;
             _subtitle.style.marginTop = 12;
             _card.Add(_subtitle);

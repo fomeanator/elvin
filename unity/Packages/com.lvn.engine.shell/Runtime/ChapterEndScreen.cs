@@ -27,7 +27,7 @@ namespace Lvn.UI.Screens
             _cfg = cfg ?? new ChapterEndConfig();
 
             ScreenUi.Stretch(this);
-            style.backgroundColor = UiColor.Parse(_cfg.bg_color, new Color(LvnTokens.Bg.r, LvnTokens.Bg.g, LvnTokens.Bg.b, 0.92f));
+            style.backgroundColor = UiColor.Named(_cfg.bg_color, new Color(LvnTokens.Bg.r, LvnTokens.Bg.g, LvnTokens.Bg.b, 0.92f));
             style.alignItems = Align.Center;
             style.justifyContent = Justify.Center;
             style.display = DisplayStyle.None;
@@ -39,14 +39,14 @@ namespace Lvn.UI.Screens
 
             _title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("chapter_end.title", _cfg.title, "End of chapter"));
             _title.style.unityTextAlign = TextAnchor.MiddleCenter;
-            _title.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
+            _title.style.color = UiColor.Named(_cfg.title_color, LvnTokens.Text);
             _title.style.fontSize = _cfg.title_size ?? 64f;
             _title.style.unityFontStyleAndWeight = FontStyle.Bold;
             column.Add(_title);
 
             _chapter = new Label();
             _chapter.style.unityTextAlign = TextAnchor.MiddleCenter;
-            _chapter.style.color = UiColor.Parse(_cfg.subtitle_color, LvnTokens.TextDim);
+            _chapter.style.color = UiColor.Named(_cfg.subtitle_color, LvnTokens.TextDim);
             _chapter.style.fontSize = _cfg.subtitle_size ?? 34f;
             _chapter.style.marginTop = 14;
             _chapter.style.whiteSpace = WhiteSpace.Normal;
@@ -70,10 +70,10 @@ namespace Lvn.UI.Screens
             b.style.minHeight = 120;
             b.style.fontSize = Lvn.UI.LvnFonts.Size(40f);
             b.style.unityFontStyleAndWeight = FontStyle.Bold;
-            b.style.color = UiColor.Parse(_cfg.button_text_color, LvnTokens.Text);
+            b.style.color = UiColor.Named(_cfg.button_text_color, LvnTokens.Text);
             b.style.backgroundColor = primary
-                ? UiColor.Parse(_cfg.button_color, LvnTokens.Accent)
-                : UiColor.Parse(_cfg.button_secondary_color, LvnTokens.Faint);
+                ? UiColor.Named(_cfg.button_color, LvnTokens.Accent)
+                : UiColor.Named(_cfg.button_secondary_color, LvnTokens.Faint);
             LvnChrome.ClearBorder(b);
             LvnChrome.Round(b, _cfg.button_radius ?? 26f);
             return b;

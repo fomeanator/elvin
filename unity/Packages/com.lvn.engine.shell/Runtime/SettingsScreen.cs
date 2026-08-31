@@ -54,12 +54,12 @@ namespace Lvn.UI.Screens
         {
             _cfg = cfg ?? new SettingsConfig();
             _assets = assets;
-            _text = UiColor.Parse(_cfg.text_color, LvnTokens.Text);
-            _dim = UiColor.Parse(_cfg.dim_text_color, LvnTokens.TextDim);
-            _accent = UiColor.Parse(_cfg.accent_color, LvnTokens.Accent);
+            _text = UiColor.Named(_cfg.text_color, LvnTokens.Text);
+            _dim = UiColor.Named(_cfg.dim_text_color, LvnTokens.TextDim);
+            _accent = UiColor.Named(_cfg.accent_color, LvnTokens.Accent);
             _radius = _cfg.corner_radius ?? 12f;
 
-            style.backgroundColor = UiColor.Parse(_cfg.scrim_color, LvnTokens.Scrim);
+            style.backgroundColor = UiColor.Named(_cfg.scrim_color, LvnTokens.Scrim);
             RegisterCallback<ClickEvent>(e => { if (e.target == this) Close(); });
 
             // Поля шире общих — настройки длинный список, ему нужен воздух по
@@ -67,14 +67,14 @@ namespace Lvn.UI.Screens
             // выше и тут же затирался обёрткой, то есть не работал вовсе.
             var sheet = Sheet(sideInset: 6f, topInset: 8f,
                               tint: string.IsNullOrEmpty(_cfg.panel_color)
-                                        ? (Color?)null : UiColor.Parse(_cfg.panel_color, LvnTokens.PanelBg));
+                                        ? (Color?)null : UiColor.Named(_cfg.panel_color, LvnTokens.PanelBg));
             sheet.style.paddingTop = 22; sheet.style.paddingBottom = 18;
             sheet.style.paddingLeft = 20; sheet.style.paddingRight = 20;
 
             _titleLabel = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("settings.title", _cfg.title, "Settings"));
             var title = _titleLabel;
             LvnChrome.Heading(title);
-            title.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
+            title.style.color = UiColor.Named(_cfg.title_color, LvnTokens.Text);
             title.style.fontSize = LvnTokens.TextLg;
             title.style.marginBottom = 14;
             sheet.Add(title);

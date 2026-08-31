@@ -323,7 +323,7 @@ namespace Lvn.UI.Screens
             var palette = _cfg?.rarity_colors;
             if (palette == null || !palette.TryGetValue(key, out var hex) || string.IsNullOrEmpty(hex))
                 return null;
-            return UiColor.Parse(hex, LvnTokens.Accent);
+            return UiColor.Named(hex, LvnTokens.Accent);
         }
 
         /// <summary>Цена словом — для мест, где места вдоволь: тост, вопрос о
@@ -371,7 +371,7 @@ namespace Lvn.UI.Screens
             card.style.flexShrink = 0;
             // Платина #D1D1D6 (Илья 26.08) вместо прежней тускло-серой заливки:
             // арт скинов тёмный, и светлый задник держит его силуэт.
-            card.style.backgroundColor = UiColor.Parse("#D1D1D6", new Color(0.82f, 0.82f, 0.84f));
+            card.style.backgroundColor = UiColor.Named("#D1D1D6", new Color(0.82f, 0.82f, 0.84f));
             LvnChrome.Round(card, _radius);
             card.style.overflow = Overflow.Hidden; // арт и подложка не выходят за скругление
 

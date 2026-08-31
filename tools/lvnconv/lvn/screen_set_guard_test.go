@@ -580,3 +580,42 @@ func TestВебПлеерЗнаетТеЖеСловаЦвета(t *testing.T) {
 		}
 	}
 }
+
+// Авторский цвет из манифеста читают СЛОВАРЁМ, а не hex-разбором.
+//
+// Сто три поля манифеста разбирались как «шестнадцать цифр», и
+// `title_color: "accent"` молча не срабатывал — в скрипте то же слово
+// работало, в манифесте нет, хотя пишет их один человек. Исключение ровно
+// одно: сборка самой темы, откуда словарь звать нельзя (он спрашивает цвет у
+// действующей темы, а она в этот момент ещё строится).
+func TestАвторскийЦветЧитаютСловарём(t *testing.T) {
+	allowed := map[string]string{
+		"LvnTheme.cs":          "строит саму тему — словарь спросил бы у неё же",
+		"LvnSpriteFxDriver.cs": "Html() зовут только литералами палитры эффектов",
+		"UiColor.cs":           "дом разбора",
+	}
+	for _, pkg := range []string{"com.lvn.engine", "com.lvn.engine.shell"} {
+		root := filepath.Join(repoRoot(t), "unity", "Packages", pkg, "Runtime")
+		err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+				return err
+			}
+			if _, ok := allowed[filepath.Base(path)]; ok {
+				return nil
+			}
+			raw, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			if strings.Contains(stripCommentsAndStrings(string(raw)), "UiColor.Parse(") {
+				t.Fatalf("%s: авторский цвет читают hex-разбором — он молчит на "+
+					"слове из словаря, и автор не узнает, почему «не сработало»",
+					filepath.Base(path))
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}

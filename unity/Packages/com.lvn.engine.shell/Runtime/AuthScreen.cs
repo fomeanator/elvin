@@ -34,7 +34,7 @@ namespace Lvn.UI.Screens
             _maxLength = _cfg.max_length ?? PlayerNameInput.MaxLength;
 
             ScreenUi.Stretch(this);
-            style.backgroundColor = UiColor.Parse(_cfg.bg_color, LvnTokens.Bg);
+            style.backgroundColor = UiColor.Named(_cfg.bg_color, LvnTokens.Bg);
             style.opacity = 0f;
             style.display = DisplayStyle.None;
 
@@ -67,12 +67,12 @@ namespace Lvn.UI.Screens
             panel.style.paddingBottom = 22;
             panel.style.paddingLeft = 26;
             panel.style.paddingRight = 26;
-            panel.style.backgroundColor = UiColor.Parse(_cfg.panel_color, LvnTokens.Veil(0.65f));
+            panel.style.backgroundColor = UiColor.Named(_cfg.panel_color, LvnTokens.Veil(0.65f));
             LvnChrome.Round(panel, 16f);
             Add(panel);
 
             var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("auth.welcome", _cfg.title, "Welcome"));
-            title.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
+            title.style.color = UiColor.Named(_cfg.title_color, LvnTokens.Text);
             title.style.fontSize = Lvn.UI.LvnFonts.Size(42f);
             title.style.unityTextAlign = TextAnchor.MiddleCenter;
             panel.Add(title);
@@ -80,7 +80,7 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(_cfg.subtitle))
             {
                 var subtitle = new Label(_cfg.subtitle);
-                subtitle.style.color = UiColor.Parse(_cfg.subtitle_color, LvnTokens.TextDim);
+                subtitle.style.color = UiColor.Named(_cfg.subtitle_color, LvnTokens.TextDim);
                 subtitle.style.fontSize = Lvn.UI.LvnFonts.Size(26f);
                 subtitle.style.marginTop = 6;
                 subtitle.style.unityTextAlign = TextAnchor.MiddleCenter;
@@ -88,14 +88,14 @@ namespace Lvn.UI.Screens
                 panel.Add(subtitle);
             }
 
-            var textColor = UiColor.Parse(_cfg.text_color, LvnTokens.Text);
+            var textColor = UiColor.Named(_cfg.text_color, LvnTokens.Text);
             // The app NEVER asks the player's name — the novel does, at its
             // start (the Liminal pattern). A title can still opt the nickname
             // field in explicitly (ui.auth.ask_nickname: true).
             if (_cfg.ask_nickname ?? false)
             {
                 var prompt = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("auth.name_prompt", _cfg.name_prompt, "Your name"));
-                prompt.style.color = UiColor.Parse(_cfg.subtitle_color, LvnTokens.TextDim);
+                prompt.style.color = UiColor.Named(_cfg.subtitle_color, LvnTokens.TextDim);
                 prompt.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
                 prompt.style.marginTop = 20;
                 prompt.style.marginBottom = 8;
@@ -103,7 +103,7 @@ namespace Lvn.UI.Screens
 
                 _field = new TextField { maxLength = _maxLength };
                 _field.style.fontSize = Lvn.UI.LvnFonts.Size(32f);
-                LvnChrome.Field(_field, UiColor.Parse(_cfg.field_color, LvnTokens.Surface), textColor);
+                LvnChrome.Field(_field, UiColor.Named(_cfg.field_color, LvnTokens.Surface), textColor);
                 _field.RegisterCallback<KeyDownEvent>(e =>
                 {
                     if (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter) Confirm();
@@ -117,8 +117,8 @@ namespace Lvn.UI.Screens
             start.style.marginTop = 22;
             start.style.paddingTop = 16;
             start.style.paddingBottom = 16;
-            start.style.color = UiColor.Parse(_cfg.button_text_color, LvnTokens.OnAccent);
-            start.style.backgroundColor = UiColor.Parse(_cfg.button_color, LvnTokens.Accent);
+            start.style.color = UiColor.Named(_cfg.button_text_color, LvnTokens.OnAccent);
+            start.style.backgroundColor = UiColor.Named(_cfg.button_color, LvnTokens.Accent);
             LvnChrome.Round(start, 12f);
             panel.Add(start);
             if (!string.IsNullOrEmpty(_cfg.button_url)) LvnPicture.Skin(start, _cfg.button_url, _assets);
@@ -141,7 +141,7 @@ namespace Lvn.UI.Screens
 #endif
 
             _status = new Label("");
-            _status.style.color = UiColor.Parse(_cfg.status_color, LvnTokens.TextDim);
+            _status.style.color = UiColor.Named(_cfg.status_color, LvnTokens.TextDim);
             _status.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
             _status.style.marginTop = 14;
             _status.style.unityTextAlign = TextAnchor.MiddleCenter;

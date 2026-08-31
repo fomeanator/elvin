@@ -103,14 +103,14 @@ namespace Lvn.UI.Screens
             // с ней продолжает работать и переопределяет только себя.
             _theme = LvnTheme.ByName(_cfg.theme);
             LvnTheme.Use(_theme);
-            _bg = UiColor.Parse(_cfg.bg_color, _theme.Bg);
-            _titleColor = UiColor.Parse(_cfg.title_color, _theme.Text);
-            _text = UiColor.Parse(_cfg.text_color, _theme.Text);
-            _dim = UiColor.Parse(_cfg.dim_text_color, _theme.TextDim);
-            _card = UiColor.Parse(_cfg.card_color, _theme.Surface);
-            _cardText = UiColor.Parse(_cfg.card_text_color, _theme.Text);
-            _accent = UiColor.Parse(_cfg.accent_color, _theme.Accent);
-            _accentText = UiColor.Parse(_cfg.accent_text_color, _theme.OnAccent);
+            _bg = UiColor.Named(_cfg.bg_color, _theme.Bg);
+            _titleColor = UiColor.Named(_cfg.title_color, _theme.Text);
+            _text = UiColor.Named(_cfg.text_color, _theme.Text);
+            _dim = UiColor.Named(_cfg.dim_text_color, _theme.TextDim);
+            _card = UiColor.Named(_cfg.card_color, _theme.Surface);
+            _cardText = UiColor.Named(_cfg.card_text_color, _theme.Text);
+            _accent = UiColor.Named(_cfg.accent_color, _theme.Accent);
+            _accentText = UiColor.Named(_cfg.accent_text_color, _theme.OnAccent);
             _border = _theme.Border;
             _radius = _cfg.card_radius ?? _theme.Radius;
 

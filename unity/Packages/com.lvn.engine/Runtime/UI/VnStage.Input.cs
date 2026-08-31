@@ -112,7 +112,7 @@ namespace Lvn.UI
             // Затемнение — авторского цвета, если он его назвал: «#161018f2» в
             // манифесте это не украшение, а решение о том, сквозь что игрок
             // смотрит на сцену, задавая ответ.
-            _inputScrim.style.backgroundColor = UiColor.Parse(NameInput?.bg_color, new Color(0f, 0f, 0f, 0.62f));
+            _inputScrim.style.backgroundColor = UiColor.Named(NameInput?.bg_color, new Color(0f, 0f, 0f, 0.62f));
             _inputScrim.style.justifyContent = Justify.Center;
             _inputScrim.style.alignItems = Align.Center;
             _inputScrim.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
@@ -151,7 +151,7 @@ namespace Lvn.UI
                 var prompt = new Label(promptText);
                 // Вопрос задаёт история — значит и цвет у него тот же, каким
                 // подписан говорящий.
-                prompt.style.color = UiColor.Parse(NameInput?.prompt_color,
+                prompt.style.color = UiColor.Named(NameInput?.prompt_color,
                     Theme != null ? Theme.SpeakerColor : LvnTokens.Accent);
                 prompt.style.fontSize = Theme != null ? Theme.BodyFontSize : 30;
                 prompt.style.whiteSpace = WhiteSpace.Normal;
@@ -165,7 +165,7 @@ namespace Lvn.UI
             if (!string.IsNullOrEmpty(NameInput?.speaker_label))
             {
                 var badge = new Label(NameInput.speaker_label);
-                badge.style.color = UiColor.Parse(NameInput.prompt_color,
+                badge.style.color = UiColor.Named(NameInput.prompt_color,
                     Theme != null ? Theme.SpeakerColor : LvnTokens.Accent);
                 badge.style.fontSize = (Theme != null ? Theme.BodyFontSize : 30) * 0.7f;
                 badge.style.marginBottom = 6;
@@ -185,8 +185,8 @@ namespace Lvn.UI
             // Красится ВНУТРЕННИЙ элемент поля: у TextField своя подложка, и
             // цвет, поставленный снаружи, до неё не доходит.
             LvnChrome.Field(field,
-                UiColor.Parse(NameInput?.field_color, LvnTokens.SurfaceHi),
-                UiColor.Parse(NameInput?.text_color, Theme != null ? Theme.TextColor : LvnTokens.Text));
+                UiColor.Named(NameInput?.field_color, LvnTokens.SurfaceHi),
+                UiColor.Named(NameInput?.text_color, Theme != null ? Theme.TextColor : LvnTokens.Text));
             var inner = field.Q(TextField.textInputUssName);
             if (inner != null)
             {
@@ -211,9 +211,9 @@ namespace Lvn.UI
             // выглядит и что делает.
             ok.style.height = Theme != null ? Theme.ChoiceMinHeight : 96f;
             ok.style.fontSize = Theme != null ? Theme.ChoiceFontSize : 28;
-            ok.style.color = UiColor.Parse(NameInput?.button_text_color,
+            ok.style.color = UiColor.Named(NameInput?.button_text_color,
                 Theme != null ? Theme.ChoiceTextColor : LvnTokens.Text);
-            ok.style.backgroundColor = UiColor.Parse(NameInput?.button_color,
+            ok.style.backgroundColor = UiColor.Named(NameInput?.button_color,
                 Theme != null ? Theme.ChoiceColor : LvnTokens.Surface);
             ok.style.borderLeftWidth = 0; ok.style.borderRightWidth = 0;
             ok.style.borderTopWidth = 0; ok.style.borderBottomWidth = 0;

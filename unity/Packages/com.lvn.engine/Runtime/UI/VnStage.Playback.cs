@@ -103,7 +103,7 @@ namespace Lvn.UI
         /// по-своему. Пока их складывают руками, «а этот случай тоже сюда?» —
         /// вопрос, который каждый раз решают заново.</para>
         /// </summary>
-        private bool StageBusy => _awaitingWait || _awaitingInput;
+        private bool StageBusy => _awaitingWait;
 
         /// <summary>
         /// ТАП СЕЙЧАС НЕ НАШ — его забирает не продвижение истории.
@@ -114,7 +114,7 @@ namespace Lvn.UI
         /// помнили в двух местах из двух — но записана она была дважды, и
         /// второй раз комментарием «то же, что выше».</para>
         /// </summary>
-        private bool TapNotOurs => _awaitingInput || (_awaitingWait && _hotspots.Count == 0);
+        private bool TapNotOurs => _awaitingInput || _awaitingWait;
 
         /// <summary>«Не принимать ввод до этого момента» — обычный барьер, и
         /// держит его Хронометрист, как все прочие сроки сцены.</summary>

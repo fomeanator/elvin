@@ -61,9 +61,9 @@ namespace Lvn.UI
             var d = ui.dialogue;
             if (d != null)
             {
-                t.PanelColor = UiColor.Parse(d.panel_color, t.PanelColor);
-                t.TextColor = UiColor.Parse(d.text_color, t.TextColor);
-                t.SpeakerColor = UiColor.Parse(d.speaker_color, t.SpeakerColor);
+                t.PanelColor = UiColor.Named(d.panel_color, t.PanelColor);
+                t.TextColor = UiColor.Named(d.text_color, t.TextColor);
+                t.SpeakerColor = UiColor.Named(d.speaker_color, t.SpeakerColor);
 
                 if (d.body_size.HasValue) t.BodyFontSize = Mathf.RoundToInt(d.body_size.Value);
                 if (d.speaker_size.HasValue) t.SpeakerFontSize = Mathf.RoundToInt(d.speaker_size.Value);
@@ -107,10 +107,10 @@ namespace Lvn.UI
             var c = ui.choices;
             if (c != null)
             {
-                t.ChoiceColor = UiColor.Parse(c.color, t.ChoiceColor);
-                t.ChoiceHoverColor = UiColor.Parse(c.hover_color, t.ChoiceHoverColor);
-                t.ChoiceTextColor = UiColor.Parse(c.text_color, t.ChoiceTextColor);
-                t.ChoiceCostColor = UiColor.Parse(c.cost_color, t.ChoiceCostColor);
+                t.ChoiceColor = UiColor.Named(c.color, t.ChoiceColor);
+                t.ChoiceHoverColor = UiColor.Named(c.hover_color, t.ChoiceHoverColor);
+                t.ChoiceTextColor = UiColor.Named(c.text_color, t.ChoiceTextColor);
+                t.ChoiceCostColor = UiColor.Named(c.cost_color, t.ChoiceCostColor);
                 if (c.glass.HasValue) t.ChoiceGlass = Mathf.Clamp01(c.glass.Value);
 
                 if (!string.IsNullOrEmpty(c.align)) t.ChoiceAlign = c.align;
@@ -134,11 +134,11 @@ namespace Lvn.UI
             var m = ui.menu;
             if (m != null)
             {
-                t.MenuBgColor = UiColor.Parse(m.bg_color, t.MenuBgColor);
-                t.MenuTextColor = UiColor.Parse(m.text_color, t.MenuTextColor);
-                t.MenuDimTextColor = UiColor.Parse(m.dim_text_color, t.MenuDimTextColor);
-                t.MenuFabColor = UiColor.Parse(m.fab_color, t.MenuFabColor);
-                t.MenuScrimColor = UiColor.Parse(m.scrim_color, t.MenuScrimColor);
+                t.MenuBgColor = UiColor.Named(m.bg_color, t.MenuBgColor);
+                t.MenuTextColor = UiColor.Named(m.text_color, t.MenuTextColor);
+                t.MenuDimTextColor = UiColor.Named(m.dim_text_color, t.MenuDimTextColor);
+                t.MenuFabColor = UiColor.Named(m.fab_color, t.MenuFabColor);
+                t.MenuScrimColor = UiColor.Named(m.scrim_color, t.MenuScrimColor);
                 if (m.corner_radius.HasValue) t.MenuCornerRadius = m.corner_radius.Value;
                 if (m.show_rollback.HasValue) t.MenuShowRollback = m.show_rollback.Value;
                 if (m.show_menu.HasValue) t.MenuShowMenu = m.show_menu.Value;
