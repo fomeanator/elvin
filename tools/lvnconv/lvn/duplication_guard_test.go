@@ -29,11 +29,20 @@ var dupSig = regexp.MustCompile(`(?m)(?:private|internal|public|protected)[\w\s<
 var dupComment = regexp.MustCompile(`//.*`)
 var dupSpace = regexp.MustCompile(`\s+`)
 
-// Пакеты, за которыми следим: рантайм движка, оболочки и сервисов.
+// Пакеты, за которыми следим.
+//
+// СЛЕДИЛИ ЗА ТРЕМЯ РАНТАЙМАМИ — и мимо стража оставались редакторские
+// инструменты (компилятор .lvns, импортёр, сборка APK) и два отдельных пакета.
+// Это тоже код движка, и через компилятор проходит ВСЁ, что пишет автор: копия
+// правила там стоит дороже, а не дешевле. Пусто там сегодня — тем более незачем
+// оставлять дыру в охране.
 var dupRoots = []string{
 	filepath.Join("unity", "Packages", "com.lvn.engine", "Runtime"),
+	filepath.Join("unity", "Packages", "com.lvn.engine", "Editor"),
 	filepath.Join("unity", "Packages", "com.lvn.engine.shell", "Runtime"),
 	filepath.Join("unity", "Packages", "com.lvn.engine.services", "Runtime"),
+	filepath.Join("unity", "Packages", "com.lvn.engine.spine", "Runtime"),
+	filepath.Join("unity", "Packages", "com.lvn.engine.addressables", "Runtime"),
 }
 
 type dupSite struct{ file, method string }
