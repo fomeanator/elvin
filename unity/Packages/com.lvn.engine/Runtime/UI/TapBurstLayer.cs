@@ -39,8 +39,7 @@ namespace Lvn.UI
 
         public TapBurstLayer()
         {
-            style.position = Position.Absolute;
-            style.left = 0; style.right = 0; style.top = 0; style.bottom = 0;
+            LvnChrome.Stretch(this);
             style.overflow = Overflow.Hidden;
             pickingMode = PickingMode.Ignore;
         }

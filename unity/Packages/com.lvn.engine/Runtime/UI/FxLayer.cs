@@ -38,11 +38,7 @@ namespace Lvn.UI
 
         public FxLayer()
         {
-            style.position = Position.Absolute;
-            style.left = 0;
-            style.right = 0;
-            style.top = 0;
-            style.bottom = 0;
+            LvnChrome.Stretch(this);
             pickingMode = PickingMode.Ignore;
 
             _front = MakeVeilLayer();

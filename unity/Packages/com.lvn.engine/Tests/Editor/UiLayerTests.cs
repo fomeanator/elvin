@@ -483,5 +483,137 @@ namespace Lvn.Tests
             Assert.AreSame(rig.Hud.Q("рамка"), line.parent,
                 "ребёнок завёрнут в чужую рамку — центрирование протекло вниз");
         }
+
+        // ── нажатие ─────────────────────────────────────────────────────────
+
+        /// <summary>Обработчик нажатия кнопки — тот, на который слой подписал
+        /// переход. Живого тапа в EditMode нет: события разносит панель, а
+        /// панели здесь нет вовсе, поэтому спрашиваем саму кнопку, к чему она
+        /// приведёт. Null — не подписан никто.</summary>
+        private static System.Action Handler(Button b)
+        {
+            Assert.NotNull(b, "кнопки нет на экране");
+            foreach (var f in typeof(Clickable).GetFields(
+                         BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public))
+                if (f.GetValue(b.clickable) is System.Action a) return a;
+            return null;
+        }
+
+        [Test]
+        public void НажатиеПоКнопкеВедётПоМеткеАвтора()
+        {
+            // Ради этого кнопку и рисуют. `on_click` — единственный способ
+            // вернуть управление истории: не дойди метка до перехода, меню
+            // автора становится картинкой, из которой нет выхода, и глава
+            // встаёт намертво.
+            var rig = new Rig();
+            rig.Ui(@"{'op':'ui','id':'меню','layer':'over','block':true,'tree':{
+                'kind':'panel','id':'корень','children':[
+                    {'kind':'button','id':'играть','text':'Играть','on_click':'старт'},
+                    {'kind':'button','id':'молча','text':'Просто надпись'}]}}");
+
+            var переход = Handler(rig.Over.Q<Button>("играть"));
+            Assert.NotNull(переход, "нажатие по кнопке никуда не ведёт: on_click не подписан");
+            переход.Invoke();
+
+            CollectionAssert.AreEqual(new[] { "старт" }, rig.Jumps,
+                "нажатие увело не по той метке, что написал автор");
+
+            Assert.IsNull(Handler(rig.Over.Q<Button>("молча")),
+                "кнопка без on_click куда-то ведёт — история прыгнет от случайного тапа");
+        }
+
+        // ── зазор и единицы размеров ────────────────────────────────────────
+
+        [Test]
+        public void ЗазорРазводитДетей_НоНеОтталкиваетПоследнего()
+        {
+            // Зазора между детьми в UI Toolkit нет вовсе, и слой раскладывает
+            // его отступами. Повесь отступ и на последнего — панель получит
+            // хвост пустоты: ряд кнопок отъедет от края, а `at=bottom`
+            // перестанет означать «у нижней грани».
+            var rig = new Rig();
+            rig.Ui(@"{'op':'ui','id':'столб','tree':{'kind':'panel','id':'столбец','gap':3,'children':[
+                        {'kind':'text','id':'а','text':'а'},
+                        {'kind':'text','id':'б','text':'б'},
+                        {'kind':'text','id':'в','text':'в'}]}}");
+
+            var столбец = rig.Hud.Q("столбец");
+            Assert.AreEqual(LvnTokens.Space3, столбец[0].style.marginBottom.value.value, 0.01f,
+                "зазор «3» — это ступень шкалы темы, а не три пикселя: три пикселя глазом не видно");
+            Assert.AreEqual(LvnTokens.Space3, столбец[1].style.marginBottom.value.value, 0.01f,
+                "зазор достался не всем детям");
+            Assert.AreEqual(0f, столбец[2].style.marginBottom.value.value, 0.01f,
+                "последний ребёнок унёс зазор за собой — у панели вырос хвост пустоты");
+            Assert.AreEqual(0f, столбец[0].style.marginRight.value.value, 0.01f,
+                "в столбце зазор развёл детей вбок");
+
+            // Ряд разводится в свою сторону: тот же зазор снизу оставил бы
+            // кнопки стоять вплотную.
+            rig.Ui(@"{'op':'ui','id':'ряд','tree':{'kind':'panel','id':'строка','dir':'row','gap':12,'children':[
+                        {'kind':'text','id':'левый','text':'л'},
+                        {'kind':'text','id':'правый','text':'п'}]}}");
+
+            var строка = rig.Hud.Q("строка");
+            Assert.AreEqual(12f, строка[0].style.marginRight.value.value, 0.01f,
+                "в ряду зазор не развёл детей вбок");
+            Assert.AreEqual(0f, строка[0].style.marginBottom.value.value, 0.01f,
+                "в ряду зазор ушёл вниз");
+            Assert.AreEqual(0f, строка[1].style.marginRight.value.value, 0.01f,
+                "последний в ряду унёс зазор за собой");
+        }
+
+        [Test]
+        public void РазмерыЧитаютсяВСвоихЕдиницах()
+        {
+            // Доля и пиксели у стилей UI Toolkit — разные типы, и перепутать их
+            // значит поставить 50 пикселей там, где автор просил половину
+            // экрана. А `auto` язык обещает (`w=auto` — «по содержимому»), и
+            // разбирался он как мусор — то есть как ноль: узел схлопывался в
+            // невидимую точку, и автор видел пустое место вместо надписи.
+            var rig = new Rig();
+            rig.Ui(@"{'op':'ui','id':'хад','tree':{'kind':'panel','id':'корень','children':[
+                        {'kind':'panel','id':'доля','w':'50%','h':'25%'},
+                        {'kind':'panel','id':'точки','w':120,'h':8},
+                        {'kind':'panel','id':'по-содержимому','w':'auto','h':'auto'}]}}");
+
+            var доля = rig.Hud.Q("доля");
+            Assert.AreEqual(LengthUnit.Percent, доля.style.width.value.unit,
+                "процент прочитан как пиксели — полэкрана стало полусотней точек");
+            Assert.AreEqual(50f, доля.style.width.value.value, 0.01f);
+            Assert.AreEqual(LengthUnit.Percent, доля.style.height.value.unit, "процент высоты прочитан как пиксели");
+
+            var точки = rig.Hud.Q("точки");
+            Assert.AreEqual(LengthUnit.Pixel, точки.style.width.value.unit, "число прочитано как доля");
+            Assert.AreEqual(120f, точки.style.width.value.value, 0.01f);
+
+            var авто = rig.Hud.Q("по-содержимому");
+            Assert.AreEqual(StyleKeyword.Auto, авто.style.width.keyword,
+                "«auto» разобрано числом — узел схлопнулся в невидимую точку");
+            Assert.AreEqual(StyleKeyword.Auto, авто.style.height.keyword,
+                "«auto» по высоте разобрано числом — узел схлопнулся в полоску");
+        }
+
+        [Test]
+        public void ЖивойРазмерВиденСПервогоЖеКадра()
+        {
+            // Размер с {…} нельзя разбирать раскладкой: там он превратится в
+            // ноль, и полоса моргнёт схлопнутой ровно в тот кадр, в который
+            // появилась. Поэтому живой размер ставит первая же сверка — и
+            // ставит её ДО того, как дерево покажут.
+            var rig = new Rig();
+            rig.Vars["width"] = 40;
+            rig.Ui(@"{'op':'ui','id':'хад','tree':{'kind':'panel','id':'корень','children':[
+                        {'kind':'panel','id':'полоска','w':'{width}%','h':6}]}}");
+
+            var полоска = rig.Hud.Q("полоска");
+            Assert.AreEqual(LengthUnit.Percent, полоска.style.width.value.unit, "живая ширина потеряла долю");
+            Assert.AreEqual(40f, полоска.style.width.value.value, 0.01f,
+                "живая ширина не доехала до элемента при первом показе — узел моргнул схлопнутым");
+
+            rig.Vars["width"] = 80;
+            rig.Poll();
+            Assert.AreEqual(80f, полоска.style.width.value.value, 0.01f, "живая ширина перестала обновляться");
+        }
     }
 }

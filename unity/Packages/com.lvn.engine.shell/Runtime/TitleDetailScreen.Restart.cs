@@ -189,8 +189,7 @@ namespace Lvn.UI.Screens
         {
             CloseModal();
             var scrim = new VisualElement();
-            scrim.style.position = Position.Absolute;
-            scrim.style.left = 0; scrim.style.right = 0; scrim.style.top = 0; scrim.style.bottom = 0;
+            LvnChrome.Stretch(scrim);
             scrim.style.backgroundColor = LvnTokens.Scrim;
             scrim.style.justifyContent = Justify.Center;
             scrim.style.alignItems = Align.Center;

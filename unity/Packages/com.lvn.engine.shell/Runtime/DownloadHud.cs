@@ -125,8 +125,7 @@ namespace Lvn.UI.Screens
         public DownloadHud()
         {
             pickingMode = PickingMode.Ignore;
-            style.position = Position.Absolute;
-            style.left = 0; style.right = 0; style.top = 0; style.bottom = 0;
+            LvnChrome.Stretch(this);
             style.alignItems = Align.Center; // капсула — центр строки навбара
             style.display = DisplayStyle.None; // до первой работы кружка нет
             FollowChapterMode();               // вид следует за Режиссёром сам

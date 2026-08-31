@@ -49,8 +49,7 @@ namespace Lvn.UI
             _theme = theme ?? new VnTheme();
 
             name = "vn-menu";
-            style.position = Position.Absolute;
-            style.left = 0; style.right = 0; style.top = 0; style.bottom = 0;
+            LvnChrome.Stretch(this);
             pickingMode = PickingMode.Ignore; // the closed layer never eats stage taps
             WatchDetach();
 
@@ -201,8 +200,7 @@ namespace Lvn.UI
 
             // Full-screen scrim: swallows every tap; tapping empty space closes.
             _scrim = new VisualElement();
-            _scrim.style.position = Position.Absolute;
-            _scrim.style.left = 0; _scrim.style.right = 0; _scrim.style.top = 0; _scrim.style.bottom = 0;
+            LvnChrome.Stretch(_scrim);
             _scrim.style.backgroundColor = _theme.MenuScrimColor;
             _scrim.RegisterCallback<PointerDownEvent>(e =>
             {

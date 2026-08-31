@@ -135,7 +135,7 @@ namespace Lvn.UI
 
             if (free)
             {
-                style.left = 0; style.right = 0; style.top = 0; style.bottom = 0;
+                LvnChrome.Stretch(this);
                 _box.style.position = Position.Absolute;
                 _box.style.left = Length.Percent(Mathf.Clamp(_theme.BoxXPercent >= 0f ? _theme.BoxXPercent : 50f, 0f, 100f));
                 _box.style.top = Length.Percent(Mathf.Clamp(_theme.BoxYPercent >= 0f ? _theme.BoxYPercent : 50f, 0f, 100f));

@@ -128,17 +128,29 @@ namespace Lvn.Content
         /// одно — получить перекодировку, которая молча ничего не делает для
         /// половины арта.</para>
         /// </summary>
+        private static bool HasFolder(string url, string folder)
+            => url.IndexOf(folder, System.StringComparison.OrdinalIgnoreCase) >= 0;
+
+        /// <remarks><paramref name="ext"/> — ВСЁ ОТ ПОСЛЕДНЕЙ ТОЧКИ ДО КОНЦА,
+        /// как в адресе: родной регистр («.PNG» — приведённое к нижнему имя на
+        /// Linux-проде не найдётся) и хвост запроса, если он есть. Тогда
+        /// <c>stem + "@2k" + ext</c> даёт «bg/x@2k.jpg?v=3», а не теряет
+        /// кэш-бастер посреди адреса.</remarks>
         public static bool SplitSourceImage(string url, out string stem, out string ext)
         {
             stem = null; ext = null;
             if (string.IsNullOrEmpty(url)) return false;
-            int dot = url.LastIndexOf('.');
+            // Расширение спрашиваем у ДОМА АДРЕСА: он один знает, что «?v=3» к
+            // имени файла не относится. Считать его здесь заново значило бы
+            // объявить «bg/x.png?v=3» не картинкой — и молча лишить её ступеней
+            // качества и силуэт-заготовки.
+            var e = LvnUrl.Extension(url);
+            if (e != "png" && e != "jpg" && e != "jpeg") return false;
+            int dot = LvnUrl.Bare(url).LastIndexOf('.');
             if (dot < 0) return false;
-            var e = url.Substring(dot).ToLowerInvariant();
-            if (e != ".png" && e != ".jpg" && e != ".jpeg") return false;
             stem = url.Substring(0, dot);
-            ext = url.Substring(dot);   // РОДНОЙ регистр: сервер отдаёт «.PNG», и
-            return true;                // приведённое к нижнему имя там не найдётся
+            ext = url.Substring(dot);
+            return true;
         }
 
         /// <summary>Навесить конкретный вариант на url (те же исключения, что у
@@ -160,7 +172,12 @@ namespace Lvn.Content
             // /spine/ pages are here because the SPINE display path also renders
             // from @2k (VnStage.Spine LoadSpineImageAsync) — warming the original
             // would download+decode a full-size page the renderer never samples.
-            if (!(url.Contains("/bg/") || url.Contains("/art/") || url.Contains("/sprites/") || url.Contains("/spine/"))) return null;
+            // Папки сверяются БЕЗ УЧЁТА РЕГИСТРА — как и расширение. Иначе
+            // «/Art/Hero.PNG» вариантов не получал: качался и декодировался
+            // полноразмерный арт, а ручка «Качество арта» и крошка-заготовка
+            // для такого контента молча переставали работать.
+            if (!(HasFolder(url, "/bg/") || HasFolder(url, "/art/")
+                  || HasFolder(url, "/sprites/") || HasFolder(url, "/spine/"))) return null;
             return SplitSourceImage(url, out var stem, out var ext) ? stem + PreferredSuffix + ext : null;
         }
 

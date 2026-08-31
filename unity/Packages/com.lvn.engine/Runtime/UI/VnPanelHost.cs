@@ -36,8 +36,7 @@ namespace Lvn.UI
             _minH = t.PanelMinHeight;
 
             // full-screen carrier, click-through everywhere except the frame
-            style.position = Position.Absolute;
-            style.left = 0; style.right = 0; style.top = 0; style.bottom = 0;
+            LvnChrome.Stretch(this);
             pickingMode = PickingMode.Ignore;
             style.display = DisplayStyle.None;
 

@@ -277,8 +277,7 @@ namespace Lvn.UI.Screens
             card.style.justifyContent = Justify.FlexEnd;
 
             var cover = new VisualElement();
-            cover.style.position = Position.Absolute;
-            cover.style.left = 0; cover.style.right = 0; cover.style.top = 0; cover.style.bottom = 0;
+            LvnChrome.Stretch(cover);
             cover.pickingMode = PickingMode.Ignore;
             card.Add(cover);
             LvnPicture.Photo(cover, t?.cover_url, _assets);
@@ -342,8 +341,7 @@ namespace Lvn.UI.Screens
 
             // Scrim: swallow every tap; tapping outside the panel closes.
             _picker = new VisualElement();
-            _picker.style.position = Position.Absolute;
-            _picker.style.left = 0; _picker.style.right = 0; _picker.style.top = 0; _picker.style.bottom = 0;
+            LvnChrome.Stretch(_picker);
             _picker.style.backgroundColor = new Color(0f, 0f, 0f, 0.6f);
             _picker.RegisterCallback<PointerDownEvent>(e =>
             {

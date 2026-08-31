@@ -44,8 +44,9 @@ namespace Lvn.UI
                 _uiLayer = new LvnUiLayer(
                     hud, over,
                     () => UiVars,
-                    UiClick,
-                    LoadUiImageAsync);
+                    GoOnClick,
+                    LoadUiImageAsync,
+                    SetVarsOnClick);
             }
             _uiLayer.Apply(cmd);
             NotifyUiStage();   // новое дерево обязано сразу знать, что на экране
@@ -109,8 +110,9 @@ namespace Lvn.UI
         public System.Func<System.Collections.Generic.IReadOnlyDictionary<string, JToken>> UiVarsProvider;
 
         /// <summary>
-        /// Нажатие на кнопку дерева `ui` — ТОТ ЖЕ рецепт, что у клика по
-        /// объекту сцены.
+        /// НАЖАТИЕ ВЕДЁТ ПО МЕТКЕ — и у фигуры на сцене, и у кнопки дерева
+        /// `ui`. Один метод: рецепт был записан дважды, и второй раз — уже
+        /// после того, как первый объяснил, почему прыжка мало.
         ///
         /// <para>Прыжка мало. Игрок может стоять в `wait`, ждать касания или
         /// показывать выбор, и запись новой позиции без пробуждения оставляет
@@ -121,7 +123,7 @@ namespace Lvn.UI
         /// экран паркуется на длинном `wait`, а кнопка выигрывает гонку с
         /// таймером — как это давно работает у кликабельных объектов.</para>
         /// </summary>
-        private void UiClick(string label)
+        private void GoOnClick(string label)
         {
             if (_player == null) return;
             if (!string.IsNullOrEmpty(label)) _player.GoTo(label);

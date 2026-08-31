@@ -133,8 +133,7 @@ namespace Lvn.UI.Screens
 
         private void Add(VisualElement el)
         {
-            el.style.position = Position.Absolute;
-            el.style.left = 0; el.style.right = 0; el.style.top = 0; el.style.bottom = 0;
+            LvnChrome.Stretch(el);
             _root.Add(el);
         }
 
