@@ -33,7 +33,6 @@ namespace Lvn.UI.Screens
         // (страж наряда стрелял на каждую примерку) конкурировали с пан-командой
         // вкладок — фон «елозил туда-сюда» и пан сбивался (живой репорт 27.08).
         // Фоном меню рулят только: первая постановка здесь и PanMenuScene.
-        private bool _menuBgSet;
         // Знаем ли, на какой вкладке стоит полотно (был хоть один переезд).
         private bool _menuPanSet;
 
@@ -111,7 +110,6 @@ namespace Lvn.UI.Screens
             LvnLog.Trace($"[lvn-menu] передача кадра: полотно={(bg != null ? "меню" : "прежнее")}, "
                        + $"остаётся={fav ?? "-"}, облик известен={(!string.IsNullOrEmpty(fav) && Stage.RememberedByScript(fav))}");
             Stage.HandOver(bg, fav);
-            _menuBgSet = bg != null;   // полотно уже стоит — второй раз его не ставим
             // Героиня выходит ПОСЛЕ фона, а не вместе с ним: сначала мир, потом
             // тот, кто в него вернулся. Появиться одновременно значит смазать
             // оба события в одно мельтешение.
@@ -192,16 +190,19 @@ namespace Lvn.UI.Screens
                 return;
             }
             var canvas = _manifest?.ui?.browse?.canvas;
+            // «Стоит ли уже полотно» спрашиваем У СЦЕНЫ. Здесь жил свой флажок,
+            // и он врал ровно тогда, когда это было важнее всего: картинка со
+            // сцены пропадала, а флажок держал «стоит».
+            bool already = Stage.ShowsBackdrop(canvas);
             LvnLog.Trace($"[lvn-menu] сцена меню: canvas={(string.IsNullOrEmpty(canvas) ? "НЕТ" : "есть")}, "
-                      + $"bgSet={_menuBgSet} → полотно {(!string.IsNullOrEmpty(canvas) && !_menuBgSet ? "СТАВИМ" : "не трогаем")}");
-            if (!string.IsNullOrEmpty(canvas) && !_menuBgSet)
+                      + $"уже стоит={already} → полотно {(!string.IsNullOrEmpty(canvas) && !already ? "СТАВИМ" : "не трогаем")}");
+            if (!string.IsNullOrEmpty(canvas) && !already)
             {
                 // Точку выбирает MenuCanvasCmd: стартовая четверть — вкладка
                 // «Главная» (меню всегда открывается с неё), а если переезды уже
                 // были — полотно встаёт СРАЗУ на их точку, иначе первый же тик
                 // дёрнул бы его через полкадра.
                 Stage.ApplyStage(MenuCanvasCmd(canvas, 0f), LvnSender.Menu);
-                _menuBgSet = true;
             }
             var fav = MenuFavoriteEntity();
             // ГЕРОИНЯ ОДНА, И РИСУЕТ ЕЁ СЦЕНА. Рисовать её умели двое — сцена
@@ -338,7 +339,6 @@ namespace Lvn.UI.Screens
                 () =>
                 {
                     Debug.LogWarning("[lvn-menu] полотна нет, хотя мы в меню — ставим заново");
-                    _menuBgSet = false;
                     ShowMenuScene(withPortal: false);   // лечение полотна — не приход в меню
                 },
                 period: LvnMenuStage.GuardPeriodSeconds,

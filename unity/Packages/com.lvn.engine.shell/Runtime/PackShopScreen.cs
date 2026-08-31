@@ -114,12 +114,7 @@ namespace Lvn.UI.Screens
 
             var titleBlock = new VisualElement();
             titleBlock.style.flexGrow = 1;
-            var eyebrow = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("shop.eyebrow", "TOP UP"));
-            eyebrow.style.color = LvnTokens.Gold;
-            eyebrow.style.fontSize = Lvn.UI.LvnFonts.Size(18f);
-            eyebrow.style.letterSpacing = 2.2f;
-            eyebrow.style.unityFontStyleAndWeight = FontStyle.Bold;
-            titleBlock.Add(eyebrow);
+            titleBlock.Add(ScreenUi.Eyebrow(() => LvnWords.Of("shop.eyebrow", "TOP UP")));
             var title = SectionTitle(() => LvnWords.Of("shop.title", "Store"));
             titleBlock.Add(title);
             top.Add(titleBlock);

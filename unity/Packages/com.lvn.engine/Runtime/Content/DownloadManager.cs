@@ -197,22 +197,23 @@ namespace Lvn.Content
             var next = FindNextChapter(_manifest, current);
             if (next == null) return;
 
-            if (!string.IsNullOrEmpty(next.script_url))
-                _loader.RefreshScriptInBackground(next.script_url, reloadIndex: false);
-            if (!string.IsNullOrEmpty(next.bg_url))
-                _ = _loader.Prefetch(next.bg_url, DownloadPolicy.Kind(next.bg_url), ct);
-
+            // ЧТО перечислять — у Описи, и «обязательное» она называет сама:
+            // скрипт и фон загрузки плюс ассеты, помеченные автором. Здесь
+            // остаётся глагол, и он разный: скрипт освежается, остальное
+            // качается вперёд.
             int n = 0;
-            if (next.assets != null)
-                foreach (var kv in next.assets)
+            foreach (var part in LvnParts.OfChapter(next))
+            {
+                if (!part.Critical) continue;   // отложенное дождётся своей сцены
+                if (part.Kind == LvnParts.Script || DownloadPolicy.IsScript(part.Url))
+                    _loader.RefreshScriptInBackground(part.Url, reloadIndex: false);
+                else
                 {
-                    if (string.IsNullOrEmpty(kv.Key) || kv.Value == null) continue;
-                    if (!kv.Value.critical) continue;          // obligatory part only
-                    if (DownloadPolicy.IsScript(kv.Key)) continue; // handled above
-                    _ = _loader.Prefetch(kv.Key, DownloadPolicy.Kind(kv.Key), ct);
+                    _ = _loader.Prefetch(part.Url, DownloadPolicy.Kind(part.Url), ct);
                     n++;
                 }
-            Debug.Log($"[downloads] next chapter '{next.id}' prefetch: {n} required asset(s) + script/bg");
+            }
+            Debug.Log($"[downloads] next chapter '{next.id}' prefetch: {n} required file(s)");
         }
 
         /// <summary>The chapter the shell should auto-continue into after
@@ -250,7 +251,10 @@ namespace Lvn.Content
                 return images;
             }
             if (FallbackBootUi != null) images.AddRange(FallbackBootUi);
-            CollectFromManifest(manifest, images, scriptsOut: null);
+            // Картинки витрины — из Описи: обложки, арт карточек новелл и
+            // коллекций, фоны глав. Свой обход брал обложку и фон, но не
+            // карточку хаба — она догружалась уже под взглядом игрока.
+            foreach (var part in LvnParts.OfMenuArt(manifest)) images.Add(part.Url);
             return images;
         }
 
@@ -285,41 +289,10 @@ namespace Lvn.Content
         // Collects every chapter script url into `scripts` (for offline precache).
         private static void CollectScripts(LvnManifest manifest, List<string> scripts)
         {
-            if (manifest?.titles == null) return;
-            foreach (var title in manifest.titles)
-            {
-                if (title?.seasons == null) continue;
-                foreach (var season in title.seasons)
-                {
-                    if (season?.chapters == null) continue;
-                    foreach (var ch in season.chapters)
-                        if (ch != null && !string.IsNullOrEmpty(ch.script_url)) scripts.Add(ch.script_url);
-                }
-            }
+            foreach (var part in LvnParts.OfAll(manifest))
+                if (part.Kind == LvnParts.Script)
+                    scripts.Add(part.Url);
         }
 
-        // Collects every chapter bg + title cover into `images`, and every chapter
-        // script into `scripts` (when non-null). One walk, one place.
-        private static void CollectFromManifest(LvnManifest manifest, List<string> images, List<string> scriptsOut)
-        {
-            if (manifest?.titles == null) return;
-            foreach (var title in manifest.titles)
-            {
-                if (title == null) continue;
-                if (!string.IsNullOrEmpty(title.cover_url)) images.Add(title.cover_url);
-                if (title.seasons == null) continue;
-                foreach (var season in title.seasons)
-                {
-                    if (season?.chapters == null) continue;
-                    foreach (var ch in season.chapters)
-                    {
-                        if (ch == null) continue;
-                        if (!string.IsNullOrEmpty(ch.bg_url)) images.Add(ch.bg_url);
-                        if (scriptsOut != null && !string.IsNullOrEmpty(ch.script_url))
-                            scriptsOut.Add(ch.script_url);
-                    }
-                }
-            }
-        }
     }
 }

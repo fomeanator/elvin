@@ -122,35 +122,62 @@ func stripComments(src string) string {
 	return out
 }
 
+// Оба описания манифеста: облик (LvnUiConfig) и его содержимое (LvnManifest).
+// Второе не проверялось вовсе, хотя поверхность там та же — автор пишет поле и
+// ждёт эффекта.
+var manifestDTOs = []string{
+	"unity/Packages/com.lvn.engine/Runtime/Content/LvnUiConfig.cs",
+	"unity/Packages/com.lvn.engine/Runtime/Content/LvnManifest.cs",
+}
+
 func TestConfigFieldsAreActuallyRead(t *testing.T) {
 	root := repoRoot(t)
-	cfgPath := filepath.Join(root, filepath.FromSlash(
-		"unity/Packages/com.lvn.engine/Runtime/Content/LvnUiConfig.cs"))
-	raw, err := os.ReadFile(cfgPath)
-	if err != nil {
-		t.Fatalf("LvnUiConfig.cs: %v", err)
-	}
 
 	fields := map[string]bool{}
-	for name := range declaredFields(stripComments(string(raw))) {
-		if len(name) > 3 {
-			fields[name] = true
+	for _, rel := range manifestDTOs {
+		raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+		if err != nil {
+			t.Fatalf("%s: %v", rel, err)
+		}
+		for name := range declaredFields(stripComments(string(raw))) {
+			if len(name) > 3 {
+				fields[name] = true
+			}
 		}
 	}
 	if len(fields) < 50 {
-		t.Fatalf("в LvnUiConfig.cs нашлось всего %d полей — разбор сломался", len(fields))
+		t.Fatalf("в описаниях манифеста нашлось всего %d полей — разбор сломался", len(fields))
 	}
 
-	// Кто угодно в рантайме, кроме самого файла описаний.
+	// Кто угодно, кроме самих файлов описаний — И НЕ ТОЛЬКО НА C#.
+	//
+	// Манифест читают три исполнителя: движок, сервер и веб-плеер. Замер по
+	// одному языку врёт в самую опасную сторону — «поле мёртвое, удаляйте».
+	// На `titles[].author` это чуть не сработало: C# его не читает, а Go по
+	// нему строит индекс владельцев для выплат и аналитики. Go и JS видят поле
+	// не как `.author`, а как имя в кавычках (json-метка, ключ объекта),
+	// поэтому засчитываются обе записи.
+	readerRoots := append(append([]string{}, storageRoots...),
+		"server", filepath.Join("panel", "public", "play"))
 	read := map[string]bool{}
-	for _, rel := range storageRoots { // те же три пакета рантайма
+	for _, rel := range readerRoots {
 		dir := filepath.Join(root, rel)
 		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+			if err != nil || info.IsDir() {
 				return nil
 			}
-			if strings.HasSuffix(path, "LvnUiConfig.cs") || strings.Contains(filepath.ToSlash(path), "/Tests/") {
+			slash := filepath.ToSlash(path)
+			ext := filepath.Ext(path)
+			if ext != ".cs" && ext != ".go" && ext != ".js" {
 				return nil
+			}
+			if strings.HasSuffix(slash, "_test.go") || strings.Contains(slash, "/Tests/") {
+				return nil
+			}
+			for _, dto := range manifestDTOs {
+				if strings.HasSuffix(slash, dto[strings.LastIndex(dto, "/")+1:]) {
+					return nil
+				}
 			}
 			body, err := os.ReadFile(path)
 			if err != nil {
@@ -165,7 +192,7 @@ func TestConfigFieldsAreActuallyRead(t *testing.T) {
 				if read[f] {
 					continue
 				}
-				if strings.Contains(text, "."+f) {
+				if strings.Contains(text, "."+f) || strings.Contains(text, `"`+f+`"`) {
 					read[f] = true
 				}
 			}

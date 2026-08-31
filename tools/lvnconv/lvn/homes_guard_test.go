@@ -88,7 +88,7 @@ func TestEveryHomeInTheMapExists(t *testing.T) {
 				continue
 			}
 			seen[part] = true
-			if !known[part] {
+			if !knownHome(known, part) {
 				missing = append(missing, part)
 			}
 		}
@@ -125,15 +125,30 @@ func splitHomeNames(cell string) []string {
 	cell = strings.NewReplacer("(", " ", ")", " ", "/", " ", ",", " ").Replace(cell)
 	var out []string
 	for _, f := range strings.Fields(cell) {
-		f = strings.TrimSpace(f)
-		// Вложенный тип: годится и целиком, и по последней части.
-		if i := strings.LastIndex(f, "."); i > 0 && i+1 < len(f) {
-			out = append(out, f[i+1:])
-			continue
+		if f = strings.TrimSpace(f); f != "" {
+			out = append(out, f)
 		}
-		out = append(out, f)
 	}
 	return out
+}
+
+// knownHome — существует ли то, что названо в карте.
+//
+// Имя с точкой значит одно из двух, и оба законны: ВЛОЖЕННЫЙ ТИП
+// (`ContentLoader.SpriteCache` — тип по последней части) и МЕХАНИЗМ ДОМА
+// (`VnStage.ShowsBackdrop` — метод у известного типа). Раньше проверялась
+// только последняя часть, поэтому вторая запись объявлялась несуществующей, и
+// карта не могла назвать механизм иначе как целым классом — хотя ровно так её
+// и пишут: «дом отвечает за это, и вот его глагол».
+func knownHome(known map[string]bool, name string) bool {
+	if known[name] {
+		return true
+	}
+	i := strings.LastIndex(name, ".")
+	if i <= 0 || i+1 >= len(name) {
+		return false
+	}
+	return known[name[i+1:]] || known[name[:strings.Index(name, ".")]]
 }
 
 // Пустая проверка формы: карта обязана оставаться таблицей, иначе страж выше

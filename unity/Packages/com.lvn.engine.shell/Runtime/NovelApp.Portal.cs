@@ -130,7 +130,6 @@ namespace Lvn.UI.Screens
                        + $"{(string.IsNullOrEmpty(canvas) ? "НЕЧЕМ" : canvas)}");
             if (string.IsNullOrEmpty(canvas)) return;
             Stage.ApplyStage(MenuCanvasCmd(canvas, 0f), LvnSender.Cutscene);
-            _menuBgSet = true;
         }
 
         /// <summary>

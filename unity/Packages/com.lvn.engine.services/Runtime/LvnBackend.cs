@@ -44,7 +44,7 @@ namespace Lvn.Services
             var device = LvnMark.Steady(PDevice);
             var body = JsonUtility.ToJson(new RegisterReq { device_id = device });
             var (code, json) = await PostAsync("/v1/auth/register", body, auth: false);
-            if (code != 200 || string.IsNullOrEmpty(json)) return SignedIn;
+            if (!Ok(code) || string.IsNullOrEmpty(json)) return SignedIn;
             var resp = JsonUtility.FromJson<RegisterResp>(json);
             if (string.IsNullOrEmpty(resp?.token)) return SignedIn;
             using (LvnKeep.Batch())
@@ -73,7 +73,7 @@ namespace Lvn.Services
             if (name.Length == 0) return false;
             LvnKeep.Put(PName, name);
             var (code, _) = await PostAsync("/v1/auth/profile", JsonUtility.ToJson(new ProfileReq { name = name }));
-            return code == 200;
+            return Ok(code);
         }
 
         [Serializable] private class ProfileReq { public string name; }
@@ -86,7 +86,7 @@ namespace Lvn.Services
         {
             var body = JsonUtility.ToJson(new ProviderReq { provider = provider, token = token });
             var (code, json) = await PostAsync("/v1/auth/login", body, auth: false);
-            if (code != 200 || string.IsNullOrEmpty(json)) return false;
+            if (!Ok(code) || string.IsNullOrEmpty(json)) return false;
             var resp = JsonUtility.FromJson<LoginResp>(json);
             if (string.IsNullOrEmpty(resp?.token)) return false;
             using (LvnKeep.Batch())
@@ -108,7 +108,7 @@ namespace Lvn.Services
         {
             var body = JsonUtility.ToJson(new ProviderReq { provider = provider, token = token });
             var (code, _) = await PostAsync("/v1/auth/link", body);
-            if (code == 200) return LvnPlatformAuth.LinkResult.Linked;
+            if (Ok(code)) return LvnPlatformAuth.LinkResult.Linked;
             if (code == 409) return LvnPlatformAuth.LinkResult.Conflict;
             return LvnPlatformAuth.LinkResult.Failed;
         }
@@ -124,7 +124,7 @@ namespace Lvn.Services
         public static async Task<bool> DeleteAccountAsync()
         {
             var (code, _) = await PostAsync("/v1/account/delete", "{\"confirm\":\"DELETE\"}");
-            if (code != 200) return false;
+            if (!Ok(code)) return false;
             using (LvnKeep.Batch())
             {
                 LvnKeep.Drop(PToken);
@@ -153,6 +153,12 @@ namespace Lvn.Services
         /// событий, неотправленную покупку, — которое надо было СОХРАНИТЬ до
         /// возвращения связи.</para>
         /// </summary>
+        /// <summary>УДАЧНЫЙ ОТВЕТ — одно правило на всех: весь второй разряд,
+        /// а не «ровно 200». Дом правила сам же его и нарушал в шести местах, и
+        /// это не мелочь: сервер вправе ответить 201 или 204 (а прокси —
+        /// нормализовать), и тогда удача читалась бы как отказ. Дороже всего
+        /// это стоило бы привязке аккаунта: «уже привязан» вернулось бы игроку
+        /// как «не вышло».</summary>
         public static bool Ok(long code) => code >= 200 && code < 300;
 
         /// <summary>Запрос не дошёл вовсе: сети нет, сервер не отвечает, DNS
@@ -204,7 +210,7 @@ namespace Lvn.Services
         public static async Task<string[]> GetProvidersAsync()
         {
             var (code, json) = await GetAsync("/v1/auth/me");
-            if (code != 200 || string.IsNullOrEmpty(json)) return null;
+            if (!Ok(code) || string.IsNullOrEmpty(json)) return null;
             try { return JsonUtility.FromJson<MeResp>(json)?.providers ?? Array.Empty<string>(); }
             catch { return Array.Empty<string>(); }
         }

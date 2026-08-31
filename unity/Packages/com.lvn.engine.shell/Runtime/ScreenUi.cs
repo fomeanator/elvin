@@ -140,6 +140,30 @@ namespace Lvn.UI.Screens
             return LvnChrome.Heading(lbl);
         }
 
+        /// <summary>
+        /// НАДЗАГОЛОВОК — маленькая разрядка заглавными над заголовком
+        /// («PROFILE», «TOP UP», «FEATURED»).
+        ///
+        /// <para>Сверстан был пятью правилами в четырёх местах: цвет золотой
+        /// или акцентный, кегль 18/24/30, разрядка 2.2/3/4, — и связь между
+        /// кеглем и разрядкой каждый раз выводили заново, на глаз. Разрядка
+        /// ПРОПОРЦИОНАЛЬНА кеглю (одна восьмая): это её типографское правило, а
+        /// не совпадение трёх подобранных чисел.</para>
+        ///
+        /// <para>Отступ снизу остаётся вызывающему: у надзаголовка карточки и
+        /// надзаголовка экрана разное окружение, и это единственное, чем они
+        /// вправе отличаться.</para>
+        /// </summary>
+        public static Label Eyebrow(System.Func<string> text, float size = 18f, Color? color = null)
+        {
+            var lbl = Lvn.UI.LvnRedress.Bind(new Label(), text);
+            lbl.style.color = color ?? LvnTokens.Gold;
+            lbl.style.fontSize = Lvn.UI.LvnFonts.Size(size);
+            lbl.style.letterSpacing = size / 8f;
+            lbl.style.unityFontStyleAndWeight = FontStyle.Bold;
+            return lbl;
+        }
+
         public static Label CenterLabel(float topFraction, Color color, float size)
         {
             var l = new Label();
