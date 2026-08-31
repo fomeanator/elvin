@@ -134,5 +134,37 @@ namespace Lvn.Tests
             LvnKeep.Put(K + "a", "цел");
             Assert.AreEqual("цел", LvnKeep.Get(K + "a", ""));
         }
+
+        // КЛЮЧ ВЕЩИ, ПРИВЯЗАННОЙ К НОВЕЛЛЕ. Приставки у хранилищ разные и
+        // остаются такими (сменить — потерять чужие сохранения), а вот «а если
+        // новеллы нет» имело ТРИ ответа: «default», пустая строка и ключ с
+        // точкой на конце. Из-за последнего пустое имя и отсутствующее уезжали
+        // в РАЗНЫЕ ящики: сохранение, сделанное до выбора новеллы, потом не
+        // находилось.
+        [Test]
+        public void ОтсутствиеНовеллыИмеетОдинОтвет()
+        {
+            Assert.AreEqual(LvnKeep.Scoped("lvn_save_", null),
+                            LvnKeep.Scoped("lvn_save_", ""),
+                "пустое имя новеллы и отсутствующее дают разные ящики — "
+                + "записанное до выбора новеллы потом не найдётся");
+            Assert.IsFalse(LvnKeep.Scoped("lvn_save_", null).EndsWith("_"),
+                "ключ кончается приставкой без имени — такой ящик легко занять второй раз");
+        }
+
+        // Разные новеллы — разные ящики, одна и та же — один и тот же. Иначе
+        // прогресс одной истории затирал бы прогресс соседней.
+        [Test]
+        public void РазныеНовеллыНеДелятЯщик()
+        {
+            Assert.AreNotEqual(LvnKeep.Scoped("lvn_save_", "cold"),
+                               LvnKeep.Scoped("lvn_save_", "hill"));
+            Assert.AreEqual(LvnKeep.Scoped("lvn_save_", "cold"),
+                            LvnKeep.Scoped("lvn_save_", "cold"),
+                "один и тот же вопрос дал два разных ключа");
+            Assert.AreNotEqual(LvnKeep.Scoped("lvn_save_", "cold"),
+                               LvnKeep.Scoped("lvn_read_", "cold"),
+                "разные хранилища слились в один ящик");
+        }
     }
 }
