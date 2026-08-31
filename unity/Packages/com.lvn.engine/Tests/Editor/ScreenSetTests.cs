@@ -230,7 +230,9 @@ namespace Lvn.Tests
         /// не назвали.</summary>
         private static (string имя, VisualElement экран)[] Экраны(NovelShell об) => new (string, VisualElement)[]
         {
-            ("Boot", об.Boot), ("Carousel", об.Carousel), ("Hub", об.Hub),
+            // Витрина одна — та, что выбрал манифест (карусель или хаб).
+            // Пока строили обе, вторая жила в дереве невидимкой.
+            ("Boot", об.Boot), ("Витрина", об.Browse?.View),
             ("Loading", об.Loading), ("Title", об.Title), ("Hud", об.Hud),
             ("Auth", об.Auth), ("Settings", об.Settings), ("Detail", об.Detail),
             ("Gallery", об.Gallery), ("Profile", об.Profile), ("Daily", об.Daily),
@@ -313,7 +315,7 @@ namespace Lvn.Tests
             набор.HideAll();
 
             Assert.AreEqual(барБыл, Показ(об.TopBar), "уборка экранов погасила верхний бар");
-            Assert.AreEqual(DisplayStyle.None, Показ(об.Hub), "уборка не убрала сами экраны");
+            Assert.AreEqual(DisplayStyle.None, Показ(об.Browse.View), "уборка не убрала сами экраны");
 
             try { Directory.Delete(кэш, true); } catch (Exception) { }
         }

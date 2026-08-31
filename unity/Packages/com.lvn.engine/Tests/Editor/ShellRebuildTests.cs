@@ -208,14 +208,14 @@ namespace Lvn.Tests
         public void ПослеПересборкиВНабореНовоеПоколениеЭкранов()
         {
             var об = Оболочка();
-            var прошлыйХаб = об.Hub;
+            var прошлаяВитрина = об.Browse?.View;
 
             об.Build(Манифест(), new TestAssets());
             var набор = Набор(об);
 
-            Assert.AreNotSame(прошлыйХаб, об.Hub, "пересборка не собрала экраны заново — проверять нечего");
-            Assert.IsTrue(набор.Has(об.Hub), "новый экран не попал в набор — уборка его пропустит");
-            Assert.IsFalse(набор.Has(прошлыйХаб),
+            Assert.AreNotSame(прошлаяВитрина, об.Browse?.View, "пересборка не собрала экраны заново — проверять нечего");
+            Assert.IsTrue(набор.Has(об.Browse?.View), "новый экран не попал в набор — уборка его пропустит");
+            Assert.IsFalse(набор.Has(прошлаяВитрина),
                 "в наборе остался экран прошлого поколения: его нет в дереве, " +
                 "и уборка каждой навигации будет ходить к нему");
         }
@@ -247,12 +247,12 @@ namespace Lvn.Tests
         {
             var об = Оболочка();
             об.Build(Манифест(), new TestAssets());
-            об.Hub.style.display = DisplayStyle.Flex;
+            об.Browse.View.style.display = DisplayStyle.Flex;
             об.Profile.style.display = DisplayStyle.Flex;
 
             УбратьВсё(об);
 
-            Assert.AreEqual(DisplayStyle.None, Показ(об.Hub), "уборка не убрала пересобранный хаб");
+            Assert.AreEqual(DisplayStyle.None, Показ(об.Browse.View), "уборка не убрала пересобранную витрину");
             Assert.AreEqual(DisplayStyle.None, Показ(об.Profile), "уборка не убрала пересобранный профиль");
         }
     }

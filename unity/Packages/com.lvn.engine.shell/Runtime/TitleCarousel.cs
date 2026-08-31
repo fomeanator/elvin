@@ -17,7 +17,7 @@ namespace Lvn.UI.Screens
     /// to scroll, release to snap (paged math in the pure <see cref="CarouselSnap"/>).
     /// <see cref="OnPlay"/> fires the selected title's index.
     /// </summary>
-    public sealed class TitleCarousel : VisualElement
+    public sealed class TitleCarousel : VisualElement, ILvnBrowse
     {
         private readonly CarouselConfig _cfg;
         private readonly ILvnAssets _assets;
@@ -165,6 +165,53 @@ namespace Lvn.UI.Screens
 
             RegisterCallback<GeometryChangedEvent>(OnGeometry);
         }
+
+        // ── ВИТРИНА (ILvnBrowse) ────────────────────────────────────────────
+        // Карусель отвечает на общий вопрос витрины сама. Подписка, защёлка и
+        // отмена — её устройство: оболочке довольно «жду выбор».
+
+        /// <inheritdoc/>
+        public VisualElement View => this;
+
+        /// <inheritdoc/>
+        public Task<LvnTitle> PickTitleAsync(CancellationToken ct = default)
+        {
+            // Прогресс мог уйти вперёд, пока играли главу: подпись кнопки
+            // освежаем ДО показа. Раньше об этом помнила оболочка — и помнила
+            // только про карусель.
+            RefreshProgress();
+            var tcs = new TaskCompletionSource<LvnTitle>(TaskCreationOptions.RunContinuationsAsynchronously);
+            void Handler(int i) { OnPlay -= Handler; tcs.TrySetResult(At(i)); }
+            OnPlay += Handler;
+            // Запрос, поданный до подписки (диплинк во время заставки), ждёт
+            // в защёлке — забираем его ровно один раз.
+            if (TryConsumePendingPlay(out int pending))
+            {
+                OnPlay -= Handler;
+                tcs.TrySetResult(At(pending));
+                return tcs.Task;
+            }
+            // Отмена — это «никого не выбрали», а не поломка: ответ null, как
+            // у хаба. Исключение на отмене было вторым правилом для одного
+            // события.
+            ct.Register(() => { OnPlay -= Handler; tcs.TrySetResult(null); });
+            return tcs.Task;
+        }
+
+        /// <inheritdoc/>
+        public bool RequestTitle(string titleId)
+        {
+            if (string.IsNullOrEmpty(titleId) || _titles == null) return false;
+            for (int i = 0; i < _titles.Count; i++)
+                if (_titles[i]?.id == titleId) { RequestPlay(i); return true; }
+            return false;
+        }
+
+        /// <inheritdoc/>
+        public void SetContent(LvnManifest manifest) => SetTitles(manifest?.titles);
+
+        private LvnTitle At(int i) =>
+            (_titles != null && i >= 0 && i < _titles.Count) ? _titles[i] : null;
 
         /// <summary>Programmatically launch the selected title (same as tapping
         /// Play) — for automation, tests, or a keyboard/gamepad binding.</summary>

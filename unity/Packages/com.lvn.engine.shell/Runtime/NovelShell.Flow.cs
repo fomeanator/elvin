@@ -81,10 +81,6 @@ namespace Lvn.UI.Screens
                 catch (OperationCanceledException) { return; }
             }
 
-            // Hub browse (collections → cards → detail) vs the default carousel.
-            bool useHub = _manifest.ui?.browse?.layout == "hub"
-                          && _manifest.collections != null && _manifest.collections.Count > 0;
-
             while (!ct.IsCancellationRequested)
             {
                 // ПОКАЗАЛ — ОБЯЗАН СНЯТЬ, чем бы виток ни кончился. Раньше
@@ -101,17 +97,17 @@ namespace Lvn.UI.Screens
                     {
                         title = intro;   // выбора нет — и это намеренно
                     }
-                    else if (useHub && Hub != null)
+                    else if (Browse != null)
                     {
                         // ВПУСКАЕТ ШВЕЙЦАР. Цикл только называет участников и
                         // условие «дверь закрыта»; порядок (зарядить → дождаться →
                         // показать → двинуть) и предохранители — его забота.
-                        // Хаб на экране — значит глава не идёт; вид доведут подписчики.
+                        // Витрина на экране — значит глава не идёт; вид доведут подписчики.
                         Lvn.UI.LvnScreenDirector.Current.AnnounceChapter(false);
                         LvnAsync.Fire(LvnUsher.OpenAsync(
                             hold: () => BootVeil.IsVisible,
-                            show: () => Show(Hub),
-                            Hub, TopBar), "ShellEntrance");
+                            show: () => Show(Browse.View),
+                            Browse as ILvnEntrance, TopBar), "ShellEntrance");
                         OnMenuVisible?.Invoke(); // сцена меню ставится ПО ФАКТУ показа
                         // ОХОТА НА БЕЛЫЙ ПРЯМОУГОЛЬНИК (26.08): сцена по логам
                         // ставит и полотно, и куклу — значит светлое пятно рисует
@@ -119,21 +115,17 @@ namespace Lvn.UI.Screens
                         // ВСЕ крупные светлые непрозрачные поверхности дерева.
                         if (Lvn.UI.LvnLog.Verbose)
                             _root?.schedule.Execute(DumpOpaqueSurfaces).ExecuteLater(1200);
-                        title = await Hub.PickTitleAsync(ct);
+                        // ОДИН ВОПРОС — ОДИН ОТВЕТ. Как витрина его получит
+                        // (карточка, карусель, защёлкнутая ссылка) — её дело.
+                        title = await Browse.PickTitleAsync(ct);
                         // (вход полос играет сам по себе — ждать его незачем)
                         if (ct.IsCancellationRequested) return;
-                        Hide(Hub);
-                        if (title == null) continue; // never picked → re-enter the hub
+                        Hide(Browse.View);
+                        if (title == null) continue; // ушёл, не выбрав → витрина заново
                     }
                     else
                     {
-                        Carousel.RefreshProgress(); // progress moved while a chapter played
-                        Show(Carousel);
-                        int idx = await WaitForPlay(ct);
-                        if (ct.IsCancellationRequested) return;
-                        Hide(Carousel);
-                        title = (_manifest.titles != null && idx >= 0 && idx < _manifest.titles.Count)
-                            ? _manifest.titles[idx] : null;
+                        return; // витрины нет — показывать нечего
                     }
                     // "Играть" continues from the furthest STARTED chapter (started
                     // ch2 → the button opens ch2); a fresh/finished title starts at
@@ -230,33 +222,13 @@ namespace Lvn.UI.Screens
         /// (см. <see cref="LvnProgress.Finished"/>).</summary>
         private static bool IsTitleFinished(LvnTitle t) => LvnProgress.Finished(t);
 
-        /// <summary>Auto-start a title by id without racing the boot splash — the
-        /// request is honoured the moment the carousel takes control. Returns false
-        /// if no title carries that id. Pairs with <see cref="TitleCarousel.RequestPlay"/>.</summary>
-        public bool RequestPlay(string titleId)
-        {
-            if (_manifest?.titles == null || Carousel == null) return false;
-            for (int i = 0; i < _manifest.titles.Count; i++)
-                if (_manifest.titles[i]?.id == titleId) { Carousel.RequestPlay(i); return true; }
-            return false;
-        }
+        /// <summary>Открыть новеллу по id, не гоняясь с заставкой: запрос
+        /// исполнится в тот миг, когда витрина возьмёт управление. false — новеллы
+        /// с таким id нет. Спрашивает ВИТРИНУ (<see cref="ILvnBrowse.RequestTitle"/>):
+        /// раньше запрос уходил в карусель — и в режиме хаба ссылка не делала
+        /// ничего, отвечая при этом «сделано».</summary>
+        public bool RequestPlay(string titleId) => Browse?.RequestTitle(titleId) ?? false;
 
-        private Task<int> WaitForPlay(CancellationToken ct)
-        {
-            var tcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-            void Handler(int i) { Carousel.OnPlay -= Handler; tcs.TrySetResult(i); }
-            Carousel.OnPlay += Handler;
-            // Honour a play requested before we got here (auto-start / deep-link fired
-            // during the boot splash, when OnPlay had no subscriber yet).
-            if (Carousel.TryConsumePendingPlay(out int pending))
-            {
-                Carousel.OnPlay -= Handler;
-                tcs.TrySetResult(pending);
-                return tcs.Task;
-            }
-            ct.Register(() => { Carousel.OnPlay -= Handler; tcs.TrySetCanceled(); });
-            return tcs.Task;
-        }
 
         /// <summary>The first playable chapter of a title (lowest non-negative
         /// chapter number across its seasons), or null.</summary>

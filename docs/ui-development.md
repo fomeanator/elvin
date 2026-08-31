@@ -76,12 +76,13 @@ tools/dev/serve.sh ~/путь/к/контенту  # свой контент (п
 `BootScreen` (сплэш и предзагрузка), `ServerSelectScreen`, `AuthScreen`,
 `LoadingScreen`.
 
-**Витрина:** `BrowseHub` (хаб: сборники → карточки → деталь),
+**Витрина** (`ILvnBrowse` — экран выбора новеллы; собирается ОДНА, какую
+просит `ui.browse.layout`): `BrowseHub` (хаб: сборники → карточки → деталь),
 `TitleCarousel` (альтернативная свайп-карусель), `TitleDetailScreen`
 (страница новеллы), `LvnProgress` (прогресс чтения на карточках).
 
-**Экономика и мета:** `PackShopScreen` (паки валюты), `SkinShopScreen`
-(магазин скинов), `DailyRewardsScreen` (календарь ежедневок),
+**Экономика и мета:** `PackShopScreen` (паки валюты),
+`DailyRewardsScreen` (календарь ежедневок),
 `LeaderboardScreen`, `ProfileScreen`, `CgGalleryScreen` (галерея CG),
 `SettingsScreen`, `PopupScreen` (универсальный модал).
 

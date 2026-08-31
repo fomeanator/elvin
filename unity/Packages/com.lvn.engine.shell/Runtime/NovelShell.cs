@@ -20,10 +20,18 @@ namespace Lvn.UI.Screens
     public sealed partial class NovelShell : MonoBehaviour
     {
         public BootScreen Boot { get; private set; }
+        /// <summary>Карусель — витрина по умолчанию. null, когда манифест выбрал
+        /// хаб: собирать вторую витрину незачем, а стоит она колоды карточек с
+        /// обложками, которые никто не увидит.</summary>
         public TitleCarousel Carousel { get; private set; }
         /// <summary>The hub browse flow (collections → cards → detail), used when
-        /// <c>ui.browse.layout == "hub"</c> instead of the carousel.</summary>
+        /// <c>ui.browse.layout == "hub"</c> instead of the carousel. null, когда
+        /// витрина — карусель.</summary>
         public BrowseHub Hub { get; private set; }
+        /// <summary>ВИТРИНА этого запуска — та из двух, что выбрал манифест.
+        /// Спрашивать «какую новеллу выбрал игрок» надо у неё, а не у карусели
+        /// и хаба по отдельности: у вопроса один ответ (см. ILvnBrowse).</summary>
+        public ILvnBrowse Browse { get; private set; }
         public LoadingScreen Loading { get; private set; }
         public TitleCard Title { get; private set; }
         public GameHud Hud { get; private set; }
@@ -191,8 +199,7 @@ namespace Lvn.UI.Screens
                 if (_sceneMenu) return; // сцена рисует меню — атмосфера мертва
                 bool menuVisible =
                     (Boot != null && Boot.style.display == DisplayStyle.Flex) ||
-                    (Carousel != null && Carousel.style.display == DisplayStyle.Flex) ||
-                    (Hub != null && Hub.style.display == DisplayStyle.Flex);
+                    (Browse != null && Browse.View.style.display == DisplayStyle.Flex);
                 var want = menuVisible ? DisplayStyle.Flex : DisplayStyle.None;
                 if (_atmosphere.style.display != want) _atmosphere.style.display = want;
             }).Every(100);
@@ -264,6 +271,12 @@ namespace Lvn.UI.Screens
         }
 
         /// <summary>Build the screen tree from the manifest. Idempotent.</summary>
+        /// <summary>Какую витрину просит манифест. Правило живёт ЗДЕСЬ, рядом с
+        /// постройкой: хаба мало объявить флагом — без подборок ему нечего
+        /// показать, и игрок упёрся бы в пустой экран.</summary>
+        private static bool UseHub(LvnManifest m) =>
+            m?.ui?.browse?.layout == "hub" && m.collections != null && m.collections.Count > 0;
+
         public void Build(LvnManifest manifest, ILvnAssets assets)
         {
             _manifest = manifest ?? new LvnManifest();
@@ -304,9 +317,23 @@ namespace Lvn.UI.Screens
             // параллакс-фон под всеми экранами оболочки. Создаётся после
             // хаба (он выбирает тему), встаёт ПЕРВЫМ ребёнком корня; в игре
             // прячется — сцена живёт в документе ПОД оболочкой.
-            Carousel = new TitleCarousel(_manifest.titles, ui.carousel, assets); Add(Carousel);
-            Hub = new BrowseHub(ui.browse, assets); Hub.SetData(_manifest.collections, _manifest.titles);
-            Add(Hub);
+            // ВИТРИНА ОДНА. Хаб выбирается манифестом; раньше рядом с ним
+            // всё равно строилась карусель — со всей колодой и запросом
+            // обложки на каждую новеллу, на пути первого кадра, ради экрана,
+            // который в этом запуске не откроется ни разу.
+            if (UseHub(_manifest))
+            {
+                Hub = new BrowseHub(ui.browse, assets);
+                Hub.SetData(_manifest.collections, _manifest.titles);
+                Add(Hub);
+                Browse = Hub;
+            }
+            else
+            {
+                Carousel = new TitleCarousel(_manifest.titles, ui.carousel, assets);
+                Add(Carousel);
+                Browse = Carousel;
+            }
             BuildAtmosphere();
             Loading = new LoadingScreen(ui.loading, assets); Add(Loading);
             Title = new TitleCard(ui.title, assets); Add(Title);
@@ -513,8 +540,10 @@ namespace Lvn.UI.Screens
         {
             if (manifest == null) return;
             _manifest = manifest;
-            Carousel?.SetTitles(manifest.titles);
-            Hub?.SetData(manifest.collections, manifest.titles);
+            // Витрина обновляется как витрина — какая бы она ни была. Расклад
+            // (хаб или карусель) при этом не меняется: это вёрстка, а её,
+            // по правилу выше, доводит следующий запуск.
+            Browse?.SetContent(manifest);
             // Вкладка гардероба тоже живёт манифестом (каталог нарядов, ростер
             // персонажей) — без этой строки она одна оставалась на прежнем
             // содержимом, пока соседние экраны показывали новое.
