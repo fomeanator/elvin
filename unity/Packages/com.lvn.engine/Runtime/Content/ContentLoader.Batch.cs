@@ -206,18 +206,9 @@ namespace Lvn.Content
                         }
                         var backoff = LvnBackoff.DelaySeconds(attempt);
                         Debug.LogWarning($"[content] preload {asset.Url} attempt {attempt}, retry in {backoff:F1}s: {ex.Message}");
-                        // While the global flag says offline a timed retry is
-                        // pointless — the fetch fast-fails on the SAME flag without
-                        // touching the wire. Sleep on the status change instead
-                        // (the recovery probe flips it back), capped at the same
-                        // backoff so a dead server still exhausts retries normally.
-                        try
-                        {
-                            if (!_local && LvnNetworkStatus.IsOffline)
-                                await DelayOrOnlineAsync(backoff, ct);
-                            else
-                                await Task.Delay(Mathf.RoundToInt(backoff * 1000f), ct);
-                        }
+                        // Правило паузы — у RetryPauseAsync: пока флаг говорит
+                        // «офлайн», ждём смены состояния, а не часов.
+                        try { await RetryPauseAsync(backoff, ct); }
                         catch (OperationCanceledException) { throw; }
                     }
                 }

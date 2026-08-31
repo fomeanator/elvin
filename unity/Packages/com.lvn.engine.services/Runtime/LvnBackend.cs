@@ -186,20 +186,49 @@ namespace Lvn.Services
 
         /// <summary>POST json; returns (status, body). 0 = transport error
         /// (offline). Attaches the bearer token unless auth=false.</summary>
-        public static async Task<(long code, string body)> PostAsync(string path, string json, bool auth = true)
+        public static Task<(long code, string body)> PostAsync(string path, string json, bool auth = true)
+            => SendAsync("POST", path, json, auth);
+
+        /// <summary>
+        /// ОДИН ЗАПРОС НА ВСЕ СЛУЖБЫ: адрес, токен, терпение, ожидание ответа и
+        /// правило «транспорт не дошёл» (код 0).
+        ///
+        /// <para>Тел было два — почти одинаковых, отличавшихся глаголом и телом
+        /// письма. Разошлись они уже: заголовок авторизации POST ставил по
+        /// параметру, GET — всегда; добавить общий заголовок или заменить
+        /// правило отказа значило бы вспомнить про оба.</para>
+        /// </summary>
+        private static async Task<(long code, string body)> SendAsync(string method, string path, string json, bool auth)
         {
             if (string.IsNullOrEmpty(BaseUrl)) return (0, null);
-            using var req = new UnityWebRequest(BaseUrl + path, "POST");
-            req.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json ?? "{}"));
+            using var req = new UnityWebRequest(BaseUrl + path, method);
+            if (json != null || method == "POST")
+            {
+                req.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json ?? "{}"));
+                req.SetRequestHeader("Content-Type", "application/json");
+            }
             req.downloadHandler = new DownloadHandlerBuffer();
-            req.SetRequestHeader("Content-Type", "application/json");
             if (auth && SignedIn) req.SetRequestHeader("Authorization", "Bearer " + Token);
             req.timeout = Lvn.LvnNetPatience.RequestSeconds;
             var op = req.SendWebRequest();
             while (!op.isDone) await Task.Yield();
-            if (req.result != UnityWebRequest.Result.Success && req.responseCode == 0) return (0, null);
+            bool reached = req.result == UnityWebRequest.Result.Success || req.responseCode != 0;
+            // СВЯЗЬ — ФАКТ, А НЕ МНЕНИЕ, и знает его тот, кто только что ходил
+            // на сервер. Загрузчик контента и хранилище состояния давно
+            // отмечают им общий признак «мы офлайн»; продуктовые службы ходят
+            // на ТОТ ЖЕ адрес и молчали — их отказ не переводил приложение в
+            // офлайн, а их удача не будила циклы, спящие до возвращения сети.
+            // Дом признака живёт в другой сборке, поэтому здесь шов.
+            Reachability?.Invoke(reached, "services " + method + " " + path);
+            if (!reached) return (0, null);
             return (req.responseCode, req.downloadHandler.text);
         }
+
+        /// <summary>Шов «сервер отвечает / не дошли»: ставит оболочка, потому
+        /// что дом признака связи (<c>LvnNetworkStatus</c>) живёт в сборке
+        /// контента, а служб он не видит. Не поставлен — службы просто молчат
+        /// о связи, как молчали раньше.</summary>
+        public static Action<bool, string> Reachability;
 
         [Serializable] private class MeResp { public string user_id; public string[] providers; }
 
@@ -216,16 +245,7 @@ namespace Lvn.Services
         }
 
         /// <summary>GET json with the bearer token; same contract as PostAsync.</summary>
-        public static async Task<(long code, string body)> GetAsync(string path)
-        {
-            if (string.IsNullOrEmpty(BaseUrl)) return (0, null);
-            using var req = UnityWebRequest.Get(BaseUrl + path);
-            if (SignedIn) req.SetRequestHeader("Authorization", "Bearer " + Token);
-            req.timeout = Lvn.LvnNetPatience.RequestSeconds;
-            var op = req.SendWebRequest();
-            while (!op.isDone) await Task.Yield();
-            if (req.result != UnityWebRequest.Result.Success && req.responseCode == 0) return (0, null);
-            return (req.responseCode, req.downloadHandler.text);
-        }
+        public static Task<(long code, string body)> GetAsync(string path)
+            => SendAsync("GET", path, null, auth: true);
     }
 }

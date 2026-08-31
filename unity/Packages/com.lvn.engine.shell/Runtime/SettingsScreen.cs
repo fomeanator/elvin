@@ -140,23 +140,11 @@ namespace Lvn.UI.Screens
 
             Section("main", LvnWords.Of("settings.tab_main", "General"));
             _list.Add(SoundRow());
-            if (_cfg.simple_audio ?? false)
-            {
-                // Два ползунка (решение партнёров): «Звуки» ведёт разом
-                // эффекты, печать, интерфейс и эмбиент; голос — туда же.
-                _list.Add(VolumeRow(LvnWords.Of("settings.music", "Music"), LvnWords.Of("settings.music_hint", "Story and menu tracks"),
-                    () => LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
-                _list.Add(VolumeRow(LvnWords.Of("settings.sounds", "Sounds"), LvnWords.Of("settings.sounds_hint", "Choices, scene effects and ambience"),
-                    () => LvnPrefs.VolSfx,
-                    v => { LvnPrefs.VolSfx = v; LvnPrefs.VolAmbient = v; LvnPrefs.VolVoice = v; }));
-            }
-            else
-            {
-                _list.Add(VolumeRow(LvnWords.Of("settings.music", "Music"), null, () => LvnPrefs.VolMusic, v => LvnPrefs.VolMusic = v));
-                _list.Add(VolumeRow(LvnWords.Of("settings.ambient", "Ambience"), null, () => LvnPrefs.VolAmbient, v => LvnPrefs.VolAmbient = v));
-                _list.Add(VolumeRow(LvnWords.Of("settings.sfx", "Effects"), null, () => LvnPrefs.VolSfx, v => LvnPrefs.VolSfx = v));
-                _list.Add(VolumeRow(LvnWords.Of("settings.voice", "Voice"), null, () => LvnPrefs.VolVoice, v => LvnPrefs.VolVoice = v));
-            }
+            // Состав громкостей — у КАТАЛОГА (он же знает про два режима:
+            // «Звуки» одним движком ведут эффекты, эмбиент и голос, когда
+            // новелла просит simple_audio). Здесь остаётся вид строки.
+            foreach (var d in Lvn.UI.LvnSettingsCatalog.Audio(_cfg.simple_audio ?? false))
+                _list.Add(RowFor(d));
             if (LvnPrefs.AvailableLocales != null && LvnPrefs.AvailableLocales.Count > 0)
                 _list.Add(LanguageRow());
             if (MenuTracks != null && MenuTracks.Count > 1)
@@ -169,18 +157,7 @@ namespace Lvn.UI.Screens
             _list.Add(UiScaleRow());
             _list.Add(FontRow());
             _list.Add(TextScaleRow());
-            _list.Add(RangeRow(LvnWords.Of("settings.text_speed", "Text speed"), LvnWords.Of("settings.text_speed_hint", "How fast lines type out"),
-                0.25f, 3f, () => LvnPrefs.TextSpeed, v => LvnPrefs.TextSpeed = v));
-            _list.Add(SwitchRow(LvnWords.Of("settings.auto_advance", "Auto-advance"), LvnWords.Of("settings.auto_advance_hint", "Lines turn by themselves"),
-                () => LvnPrefs.AutoAdvance, v => LvnPrefs.AutoAdvance = v));
-            _list.Add(RangeRow(LvnWords.Of("settings.auto_delay", "Auto delay"), LvnWords.Of("settings.auto_delay_hint", "Pause before the next line"),
-                0.5f, 2.5f, () => LvnPrefs.AutoDelayScale, v => LvnPrefs.AutoDelayScale = v));
-            _list.Add(RangeRow(LvnWords.Of("settings.box_opacity", "Box opacity"), LvnWords.Of("settings.box_opacity_hint", "The dialogue plate; text stays crisp"),
-                0.2f, 1f, () => LvnPrefs.DialogOpacity, v => LvnPrefs.DialogOpacity = v));
-            _list.Add(SwitchRow(LvnWords.Of("settings.skip_read", "Skip read only"), LvnWords.Of("settings.skip_read_hint", "Fast-forward stops at new lines"),
-                () => LvnPrefs.SkipReadOnly, v => LvnPrefs.SkipReadOnly = v));
-            _list.Add(SwitchRow(LvnWords.Of("settings.reduce_motion", "Reduce motion"), LvnWords.Of("settings.reduce_motion_hint", "No camera shake or flashes"),
-                () => LvnPrefs.ReduceMotion, v => LvnPrefs.ReduceMotion = v));
+            foreach (var d in Lvn.UI.LvnSettingsCatalog.Reading()) _list.Add(RowFor(d));
 
             Section("data", LvnWords.Of("settings.tab_data", "Data"));
             _list.Add(ArtQualityRow());
@@ -390,9 +367,13 @@ namespace Lvn.UI.Screens
             return row;
         }
 
-        private VisualElement RangeRow(string label, string hint, float min, float max,
-            System.Func<float> get, System.Action<float> set)
-            => SliderRow(label, hint, min, max, get, set);
+        /// <summary>Строка настройки в ОБОЛОЧКЕ: широкая, с пояснением. Что
+        /// показывать, знает каталог; как — этот метод.</summary>
+        private VisualElement RowFor(Lvn.UI.LvnSettingDef d)
+            => d.Kind == Lvn.UI.LvnSettingKind.Switch
+                ? SwitchRow(Lvn.UI.LvnSettingsCatalog.Label(d), Lvn.UI.LvnSettingsCatalog.Hint(d), d.Flag, d.SetFlag)
+                : SliderRow(Lvn.UI.LvnSettingsCatalog.Label(d), Lvn.UI.LvnSettingsCatalog.Hint(d),
+                            d.Min, d.Max, d.Num, d.SetNum, live: d.Live);
 
         // Булева строка пилюлями Вкл/Выкл — как «Все звуки».
         private VisualElement SwitchRow(string label, string hint,
@@ -408,8 +389,6 @@ namespace Lvn.UI.Screens
         }
 
         // Громкость слышна только вживую — предпросмотр обязателен.
-        private VisualElement VolumeRow(string label, string hint, System.Func<float> get, System.Action<float> set)
-            => SliderRow(label, hint, 0f, 1f, get, set, live: true);
 
 
         private VisualElement LanguageRow()

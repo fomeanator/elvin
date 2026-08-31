@@ -69,7 +69,7 @@ namespace Lvn.UI.Screens
                 {
                     var chBtn = new Button { text = offer.Value.label };
                     chBtn.style.height = 48;
-                    chBtn.style.fontSize = Lvn.UI.LvnFonts.Size(21f);
+                    chBtn.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
                     chBtn.style.marginTop = 8;
                     LvnStyler.Plate(chBtn, LvnTokens.Faint, LvnTokens.Accent, 14f);
                     var startCh = offer.Value.start;
@@ -143,7 +143,7 @@ namespace Lvn.UI.Screens
             var v = new Label("—");
             v.pickingMode = PickingMode.Ignore;
             v.style.color = LvnTokens.Text;
-            v.style.fontSize = Lvn.UI.LvnFonts.Size(21f);
+            v.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
             v.style.unityFontStyleAndWeight = FontStyle.Bold;
             v.style.marginTop = 1;
             cell.Add(v);
@@ -180,7 +180,7 @@ namespace Lvn.UI.Screens
             var l = Lvn.UI.LvnRedress.Bind(new Label(), text);
             l.pickingMode = PickingMode.Ignore;
             l.style.color = LvnTokens.TextDim;
-            l.style.fontSize = Lvn.UI.LvnFonts.Size(19f);
+            l.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
             l.style.whiteSpace = WhiteSpace.Normal;
             return l;
         }

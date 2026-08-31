@@ -134,6 +134,25 @@ namespace Lvn.Content
             finally { LvnNetworkStatus.Changed -= onChange; }
         }
 
+        /// <summary>
+        /// ПАУЗА МЕЖДУ ПОПЫТКАМИ — одна на все повторы загрузки.
+        ///
+        /// <para>Правило простое: пока общий флаг говорит «офлайн», ждать по
+        /// часам бессмысленно — запрос всё равно отвалится на том же флаге, не
+        /// коснувшись провода. Значит, спим НА СМЕНЕ СОСТОЯНИЯ (её вернёт
+        /// пробник восстановления), но не дольше отсрочки: мёртвый сервер
+        /// обязан исчерпать попытки как обычно.</para>
+        ///
+        /// <para>Правило это знал ровно один из трёх повторных циклов —
+        /// пакетный. Два одиночных спали по часам всегда, и файл, споткнувшийся
+        /// в офлайне, досыпал до тридцати секунд ПОСЛЕ возвращения сети: игрок
+        /// смотрел на экран загрузки, у которого связь уже была.</para>
+        /// </summary>
+        private Task RetryPauseAsync(float seconds, CancellationToken ct)
+            => !_local && LvnNetworkStatus.IsOffline
+                ? DelayOrOnlineAsync(seconds, ct)
+                : Task.Delay(Math.Max(1, (int)(seconds * 1000f)), ct);
+
         /// <summary>Ensure the url's bytes exist as a plain local FILE and return
         /// its path — for consumers that need a real file rather than decoded
         /// content (runtime fonts: <c>new Font(path)</c> has no bytes overload).
@@ -370,7 +389,7 @@ namespace Lvn.Content
                         }
                         var backoff = LvnBackoff.DelaySeconds(attempt);
                         Debug.LogWarning($"[content] {url} attempt {attempt} failed, resume in {backoff:F1}s: {ex.Message}");
-                        try { await Task.Delay(Mathf.RoundToInt(backoff * 1000f), ct); }
+                        try { await RetryPauseAsync(backoff, ct); }
                         catch (OperationCanceledException) { throw; }
                     }
                 }
@@ -536,7 +555,7 @@ namespace Lvn.Content
                     }
                     var backoff = LvnBackoff.DelaySeconds(attempt);
                     Debug.LogWarning($"[content] {url} failed (was attempt {attempt - 1}): {ex.Message}; retry #{attempt} in {backoff:F1}s");
-                    try { await Task.Delay(Mathf.RoundToInt(backoff * 1000f), ct); }
+                    try { await RetryPauseAsync(backoff, ct); }
                     catch (OperationCanceledException) { throw; }
                 }
             }

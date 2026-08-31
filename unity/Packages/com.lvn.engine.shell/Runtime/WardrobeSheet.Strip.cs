@@ -138,7 +138,7 @@ namespace Lvn.UI.Screens
                 chip.style.marginBottom = 8;
                 chip.style.flexShrink = 0;
                 chip.style.paddingLeft = 16; chip.style.paddingRight = 16;
-                chip.style.fontSize = Lvn.UI.LvnFonts.Size(19f);
+                chip.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
                 LvnChrome.Round(chip, 22f);
                 Smooth(chip, LvnMotion.Normal, "background-color", "color");
                 _emotions.Add(chip);
@@ -426,7 +426,7 @@ namespace Lvn.UI.Screens
                 () => Lvn.Content.LvnWords.Name("skin", item.value, item.name));
             name.name = "card-name";
             name.style.color = _text;
-            name.style.fontSize = Lvn.UI.LvnFonts.Size(25f);
+            name.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
             name.style.unityTextAlign = TextAnchor.MiddleCenter;
             name.style.overflow = Overflow.Hidden;
             name.style.textOverflow = TextOverflow.Ellipsis;
