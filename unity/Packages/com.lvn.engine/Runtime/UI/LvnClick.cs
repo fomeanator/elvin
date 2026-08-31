@@ -54,7 +54,13 @@ namespace Lvn.UI
             // Число или true в поле метки — опечатка автора, а не повод ронять
             // главу: берём как написано и уходим по несуществующей метке, что
             // уже умеет сообщать сам чтец.
-            var label = field.Type == JTokenType.String ? (string)field : field.ToString();
+            //
+            // СЛОВАМИ АВТОРА, а не .NET: у логического значения ToString даёт
+            // «True», и жалоба «нет метки True» называет слово, которого в
+            // сценарии нет — автор ищет его глазами и не находит.
+            var label = field.Type == JTokenType.String ? (string)field
+                      : field.Type == JTokenType.Boolean ? ((bool)field ? "true" : "false")
+                      : field.ToString();
             if (string.IsNullOrEmpty(label)) return null;
             return () => go(label);
         }

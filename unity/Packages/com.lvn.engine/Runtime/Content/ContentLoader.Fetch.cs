@@ -311,13 +311,7 @@ namespace Lvn.Content
             var seeded = await TrySeedAsync(url, path, ct);
             if (seeded != null) return seeded;
 
-            lock (_notFound)
-                if (_notFound.TryGetValue(url, out var at))
-                {
-                    if (Lvn.LvnClock.Wall() - at < NotFoundTtlSeconds)
-                        throw new LvnFetchException(404, "http_404", url + " (cached 404)");
-                    _notFound.Remove(url); // TTL вышел — пробуем сеть снова
-                }
+            ThrowIfKnownMissing(url);
 
             return await TrackedFetch(url, async () =>
             {
@@ -360,22 +354,9 @@ namespace Lvn.Content
                     {
                         throw; // offline — retrying is pointless; caller falls back to cache
                     }
-                    catch (LvnFetchException ex) when (ex.Status is >= 400 and < 500)
+                    catch (LvnFetchException ex) when (Missing(ex.Status))
                     {
-                        bool first;
-                        lock (_notFound)
-                        {
-                            first = !_notFound.ContainsKey(url);
-                            // Тоже реальное: срок «этого файла нет» обязан
-                            // истекать и в фоне, иначе свёрнутая на час игра
-                            // вернётся с той же протухшей памятью о 404.
-                            _notFound[url] = Lvn.LvnClock.Wall();
-                        }
-                        // Info, not warning: a 4xx here is usually the EXPECTED
-                        // steady state of an optional probe (.ktx2/.astc/@2k
-                        // variants, demo-stub art) — a yellow triangle per asset
-                        // per session reads like breakage and drowns real ones.
-                        if (first) Debug.Log($"[content] {url} permanent {ex.Status} (silenced for this session)");
+                        RememberMissing(url, ex.Status);
                         throw;
                     }
                     catch (Exception ex)
@@ -468,11 +449,62 @@ namespace Lvn.Content
             return task;
         }
 
+        /// <summary>
+        /// «ФАЙЛА НЕТ» — ЭТО 404, а не любой отказ четырёхсотой сотни.
+        ///
+        /// <para>Сюда сваливали весь диапазон 4xx, и вместе с настоящей
+        /// пропажей на две минуты объявлялись отсутствующими 401 и 403
+        /// (протух токен) и — хуже всего — 429, которым сервер ПРОСИТ
+        /// ПОДОЖДАТЬ. Под нагрузкой игрок получал болванки вместо арта там,
+        /// где надо было просто повторить чуть позже.</para>
+        ///
+        /// <para>410 здесь наравне с 404: «было и удалено» — та же пропажа,
+        /// только сервер сказал это прямо.</para>
+        /// </summary>
+        private static bool Missing(int status) => status is 404 or 410;
+
+        /// <summary>Этого файла нет — и мы уже знаем. Срок обязан истекать и в
+        /// фоне, иначе свёрнутая на час игра вернётся с той же протухшей
+        /// памятью.</summary>
+        private void ThrowIfKnownMissing(string url)
+        {
+            lock (_notFound)
+                if (_notFound.TryGetValue(url, out var at))
+                {
+                    if (Lvn.LvnClock.Wall() - at < NotFoundTtlSeconds)
+                        throw new LvnFetchException(404, "http_404", url + " (cached 404)");
+                    _notFound.Remove(url); // TTL вышел — пробуем сеть снова
+                }
+        }
+
+        /// <summary>Запомнить пропажу и сказать о ней ОДИН раз.
+        ///
+        /// <para>Сообщение, а не предупреждение: 4xx здесь обычно ОЖИДАЕМОЕ
+        /// установившееся состояние необязательной пробы (варианты .ktx2/.astc,
+        /// @2k, демо-болванки арта). Жёлтый треугольник на каждый ассет за
+        /// сессию читается как поломка и топит настоящие. Урок был усвоен в
+        /// кэширующем пути и не дошёл до его близнеца — там на каждый отказ
+        /// светился треугольник.</para></summary>
+        private void RememberMissing(string url, int status)
+        {
+            bool first;
+            lock (_notFound)
+            {
+                first = !_notFound.ContainsKey(url);
+                _notFound[url] = Lvn.LvnClock.Wall();
+            }
+            if (first) Debug.Log($"[content] {url} permanent {status} (silenced for this session)");
+        }
+
         // Retries with exponential backoff until the asset arrives or the token
         // fires. FetchOnce (private) does the single request with a short timeout
         // so a stuck connection can't hang the whole batch.
         private async Task<byte[]> Fetch(string url, CancellationToken ct)
         {
+            // Память о пропаже — общая с кэширующим путём. Её здесь не было
+            // вовсе: новелла с битым адресом повторяющегося звука делала
+            // сетевой запрос НА КАЖДУЮ реплику, где он играет.
+            ThrowIfKnownMissing(url);
             lock (_inflight) _attempts[url] = 1;
             const int MaxAttempts = 5;
             while (true)
@@ -488,9 +520,9 @@ namespace Lvn.Content
                 {
                     throw; // offline — retrying is pointless; caller falls back to cache
                 }
-                catch (LvnFetchException ex) when (ex.Status is >= 400 and < 500)
+                catch (LvnFetchException ex) when (Missing(ex.Status))
                 {
-                    Debug.LogWarning($"[content] {url} permanent {ex.Status}: {ex.Message}");
+                    RememberMissing(url, ex.Status);
                     throw;
                 }
                 catch (Exception ex)
