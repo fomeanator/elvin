@@ -136,20 +136,19 @@ namespace Lvn.UI.Screens
         private void ShowChapterPicker(List<LvnChapter> chapters)
         {
             if (Title == null) return;
-            int reached = LvnProgress.Reached(Title);
-            int firstNumber = Lvn.Content.LvnGatekeeper.FirstNumber(Title);
+            var marks = LvnChapterMarks.ForAll(Title, chapters);
             var panel = OpenModal(LvnWords.Of("restart.pick_chapter", "Choose a chapter"));
 
             var scroll = Lvn.UI.LvnScroll.Vertical();
             scroll.style.flexGrow = 1;
             panel.Add(scroll);
 
-            foreach (var c in chapters)
+            for (int i = 0; i < chapters.Count; i++)
             {
-                var ch = c;
+                var ch = chapters[i];
                 // Перезапуск не вправе прыгнуть дальше пройденного — правило
-                // спрашиваем у Привратника, а не повторяем здесь.
-                bool unlocked = Lvn.Content.LvnGatekeeper.ChapterOpen(ch.number, reached, firstNumber);
+                // спрашиваем у дома состояний, а не собираем здесь свою половину.
+                bool unlocked = LvnChapterMarks.Playable(marks[i]);
                 var row = ModalButton(ChapterLabel(ch) + (unlocked ? "" : "   ·  " + LvnWords.Of("chapter.locked", "locked")), primary: false,
                     () => { if (unlocked) LvnAsync.Fire(RestartFromChapterAsync(ch), "RestartFromChapter"); });
                 row.SetEnabled(unlocked);
