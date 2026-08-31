@@ -45,6 +45,7 @@ namespace Lvn.UI
             public string Layer;   // hud | over — в каком корне лежит
             public string When;    // always | idle | say | choice — при какой стадии виден
             public bool Manual;    // спрятано вручную через `ui X hide` — стадия не спорит
+            public bool Block;     // ловит ли слой касание мимо кнопок
             public bool Shown;     // стоит ли дерево на экране СЕЙЧАС — чтобы не играть вход дважды
             public LvnAppearKind Appear;   // как дерево выходит на экран
             public readonly List<Binding> Bindings = new List<Binding>();
@@ -122,12 +123,33 @@ namespace Lvn.UI
             var spec = cmd["tree"] as JObject;
             if (spec == null) return;
 
+            string layer = (string)cmd["layer"] ?? "hud";
+            string when = (string)cmd["when"] ?? "always";
+            var appear = LvnAppear.Parse((string)cmd["appear"]);
+            bool block = Truthy(cmd["block"]);
+
             if (_trees.TryGetValue(id, out var old))
             {
                 // То же самое дерево — не трогаем ничего: сценарий часто
                 // объявляет экран заново на каждом шаге, и пересборка на
                 // каждый шаг съедала бы нажатие под пальцем.
-                if (JToken.DeepEquals(old.Spec, spec)) return;
+                //
+                // «То же самое» — это ВСЯ команда, а не одно её дерево.
+                // Сравнивали только дерево, и `ui бой when=say { …то же… }`
+                // после `when=always` не менял ничего: язык обещает заменить
+                // объявление целиком, а рантайм молча оставлял прежнее.
+                bool sameLook = JToken.DeepEquals(old.Spec, spec)
+                                && old.Layer == layer && old.When == when
+                                && old.Appear == appear && old.Block == block;
+                if (sameLook)
+                {
+                    // ПОВТОРНОЕ ОБЪЯВЛЕНИЕ ВОЗВРАЩАЕТ СПРЯТАННОЕ РУКОЙ. Раньше
+                    // оно уходило в этот же ранний выход, и дерево, убранное
+                    // через `ui X hide`, так и лежало невидимым — а автор
+                    // объявил его снова и ждёт на экране.
+                    if (old.Manual) { old.Manual = false; ApplyStageTo(old); }
+                    return;
+                }
                 old.Root.RemoveFromHierarchy();
                 _trees.Remove(id);
             }
@@ -135,16 +157,17 @@ namespace Lvn.UI
             var tree = new Tree
             {
                 Spec = (JObject)spec.DeepClone(),
-                Layer = (string)cmd["layer"] ?? "hud",
-                When = (string)cmd["when"] ?? "always",
-                Appear = LvnAppear.Parse((string)cmd["appear"]),
+                Layer = layer,
+                When = when,
+                Appear = appear,
+                Block = block,
             };
             tree.Root = BuildNode(spec, tree);
 
             // block: слой ловит касание мимо кнопок. Без него тап по пустому
             // месту меню листает историю за его спиной — экран отвечает не на
             // то, куда смотрит игрок.
-            if (Truthy(cmd["block"]))
+            if (block)
             {
                 tree.Root.pickingMode = PickingMode.Position;
                 tree.Root.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
@@ -297,8 +320,15 @@ namespace Lvn.UI
                 var list = new List<JObject>();
                 foreach (var k in kids) if (k is JObject o) list.Add(o);
                 // z — порядок наложения. UI Toolkit его не знает, зато знает
-                // порядок детей: сортируем сами, устойчиво.
-                list.Sort((a, c) => Num(a["z"], 0).CompareTo(Num(c["z"], 0)));
+                // порядок детей: сортируем сами.
+                //
+                // УСТОЙЧИВО — и это не формальность: List.Sort устойчивость НЕ
+                // обещает и на длинных списках её не даёт. У детей без своего z
+                // (то есть почти у всех) порядок наложения переставал совпадать
+                // с порядком, написанным в сценарии, — начиная с семнадцатого
+                // ребёнка, где сортировка перестаёт быть вставками.
+                list = new List<JObject>(
+                    System.Linq.Enumerable.OrderBy(list, o => Num(o["z"], 0)));
                 float gap = Step(n["gap"], out var gapUnit);
                 for (int i = 0; i < list.Count; i++)
                 {
@@ -376,9 +406,16 @@ namespace Lvn.UI
             el.RegisterCallback<PointerCancelEvent>(_ => Release());
         }
 
+        /// <summary>Признак «это полоса» — классом, а не именем. Имя автор
+        /// вправе занять своим (`bar id=hp`), и покраска заливки, смотревшая на
+        /// имя, у названной полосы молча переставала работать: ширина едет,
+        /// красить нечего.</summary>
+        private const string BarClass = "lvn-ui-bar";
+
         private static VisualElement BuildBar()
         {
             var wrap = new VisualElement { name = "bar" };
+            wrap.AddToClassList(BarClass);
             wrap.style.overflow = Overflow.Hidden;
             var fill = new VisualElement { name = "fill", pickingMode = PickingMode.Ignore };
             fill.style.height = Length.Percent(100f);
@@ -550,7 +587,7 @@ namespace Lvn.UI
                 case "color":
                     var c = Color(value, LvnTokens.Text);
                     el.style.color = c;
-                    if (el.name == "bar" && el.childCount > 0) el[0].style.backgroundColor = c;
+                    if (el.ClassListContains(BarClass) && el.childCount > 0) el[0].style.backgroundColor = c;
                     break;
                 case "bg":
                     el.style.backgroundColor = Color(value, Color32Clear);
@@ -600,7 +637,7 @@ namespace Lvn.UI
 
         private static readonly Color Color32Clear = new Color(0, 0, 0, 0);
 
-        private enum Unit { Px, Percent }
+        private enum Unit { Px, Percent, Auto }
 
         // Длина: число или процент. САМ разбор — в общем доме (LvnNum), здесь
         // остаётся только выбор единицы: у стилей UI Toolkit проценты и
@@ -610,6 +647,11 @@ namespace Lvn.UI
             u = Unit.Px;
             if (t == null) return 0f;
             var s = t.ToString().Trim();
+            // «auto» обещано языком (`w=auto`), а разбирался он как мусор: ноль,
+            // то есть элемент схлопывался в невидимую точку. Отдельная единица
+            // честнее подмены числом — решает её тот, кто ставит стиль.
+            if (string.Equals(s, "auto", System.StringComparison.OrdinalIgnoreCase))
+            { u = Unit.Auto; return 0f; }
             if (s.EndsWith("%"))
             {
                 u = Unit.Percent;
@@ -619,7 +661,12 @@ namespace Lvn.UI
         }
 
         private static void SetLen(Action<StyleLength> set, float v, Unit u)
-            => set(u == Unit.Percent ? Length.Percent(v) : (Length)v);
+        {
+            // «auto» — не число, а ключевое слово стиля: пусть раскладка сама
+            // решит размер по содержимому.
+            if (u == Unit.Auto) { set(new StyleLength(StyleKeyword.Auto)); return; }
+            set(u == Unit.Percent ? Length.Percent(v) : (Length)v);
+        }
 
         // Есть ли в значении живая часть. Статические размеры кладём один раз
         // в ApplyLayout — заводить на них привязку значит опрашивать зря.
