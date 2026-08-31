@@ -1,0 +1,33 @@
+scene anim_forms
+
+// ЗАПИСЬ АНИМАЦИИ В ОБЕИХ ФОРМАХ. По местам (`anim hero scale [1 1.05 1] 2s
+// pingpong`) и по ключам (`anim id=hero prop=alpha keys="…"`) — одна команда,
+// разные СЛОВА автора. Свидетель на переезд в LvnsCompiler.Anim.
+
+bg id=hall
+actor id=hero at=center
+
+// ── по местам ────────────────────────────────────────────────────────────
+// Список в квадратных скобках раскладывается по длительности: 3 значения на 2s
+// дают ключи 0, 1, 2.
+anim hero scale [1 1.05 1] 2s pingpong
+anim hero rotation [0 4 -4 0] 3s loop
+// Явные ключи t:v прямо в строке — список в скобках тогда не нужен.
+anim hero alpha 0:1 0.5:0.4 1:1
+// Одиночная цель числом: тянется от покоя свойства (у scalex он 1).
+anim hero scalex to=1.2 dur=0.4 ease=outBack
+// Слово «stop» без значения — снять всё, что крутится на этом лице.
+anim hero stop
+
+// ── по ключам ────────────────────────────────────────────────────────────
+anim id=hero prop=rotation keys="0:0 1:6 2:0" loop=yoyo ease=inOutSine
+anim id=hero prop=alpha keys="0:0 1:1" dur=4 interp=spline layer=face channel=veil mode=queue
+anim id=hero stop=rotation
+
+// ── путь ─────────────────────────────────────────────────────────────────
+// `move` — сахар: путь в экранных долях становится парой треков screen_x/y.
+move hero 0.2,0.5 0.5,0.8 0.8,0.5 2s
+move id=hero to=0.9,0.4 dur=1.5 ease=inOutQuad
+move id=hero path="0.1,0.9 0.5,0.6 0.9,0.9" dur=3 orient=true
+
+Рассказчик: Отыграно.

@@ -1,3 +1,5 @@
+using System.Reflection;
+using Lvn.UI;
 using Lvn.UI.Screens;
 using NUnit.Framework;
 using UnityEngine;
@@ -49,6 +51,110 @@ namespace Lvn.Tests
             var l = new Label();
             ScreenUi.SetText(l, "hi");
             Assert.AreEqual("hi", l.text);
+        }
+
+        // ── кнопка «назад» ──────────────────────────────────────────────────
+
+        /// <summary>К чему приведёт нажатие. Живого тапа в EditMode нет —
+        /// события разносит панель, а панели здесь нет, — поэтому спрашиваем
+        /// саму кнопку. Null значит «не подписан никто».</summary>
+        private static System.Action Обработчик(Button b)
+        {
+            Assert.NotNull(b, "кнопки нет");
+            foreach (var f in typeof(Clickable).GetFields(
+                         BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public))
+                if (f.GetValue(b.clickable) is System.Action a) return a;
+            return null;
+        }
+
+        [Test]
+        public void КнопкаНазадВозвращаетсяЗвонящемуДляДонастройки()
+        {
+            // Дом делает ФОРМУ, а место кнопки на экране — дело экрана: одна
+            // стоит в шапке галереи, другая в углу таблицы рекордов. Верни он
+            // void — и экрану пришлось бы искать кнопку заново или собирать
+            // свою, то есть ровно та копия формы, ради ухода от которой дом и
+            // заводился.
+            var back = ScreenUi.BackButton(() => { }, 46f, 34f);
+
+            Assert.IsNotNull(back, "дом не отдал кнопку — экрану нечего ставить на место");
+            Assert.AreEqual("‹", back.text, "у кнопки «назад» пропал знак — гнездо стало пустым квадратом");
+
+            back.style.marginLeft = 12f;   // звонящий продолжает её настраивать
+            Assert.AreEqual(12f, back.style.marginLeft.value.value, 1e-4f);
+        }
+
+        [Test]
+        public void РазмерИКегльКнопкиНазадБерутсяУЭкрана()
+        {
+            // Размер честно разный: на экране с крупной шапкой кнопка крупнее,
+            // на тесном списке мельче. Зашей его в дом — и один из экранов
+            // получит чужую кнопку: либо палец не попадёт по мелкой, либо
+            // крупная перекроет заголовок.
+            var мелкая = ScreenUi.BackButton(() => { }, 46f, 34f);
+            var крупная = ScreenUi.BackButton(() => { }, 52f, 36f);
+
+            Assert.AreEqual(46f, мелкая.style.width.value.value, 1e-4f,
+                "размер кнопки взят не у экрана");
+            Assert.AreEqual(52f, крупная.style.width.value.value, 1e-4f,
+                "размер кнопки взят не у экрана");
+
+            // Кегль идёт через оптическую поправку гарнитуры, как и вся
+            // остальная типографика: минуй он её — знак «‹» поехал бы
+            // относительно соседних надписей, стоило игроку сменить шрифт.
+            Assert.AreEqual(LvnFonts.Size(34f), мелкая.style.fontSize.value.value, 1e-4f,
+                "кегль знака взят не у экрана (или мимо поправки на гарнитуру)");
+            Assert.Greater(крупная.style.fontSize.value.value, мелкая.style.fontSize.value.value,
+                "экран попросил более крупный знак, а получил тот же");
+        }
+
+        [Test]
+        public void ФормаКнопкиНазадОднаНаВсехЭкранах()
+        {
+            // Ловушка была ровно тут: вместе с размером каждый экран копировал
+            // и форму — плашку, скругление, центровку знака. Разъезд такой
+            // копии не видно, пока не сложишь файлы рядом, а игрок видит его
+            // сразу: две кнопки «назад» в одном приложении выглядят по-разному.
+            var a = ScreenUi.BackButton(() => { }, 46f, 34f);
+            var b = ScreenUi.BackButton(() => { }, 52f, 36f);
+
+            Assert.AreEqual(a.text, b.text, "знак «назад» разный на разных экранах");
+            Assert.AreEqual(a.style.backgroundColor.value, b.style.backgroundColor.value,
+                "плашка кнопки «назад» разная на разных экранах");
+            Assert.AreEqual(a.style.borderTopLeftRadius.value.value,
+                            b.style.borderTopLeftRadius.value.value, 1e-4f,
+                "скругление кнопки «назад» разное на разных экранах");
+            Assert.AreEqual(a.style.color.value, b.style.color.value,
+                "цвет знака разный на разных экранах");
+
+            foreach (var кнопка in new[] { a, b })
+            {
+                Assert.AreEqual(кнопка.style.width.value.value, кнопка.style.height.value.value, 1e-4f,
+                    "гнездо под знак перестало быть квадратным — знак сядет не по центру");
+                Assert.AreEqual(Align.Center, кнопка.style.alignItems.value,
+                    "знак «‹» съехал с центра гнезда");
+                Assert.AreEqual(Justify.Center, кнопка.style.justifyContent.value,
+                    "знак «‹» съехал с центра гнезда");
+                Assert.AreEqual(0f, кнопка.style.borderTopWidth.value, 1e-4f,
+                    "у гнезда появилась рамка — на соседних экранах её нет");
+            }
+        }
+
+        [Test]
+        public void НажатиеКнопкиНазадВедётВПереданноеДействие()
+        {
+            // Кнопка «назад» — единственный выход с экрана галереи и таблицы
+            // рекордов. Не дойди действие до нажатия — игрок останется на
+            // экране, из которого некуда деться: не тупик в интерфейсе, а
+            // тупик в игре.
+            int закрыли = 0;
+            var back = ScreenUi.BackButton(() => закрыли++, 46f, 34f);
+
+            var ход = Обработчик(back);
+            Assert.IsNotNull(ход, "нажатие по «назад» никуда не ведёт — с экрана не выйти");
+            ход.Invoke();
+
+            Assert.AreEqual(1, закрыли, "нажатие ушло не в то действие, что передал экран");
         }
 
         // ── вкладка хаба ────────────────────────────────────────────────────

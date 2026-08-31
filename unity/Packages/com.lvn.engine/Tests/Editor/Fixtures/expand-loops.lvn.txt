@@ -1,0 +1,310 @@
+{
+  "scene": "expand_loops",
+  "script": [
+    {
+      "label": "__fnskip_mine",
+      "op": "goto"
+    },
+    {
+      "id": "__fn_mine",
+      "op": "label"
+    },
+    {
+      "expr": "gold + ore * rate",
+      "key": "gold",
+      "op": "set"
+    },
+    {
+      "expr": "gold",
+      "key": "__ret",
+      "op": "set"
+    },
+    {
+      "op": "return"
+    },
+    {
+      "id": "__fnskip_mine",
+      "op": "label"
+    },
+    {
+      "label": "__fnskip_report",
+      "op": "goto"
+    },
+    {
+      "id": "__fn_report",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "На складе {place} намыто {gold}.",
+      "who": "Кладовщик"
+    },
+    {
+      "op": "return"
+    },
+    {
+      "id": "__fnskip_report",
+      "op": "label"
+    },
+    {
+      "id": "start",
+      "op": "label"
+    },
+    {
+      "expr": "0",
+      "key": "gold",
+      "op": "set"
+    },
+    {
+      "expr": "[1, 2, 3]",
+      "key": "ores",
+      "op": "set"
+    },
+    {
+      "expr": "ores",
+      "key": "__src_start_1",
+      "op": "set"
+    },
+    {
+      "key": "__i_start_1",
+      "op": "set",
+      "value": 0
+    },
+    {
+      "id": "__loop_start_1",
+      "op": "label"
+    },
+    {
+      "else": "__end_start_1",
+      "expr": "__i_start_1 \u003c len(__src_start_1)",
+      "op": "if",
+      "then": "__body_start_1"
+    },
+    {
+      "id": "__body_start_1",
+      "op": "label"
+    },
+    {
+      "expr": "__src_start_1[__i_start_1]",
+      "key": "ore",
+      "op": "set"
+    },
+    {
+      "expr": "ore",
+      "key": "ore",
+      "op": "set"
+    },
+    {
+      "expr": "2",
+      "key": "rate",
+      "op": "set"
+    },
+    {
+      "label": "__fn_mine",
+      "op": "call"
+    },
+    {
+      "expr": "__i_start_1 + 1",
+      "key": "__i_start_1",
+      "op": "set"
+    },
+    {
+      "label": "__loop_start_1",
+      "op": "goto"
+    },
+    {
+      "id": "__end_start_1",
+      "op": "label"
+    },
+    {
+      "expr": "5",
+      "key": "ore",
+      "op": "set"
+    },
+    {
+      "expr": "3",
+      "key": "rate",
+      "op": "set"
+    },
+    {
+      "label": "__fn_mine",
+      "op": "call"
+    },
+    {
+      "expr": "__ret",
+      "key": "total",
+      "op": "set"
+    },
+    {
+      "expr": "ores",
+      "key": "__src_start_2",
+      "op": "set"
+    },
+    {
+      "key": "__i_start_2",
+      "op": "set",
+      "value": 0
+    },
+    {
+      "id": "__loop_start_2",
+      "op": "label"
+    },
+    {
+      "else": "__end_start_2",
+      "expr": "__i_start_2 \u003c len(__src_start_2)",
+      "op": "if",
+      "then": "__body_start_2"
+    },
+    {
+      "id": "__body_start_2",
+      "op": "label"
+    },
+    {
+      "expr": "__src_start_2[__i_start_2]",
+      "key": "ore",
+      "op": "set"
+    },
+    {
+      "expr": "gold + ore",
+      "key": "gold",
+      "op": "set"
+    },
+    {
+      "expr": "__i_start_2 + 1",
+      "key": "__i_start_2",
+      "op": "set"
+    },
+    {
+      "label": "__loop_start_2",
+      "op": "goto"
+    },
+    {
+      "id": "__end_start_2",
+      "op": "label"
+    },
+    {
+      "id": "deep",
+      "op": "label"
+    },
+    {
+      "expr": "2",
+      "key": "left",
+      "op": "set"
+    },
+    {
+      "id": "__loop_deep_1",
+      "op": "label"
+    },
+    {
+      "else": "__end_deep_1",
+      "expr": "left \u003e 0",
+      "op": "if",
+      "then": "__body_deep_1"
+    },
+    {
+      "id": "__body_deep_1",
+      "op": "label"
+    },
+    {
+      "expr": "ores",
+      "key": "__src_deep_2",
+      "op": "set"
+    },
+    {
+      "key": "__i_deep_2",
+      "op": "set",
+      "value": 0
+    },
+    {
+      "id": "__loop_deep_2",
+      "op": "label"
+    },
+    {
+      "else": "__end_deep_2",
+      "expr": "__i_deep_2 \u003c len(__src_deep_2)",
+      "op": "if",
+      "then": "__body_deep_2"
+    },
+    {
+      "id": "__body_deep_2",
+      "op": "label"
+    },
+    {
+      "expr": "__src_deep_2[__i_deep_2]",
+      "key": "ore",
+      "op": "set"
+    },
+    {
+      "else": "__else_deep_3",
+      "expr": "ore \u003e 2",
+      "op": "if",
+      "then": "__then_deep_3"
+    },
+    {
+      "id": "__then_deep_3",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Тяжёлая ходка.",
+      "who": "Рассказчик"
+    },
+    {
+      "label": "__end_deep_3",
+      "op": "goto"
+    },
+    {
+      "id": "__else_deep_3",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Лёгкая ходка.",
+      "who": "Рассказчик"
+    },
+    {
+      "id": "__end_deep_3",
+      "op": "label"
+    },
+    {
+      "expr": "__i_deep_2 + 1",
+      "key": "__i_deep_2",
+      "op": "set"
+    },
+    {
+      "label": "__loop_deep_2",
+      "op": "goto"
+    },
+    {
+      "id": "__end_deep_2",
+      "op": "label"
+    },
+    {
+      "expr": "left - 1",
+      "key": "left",
+      "op": "set"
+    },
+    {
+      "label": "__loop_deep_1",
+      "op": "goto"
+    },
+    {
+      "id": "__end_deep_1",
+      "op": "label"
+    },
+    {
+      "expr": "\"южный\"",
+      "key": "place",
+      "op": "set"
+    },
+    {
+      "label": "__fn_report",
+      "op": "call"
+    },
+    {
+      "op": "say",
+      "text": "Смена закрыта, итог {total}.",
+      "who": "Рассказчик"
+    }
+  ]
+}
