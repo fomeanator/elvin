@@ -63,9 +63,15 @@ namespace Lvn.UI
                 el.style.translate = new Translate(Length.Percent(tx), Length.Percent(ty));
             }
 
-            // look: per-label font / size / colour, falling back to the theme
+            // look: per-label font / size / colour, falling back to the theme.
+            // Через ОБЩИЙ СЛОВАРЬ, а не hex-разбор: `color=` у метки — тот же
+            // атрибут, что у вспышки и у узла в дереве `ui`, и редактор после
+            // него подсказывает весь словарь (подсказки ключуются именем
+            // атрибута, а не командой). На hex-разборе `text hud color=accent`
+            // молча давал цвет текста темы — ловушка, вооружённая именно тем
+            // словом, на котором её не ждут, и без строчки в журнале.
             if (fresh || cmd["color"] != null)
-                el.style.color = UiColor.Parse((string)cmd["color"], Theme.TextColor);
+                el.style.color = UiColor.Named((string)cmd["color"], Theme.TextColor);
             if (fresh || cmd["size"] != null)
                 el.style.fontSize = (int)NumOr(cmd["size"], Theme.BodyFontSize);
             var fontPath = (string)cmd["font"];

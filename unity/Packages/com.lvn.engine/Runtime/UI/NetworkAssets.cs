@@ -45,10 +45,17 @@ namespace Lvn.UI
             // Пробелы, скобки и кириллица в имени файла — обычное дело для арта
             // от художника, а UnityWebRequest их не экранирует: адрес уходит
             // сырым и промахивается. Кодируем тем же способом, что и основной
-            // загрузчик (Lvn.Content.ContentLoader.EncodeUrlPath) — иначе одна
-            // и та же картинка грузилась бы по-разному в зависимости от того,
-            // кто её запросил.
-            if (!string.IsNullOrEmpty(_baseUrl) && !url.StartsWith("http"))
+            // загрузчик — иначе одна и та же картинка грузилась бы по-разному
+            // в зависимости от того, кто её запросил.
+            //
+            // «Свой ли это адрес» спрашиваем у ДОМА АДРЕСА. Здесь стояло
+            // «начинается на http», и локальный file:// считался
+            // относительным: к нему приписывалась база И его кодировали — а за
+            // file:// стоит чтение с диска, где «%20» означает файл, которого
+            // нет. Тот же загрузчик, на который ссылается комментарий выше,
+            // локальные адреса не кодирует НИКОГДА.
+            if (Lvn.Content.LvnUrl.Local(url)) return url;
+            if (!string.IsNullOrEmpty(_baseUrl) && !Lvn.Content.LvnUrl.Remote(url))
                 return _baseUrl + "/" + Lvn.Content.ContentLoader.EncodeUrlPath(url.TrimStart('/'));
             return Lvn.Content.ContentLoader.EncodeUrlPath(url);
         }

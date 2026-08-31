@@ -493,3 +493,40 @@ func TestКомпиляторРазложенПоТемам(t *testing.T) {
 			"это несколько классов, которые забыли разделить", lines)
 	}
 }
+
+// «Что это за адрес» решает дом, а не место вызова.
+//
+// Различать приходилось в семи местах, и написано это было тремя разными
+// способами. Один из трёх считал ЛОКАЛЬНЫЙ адрес относительным — приписывал к
+// нему базу и кодировал, — а за file:// стоит чтение с диска, где «%20»
+// означает файл, которого нет.
+func TestАдресРазбираетДомАНеМестоВызова(t *testing.T) {
+	roots := []string{
+		filepath.Join(repoRoot(t), "unity", "Packages", "com.lvn.engine", "Runtime"),
+		filepath.Join(repoRoot(t), "unity", "Packages", "com.lvn.engine.shell", "Runtime"),
+	}
+	bare := regexp.MustCompile(`StartsWith\("(https?|file|jar)`)
+	for _, root := range roots {
+		err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+				return err
+			}
+			if strings.HasSuffix(path, "LvnUrl.cs") {
+				return nil // дом и есть место, где правило записано
+			}
+			raw, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			if m := bare.FindString(stripCommentsAndStrings(string(raw))); m != "" {
+				t.Fatalf("%s: %q — схему адреса спрашивают у LvnUrl.\n"+
+					"Пока это пишут на месте, правил становится столько же, сколько мест",
+					filepath.Base(path), m)
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}

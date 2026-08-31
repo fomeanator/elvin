@@ -244,7 +244,7 @@ namespace Lvn.Content
         public ContentLoader(string baseUrl, string cacheRoot = null)
         {
             _baseUrl = (baseUrl ?? "").TrimEnd('/');
-            _local = _baseUrl.StartsWith("file://") || _baseUrl.StartsWith("jar:");
+            _local = LvnUrl.Local(_baseUrl);
             cacheRoot ??= Path.Combine(Application.persistentDataPath, "cache");
             _cacheRoot = cacheRoot;
             _scriptCacheDir = Path.Combine(cacheRoot, "scripts");
@@ -376,7 +376,7 @@ namespace Lvn.Content
         {
             if (string.IsNullOrEmpty(url) || map == null || map.Count == 0) return null;
             var path = url;
-            if (path.StartsWith("http://") || path.StartsWith("https://"))
+            if (LvnUrl.Remote(path))
             {
                 path = LvnQuiet.Try(() => new System.Uri(path).AbsolutePath, path);
             }
@@ -507,9 +507,9 @@ namespace Lvn.Content
         /// Безопасно звать всегда: без index.json сид просто молчит.</summary>
         private string ResolveUrl(string url)
         {
-            if (url.StartsWith("file://")) return url;
+            if (LvnUrl.Local(url)) return url;
             string full;
-            if (url.StartsWith("http://") || url.StartsWith("https://"))
+            if (LvnUrl.Remote(url))
                 full = EncodeUrlPath(url);
             else
             {
@@ -560,7 +560,7 @@ namespace Lvn.Content
             // стоит чтение с диска (File.Exists, распаковка из APK), и «%20»
             // там означает файл, которого нет. Проверка живёт здесь, а не у
             // вызывающего: метод публичный, и хост позовёт его как придётся.
-            if (url.StartsWith("file://") || url.StartsWith("jar:")) return url;
+            if (LvnUrl.Local(url)) return url;
 
             // Схема и хост остаются как есть: кодировать надо путь, а не адрес.
             int start = 0;
