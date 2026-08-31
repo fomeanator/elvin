@@ -153,7 +153,10 @@ namespace Lvn.UI.Screens
             // запись поднимала бы `reached`, и после восстановления из волта с
             // заниженным значением список глав открылся бы шире, чем сказал
             // бэкап. Меняем ровно то, что протухло, — id.
-            var found = title.ChapterByIdOrNumber(id, LvnKeep.Get(CurNumKey(title.id), 0));
+            // Умолчание — НЕ ноль: ноль это законный номер главы (вводная
+            // новелла начинается с него), см. LvnTitleExtensions.NoNumber.
+            var found = title.ChapterByIdOrNumber(
+                id, LvnKeep.Get(CurNumKey(title.id), LvnTitleExtensions.NoNumber));
             if (found != null && found.id != id) LvnKeep.Put(CurKey(title.id), found.id);
             return found; // null — прохождения и правда не было
         }
@@ -287,7 +290,10 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(chapterId))
             {
                 LvnKeep.Put(CurKey(titleId), chapterId);
-                LvnKeep.Put(CurNumKey(titleId), number);
+                // Номера в свёртке могло и не быть: тогда метку не сопровождает
+                // ЛОЖНЫЙ ноль, который потом сойдёт за нулевую главу.
+                if (number != LvnTitleExtensions.NoNumber) LvnKeep.Put(CurNumKey(titleId), number);
+                else LvnKeep.Drop(CurNumKey(titleId));
             }
             if (reached > LvnKeep.Get(ReachedKey(titleId), int.MinValue))
                 LvnKeep.Put(ReachedKey(titleId), reached);

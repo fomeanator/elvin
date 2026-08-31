@@ -67,7 +67,7 @@ namespace Lvn.UI.Screens
                     titles[t.id] = new JObject
                     {
                         ["cur"] = cur?.id,
-                        ["num"] = cur?.number ?? 0,
+                        ["num"] = cur?.number,   // нет главы — нет и номера; ноль тут ЛОЖЬ
                         ["reached"] = reached,
                     };
                     var unlocked = LvnGalleryStore.Unlocked(t.id);
@@ -214,7 +214,7 @@ namespace Lvn.UI.Screens
                         if (t == null || !(titles[t.id] is JObject entry)) continue;
                         int reached = (int?)entry["reached"] ?? 0;
                         string curId = (string)entry["cur"];
-                        int num = (int?)entry["num"] ?? 0;
+                        int num = (int?)entry["num"] ?? LvnTitleExtensions.NoNumber;
                         // Метка ищется по ЖИВОМУ манифесту тем же правилом, что и
                         // локальная (см. LvnTitleExtensions.ChapterByIdOrNumber):
                         // id, а если его больше нет — номер. Здесь это правило

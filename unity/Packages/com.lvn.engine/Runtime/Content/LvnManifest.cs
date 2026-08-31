@@ -436,8 +436,17 @@ namespace Lvn.Content
         /// чем встретила совпадение по id. На новелле, где id сменились не у
         /// всех глав, они возвращали РАЗНЫЕ главы.</para>
         /// </summary>
+        /// <summary>«Номер не записан». Нулём этот признак быть не может: ноль
+        /// — ЗАКОННЫЙ номер главы, с него начинается вводная новелла и вся
+        /// воронка приложения. Пока признаком был ноль, у игрока, стоящего в
+        /// нулевой главе, переимпорт отбирал выручалочку: id больше нет,
+        /// номер «не записан», точка продолжения теряется. Потолок при этом
+        /// уцелевал, так что карточка честно звала «Продолжить», а вход уводил
+        /// в перезапуск — воронка игралась сначала.</summary>
+        public const int NoNumber = int.MinValue;
+
         public static LvnChapter ChapterByIdOrNumber(this LvnTitle t, string id, int number)
-            => t.ChapterById(id) ?? (number > 0 ? t.ChapterByNumber(number) : null);
+            => t.ChapterById(id) ?? (number != NoNumber ? t.ChapterByNumber(number) : null);
 
         /// <summary>Глава по номеру — резервный ключ прогресса.</summary>
         public static LvnChapter ChapterByNumber(this LvnTitle t, int number)

@@ -154,14 +154,35 @@ namespace Lvn.Tests
         [Test]
         public void БезНомераНичегоНеУгадываем()
         {
-            // Ноль — это «номера не записали», а не «глава номер ноль»: иначе
-            // пустая метка увела бы игрока в пилот.
+            // «Номера не записали» — это NoNumber, а НЕ ноль. Ноль — законный
+            // номер главы: с него начинается вводная новелла и вся воронка.
+            // Пока признаком отсутствия был ноль, у игрока, стоящего в нулевой
+            // главе, переимпорт отбирал выручалочку по номеру.
             var t = Title(0, 1, 2);
-            Assert.IsNull(t.ChapterByIdOrNumber("нет-такой", number: 0),
-                "нулевой номер — отсутствие сведений, а не пилот");
-            Assert.IsNull(t.ChapterByIdOrNumber(null, number: 0));
+            Assert.IsNull(t.ChapterByIdOrNumber("нет-такой", LvnTitleExtensions.NoNumber),
+                "сведений о номере нет — угадывать нечего");
+            Assert.IsNull(t.ChapterByIdOrNumber(null, LvnTitleExtensions.NoNumber));
             Assert.AreEqual("ch0", t.ChapterByIdOrNumber("ch0", number: 0)?.id,
                 "по id пилот находиться обязан");
+        }
+
+        [Test]
+        public void НулевуюГлавуВыручаетНомерКакИЛюбуюДругую()
+        {
+            // Переимпорт переименовал главы. У игрока в метке остался мёртвый
+            // id и номер 0. Раньше это читалось как «номера нет», точка
+            // продолжения терялась, а потолок уцелевал — и карточка звала
+            // «Продолжить» туда, откуда вход уводил в перезапуск.
+            var t = Title(0, 1, 2);
+            Assert.AreEqual("ch0", t.ChapterByIdOrNumber("старое-имя", number: 0)?.id,
+                "нулевая глава — такая же глава, и выручалочка у неё та же");
+        }
+
+        [Test]
+        public void НомераКоторогоНетВНовеллеНеПридумываем()
+        {
+            var t = Title(0, 1, 2);
+            Assert.IsNull(t.ChapterByIdOrNumber("нет-такой", number: 7));
         }
 
         [Test]
