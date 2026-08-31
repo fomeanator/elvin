@@ -32,17 +32,17 @@ namespace Lvn.UI.Screens
             col.style.flexGrow = 1;
             var lbl = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("settings.title", "Settings"));
             lbl.style.color = LvnTokens.Text;
-            lbl.style.fontSize = 24;
+            lbl.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
             col.Add(lbl);
             var hint = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("settings.hint", "Sound, story language and full download"));
             hint.style.color = LvnTokens.TextDim;
-            hint.style.fontSize = 19;
+            hint.style.fontSize = Lvn.UI.LvnFonts.Size(19f);
             hint.style.marginTop = 2;
             col.Add(hint);
             row.Add(col);
             var arrow = new Label("›");
             arrow.style.color = LvnTokens.Accent;
-            arrow.style.fontSize = 30;
+            arrow.style.fontSize = Lvn.UI.LvnFonts.Size(30f);
             arrow.style.unityFontStyleAndWeight = FontStyle.Bold;
             row.Add(arrow);
             row.RegisterCallback<ClickEvent>(_ => { Close(); OnOpenSettings?.Invoke(); });
@@ -71,11 +71,11 @@ namespace Lvn.UI.Screens
             col.style.marginRight = 10;
             var lbl = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("account.delete", "Delete account"));
             lbl.style.color = LvnTokens.Text;
-            lbl.style.fontSize = 24;
+            lbl.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
             col.Add(lbl);
             var hint = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("account.delete_hint", "Erases progress, purchases and saves. Forever."));
             hint.style.color = LvnTokens.TextDim;
-            hint.style.fontSize = 19;
+            hint.style.fontSize = Lvn.UI.LvnFonts.Size(19f);
             hint.style.marginTop = 2;
             hint.style.whiteSpace = WhiteSpace.Normal;
             col.Add(hint);
@@ -83,7 +83,7 @@ namespace Lvn.UI.Screens
 
             var danger = new Color(0.86f, 0.28f, 0.32f);
             var btn = new Button { text = LvnWords.Of("account.delete_do", "Delete") };
-            btn.style.fontSize = 20;
+            btn.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
             btn.style.paddingTop = 10; btn.style.paddingBottom = 10;
             btn.style.paddingLeft = 16; btn.style.paddingRight = 16;
             LvnStyler.Plate(btn, LvnTokens.Faint, danger, LvnTokens.RadiusSm);
@@ -145,12 +145,12 @@ namespace Lvn.UI.Screens
             var id = string.IsNullOrEmpty(Uid) ? "u_unknown" : Uid;
             var idLabel = new Label($"ID: {Shorten(id)}");
             idLabel.style.color = LvnTokens.TextDim;
-            idLabel.style.fontSize = 20;
+            idLabel.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
             idLabel.style.flexGrow = 1;
             footer.Add(idLabel);
 
             var copy = new Button { text = LvnWords.Of("settings.copy", "Copy") };
-            copy.style.fontSize = 20;
+            copy.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
             copy.style.paddingTop = 10;
             copy.style.paddingBottom = 10;
             copy.style.paddingLeft = 16;

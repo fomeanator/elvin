@@ -158,9 +158,9 @@ namespace Lvn.UI.Screens
             profile.Add(avatar);
             var nameCol = new VisualElement();
             _playerNameLabel = new Label(); _playerNameLabel.style.color = _text;
-            _playerNameLabel.style.fontSize = 36; _playerNameLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            _playerNameLabel.style.fontSize = Lvn.UI.LvnFonts.Size(36f); _playerNameLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
             nameCol.Add(_playerNameLabel);
-            _playerLevelLabel = new Label(); _playerLevelLabel.style.color = _dim; _playerLevelLabel.style.fontSize = 26;
+            _playerLevelLabel = new Label(); _playerLevelLabel.style.color = _dim; _playerLevelLabel.style.fontSize = Lvn.UI.LvnFonts.Size(26f);
             if (!(_cfg.show_level ?? true)) _playerLevelLabel.style.display = DisplayStyle.None;
             nameCol.Add(_playerLevelLabel);
             profile.Add(nameCol);
@@ -198,7 +198,7 @@ namespace Lvn.UI.Screens
             brand.style.marginTop = 2; brand.style.marginBottom = 20;
             _hubEyebrow = new Label(HubEyebrow());
             var eyebrow = _hubEyebrow;
-            eyebrow.style.color = _accent; eyebrow.style.fontSize = 30;
+            eyebrow.style.color = _accent; eyebrow.style.fontSize = Lvn.UI.LvnFonts.Size(30f);
             eyebrow.style.letterSpacing = 4f; eyebrow.style.unityFontStyleAndWeight = FontStyle.Bold;
             eyebrow.style.marginBottom = 8;
             brand.Add(eyebrow);
@@ -265,14 +265,14 @@ namespace Lvn.UI.Screens
             dCap.style.paddingLeft = 20; dCap.style.paddingRight = 20; dCap.style.paddingBottom = 16;
             _detailBigTitle = Lvn.UI.LvnRedress.Bind(new Label(), () => _detailTarget == null ? string.Empty
                 : _theme.Heading(LvnWords.Name("title", _detailTarget.id, _detailTarget.name)));
-            _detailBigTitle.style.color = _titleColor; _detailBigTitle.style.fontSize = 60;
+            _detailBigTitle.style.color = _titleColor; _detailBigTitle.style.fontSize = Lvn.UI.LvnFonts.Size(60f);
             _detailBigTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
             _detailBigTitle.style.whiteSpace = WhiteSpace.Normal;
             _detailBigTitle.style.letterSpacing = _theme.Tracking;
             dCap.Add(_detailBigTitle);
             _detailSubtitle = Lvn.UI.LvnRedress.Bind(new Label(), () => _detailTarget == null ? string.Empty
                 : LvnWords.Name("subtitle", _detailTarget.id, _detailTarget.subtitle ?? ""));
-            _detailSubtitle.style.color = _dim; _detailSubtitle.style.fontSize = 30;
+            _detailSubtitle.style.color = _dim; _detailSubtitle.style.fontSize = Lvn.UI.LvnFonts.Size(30f);
             _detailSubtitle.style.whiteSpace = WhiteSpace.Normal;
             _detailSubtitle.style.marginTop = 4;
             dCap.Add(_detailSubtitle);
@@ -289,7 +289,7 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(dBody, _radius);
             Edge(dBody, 0.7f);
             _detailDesc = new Label(string.Empty);
-            _detailDesc.style.color = _text; _detailDesc.style.fontSize = 36;
+            _detailDesc.style.color = _text; _detailDesc.style.fontSize = Lvn.UI.LvnFonts.Size(36f);
             _detailDesc.style.whiteSpace = WhiteSpace.Normal;
             dBody.Add(_detailDesc);
             _detailView.Add(dBody);
@@ -734,11 +734,11 @@ namespace Lvn.UI.Screens
             var eyebrow = Lvn.UI.LvnRedress.Bind(new Label(), () =>
                 (res0 ? LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue")
                       : LvnWords.Pick("hub.featured", _cfg.featured_text, "Featured")).ToUpperInvariant());
-            eyebrow.style.color = _accent; eyebrow.style.fontSize = 24; eyebrow.style.letterSpacing = 3f;
+            eyebrow.style.color = _accent; eyebrow.style.fontSize = Lvn.UI.LvnFonts.Size(24f); eyebrow.style.letterSpacing = 3f;
             eyebrow.style.unityFontStyleAndWeight = FontStyle.Bold; eyebrow.style.marginBottom = 6;
             b.Add(eyebrow);
             var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Name("title", t.id, t.name));
-            title.style.color = _text; title.style.fontSize = 57; title.style.unityFontStyleAndWeight = FontStyle.Bold;
+            title.style.color = _text; title.style.fontSize = Lvn.UI.LvnFonts.Size(57f); title.style.unityFontStyleAndWeight = FontStyle.Bold;
             title.style.whiteSpace = WhiteSpace.Normal; b.Add(title);
 
             var actions = new VisualElement();
@@ -751,7 +751,7 @@ namespace Lvn.UI.Screens
                 lock0 ? LvnWords.Pick("hub.locked", _cfg.locked_text, "Locked")
                       : res1 ? LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue")
                              : LvnWords.Pick("hub.play", _cfg.play_text, "Play"));
-            play.style.fontSize = 36; play.style.paddingLeft = 26; play.style.paddingRight = 26;
+            play.style.fontSize = Lvn.UI.LvnFonts.Size(36f); play.style.paddingLeft = 26; play.style.paddingRight = 26;
             play.style.paddingTop = 12; play.style.paddingBottom = 12;
             play.style.color = _accentText; play.style.backgroundColor = _accent;
             LvnChrome.ClearBorder(play); LvnChrome.Round(play, LvnTokens.RadiusSm);
@@ -936,7 +936,7 @@ namespace Lvn.UI.Screens
         private Button AccentButton(string text, System.Action onClick)
         {
             var b = new Button(onClick) { text = text };
-            b.style.fontSize = 42;
+            b.style.fontSize = Lvn.UI.LvnFonts.Size(42f);
             b.style.marginTop = 14;
             b.style.paddingTop = 14; b.style.paddingBottom = 14;
             b.style.color = _accentText;

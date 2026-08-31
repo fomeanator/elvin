@@ -89,21 +89,21 @@ namespace Lvn.UI.Screens
 
             var back = new Button(Close) { text = "‹" };
             LvnStyler.IconSlot(back, 52f);
-            back.style.fontSize = 36;
+            back.style.fontSize = Lvn.UI.LvnFonts.Size(36f);
             back.style.marginRight = 12;
             header.Add(back);
 
             var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("nav.gallery", "Gallery"));
             LvnChrome.Heading(title);
             title.style.color = LvnTokens.Text;
-            title.style.fontSize = 42;
+            title.style.fontSize = Lvn.UI.LvnFonts.Size(42f);
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
             title.style.flexGrow = 1;
             header.Add(title);
 
             _counter = new Label();
             _counter.style.color = LvnTokens.Gold;
-            _counter.style.fontSize = 20;
+            _counter.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
             _counter.style.paddingLeft = 14;
             _counter.style.paddingRight = 14;
             _counter.style.paddingTop = 7;
@@ -160,7 +160,7 @@ namespace Lvn.UI.Screens
             _viewerCaption.style.bottom = Length.Percent(5f);
             _viewerCaption.style.unityTextAlign = TextAnchor.MiddleCenter;
             _viewerCaption.style.color = LvnTokens.Text;
-            _viewerCaption.style.fontSize = 28;
+            _viewerCaption.style.fontSize = Lvn.UI.LvnFonts.Size(28f);
             _viewerCaption.pickingMode = PickingMode.Ignore;
             _viewer.Add(_viewerCaption);
 
@@ -287,7 +287,7 @@ namespace Lvn.UI.Screens
 
                 var capLabel = new Label(entry.Caption);
                 capLabel.style.color = LvnTokens.Text;
-                capLabel.style.fontSize = 20;
+                capLabel.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
                 capLabel.pickingMode = PickingMode.Ignore;
                 cap.Add(capLabel);
 
@@ -314,7 +314,7 @@ namespace Lvn.UI.Screens
                 q.style.right = 0;
                 q.style.bottom = Length.Percent(14f);
                 q.style.unityTextAlign = TextAnchor.MiddleCenter;
-                q.style.fontSize = 20;
+                q.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
                 q.style.color = LvnTokens.TextDim;
                 q.pickingMode = PickingMode.Ignore;
                 cell.Add(q);
@@ -370,7 +370,7 @@ namespace Lvn.UI.Screens
             b.style.position = Position.Absolute;
             b.style.top = Length.Percent(46f);
             LvnStyler.IconSlot(b, 60f, 30f);
-            b.style.fontSize = 42;
+            b.style.fontSize = Lvn.UI.LvnFonts.Size(42f);
         }
 
         // ── Demo data ──────────────────────────────────────────────────────────

@@ -124,7 +124,7 @@ namespace Lvn.UI.Screens
             _play.style.right = Length.Percent(30f);
             _play.style.top = Length.Percent(84f);
             _play.style.height = Length.Percent(8f);
-            _play.style.fontSize = 30;
+            _play.style.fontSize = Lvn.UI.LvnFonts.Size(30f);
             _play.style.color = UiColor.Parse(_cfg.play_color, LvnTokens.Text);
             _play.style.backgroundColor = _playBg;
             LvnChrome.Round(_play, 12f);
@@ -137,7 +137,7 @@ namespace Lvn.UI.Screens
             _progressLabel.style.left = 0; _progressLabel.style.right = 0;
             _progressLabel.style.top = Length.Percent(92.5f);
             _progressLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
-            _progressLabel.style.fontSize = 20;
+            _progressLabel.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
             _progressLabel.style.color = UiColor.Parse(_cfg.subtitle_color, LvnTokens.TextDim);
             Add(_progressLabel);
 
@@ -151,7 +151,7 @@ namespace Lvn.UI.Screens
             _chaptersBtn.style.right = Length.Percent(6f);
             _chaptersBtn.style.top = Length.Percent(84f);
             _chaptersBtn.style.height = Length.Percent(8f);
-            _chaptersBtn.style.fontSize = 20;
+            _chaptersBtn.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
             _chaptersBtn.style.color = UiColor.Parse(_cfg.play_color, LvnTokens.Text);
             _chaptersBtn.style.backgroundColor = UiColor.Parse(_cfg.card_bg_color, LvnTokens.Surface);
             LvnChrome.Round(_chaptersBtn, 12f);
@@ -364,7 +364,7 @@ namespace Lvn.UI.Screens
             _picker.Add(panel);
 
             var head = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("chapters.title", _cfg.chapters_text, "Chapters"));
-            head.style.fontSize = 26;
+            head.style.fontSize = Lvn.UI.LvnFonts.Size(26f);
             head.style.unityFontStyleAndWeight = FontStyle.Bold;
             head.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);
             head.style.marginBottom = 10;
@@ -412,7 +412,7 @@ namespace Lvn.UI.Screens
                     () => LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue")
                         + " — " + ChapterLabel(autoCh));
                 contTitle.pickingMode = PickingMode.Ignore;
-                contTitle.style.fontSize = 21;
+                contTitle.style.fontSize = Lvn.UI.LvnFonts.Size(21f);
                 contTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
                 contTitle.style.color = UiColor.Parse(_cfg.play_color, LvnTokens.Text);
                 cont.Add(contTitle);
@@ -424,7 +424,7 @@ namespace Lvn.UI.Screens
                     // сохранения.
                     var prev = new Label("«" + Lvn.Content.LvnClip.Text(auto.Preview, Lvn.Content.LvnClip.PreviewMax) + "»");
                     prev.pickingMode = PickingMode.Ignore;
-                    prev.style.fontSize = 16;
+                    prev.style.fontSize = Lvn.UI.LvnFonts.Size(16f);
                     prev.style.marginTop = 2;
                     prev.style.unityFontStyleAndWeight = FontStyle.Italic;
                     prev.style.color = UiColor.Parse(_cfg.subtitle_color, LvnTokens.TextDim);
@@ -457,7 +457,7 @@ namespace Lvn.UI.Screens
                 { text = ChapterLabel(ch) };
                 row.style.height = 52;
                 row.style.marginBottom = 6;
-                row.style.fontSize = 21;
+                row.style.fontSize = Lvn.UI.LvnFonts.Size(21f);
                 row.style.unityTextAlign = TextAnchor.MiddleLeft;
                 row.style.paddingLeft = 14;
                 row.style.color = UiColor.Parse(_cfg.title_color, LvnTokens.Text);

@@ -46,7 +46,7 @@ namespace Lvn.UI.Screens
 
             var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("stats.title", "Your stats"));
             title.style.color = LvnTokens.Text;
-            title.style.fontSize = 30;
+            title.style.fontSize = Lvn.UI.LvnFonts.Size(30f);
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
             title.style.marginBottom = 8;
             panel.Add(title);
@@ -60,7 +60,7 @@ namespace Lvn.UI.Screens
 
             var close = new Button(Hide) { text = LvnWords.Of("common.close", "Close") };
             close.style.marginTop = 16;
-            close.style.fontSize = 22;
+            close.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
             close.style.paddingTop = 12; close.style.paddingBottom = 12;
             close.style.color = LvnTokens.Text;
             close.style.backgroundColor = LvnTokens.Faint;

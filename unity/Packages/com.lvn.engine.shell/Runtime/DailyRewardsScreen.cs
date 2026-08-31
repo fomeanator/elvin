@@ -134,7 +134,7 @@ namespace Lvn.UI.Screens
 
             _subtitle = new Label();
             _subtitle.style.color = LvnTokens.TextDim;
-            _subtitle.style.fontSize = 26;
+            _subtitle.style.fontSize = Lvn.UI.LvnFonts.Size(26f);
             _subtitle.style.marginTop = 4;
             titleCol.Add(_subtitle);
 
@@ -152,7 +152,7 @@ namespace Lvn.UI.Screens
 
             // ── The primary claim call to action ───────────────────────────────
             _claim = new Button(ClaimToday) { text = LvnWords.Of("daily.claim", "Claim") };
-            _claim.style.fontSize = 28;
+            _claim.style.fontSize = Lvn.UI.LvnFonts.Size(28f);
             _claim.style.unityFontStyleAndWeight = FontStyle.Bold;
             _claim.style.marginTop = 22;
             _claim.style.paddingTop = 16;
@@ -261,7 +261,7 @@ namespace Lvn.UI.Screens
             labelRow.style.marginBottom = 8;
             var label = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("daily.day", "Day {0}", day));
             label.style.color = state == State.Today ? LvnTokens.Text : LvnTokens.TextDim;
-            label.style.fontSize = 20;
+            label.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
             label.style.unityFontStyleAndWeight = premium ? FontStyle.Bold : FontStyle.Normal;
             labelRow.Add(label);
             if (premium)
@@ -303,7 +303,7 @@ namespace Lvn.UI.Screens
                 badge.style.position = Position.Absolute;
                 badge.style.top = 6;
                 badge.style.right = 8;
-                badge.style.fontSize = 18;
+                badge.style.fontSize = Lvn.UI.LvnFonts.Size(18f);
                 badge.style.color = LvnTokens.OnAccent;
                 badge.style.backgroundColor = LvnTokens.Accent;
                 badge.style.paddingLeft = 8;

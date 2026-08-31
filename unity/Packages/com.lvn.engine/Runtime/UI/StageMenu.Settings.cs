@@ -71,7 +71,7 @@ namespace Lvn.UI
             var btn = new Button { text = Caption(LvnLocale.Chosen) };
             btn.style.minWidth = 150;
             btn.style.height = 48;
-            btn.style.fontSize = 22;
+            btn.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
             btn.style.paddingLeft = 18; btn.style.paddingRight = 18;
             LvnStyler.Primary(btn, 14f);
             LvnFonts.Apply(btn, _theme.Font);
@@ -104,7 +104,7 @@ namespace Lvn.UI
         private void StyleOption(Button b, bool active)
         {
             var tint = _theme.MenuTextColor;
-            b.style.fontSize = 22;
+            b.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
             b.style.whiteSpace = WhiteSpace.Normal;   // крупный кегль и широкая гарнитура переносятся
             b.style.paddingLeft = 14; b.style.paddingRight = 14;
             b.style.paddingTop = 8; b.style.paddingBottom = 8;
