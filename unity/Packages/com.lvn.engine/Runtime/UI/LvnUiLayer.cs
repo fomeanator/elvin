@@ -49,17 +49,7 @@ namespace Lvn.UI
             public bool Block;     // ловит ли слой касание мимо кнопок
             public bool Shown;     // стоит ли дерево на экране СЕЙЧАС — чтобы не играть вход дважды
             public LvnAppearKind Appear;   // как дерево выходит на экран
-            public readonly List<Binding> Bindings = new List<Binding>();
-        }
-
-        /// <summary>Одно живое значение: элемент, что в нём обновлять и по
-        /// какому выражению.</summary>
-        private sealed class Binding
-        {
-            public VisualElement El;
-            public string Field;   // text | value | color | bg | w | h | …
-            public string Expr;    // исходная строка с {…}
-            public string Last;    // что показано сейчас — чтобы не трогать зря
+            public readonly LvnUiLive Live = new LvnUiLive();   // живые значения этого дерева
         }
 
         /// <param name="setVars">записать переменные из объектной формы
@@ -181,7 +171,8 @@ namespace Lvn.UI
             (tree.Layer == "over" ? _over : _hud).Add(tree.Root);
             _trees[id] = tree;
             ApplyStageTo(tree);
-            RefreshTree(tree, force: true);
+            var freshVars = _vars?.Invoke();
+            if (freshVars != null) tree.Live.Refresh(freshVars, force: true);
         }
 
         // ── СТАДИЯ ИГРЫ ─────────────────────────────────────────────────────
@@ -430,7 +421,7 @@ namespace Lvn.UI
         /// вправе занять своим (`bar id=hp`), и покраска заливки, смотревшая на
         /// имя, у названной полосы молча переставала работать: ширина едет,
         /// красить нечего.</summary>
-        private const string BarClass = "lvn-ui-bar";
+        internal const string BarClass = "lvn-ui-bar";
 
         private static VisualElement BuildBar()
         {
@@ -523,10 +514,10 @@ namespace Lvn.UI
         private void ApplyLook(VisualElement el, JObject n, Tree tree)
         {
             var s = el.style;
-            if (n["bg"] != null) Bind(tree, el, "bg", n["bg"]);
-            if (n["color"] != null) Bind(tree, el, "color", n["color"]);
-            if (n["text"] != null) Bind(tree, el, "text", n["text"]);
-            if (n["value"] != null) Bind(tree, el, "value", n["value"]);
+            if (n["bg"] != null) tree.Live.Bind(el, "bg", n["bg"]);
+            if (n["color"] != null) tree.Live.Bind(el, "color", n["color"]);
+            if (n["text"] != null) tree.Live.Bind(el, "text", n["text"]);
+            if (n["value"] != null) tree.Live.Bind(el, "value", n["value"]);
 
             if (n["radius"] != null)
             {
@@ -555,10 +546,10 @@ namespace Lvn.UI
             // «кнопка видна, только если хватает золота» пришлось бы делать
             // пересборкой всего дерева, теряя нажатие под пальцем; а поле
             // `hide` компилятор принимал и рантайм не читал вовсе — молча.
-            if (n["hide"] != null) Bind(tree, el, "hide", n["hide"]);
-            if (n["opacity"] != null) Bind(tree, el, "opacity", n["opacity"]);
-            if (n["w"] != null && Live(n["w"])) Bind(tree, el, "w", n["w"]);
-            if (n["h"] != null && Live(n["h"])) Bind(tree, el, "h", n["h"]);
+            if (n["hide"] != null) tree.Live.Bind(el, "hide", n["hide"]);
+            if (n["opacity"] != null) tree.Live.Bind(el, "opacity", n["opacity"]);
+            if (n["w"] != null && Live(n["w"])) tree.Live.Bind(el, "w", n["w"]);
+            if (n["h"] != null && Live(n["h"])) tree.Live.Bind(el, "h", n["h"]);
             // Кегль ВСЕГДА из шкалы темы, даже когда автор его не назвал:
             // иначе текст берёт умолчание панели и выходит мелким рядом с тем,
             // что размер получил. Разнобой на одном экране заметнее, чем
@@ -569,95 +560,13 @@ namespace Lvn.UI
             if ((string)n["weight"] == "bold") s.unityFontStyleAndWeight = FontStyle.Bold;
         }
 
-        // ── живые значения ──────────────────────────────────────────────────
-
-        /// <summary>Кладёт значение сразу и, если в нём есть {…}, заводит
-        /// привязку — тогда оно будет пересчитываться само.</summary>
-        private void Bind(Tree tree, VisualElement el, string field, JToken raw)
-        {
-            string str = raw.Type == JTokenType.String ? (string)raw : raw.ToString();
-            if (str != null && str.Contains("{"))
-                tree.Bindings.Add(new Binding { El = el, Field = field, Expr = str });
-            SetField(el, field, str);
-        }
-
+        // Живые значения — свой дом: как завести привязку, когда пересчитать
+        // и как поставить значение элементу (см. LvnUiLive).
         private void Refresh()
         {
-            foreach (var kv in _trees) RefreshTree(kv.Value, force: false);
-        }
-
-        private void RefreshTree(Tree tree, bool force)
-        {
-            if (tree.Bindings.Count == 0) return;
             var vars = _vars?.Invoke();
             if (vars == null) return;
-            foreach (var b in tree.Bindings)
-            {
-                string now;
-                try { now = TextInterpolation.Apply(b.Expr, vars); }
-                catch { continue; }   // сломанное выражение не должно ронять экран
-                if (!force && now == b.Last) continue;   // не трогаем зря
-                b.Last = now;
-                SetField(b.El, b.Field, now);
-            }
-        }
-
-        private static void SetField(VisualElement el, string field, string value)
-        {
-            if (el == null || value == null) return;
-            switch (field)
-            {
-                case "text":
-                    if (el is Label l) l.text = value;
-                    else if (el is Button bt) bt.text = value;
-                    break;
-                case "color":
-                    var c = Color(value, LvnTokens.Text);
-                    el.style.color = c;
-                    if (el.ClassListContains(BarClass) && el.childCount > 0) el[0].style.backgroundColor = c;
-                    break;
-                case "bg":
-                    el.style.backgroundColor = Color(value, Color32Clear);
-                    break;
-                case "hide":
-                    el.style.display = Truthy(value) ? DisplayStyle.None : DisplayStyle.Flex;
-                    break;
-                case "opacity":
-                    el.style.opacity = Num(value, 1f);
-                    break;
-                case "w":
-                    SetLen(v => el.style.width = v, Len(value, out var wu), wu);
-                    break;
-                case "h":
-                    SetLen(v => el.style.height = v, Len(value, out var hu), hu);
-                    break;
-                case "value":
-                    // Полоса: доля 0…1 в ширину заливки. Ради этого одного и
-                    // затевалось — раньше это были семнадцать веток с
-                    // литеральными ширинами.
-                    //
-                    // Заливка ЕДЕТ, а не прыгает: мгновенный скачок здоровья
-                    // читается как сбой отрисовки, и глаз не успевает связать
-                    // удар с потерей.
-                    var fv = Lvn.LvnNum.Parse((JToken)value);
-                    if (el.childCount > 0 && fv != null)
-                    {
-                        float f = fv.Value;
-                        var fill = el[0];
-                        if (fill.style.transitionProperty.keyword == StyleKeyword.Null
-                            && (fill.style.transitionDuration.value == null
-                                || fill.style.transitionDuration.value.Count == 0))
-                        {
-                            fill.style.transitionProperty = new List<StylePropertyName> { "width" };
-                            fill.style.transitionDuration =
-                                new List<TimeValue> { new TimeValue(0.22f, TimeUnit.Second) };
-                            fill.style.transitionTimingFunction =
-                                new List<EasingFunction> { new EasingFunction(EasingMode.EaseOutCubic) };
-                        }
-                        fill.style.width = Length.Percent(Mathf.Clamp01(f) * 100f);
-                    }
-                    break;
-            }
+            foreach (var kv in _trees) kv.Value.Live.Refresh(vars, force: false);
         }
 
         // Как читается написанное автором — длина, отступ, кегль, цвет,
