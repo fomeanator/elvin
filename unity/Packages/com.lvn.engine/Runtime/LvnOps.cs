@@ -47,6 +47,40 @@ namespace Lvn
 
         internal static bool TryGet(string op, out Handler handler)
             => _handlers.TryGetValue(op ?? "", out handler);
+
+        /// <summary>
+        /// ИСТОРИЯ ЖДЁТ, ПОКА ИДЁТ РАБОТА — одним вызовом.
+        ///
+        /// <para>Обряд состоит из трёх частей, и все три обязательны:
+        /// придержать сценарий, запустить работу под присмотром журнала, и —
+        /// что бы ни случилось — отпустить. Написан он был четырнадцать раз
+        /// руками: реклама, комната на двоих, магазин, настройки, гардероб,
+        /// ежедневная награда, вход в аккаунт.</para>
+        ///
+        /// <para>Цена забытой третьей части несоразмерна: сценарий остаётся
+        /// придержанным навсегда. Не «эффект не сыграл» и не «кнопка не
+        /// нажалась» — глава просто больше не идёт, и починить это игрок не
+        /// может ничем, кроме перезапуска. Поэтому отпускание живёт в
+        /// <c>finally</c>, а сам обряд — здесь, где его нельзя недописать.</para>
+        ///
+        /// <para>Ошибка внутри работы историю не роняет: она попадает в журнал
+        /// (<see cref="LvnAsync"/>), а сценарий продолжается — автору лучше
+        /// увидеть главу без рекламы, чем главу, вставшую на ней.</para>
+        /// </summary>
+        /// <param name="what">Имя для журнала: по нему упавшую работу узнают.</param>
+        public static void Awaiting(ILvnOpContext ctx, Func<System.Threading.Tasks.Task> work,
+                                    string what)
+        {
+            if (ctx == null || work == null) return;
+            ctx.Hold();
+            LvnAsync.Fire(Run(), what);
+
+            async System.Threading.Tasks.Task Run()
+            {
+                try { await work(); }
+                finally { ctx.Resume(); }
+            }
+        }
     }
 
     /// <summary>What a custom op handler may touch: the story's variables and
