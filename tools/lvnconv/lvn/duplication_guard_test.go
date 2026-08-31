@@ -214,6 +214,14 @@ func TestNoNearDuplicateMethods(t *testing.T) {
 		})
 	}
 
+	// Порог на ОХВАТ, а не на группу: `byName` — методы, сгруппированные по
+	// имени, и два одноимённых это норма. Считаем все тела.
+	total := 0
+	for _, bodies := range byName {
+		total += len(bodies)
+	}
+	atLeast(t, total, 300, "тел методов")
+
 	var offenders []string
 	for name, bodies := range byName {
 		for i := 0; i < len(bodies); i++ {
