@@ -191,7 +191,7 @@ namespace Lvn.UI.Screens
             _grid.contentContainer.style.justifyContent = Justify.SpaceBetween;
             sheet.Add(_grid);
 
-            var close = new Button(Close) { text = LvnWords.Of("common.close", "Close") };
+            var close = Lvn.UI.LvnRedress.Bind(new Button(Close), () => LvnWords.Of("common.close", "Close"));
             close.style.fontSize = Lvn.UI.LvnFonts.Size(26f);
             close.style.marginTop = 12;
             close.style.paddingTop = 12;
@@ -466,7 +466,7 @@ namespace Lvn.UI.Screens
             }
             else if (skin.State == SkinState.Owned)
             {
-                var equip = new Button(() => Equip(skin)) { text = LvnWords.Of("skinshop.equip", "Equip") };
+                var equip = Lvn.UI.LvnRedress.Bind(new Button(() => Equip(skin)), () => LvnWords.Of("skinshop.equip", "Equip"));
                 equip.style.flexGrow = 1;
                 equip.style.fontSize = Lvn.UI.LvnFonts.Size(20f);
                 equip.style.paddingTop = 8; equip.style.paddingBottom = 8;

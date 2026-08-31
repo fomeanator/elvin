@@ -89,7 +89,8 @@ namespace Lvn.UI.Screens
             _list.style.flexGrow = 1;
             sheet.Add(_list);
 
-            _closeButton = new Button(Close) { text = LvnWords.Pick("common.close", _cfg.close_text, "Close") };
+            _closeButton = Lvn.UI.LvnRedress.Bind(new Button(Close),
+                () => LvnWords.Pick("common.close", _cfg.close_text, "Close"));
             var close = _closeButton;
             close.style.fontSize = LvnTokens.TextBase;
             close.style.marginTop = 12;
@@ -128,11 +129,9 @@ namespace Lvn.UI.Screens
                 _titleLabel.text = LvnWords.Pick("settings.title", _cfg.title, "Settings");
                 _titleLabel.style.fontSize = LvnTokens.TextLg;
             }
-            if (_closeButton != null)
-            {
-                _closeButton.text = LvnWords.Pick("common.close", _cfg.close_text, "Close");
-                _closeButton.style.fontSize = LvnTokens.TextBase;
-            }
+            // Подпись перечитает себя сама — она знает свой источник; здесь
+            // остаётся только кегль, он от словаря не зависит.
+            if (_closeButton != null) _closeButton.style.fontSize = LvnTokens.TextBase;
         }
 
         public void Rebuild()

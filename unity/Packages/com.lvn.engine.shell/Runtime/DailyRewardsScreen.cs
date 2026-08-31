@@ -148,7 +148,11 @@ namespace Lvn.UI.Screens
             card.Add(_grid);
 
             // ── The primary claim call to action ───────────────────────────────
-            _claim = new Button(ClaimToday) { text = LvnWords.Of("daily.claim", "Claim") };
+            // Надпись читает СОСТОЯНИЕ: назначь её руками — и смена языка на
+            // открытом экране вернула бы «Забрать» уже забранной награде.
+            _claim = Lvn.UI.LvnRedress.Bind(new Button(ClaimToday), () => _claimed
+                ? LvnWords.Of("daily.claimed", "Claimed")
+                : LvnWords.Of("daily.claim", "Claim"));
             _claim.style.fontSize = Lvn.UI.LvnFonts.Size(28f);
             _claim.style.unityFontStyleAndWeight = FontStyle.Bold;
             _claim.style.marginTop = 22;
@@ -193,8 +197,7 @@ namespace Lvn.UI.Screens
             }
 
             bool canClaim = !_claimed;
-            _claim.text = _claimed ? LvnWords.Of("daily.claimed", "Claimed")
-                                   : LvnWords.Of("daily.claim", "Claim");
+            Lvn.UI.LvnRedress.Refresh(_claim);
             _claim.SetEnabled(canClaim);
             _claim.style.opacity = canClaim ? 1f : 0.5f;
         }

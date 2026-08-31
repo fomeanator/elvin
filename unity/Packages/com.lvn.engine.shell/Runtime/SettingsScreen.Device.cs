@@ -58,7 +58,7 @@ namespace Lvn.UI.Screens
             btn.style.marginBottom = 8;
             btn.SetEnabled(false);
             buttons.Add(btn);
-            var erase = new Button { text = LvnWords.Of("device.erase", "Erase") };
+            var erase = Lvn.UI.LvnRedress.Bind(new Button(), () => LvnWords.Of("device.erase", "Erase"));
             StyleValueButton(erase, false);
             erase.style.marginBottom = 8;
             erase.style.display = DisplayStyle.None;
@@ -182,13 +182,23 @@ namespace Lvn.UI.Screens
         {
             var row = RowEx(LvnWords.Of("settings.restore_purchases", "Restore purchases"),
                 LvnWords.Of("settings.restore_purchases_hint", "Tap if purchases went missing after a reinstall"));
-            var btn = new Button { text = LvnWords.Of("device.restore", "Restore") };
+            // Надпись читает СОСТОЯНИЕ: покой → «Восстановить», ожидание →
+            // многоточие, кончилось → «Готово». Назначь её руками — и смена
+            // языка на открытых настройках вернула бы «Восстановить» кнопке,
+            // которая уже отработала.
+            int step = 0; // 0 покой, 1 ждём, 2 готово
+            var btn = Lvn.UI.LvnRedress.Bind(new Button(), () =>
+                step == 1 ? "…"
+              : step == 2 ? LvnWords.Of("common.done", "Done")
+              : LvnWords.Of("device.restore", "Restore"));
             StyleValueButton(btn, false);
             btn.clicked += () =>
             {
                 LvnAsync.Fire(Lvn.Services.LvnWallet.RefreshAsync(), "Refresh");
-                btn.text = "…";
-                btn.schedule.Execute(() => btn.text = LvnWords.Of("common.done", "Done")).ExecuteLater(LvnMotion.Ms(LvnMotion.Notice));
+                step = 1;
+                Lvn.UI.LvnRedress.Refresh(btn);
+                btn.schedule.Execute(() => { step = 2; Lvn.UI.LvnRedress.Refresh(btn); })
+                   .ExecuteLater(LvnMotion.Ms(LvnMotion.Notice));
             };
             row.Add(btn);
             return row;

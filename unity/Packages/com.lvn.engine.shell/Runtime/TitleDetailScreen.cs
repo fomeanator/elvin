@@ -444,7 +444,7 @@ namespace Lvn.UI.Screens
             // right under the Play action so it reads as a secondary option.
             if (Title != null && (LvnProgress.Current(Title) != null || LvnProgress.Reached(Title) > 0))
             {
-                var restart = new Button(ShowRestartMenu) { text = LvnWords.Of("title.restart", "Start over") };
+                var restart = Lvn.UI.LvnRedress.Bind(new Button(ShowRestartMenu), () => LvnWords.Of("title.restart", "Start over"));
                 restart.style.marginBottom = 12;
                 restart.style.fontSize = Lvn.UI.LvnFonts.Size(24f);
                 restart.style.paddingTop = 12;
@@ -458,7 +458,7 @@ namespace Lvn.UI.Screens
             actionRow.style.alignItems = Align.Center;
             bar.Add(actionRow);
 
-            var play = new Button(Play) { text = LvnWords.Of("hub.play", "Play") };
+            var play = Lvn.UI.LvnRedress.Bind(new Button(Play), () => LvnWords.Of("hub.play", "Play"));
             play.style.flexGrow = 1;
             play.style.flexShrink = 1;
             play.style.fontSize = Lvn.UI.LvnFonts.Size(30f);

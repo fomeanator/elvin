@@ -26,7 +26,7 @@ namespace Lvn.UI.Screens
             val.style.marginRight = 10;
             row.Add(val);
 
-            var copy = new Button { text = LvnWords.Pick("settings.copy", _cfg.copy_text, "Copy") };
+            var copy = Lvn.UI.LvnRedress.Bind(new Button(), () => LvnWords.Pick("settings.copy", _cfg.copy_text, "Copy"));
             StyleValueButton(copy, false);
             copy.SetEnabled(!string.IsNullOrEmpty(uid));
             copy.clicked += () =>
@@ -166,7 +166,7 @@ namespace Lvn.UI.Screens
             _accountRow.Add(val);
             if (showSignIn)
             {
-                var btn = new Button { text = LvnWords.Pick("account.sign_in", _cfg.sign_in_text, "Sign in") };
+                var btn = Lvn.UI.LvnRedress.Bind(new Button(), () => LvnWords.Pick("account.sign_in", _cfg.sign_in_text, "Sign in"));
                 StyleValueButton(btn, true);
                 // ЧЕРЕЗ ДОМ ЗАНЯТОЙ КНОПКИ. Вход в аккаунт ждёт сеть и открывает
                 // экран платформы; второй тап по неотвеченной кнопке запускал

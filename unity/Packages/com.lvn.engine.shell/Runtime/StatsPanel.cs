@@ -58,7 +58,7 @@ namespace Lvn.UI.Screens
                 if (s != null)
                     scroll.Add(StatRows.Row(s, getVar));
 
-            var close = new Button(Hide) { text = LvnWords.Of("common.close", "Close") };
+            var close = Lvn.UI.LvnRedress.Bind(new Button(Hide), () => LvnWords.Of("common.close", "Close"));
             close.style.marginTop = 16;
             close.style.fontSize = Lvn.UI.LvnFonts.Size(22f);
             close.style.paddingTop = 12; close.style.paddingBottom = 12;
