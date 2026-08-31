@@ -197,8 +197,7 @@ namespace Lvn.UI.Screens
             row.style.flexDirection = FlexDirection.Row;
             row.style.alignItems = Align.Center;
             row.style.backgroundColor = LvnTokens.Surface;
-            var rowEdge = LvnTokens.Border;
-            LvnChrome.Border(row, new Color(rowEdge.r, rowEdge.g, rowEdge.b, rowEdge.a * 0.7f), 1f);
+            LvnChrome.BorderSoft(row, 0.7f);
             LvnChrome.Round(row, LvnTokens.RadiusSm);
             row.style.marginBottom = 10;
             row.style.paddingTop = 14; row.style.paddingBottom = 14;
@@ -219,8 +218,7 @@ namespace Lvn.UI.Screens
         {
             var card = new VisualElement();
             card.style.backgroundColor = new Color(LvnTokens.Surface.r, LvnTokens.Surface.g, LvnTokens.Surface.b, 0.88f);
-            var cardEdge = LvnTokens.Border;
-            LvnChrome.Border(card, new Color(cardEdge.r, cardEdge.g, cardEdge.b, cardEdge.a * 0.64f), 1f);
+            LvnChrome.BorderSoft(card, 0.64f);
             LvnChrome.Round(card, LvnTokens.RadiusSm);
             card.style.paddingTop = 16; card.style.paddingBottom = 16;
             card.style.paddingLeft = 16; card.style.paddingRight = 16;
@@ -241,8 +239,7 @@ namespace Lvn.UI.Screens
             card.style.flexDirection = FlexDirection.Column;
             card.style.backgroundColor = LvnTokens.SurfaceHi;
             LvnChrome.Round(card, LvnTokens.Radius + 2f);
-            var cardEdge = LvnTokens.Border;
-            LvnChrome.Border(card, new Color(cardEdge.r, cardEdge.g, cardEdge.b, cardEdge.a * 0.8f), 1f);
+            LvnChrome.BorderSoft(card, 0.8f);
             card.style.paddingTop = 18;
             card.style.paddingBottom = 18;
             card.style.paddingLeft = 18;
@@ -354,8 +351,7 @@ namespace Lvn.UI.Screens
             tile.style.marginRight = 8;
             tile.style.alignItems = Align.Center;
             tile.style.backgroundColor = LvnTokens.Surface;
-            var tileEdge = LvnTokens.Border;
-            LvnChrome.Border(tile, new Color(tileEdge.r, tileEdge.g, tileEdge.b, tileEdge.a * 0.64f), 1f);
+            LvnChrome.BorderSoft(tile, 0.64f);
             LvnChrome.Round(tile, LvnTokens.RadiusSm);
             tile.style.paddingTop = 16;
             tile.style.paddingBottom = 16;
@@ -439,8 +435,7 @@ namespace Lvn.UI.Screens
         {
             var row = new VisualElement();
             row.style.backgroundColor = LvnTokens.Surface;
-            var relationEdge = LvnTokens.Border;
-            LvnChrome.Border(row, new Color(relationEdge.r, relationEdge.g, relationEdge.b, relationEdge.a * 0.64f), 1f);
+            LvnChrome.BorderSoft(row, 0.64f);
             LvnChrome.Round(row, LvnTokens.RadiusSm);
             row.style.paddingTop = 14;
             row.style.paddingBottom = 14;

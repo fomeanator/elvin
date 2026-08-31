@@ -87,9 +87,7 @@ namespace Lvn.UI.Screens
             header.style.marginBottom = 16;
             sheet.Add(header);
 
-            var back = new Button(Close) { text = "‹" };
-            LvnStyler.IconSlot(back, 52f);
-            back.style.fontSize = Lvn.UI.LvnFonts.Size(36f);
+            var back = ScreenUi.BackButton(Close, 52f, 36f);
             back.style.marginRight = 12;
             header.Add(back);
 
