@@ -44,6 +44,26 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void ПолзунокИХранилищеЗнаютОдинПредел()
+        {
+            // Числа стояли в двух домах. Разойдись они — ручка «пружинит»
+            // назад: ползунок пустил дальше, хранилище вернуло обратно.
+            foreach (var d in LvnSettingsCatalog.Reading())
+            {
+                if (d.Kind != LvnSettingKind.Range) continue;
+                var было = d.Num();
+                try
+                {
+                    d.SetNum(d.Max + 5f);
+                    Assert.AreEqual(d.Max, d.Num(), 0.001f, $"{d.Key}: выше потолка");
+                    d.SetNum(d.Min - 5f);
+                    Assert.AreEqual(d.Min, d.Num(), 0.001f, $"{d.Key}: ниже пола");
+                }
+                finally { d.SetNum(было); }   // настройки живут на устройстве: вернуть как было
+            }
+        }
+
+        [Test]
         public void КлючиНеПовторяются()
         {
             var keys = LvnSettingsCatalog.Reading().Concat(LvnSettingsCatalog.Audio(false))

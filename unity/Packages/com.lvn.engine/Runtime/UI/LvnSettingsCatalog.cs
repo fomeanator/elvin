@@ -49,6 +49,18 @@ namespace Lvn.UI
     /// </summary>
     public static class LvnSettingsCatalog
     {
+        // ПРЕДЕЛЫ — СВОЙСТВО САМОЙ НАСТРОЙКИ, а не ползунка и не хранилища.
+        //
+        // Числа стояли в двух домах: здесь их знал ползунок, а рядом, в
+        // LvnPrefs, тот же диапазон зажимал записываемое значение. Сегодня они
+        // совпадают, потому что их сверили руками; разойдись они — и ползунок
+        // поехал бы туда, откуда хранилище его молча возвращает, а игрок
+        // увидел бы, как ручка «пружинит» назад без объяснения.
+        public const float TextSpeedMin = 0.25f, TextSpeedMax = 3f;
+        public const float AutoDelayMin = 0.5f, AutoDelayMax = 2.5f;
+        public const float BoxOpacityMin = 0.2f, BoxOpacityMax = 1f;
+        public const float VolumeMin = 0f, VolumeMax = 1f;
+
         /// <summary>Настройки ЧТЕНИЯ: скорость, автопереход, прозрачность окна,
         /// комфорт. Порядок — от того, что видно сразу, к тонкому.</summary>
         public static List<LvnSettingDef> Reading() => new List<LvnSettingDef>
@@ -57,7 +69,7 @@ namespace Lvn.UI
             {
                 Key = "settings.text_speed", English = "Text speed",
                 HintKey = "settings.text_speed_hint", HintEnglish = "How fast lines type out",
-                Kind = LvnSettingKind.Range, Min = 0.25f, Max = 3f,
+                Kind = LvnSettingKind.Range, Min = TextSpeedMin, Max = TextSpeedMax,
                 Num = () => LvnPrefs.TextSpeed, SetNum = v => LvnPrefs.TextSpeed = v,
             },
             new LvnSettingDef
@@ -71,14 +83,14 @@ namespace Lvn.UI
             {
                 Key = "settings.auto_delay", English = "Auto delay",
                 HintKey = "settings.auto_delay_hint", HintEnglish = "Pause before the next line",
-                Kind = LvnSettingKind.Range, Min = 0.5f, Max = 2.5f,
+                Kind = LvnSettingKind.Range, Min = AutoDelayMin, Max = AutoDelayMax,
                 Num = () => LvnPrefs.AutoDelayScale, SetNum = v => LvnPrefs.AutoDelayScale = v,
             },
             new LvnSettingDef
             {
                 Key = "settings.box_opacity", English = "Box opacity",
                 HintKey = "settings.box_opacity_hint", HintEnglish = "The dialogue plate; text stays crisp",
-                Kind = LvnSettingKind.Range, Min = 0.2f, Max = 1f,
+                Kind = LvnSettingKind.Range, Min = BoxOpacityMin, Max = BoxOpacityMax,
                 Num = () => LvnPrefs.DialogOpacity, SetNum = v => LvnPrefs.DialogOpacity = v,
             },
             new LvnSettingDef
@@ -109,7 +121,7 @@ namespace Lvn.UI
             {
                 Key = "settings.music", English = "Music",
                 HintKey = "settings.music_hint", HintEnglish = "Story and menu tracks",
-                Kind = LvnSettingKind.Range, Min = 0f, Max = 1f, Live = true,
+                Kind = LvnSettingKind.Range, Min = VolumeMin, Max = VolumeMax, Live = true,
                 Num = () => LvnPrefs.VolMusic, SetNum = v => LvnPrefs.VolMusic = v,
             };
             if (simple)
@@ -120,7 +132,7 @@ namespace Lvn.UI
                     {
                         Key = "settings.sounds", English = "Sounds",
                         HintKey = "settings.sounds_hint", HintEnglish = "Choices, scene effects and ambience",
-                        Kind = LvnSettingKind.Range, Min = 0f, Max = 1f, Live = true,
+                        Kind = LvnSettingKind.Range, Min = VolumeMin, Max = VolumeMax, Live = true,
                         Num = () => LvnPrefs.VolSfx,
                         SetNum = v => { LvnPrefs.VolSfx = v; LvnPrefs.VolAmbient = v; LvnPrefs.VolVoice = v; },
                     },
@@ -131,19 +143,19 @@ namespace Lvn.UI
                 new LvnSettingDef
                 {
                     Key = "settings.ambient", English = "Ambience",
-                    Kind = LvnSettingKind.Range, Min = 0f, Max = 1f, Live = true,
+                    Kind = LvnSettingKind.Range, Min = VolumeMin, Max = VolumeMax, Live = true,
                     Num = () => LvnPrefs.VolAmbient, SetNum = v => LvnPrefs.VolAmbient = v,
                 },
                 new LvnSettingDef
                 {
                     Key = "settings.sfx", English = "Effects",
-                    Kind = LvnSettingKind.Range, Min = 0f, Max = 1f, Live = true,
+                    Kind = LvnSettingKind.Range, Min = VolumeMin, Max = VolumeMax, Live = true,
                     Num = () => LvnPrefs.VolSfx, SetNum = v => LvnPrefs.VolSfx = v,
                 },
                 new LvnSettingDef
                 {
                     Key = "settings.voice", English = "Voice",
-                    Kind = LvnSettingKind.Range, Min = 0f, Max = 1f, Live = true,
+                    Kind = LvnSettingKind.Range, Min = VolumeMin, Max = VolumeMax, Live = true,
                     Num = () => LvnPrefs.VolVoice, SetNum = v => LvnPrefs.VolVoice = v,
                 },
             };

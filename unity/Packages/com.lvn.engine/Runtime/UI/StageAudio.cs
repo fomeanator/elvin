@@ -146,6 +146,38 @@ namespace Lvn.UI
         }
 
         /// <summary>Cut the voice line (scene reset / chapter end).</summary>
+        /// <summary>
+        /// ЗАМОЛЧАТЬ ВМЕСТЕ С ГЛАВОЙ — всё звучание, которое ей принадлежит.
+        ///
+        /// <para>Уборка кадра снимала печать и голос, а музыку с эмбиентом
+        /// НЕТ: трек главы продолжал играть в меню, и поверх него отпускалась
+        /// музыка витрины — «выходишь из главы, музыка дублируется» (живой
+        /// репорт Ильи 01.09). Каждый снимал своё, а музыку не снимал никто:
+        /// её просто не было в списке того, что уносит уходящая глава.</para>
+        ///
+        /// <para>Гаснет плавно: обрыв на полутакте слышен как сбой, а не как
+        /// конец. Музыка МЕНЮ живёт мимо этого дома и не задета — её ведёт
+        /// хост.</para>
+        /// </summary>
+        public void SilenceChapter(float fade = 0.35f)
+        {
+            StopVoice();
+            StopTypingLoop();
+            Silence("music", fade);
+            Silence("ambient", fade);
+            Silence("sfx", 0f);   // короткий звук доигрывать нечему — обрываем
+        }
+
+        private void Silence(string channel, float fade)
+        {
+            var src = channel == "music" ? _music : channel == "ambient" ? _ambient : _sfx;
+            if (src == null) return;
+            BumpChannel(channel);        // команда в полёте теряет право на канал
+            _playingUrl.Remove(channel);
+            if (fade > 0f && src.isPlaying) StartFade(channel, src, src.volume, 0f, fade, FadeEnd.Stop);
+            else { CancelFade(channel); src.Stop(); }
+        }
+
         public void StopVoice()
         {
             _voiceGen++;

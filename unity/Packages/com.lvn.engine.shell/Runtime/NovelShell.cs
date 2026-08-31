@@ -407,8 +407,6 @@ namespace Lvn.UI.Screens
             // голос): кружок загрузок теперь слушает сам. Рассылка вручную
             // держалась ровно до третьего пути (показ хаба), где звали только
             // бар, и кружок оставался с игровым отступом поверх меню.
-            OnChapterSessionStart += () => { ShowMenuChrome(); TabReset(); Lvn.UI.LvnScreenDirector.Current.AnnounceChapter(true); };
-            OnChapterSessionEnd += () => { ShowMenuChrome(); Lvn.UI.LvnScreenDirector.Current.AnnounceChapter(false); };
             // Пилюли валют бар слушает сам (подписка в его конструкторе, снятие
             // — на уходе с панели). Здесь стояла подписка ЗА него: оболочка
             // знала, что бару нужно знать о деньгах.
@@ -546,6 +544,42 @@ namespace Lvn.UI.Screens
         /// возвращает по выходу в меню.</summary>
         public Action OnChapterSessionStart;
         public Action OnChapterSessionEnd;
+
+        /// <summary>
+        /// КОНЕЦ СЕССИИ ГЛАВЫ — ОДИН ДОМ.
+        ///
+        /// <para>Завершение было размазано: оболочка подписывалась на
+        /// собственное событие (вернуть хром меню, объявить режим), поток
+        /// прятал полосу отдельной строкой, хост слушал то же событие ради
+        /// музыки меню, а сцена снимала своё в EndChapterFrame. Никто не был
+        /// неправ — и ровно поэтому пропажу заметили только ухом: звук главы
+        /// не снимал НИКТО, и в меню он звучал поверх витринного трека.</para>
+        ///
+        /// <para>Теперь порядок написан здесь: сперва оболочка возвращает себе
+        /// кадр, потом объявляется режим, и только затем хост делает своё
+        /// «вне новеллы». Сцена уносит своё сама — у неё для этого свой обряд
+        /// (<c>VnStage.EndChapterFrame</c>), и он тоже один.</para>
+        /// </summary>
+        /// <summary>НАЧАЛО СЕССИИ ГЛАВЫ — зеркало завершения, и по той же
+        /// причине один дом: пока оболочка подписывалась на собственное
+        /// событие, порядок «что раньше — хром, лента, режим или хостовое»
+        /// нигде не был написан, а он важен (лента возвращается на «Главную»
+        /// ДО того, как режим объявлен).</summary>
+        private void BeginChapterSession()
+        {
+            ShowMenuChrome();
+            TabReset();
+            Lvn.UI.LvnScreenDirector.Current.AnnounceChapter(true);
+            OnChapterSessionStart?.Invoke();
+        }
+
+        private void EndChapterSession()
+        {
+            ShowMenuChrome();
+            Lvn.UI.LvnScreenDirector.Current.AnnounceChapter(false);
+            Hide(Hud);
+            OnChapterSessionEnd?.Invoke();
+        }
 
         /// <summary>
         /// УБРАТЬ ИНТЕРФЕЙС МЕНЮ С КАДРА на время ухода в створ. Героиня

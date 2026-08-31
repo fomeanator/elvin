@@ -178,12 +178,11 @@ namespace Lvn.UI.Screens
                         // Полоса GameHud удалена (решение Ильи 26.08): затемнение
                         // сверху убрано, прогресс и валюта живут МИНИ-БАБЛИКАМИ
                         // единого навбара по углам сцены.
-                        OnChapterSessionStart?.Invoke(); // меню-музыка и прочее «вне новеллы» глохнет
+                        BeginChapterSession();   // один дом начала: хром, лента, режим, хост
                         try { await playChapter(title, chapter, _playerName); }
                         catch (OperationCanceledException) { return; }
                         catch (Exception ex) { Debug.LogWarning($"[shell] chapter play failed: {ex.Message}"); }
-                        OnChapterSessionEnd?.Invoke();   // вернулись в меню — и его звук тоже
-                        Hide(Hud);
+                        EndChapterSession();   // один дом завершения: хром, режим, полоса, хост
                     }
                     // Вводная считается пройденной, когда доиграна до конца: бросил
                     // на середине — при следующем запуске снова попадёт в неё, а не
