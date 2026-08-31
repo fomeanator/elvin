@@ -359,3 +359,65 @@ func TestЗаголовокРазделаСобираютОдинРаз(t *testi
 			"на «Кибере» заголовок обязан идти капсом с разрядкой")
 	}
 }
+
+// Словарь цвета один — и у движка, и у подсказок редактора.
+//
+// Их было четыре: дерево `ui` знало токены темы, команды кадра — имена движка
+// и мнемоники настроения, поля команд — только шестнадцать цифр, а подсказки
+// редактора — вторую треть набора. Автор писал одно слово в трёх местах и в
+// двух получал молчание: «эффект не сработал», хотя цвета просто не нашли.
+func TestСловарьЦветаОдинВездеГдеЕгоПишут(t *testing.T) {
+	root := repoRoot(t)
+	src, err := os.ReadFile(filepath.Join(root, "unity", "Packages", "com.lvn.engine",
+		"Runtime", "UI", "UiColor.cs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Слова словаря — все `case "..."` внутри Named.
+	named := map[string]bool{}
+	at := strings.Index(string(src), "public static Color Named(")
+	if at < 0 {
+		t.Fatal("UiColor.Named пропал — словарь цвета держится на нём")
+	}
+	end := strings.Index(string(src), "public static Color Token(")
+	if end < 0 || end < at {
+		end = len(src)
+	}
+	for _, m := range regexp.MustCompile(`case "([a-z_]+)":`).FindAllStringSubmatch(string(src)[at:end], -1) {
+		named[m[1]] = true
+	}
+	if len(named) < 20 {
+		t.Fatalf("в словаре цвета всего %d слов — похоже, якорь сторожа промахнулся", len(named))
+	}
+	// Каждая грамматика (исходная и вшитая в расширение) подсказывает ровно их.
+	for _, rel := range []string{
+		filepath.Join("tools", "lvn-lang", "src", "grammar.js"),
+		filepath.Join("tools", "vscode-lvn", "lib", "lvn-lang", "grammar.js"),
+	} {
+		path := filepath.Join(root, rel)
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		list := regexp.MustCompile(`(?s)"color":\s*\[(.*?)\]`).FindStringSubmatch(string(raw))
+		if list == nil {
+			t.Fatalf("%s: подсказок для color= нет вовсе", rel)
+		}
+		got := map[string]bool{}
+		for _, m := range regexp.MustCompile(`"([a-z_]+)"`).FindAllStringSubmatch(list[1], -1) {
+			got[m[1]] = true
+		}
+		for w := range named {
+			if !got[w] {
+				t.Fatalf("%s: движок знает цвет %q, а редактор его не подсказывает —\n"+
+					"автор не узна́ет о слове, которое работает", rel, w)
+			}
+		}
+		for w := range got {
+			if !named[w] {
+				t.Fatalf("%s: редактор подсказывает цвет %q, которого движок не знает —\n"+
+					"автор напишет его и получит умолчание с жалобой в журнале", rel, w)
+			}
+		}
+	}
+}

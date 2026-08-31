@@ -452,7 +452,25 @@ export const ATTR_VALUES = {
     "white",
     "clear"
   ],
+  // Тот же словарь, что у UiColor.Named в движке: токены темы, имена
+  // движка и мнемоники настроения. Список подсказок был четвёртым перечнем
+  // одного понятия и знал только вторую его треть — токены темы автор в
+  // командах кадра писать не догадывался, хотя в дереве `ui` они работали.
+  // Сторож (tools/lvnconv/lvn) сверяет эти слова с движком.
   "color": [
+    "bg",
+    "surface",
+    "surface_hi",
+    "panel",
+    "text",
+    "dim",
+    "accent",
+    "on_accent",
+    "gold",
+    "warn",
+    "border",
+    "veil",
+    "clear",
     "white",
     "black",
     "red",
@@ -462,7 +480,9 @@ export const ATTR_VALUES = {
     "cyan",
     "magenta",
     "cold",
+    "tint_cold",
     "warm",
+    "tint_warm",
     "sepia"
   ],
   "type": [
