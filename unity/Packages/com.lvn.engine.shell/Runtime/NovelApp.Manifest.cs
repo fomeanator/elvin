@@ -169,8 +169,12 @@ namespace Lvn.UI.Screens
                 }
                 catch (Exception ex) when (attempt < 3)
                 {
-                    Debug.LogWarning($"[novelapp] manifest fetch attempt {attempt} failed: {ex.Message} — retrying");
-                    await Task.Delay(700 * attempt);
+                    // Пауза перед повтором — по общему правилу движка
+                    // (LvnBackoff), а не своя лесенка: «сколько ждать» не может
+                    // зависеть от того, какой файл споткнулся.
+                    float pause = Lvn.Content.LvnBackoff.DelaySeconds(attempt + 1);
+                    Debug.LogWarning($"[novelapp] manifest fetch attempt {attempt} failed: {ex.Message} — retry in {pause:F1}s");
+                    await Task.Delay((int)(pause * 1000f));
                 }
             }
         }

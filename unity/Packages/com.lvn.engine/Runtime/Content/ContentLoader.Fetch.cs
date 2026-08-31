@@ -149,7 +149,7 @@ namespace Lvn.Content
         /// смотрел на экран загрузки, у которого связь уже была.</para>
         /// </summary>
         private Task RetryPauseAsync(float seconds, CancellationToken ct)
-            => !_local && LvnNetworkStatus.IsOffline
+            => !Reachable
                 ? DelayOrOnlineAsync(seconds, ct)
                 : Task.Delay(Math.Max(1, (int)(seconds * 1000f)), ct);
 

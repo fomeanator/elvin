@@ -36,6 +36,17 @@ namespace Lvn.Content
         /// and always reachable, so a bundled build lands on ReadyFromCache.</summary>
         public bool IsLocal => _local;
 
+        /// <summary>
+        /// ИСТОЧНИК ДОСТУПЕН. Офлайн-признак — про СЕТЬ, а файлы в сборке никуда
+        /// не деваются: локальный источник доступен всегда.
+        ///
+        /// <para>Оговорку эту писали от руки и по-разному: где-то
+        /// <c>IsLocal || !IsOffline</c>, где-то один <c>!IsOffline</c> — и
+        /// локальная сборка считалась «офлайновой» ровно там, где про оговорку
+        /// забыли. Вопрос один, и отвечает на него тот, кто держит источник.</para>
+        /// </summary>
+        public bool Reachable => _local || !LvnNetworkStatus.IsOffline;
+
         /// <summary>True if the version-pinned script for <paramref name="scriptUrl"/>
         /// is on disk. Pure disk check (no network) — used by the offline policy.
         /// A local bundle is authoritative and complete, so it always reports true.</summary>
