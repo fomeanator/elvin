@@ -608,7 +608,15 @@ namespace Lvn.Editor
                             actorID = speaker.ToLowerInvariant().Replace(" ", "_");
                         script.Add(new JObject { ["op"] = "actor", ["id"] = actorID, ["emotion"] = emotion });
                     }
-                    script.Add(new JObject { ["op"] = "say", ["who"] = speaker, ["text"] = text });
+                    var sc = new JObject { ["op"] = "say", ["who"] = speaker, ["text"] = text };
+                    // ЯВНЫЙ actor_map значит, что экранное имя и id спрайта
+                    // РАСХОДЯТСЯ («Ash» говорит через спрайт «hill»), и id
+                    // нужно донести до сцены — иначе она подсвечивает и
+                    // синхронит губы НИКОМУ. Go это поле кладёт с самого
+                    // начала; редакторный путь его терял, и глава, собранная в
+                    // Unity, играла иначе, чем та же глава через CLI.
+                    if (actorMaps.TryGetValue(speaker, out string whoId)) sc["who_id"] = whoId;
+                    script.Add(sc);
                 }
                 else
                 {
