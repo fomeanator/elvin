@@ -96,6 +96,12 @@ namespace Lvn.UI.Screens
             // First paint THIS frame — before any network round-trip — so the
             // device never sits on a raw black screen while boot works.
             BootVeil.Show();
+            // ЗАСТАВКА, А НЕ ЗАГРУЗКА (решение Ильи 01.09). Вместо процентов —
+            // имя игры на тёмном, две секунды и ровный уход. Точное имя знает
+            // каталог (ui.browse.title), но он ещё не прочитан, а первый кадр
+            // ждать не должен: берём имя сборки и поправим текст, когда каталог
+            // ляжет, — это случится задолго до конца проявления.
+            BootVeil.Splash(Application.productName);
             Mark("veil up (first paint)");
             // Штамп сборки: время последней компиляции каждой Lvn-сборки.
             // Отвечает на вечный вопрос «а этот прогон вообще на новом коде?»
@@ -171,17 +177,46 @@ namespace Lvn.UI.Screens
             var manifestTask = FetchManifestAsync();
             BootVeil.Progress(10, LvnWords.Of("boot.connecting", "connecting…"));
 
-            bool online = await probeTask;
-            if (!online) LvnNetworkStatus.MarkOffline("boot healthz: server unreachable");
-            Mark($"connectivity → {(online ? "online" : "offline")}");
-            BootVeil.Progress(30, LvnWords.Of("boot.loading_data", "loading data…"));
+            // ЕСТЬ ВЧЕРАШНИЙ КАТАЛОГ — НЕ ЖДЁМ СЕТЬ ВООБЩЕ.
+            //
+            // Каждый из трёх рейсов отвечает на свой вопрос, но ни один ответ не
+            // нужен, чтобы НАРИСОВАТЬ витрину: она была нарисована в прошлый
+            // раз, и кэш лежит на диске. Прежде запуск при живой сети ждал
+            // круговой рейс (а проба ещё и держала свои три секунды) — ради
+            // знания, которое приезжает следом и доводится живым обновлением.
+            //
+            // Проба остаётся: она пиннит признак офлайна для всех последующих
+            // запросов и гонит серверы наперегонки. Но докладывает она СВОИМ
+            // чередом, а не держит запуск.
+            var cached = LoadCachedManifest();
+            LvnManifest manifest;
+            bool online;
+            if (cached != null)
+            {
+                LvnAsync.Fire(PinConnectivityAsync(probeTask, Mark), "BootProbe");
+                LvnAsync.Fire(CatchUpManifestAsync(manifestTask, versionsTask), "ManifestCatchUp");
+                manifest = cached;
+                online = !LvnNetworkStatus.IsOffline; // проба уточнит через миг
+                // Имя игры — авторское, из каталога (заголовок хаба).
+                BootVeil.Splash(cached.ui?.browse?.title ?? Application.productName);
+                Mark("manifest (вчерашний кэш — сеть догоняет)");
+                BootVeil.Progress(60);
+            }
+            else
+            {
+                // ПЕРВАЯ УСТАНОВКА: рисовать нечем, ждём сеть — как раньше.
+                online = await probeTask;
+                if (!online) LvnNetworkStatus.MarkOffline("boot healthz: server unreachable");
+                Mark($"connectivity → {(online ? "online" : "offline")}");
+                BootVeil.Progress(30, LvnWords.Of("boot.loading_data", "loading data…"));
 
-            try { await versionsTask; } catch { /* offline: last-known index */ }
-            Mark("version index");
+                try { await versionsTask; } catch { /* offline: last-known index */ }
+                Mark("version index");
 
-            var boot = await ResolveManifestAsync(manifestTask, online, Mark);
-            var manifest = boot.manifest;
-            online = boot.online;
+                var boot = await ResolveManifestAsync(manifestTask, online, Mark);
+                manifest = boot.manifest;
+                online = boot.online;
+            }
             // The awaits above outlive a destroyed host (scene switch, embedder
             // teardown) — never keep booting on a dead component. Пустой манифест
             // означает ровно это: ожидание сети прервали сносом компонента.
@@ -438,6 +473,12 @@ namespace Lvn.UI.Screens
                     var wait = System.Diagnostics.Stopwatch.StartNew();
                     while (Stage != null && !Stage.HasBackdrop && wait.ElapsedMilliseconds < LvnMenuStage.VeilWaitMs)
                         await System.Threading.Tasks.Task.Yield();
+                    // ЗАСТАВКА ДОСТАИВАЕТ СВОЁ. Успели за полсекунды — тем
+                    // лучше, но мелькнувшее и тут же исчезнувшее имя читается
+                    // как сбой, а не как вступление.
+                    while (BootVeil.BrandHolding && !destroyCancellationToken.IsCancellationRequested)
+                        await System.Threading.Tasks.Task.Yield();
+                    if (destroyCancellationToken.IsCancellationRequested) return;
                     if (Stage != null && !Stage.HasBackdrop)
                         Debug.LogWarning($"[lvn-boot] полотно не встало за {wait.ElapsedMilliseconds}ms — снимаем вуаль без него");
                     await BootVeil.FadeOutAsync(LvnMenuStage.VeilFadeSeconds);
@@ -477,6 +518,50 @@ namespace Lvn.UI.Screens
         // (carousel rebuilds), and hot-reload the open chapter if its script moved.
         private void OnContentChanged() => LvnAsync.Fire(OnContentChangedAsync(), "OnContentChanged");
 
+        /// <summary>
+        /// Проба докладывает СВОИМ ЧЕРЕДОМ. Её вопрос — «сеть есть?», и ответ
+        /// нужен последующим запросам (офлайн-признак заставляет их быстро
+        /// падать в дисковый кэш вместо ожидания сокета). Но держать ради него
+        /// ЗАПУСК незачем: витрина уже нарисована по вчерашнему каталогу.
+        /// </summary>
+        private static async Task PinConnectivityAsync(Task<bool> probe, Action<string> mark)
+        {
+            bool online;
+            try { online = await probe; }
+            catch { online = false; }
+            if (!online) LvnNetworkStatus.MarkOffline("boot healthz: server unreachable");
+            mark?.Invoke($"connectivity → {(online ? "online" : "offline")}");
+        }
+
+        /// <summary>
+        /// СЕТЬ ДОГНАЛА. Запуск нарисовал витрину по вчерашнему каталогу; когда
+        /// приезжает свежий, экраны обновляются на лету — тем же путём, что и по
+        /// сигналу «контент сменился».
+        ///
+        /// <para>Каталог меняется редко, а принятие манифеста стоит недёшево
+        /// (байты меню, пересборка витрины, тема, забытые облики). Поэтому
+        /// сначала сверяем: тот же — расходимся молча.</para>
+        /// </summary>
+        private async Task CatchUpManifestAsync(Task<LvnManifest> manifestTask, Task versionsTask)
+        {
+            try { await versionsTask; } catch { /* offline: last-known index */ }
+            LvnManifest fresh;
+            try { fresh = await manifestTask; }
+            catch (Exception ex)
+            {
+                Debug.Log($"[novelapp] запуск по кэшу: сеть не догнала ({ex.Message})");
+                return;
+            }
+            if (fresh == null || this == null) return;
+            if (SameAsCached(fresh))
+            {
+                Debug.Log("[novelapp] запуск по кэшу: каталог не менялся");
+                return;
+            }
+            Debug.Log("[novelapp] запуск по кэшу: приехал свежий каталог — обновляю экраны");
+            await AdoptManifestAsync(fresh);
+        }
+
         private async Task OnContentChangedAsync()
         {
             Debug.Log("[novelapp] content changed — reloading");
@@ -485,6 +570,20 @@ namespace Lvn.UI.Screens
             LvnManifest manifest;
             try { manifest = await FetchManifestAsync(); }
             catch (Exception ex) { Debug.LogWarning($"[novelapp] live manifest fetch failed: {ex.Message}"); return; }
+            await AdoptManifestAsync(manifest);
+            await HotReloadOpenChapterAsync();
+        }
+
+        /// <summary>
+        /// ПРИНЯТЬ СВЕЖИЙ МАНИФЕСТ — одна работа на два повода: сервер сказал
+        /// «контент сменился» и запуск догнал сеть (витрина рисовалась по
+        /// вчерашнему кэшу). Поводы разные, а список того, что обязано узнать о
+        /// новом каталоге, — один: кэш, байты меню, экраны, дома слов, сцена,
+        /// тема, надетые облики.
+        /// </summary>
+        private async Task AdoptManifestAsync(LvnManifest manifest)
+        {
+            if (manifest == null) return;
             CacheManifest(manifest); // keep the offline copy fresh on every live update
             // Pull the changed boot-set bytes and re-warm replaced covers BEFORE the
             // carousel rebuilds — otherwise it re-renders from the stale in-memory
@@ -522,7 +621,13 @@ namespace Lvn.UI.Screens
             // оставив на экране старый арт. Забываем надетое: реплей ниже
             // пересоберёт фигуры уже из новых файлов.
             Stage?.ForgetLooks();
+        }
 
+        /// <summary>Открытая глава подхватывает изменившийся скрипт. Отдельно от
+        /// принятия манифеста: на запуске главы нет, и этой работе там нечего
+        /// делать.</summary>
+        private async Task HotReloadOpenChapterAsync()
+        {
             if (_currentChapter == null || Stage == null || Stage.Player == null || Stage.Player.Finished)
                 return;
 

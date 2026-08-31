@@ -48,6 +48,7 @@ namespace Lvn.UI.Screens
             _gen++;
             _target = 0f;
             _model.Reset();
+            _splashAt = -1f; _barBack = false;
             // The empty boot scene's camera clears to the DEFAULT SKYBOX — a
             // grey wash for any pixel the UI hasn't covered. Pin it to our own
             // dark so even frame 0's uncovered edges are the right colour.
@@ -164,6 +165,11 @@ namespace Lvn.UI.Screens
                 _creepStarted = Lvn.LvnClock.Now();
             }
             if (_status != null && status != null) _status.text = status;
+            // ЗАТЯНУЛОСЬ — ПОКАЗЫВАЕМ РАБОТУ. Молчаливое имя дольше трёх секунд
+            // читается как зависание: на первой установке качается содержимое, и
+            // там полоса нужна. Обычный запуск до этого места не доживает.
+            if (_splashAt > 0f && !_barBack
+                && Lvn.LvnClock.Wall() - _splashAt > BarAfterSeconds) RevealBar();
         }
 
         // Насколько полоса вправе уползти за веху и как быстро. Треть пути до
@@ -192,6 +198,58 @@ namespace Lvn.UI.Screens
         public static bool IsVisible => _go != null;
 
         private static Label _brandTitle;
+        /// <summary>СКОЛЬКО ИМЯ СТОИТ НА ЭКРАНЕ. Заставка — не ожидание, а
+        /// вступление: тёмный экран, имя игры, ровный уход. Две секунды — тот
+        /// срок, за который успевает всё остальное (витрина рисуется по
+        /// вчерашнему каталогу, полотно встаёт), и заставка перестаёт быть
+        /// платой за запуск: она и есть запуск.</summary>
+        public const float BrandHoldSeconds = 2.0f;
+
+        /// <summary>НЕ УСПЕЛИ — ПОКАЗЫВАЕМ РАБОТУ. Молчаливое имя дольше этого
+        /// читается как зависание: первая установка качает содержимое минутами,
+        /// и там полоса нужна. Тогда она и возвращается.</summary>
+        public const float BarAfterSeconds = 3.0f;
+
+        private static float _splashAt = -1f;   // когда показали имя (реальные часы)
+        private static bool _barBack;           // полоса вернулась: ждём дольше обычного
+
+        /// <summary>Имя ещё держит свой срок — гасить рано.</summary>
+        public static bool BrandHolding =>
+            _splashAt > 0f && Lvn.LvnClock.Wall() - _splashAt < BrandHoldSeconds;
+
+        /// <summary>
+        /// ЗАСТАВКА С ПЕРВОГО КАДРА: тёмный экран и имя игры вместо процентов.
+        ///
+        /// <para>Отличается от <see cref="Brand"/> тем, что не объявляет работу
+        /// законченной: под именем всё ещё идёт запуск, и если он затянется
+        /// дольше <see cref="BarAfterSeconds"/>, полоса вернётся сама.</para>
+        /// </summary>
+        public static void Splash(string title)
+        {
+            if (_root == null) return;
+            if (_splashAt < 0f) _splashAt = Lvn.LvnClock.Wall();
+            _barBack = false;
+            ShowBrandLabel(title);
+            HideBar();
+        }
+
+        private static void HideBar()
+        {
+            if (_pct != null) _pct.style.display = DisplayStyle.None;
+            if (_fill?.parent != null) _fill.parent.style.display = DisplayStyle.None;
+            if (_status != null) _status.style.display = DisplayStyle.None;
+        }
+
+        private static void RevealBar()
+        {
+            if (_barBack) return;
+            _barBack = true;
+            if (_pct != null) _pct.style.display = DisplayStyle.Flex;
+            if (_fill?.parent != null) _fill.parent.style.display = DisplayStyle.Flex;
+            if (_status != null) _status.style.display = DisplayStyle.Flex;
+        }
+
+
 
         /// <summary>Брендовый режим первого входа: ни процентов, ни полосы —
         /// только имя продукта, проявляющееся фейдом. Загрузка идёт под вуалью;
@@ -200,11 +258,17 @@ namespace Lvn.UI.Screens
         public static void Brand(string title)
         {
             if (_root == null) return;
-            if (_pct != null) _pct.style.display = DisplayStyle.None;
-            if (_fill?.parent != null) _fill.parent.style.display = DisplayStyle.None;
-            if (_status != null) _status.style.display = DisplayStyle.None;
+            HideBar();
             _model.SnapToFull(); // FadeOutAsync не должен ждать «доезда» скрытой полосы
             _target = 1f;
+            ShowBrandLabel(title);
+        }
+
+        /// <summary>Само имя: появляется фейдом и живёт, пока живёт вуаль.
+        /// Общее у брендового режима первого входа и у заставки запуска —
+        /// иначе «как выглядит имя» пришлось бы описывать дважды.</summary>
+        private static void ShowBrandLabel(string title)
+        {
             if (_brandTitle == null)
             {
                 _brandTitle = new Label(title ?? "")
@@ -251,6 +315,8 @@ namespace Lvn.UI.Screens
             if (_go == null) return;
             int gen = _gen;
             _target = 1f;
+            // Заставка без полосы: ждать её «доезда» не на чем — снимаем сразу.
+            if (_splashAt > 0f && !_barBack) _model.SnapToFull();
             // Let the bar glide most of the way, then SNAP so the user actually
             // sees "100%" (the asymptote alone never reaches it in time).
             // Страховка по РЕАЛЬНОМУ времени: она на то и страховка, чтобы
