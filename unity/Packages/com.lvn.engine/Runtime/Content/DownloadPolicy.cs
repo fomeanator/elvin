@@ -250,5 +250,24 @@ namespace Lvn.Content
             cls == AssetClass.Ui || cls == AssetClass.Cover || cls == AssetClass.ChapterBg;
 
         public static bool NeededAtBoot(string url) => NeededAtBoot(Classify(url));
+
+        /// <summary>
+        /// ЧТО РИСУЕТ ПЕРВЫЙ КАДР — и потому ЖДЁТСЯ на запуске.
+        ///
+        /// <para>Набор бута («что игрок увидит вскоре после запуска») и набор
+        /// первого кадра («без чего нельзя показать окно») — РАЗНЫЕ вопросы, а
+        /// отвечал на них один список: запуск скачивал обложки всех новелл и
+        /// фоны загрузки всех глав, и приложение оживало через сотню мегабайт.
+        /// Витрина рисует недостающие обложки заглушками и подставляет
+        /// настоящие по мере приезда — значит первому кадру нужен только
+        /// интерфейсный арт и полотно витрины, остальное догоняет фоном.</para>
+        ///
+        /// <para>Полотно приходит отдельным доводом: его адрес знает манифест
+        /// (<c>ui.browse.canvas</c>), а по имени файла оно не отличимо от любой
+        /// другой картинки.</para>
+        /// </summary>
+        public static bool NeededForFirstFrame(string url, string browseCanvas = null)
+            => Classify(url) == AssetClass.Ui
+               || (!string.IsNullOrEmpty(browseCanvas) && url == browseCanvas);
     }
 }

@@ -72,8 +72,9 @@ namespace Lvn.UI.Screens
             {
                 track.style.display = total > 0 ? DisplayStyle.Flex : DisplayStyle.None;
                 if (total <= 0) return;
-                float part = Mathf.Clamp01((float)got / total);
-                fill.style.width = new Length(part * 100f, LengthUnit.Percent);
+                // Через дом полосы: она доезжает до новой доли, а не прыгает
+                // ступеньками раз в треть секунды.
+                ScreenUi.SetFill(fill, (float)got / total);
             }
 
             async Task RefreshAsync()

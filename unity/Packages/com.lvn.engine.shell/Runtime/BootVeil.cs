@@ -135,7 +135,7 @@ namespace Lvn.UI.Screens
             _root.schedule.Execute(ts =>
             {
                 if (_pct == null) return;
-                _model.TickToward(_target, ts.deltaTime / 1000f);
+                _model.TickToward(CreepTarget(), ts.deltaTime / 1000f);
                 int p = _model.Percent;
                 if (p == lastShown) return;
                 lastShown = p;
@@ -149,8 +149,37 @@ namespace Lvn.UI.Screens
         public static void Progress(int percent, string status = null)
         {
             float t = Mathf.Clamp01(percent / 100f);
-            if (t > _target) _target = t;
+            if (t > _target)
+            {
+                _target = t;
+                // ВЕХА — НЕ ОСТАНОВКА. Между вехами идёт настоящая работа с
+                // непредсказуемым сроком: связь, индекс версий, манифест. Полоса
+                // доезжала до вехи и ЗАМИРАЛА — «на тридцати процентах встаёт на
+                // полсекунды-секунду» (Илья 01.09), и это читается как зависание,
+                // хотя всё идёт. Дальше вехи она продолжает ползти к мягкому
+                // потолку — медленно и всегда меньше следующей вехи, поэтому
+                // обмана нет: доехать до конца ползком нельзя.
+                _creepFrom = _model.Percent / 100f;
+                _creepCeil = Mathf.Min(t + CreepGap, 0.95f);
+                _creepStarted = Lvn.LvnClock.Now();
+            }
             if (_status != null && status != null) _status.text = status;
+        }
+
+        // Насколько полоса вправе уползти за веху и как быстро. Треть пути до
+        // следующей вехи за пару секунд: заметно, что живое, и не обгоняет
+        // настоящую работу.
+        private const float CreepGap = 0.18f;
+        private const float CreepTau = 2.2f;
+        private static float _creepFrom, _creepCeil, _creepStarted;
+
+        /// <summary>Куда полосе ползти прямо сейчас: веха, а после неё —
+        /// медленный подъём к мягкому потолку.</summary>
+        private static float CreepTarget()
+        {
+            if (_creepCeil <= _target) return _target;
+            float k = 1f - Mathf.Exp(-(Lvn.LvnClock.Now() - _creepStarted) / CreepTau);
+            return Mathf.Max(_target, Mathf.Lerp(Mathf.Max(_creepFrom, _target), _creepCeil, k));
         }
 
         /// <summary>Status text only (e.g. reconnect notices) — never moves the bar.</summary>

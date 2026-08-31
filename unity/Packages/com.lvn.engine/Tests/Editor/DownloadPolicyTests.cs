@@ -84,5 +84,23 @@ namespace Lvn.Tests
             Assert.IsFalse(DownloadPolicy.NeededAtBoot("/content/actors/mara.png"));
             Assert.IsFalse(DownloadPolicy.NeededAtBoot("/content/bg/porch.jpg"));
         }
+
+        [Test]
+        public void ПервыйКадрЖдётТолькоИнтерфейсИПолотно()
+        {
+            // Запуск ждал ВЕСЬ набор меню — обложки всех новелл и фоны загрузки
+            // всех глав, сотня мегабайт до первого окна. Первому кадру нужен
+            // интерфейсный арт и полотно витрины; остальное догоняет фоном,
+            // а витрина рисует заглушки.
+            Assert.IsTrue(DownloadPolicy.NeededForFirstFrame("/content/ui/frame.png"));
+            Assert.IsFalse(DownloadPolicy.NeededForFirstFrame("/content/covers/n.png"));
+            Assert.IsFalse(DownloadPolicy.NeededForFirstFrame("/content/bg/ch1.jpg"));
+
+            const string canvas = "/content/menu/canvas.jpg";
+            Assert.IsTrue(DownloadPolicy.NeededForFirstFrame(canvas, canvas),
+                "полотно витрины знает только манифест — по имени файла оно обычная картинка");
+            Assert.IsFalse(DownloadPolicy.NeededForFirstFrame(canvas),
+                "без манифеста это просто картинка, и ждать её незачем");
+        }
     }
 }

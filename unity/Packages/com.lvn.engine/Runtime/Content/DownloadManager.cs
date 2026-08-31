@@ -74,32 +74,47 @@ namespace Lvn.Content
             var scripts = new List<string>();
             CollectScripts(manifest, scripts);
 
+            // ЗАПУСК ЖДЁТ ПЕРВЫЙ КАДР, А НЕ ВЕСЬ КАТАЛОГ.
+            //
+            // Здесь скачивался и грелся ВЕСЬ набор меню — обложки всех новелл,
+            // фоны загрузки всех глав, арт коллекций, — и только потом
+            // приложение становилось живым. На холодной установке это сотня
+            // мегабайт: игрок смотрит на полосу вместо игры, а полоса ещё и
+            // идёт файлами, ступеньками. «Первый загрузчик работает дёргано и
+            // будто не нужен вовсе» (Илья 01.09) — он и правда не нужен: витрина
+            // рисует недостающие обложки заглушками и подставляет настоящие по
+            // мере приезда.
+            //
+            // Поэтому набор делится надвое. ОБЯЗАТЕЛЬНОЕ — то, из чего состоит
+            // первый кадр: интерфейсный арт (рамка реплики, значки) и полотно
+            // витрины. Его ждём. ОСТАЛЬНОЕ — обложки и фоны глав — уходит в
+            // фон тем же трактом: кружок загрузок его показывает, витрина
+            // догоняет себя сама.
+            var firstFrame = new List<string>();
+            var later = new List<string>();
+            var canvas = manifest?.ui?.browse?.canvas;
+            foreach (var url in images)
+                (DownloadPolicy.NeededForFirstFrame(url, canvas) ? firstFrame : later).Add(url);
+
             if (online)
             {
                 try
                 {
-                    IReadOnlyList<string> toDownload = images;
-                    if (_loader.HasCachedAssets())
-                        toDownload = await _loader.VerifyAsync(images, ct);
-
-                    if (toDownload.Count > 0)
-                    {
-                        var items = new List<PreloadItem>(toDownload.Count);
-                        foreach (var url in toDownload)
-                            items.Add(new PreloadItem { Url = url, Kind = DownloadPolicy.Kind(url) });
-                        await _loader.StartPreloadBatch(items, ct);
-                        await _loader.WaitForAll(null, ct);
-                    }
+                    await FetchAsync(firstFrame, ct);
+                    // Фоном и БЕЗ ожидания: очередь догонит, пока игрок смотрит
+                    // витрину. Ошибки здесь ничего не решают — тот же файл
+                    // попросят снова при показе.
+                    if (later.Count > 0)
+                        Lvn.LvnAsync.Fire(FetchAsync(later, ct), "BootRest");
                 }
                 catch (OperationCanceledException) { throw; }
                 // network errors bubble to the caller (host degrades to offline).
             }
 
-            // Warm the warm-set (UI + chapter loading bgs) into the sprite cache
-            // so the first frame that shows them has no decode gap. Disk-only
-            // classes (covers, scene bgs, actors) are skipped — loaded on demand.
-            var warm = new List<Task>(images.Count);
-            foreach (var url in images)
+            // Греем в память только первый кадр — остальное декодируется по
+            // месту показа (обложка витрины) и не задерживает запуск.
+            var warm = new List<Task>(firstFrame.Count);
+            foreach (var url in firstFrame)
                 if (DownloadPolicy.WarmToMemory(url))
                     warm.Add(_loader.DownloadSpriteAsync(url, ct));
             await Task.WhenAll(warm);
@@ -109,6 +124,22 @@ namespace Lvn.Content
             if (online)
                 foreach (var s in scripts)
                     _loader.RefreshScriptInBackground(s, reloadIndex: false);
+        }
+
+        /// <summary>Скачать набор адресов, сверившись с версиями (если кэш уже
+        /// есть). Общая часть запуска и фонового догона.</summary>
+        private async Task FetchAsync(IReadOnlyList<string> urls, CancellationToken ct)
+        {
+            if (urls == null || urls.Count == 0) return;
+            IReadOnlyList<string> toDownload = urls;
+            if (_loader.HasCachedAssets())
+                toDownload = await _loader.VerifyAsync(urls, ct);
+            if (toDownload.Count == 0) return;
+            var items = new List<PreloadItem>(toDownload.Count);
+            foreach (var url in toDownload)
+                items.Add(new PreloadItem { Url = url, Kind = DownloadPolicy.Kind(url) });
+            await _loader.StartPreloadBatch(items, ct);
+            await _loader.WaitForAll(null, ct);
         }
 
         // ── Phase 2: menu background ──────────────────────────────────────────

@@ -53,29 +53,33 @@ namespace Lvn.Content
             }
             if (pending.Count == 0) return Task.CompletedTask;
 
-            const string batchKey = "__preload_batch__";
+            // ОЧЕРЕДЬ, А НЕ ПОДМЕНА.
+            //
+            // Ключ был ОДИН на все пакеты («__preload_batch__»), и второй
+            // вызывающий получал ЧУЖУЮ задачу вместо своей. А вызывающих
+            // четверо: бут греет обложки, менеджер тянет следующую главу,
+            // центр загрузок ведёт очередь глав, кнопка «Докачать» в
+            // настройках просит остаток. Стоило нажать «Докачать», пока идёт
+            // очередь, — и её глава «скачивалась» чужой задачей: центр снимал
+            // запись с очереди, файлов никто не качал, а счётчики показывали
+            // «глав 1 · файлов 0» при скорости «—» и остаток, который не
+            // уменьшался (живой скрин 01.09).
+            //
+            // Тот же СПИСОК по-прежнему схлопывается в одну задачу (повторный
+            // запрос той же главы не качает её дважды), а РАЗНЫЕ списки честно
+            // встают в очередь: полоса пропускания одна, и параллелить их
+            // нечем.
+            string batchKey = "__preload_batch__" + BatchKey(pending);
             Task<byte[]> batchTask;
             lock (_inflight)
             {
-                if (_inflight.ContainsKey(batchKey)) return _inflight[batchKey];
-                // Чистый старт: словари байтов копят и одиночные фетчи
-                // (фоновый стриминг), и их мусор въезжал в прогресс батча —
-                // «Скачано 131 из 135» при пустой очереди (живой скрин).
-                _bytesReceived.Clear();
-                _bytesExpected.Clear();
-                BatchTotal     = pending.Count;
-                BatchDone      = 0;
-                batchTask      = RunBatchAsync(pending, ct);
+                if (_inflight.TryGetValue(batchKey, out var same)) return same;
+                batchTask = RunBatchQueuedAsync(pending, ct);
                 _inflight[batchKey] = batchTask;
-                LastStartedUrl = pending[0].Url;
             }
             _ = batchTask.ContinueWith(_ =>
             {
-                lock (_inflight)
-                {
-                    _inflight.Remove(batchKey);
-                    ClearBatchTally();
-                }
+                lock (_inflight) _inflight.Remove(batchKey);
             }, TaskScheduler.Default);
             return batchTask;
         }
@@ -103,6 +107,48 @@ namespace Lvn.Content
             _attempts.Clear();
             _bytesExpected.Clear();
             _bytesReceived.Clear();
+        }
+
+        // Пакеты идут ПО ОЧЕРЕДИ: канал один, и два пакета, тянущие его
+        // одновременно, только делят его пополам — зато оба показывают половину
+        // скорости и вдвое больше ждут.
+        private readonly System.Threading.SemaphoreSlim _batchGate = new System.Threading.SemaphoreSlim(1, 1);
+
+        /// <summary>Устойчивое имя пакета — по списку адресов. Тот же список
+        /// (повторный запрос главы) находит свою задачу, чужой не находит.</summary>
+        private static string BatchKey(List<PreloadItem> pending)
+        {
+            unchecked
+            {
+                int h = 17;
+                foreach (var a in pending) h = h * 31 + (a.Url?.GetHashCode() ?? 0);
+                return pending.Count + ":" + h;
+            }
+        }
+
+        private async Task<byte[]> RunBatchQueuedAsync(List<PreloadItem> pending, CancellationToken ct)
+        {
+            await _batchGate.WaitAsync(ct);
+            try
+            {
+                lock (_inflight)
+                {
+                    // Чистый старт: словари байтов копят и одиночные фетчи
+                    // (фоновый стриминг), и их мусор въезжал в прогресс батча —
+                    // «Скачано 131 из 135» при пустой очереди (живой скрин).
+                    _bytesReceived.Clear();
+                    _bytesExpected.Clear();
+                    BatchTotal     = pending.Count;
+                    BatchDone      = 0;
+                    LastStartedUrl = pending[0].Url;
+                }
+                return await RunBatchAsync(pending, ct);
+            }
+            finally
+            {
+                lock (_inflight) ClearBatchTally();
+                _batchGate.Release();
+            }
         }
 
         private async Task<byte[]> RunBatchAsync(List<PreloadItem> pending, CancellationToken ct)

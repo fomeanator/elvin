@@ -99,7 +99,7 @@ namespace Lvn.UI.Screens
             b.style.paddingTop = 0; b.style.paddingBottom = 0;
             b.style.alignItems = Align.Center;
             b.style.justifyContent = Justify.Center;
-            LvnChrome.Round(b, 27f);
+            LvnChrome.Round(b, Lvn.UI.LvnTokens.RadiusLg);
             var fallback = new Color(0.30f, 0.31f, 0.35f, 0.9f);
             b.style.backgroundColor = string.IsNullOrEmpty(item.color)
                 ? fallback : UiColor.Named(item.color, fallback);
@@ -122,7 +122,7 @@ namespace Lvn.UI.Screens
                 dot.style.position = Position.Absolute;
                 dot.style.top = -6; dot.style.right = -6;
                 dot.style.color = LvnTokens.Gold;
-                dot.style.fontSize = Lvn.UI.LvnFonts.Size(17f);
+                dot.style.fontSize = Lvn.UI.LvnTokens.TextMicro;
                 b.Add(dot);
             }
             return b;
@@ -281,22 +281,18 @@ namespace Lvn.UI.Screens
                         && (!OnlySeen || Encountered(axis, it.value)))
                         list.Add(it);
             }
-            // ТЕКУЩЕЕ — ПЕРВЫМ (Илья: «по умолчанию должно отображаться
-            // первым, а не скакать при входе»): надетое (или дефолт; для
-            // съёмного пустого — «Нет») переезжает в голову списка. Порядок
-            // стабилен на всю примерку — Equip меняет его только по «Выбрать».
-            // ЗАФИКСИРОВАННОЕ, а не примеренное: порядок ленты обязан стоять
-            // на месте, пока игрок крутит варианты.
-            var worn = LvnCostumer.Committed(_entity, axis, _def?.defaults);
-            if (string.IsNullOrEmpty(worn) && list.Count > 0 && list[0].value == LvnWardrobe.NoneValue)
-                worn = LvnWardrobe.NoneValue; // пусто и снимаемо — текущее «Нет»
-            int cur = string.IsNullOrEmpty(worn) ? -1 : list.FindIndex(i => i.value == worn);
-            if (cur > 0)
-            {
-                var it = list[cur];
-                list.RemoveAt(cur);
-                list.Insert(0, it);
-            }
+            // ПОРЯДОК — АВТОРСКИЙ, И ОН НЕ ЗАВИСИТ ОТ НАДЕТОГО.
+            //
+            // Здесь стояла перестановка «текущее первым» (просьба 26.08: «не
+            // скакать при входе»). Задачу она решала, но ценой: каталог
+            // выглядел по-разному в зависимости от того, что на героине, — к
+            // ленте нельзя было привыкнуть, а «Нет» на съёмной оси уезжало со
+            // своего места, стоило что-нибудь надеть (репорт 01.09).
+            //
+            // «Видно надетое при входе» достигается дешевле и без побочки:
+            // лента ДОВОЗИТ выбранную карточку в кадр (StyleStrip → ScrollTo) и
+            // обводит её акцентом. Номер выбранного ищется по значению, а не по
+            // месту, поэтому порядку он безразличен.
             return list;
         }
 

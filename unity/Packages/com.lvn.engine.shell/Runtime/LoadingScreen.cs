@@ -227,8 +227,11 @@ namespace Lvn.UI.Screens
 
         private void SetFill(float fillPercent)
         {
+            // Через дом полосы: она ДОЕЗЖАЕТ до новой доли. Прогресс приходит
+            // редкими скачками (файл докачался), и присвоенная ширина читалась
+            // ступеньками — «подвисло», хотя всё идёт.
             if (_fill != null && _gate.FillMoved(fillPercent))
-                _fill.style.width = Length.Percent(Mathf.Clamp(fillPercent, 0f, _fillSpan));
+                ScreenUi.SetFill(_fill, Mathf.Clamp(fillPercent, 0f, _fillSpan) / 100f);
         }
 
     }

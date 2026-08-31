@@ -119,6 +119,7 @@ namespace Lvn.UI.Screens
         private long _lastBytes;
         private float _lastAt = -1f;
         private float _speed;          // байт/с, EMA
+        private float _speedLast;      // последнее ОСМЫСЛЕННОЕ значение — его и показываем
 
         private readonly VisualElement _scrim;
 
@@ -352,23 +353,36 @@ namespace Lvn.UI.Screens
                 }
                 if (_expanded)
                 {
-                    _vSpeed.text = _speed > 1024f ? Speed(_speed) : "—";
+                    // ПОСЛЕДНЕЕ ИЗВЕСТНОЕ, А НЕ ПРОЧЕРК. Между файлами мгновенная
+                    // скорость падает в ноль на доли секунды, и показатель мигал
+                    // «—» — читалось как «встало», хотя загрузка идёт. Прочерк
+                    // остаётся только до первого замера.
+                    if (_speed > 1024f) _speedLast = _speed;
+                    ScreenUi.SetValue(_vSpeed, _speedLast > 0f ? Speed(_speedLast) : "—");
                     int filesLeft = t.batchTotal > 0 ? Mathf.Max(0, t.batchTotal - t.batchDone) : t.inflight;
                     int chLeft = 0;
                     if (Center != null) foreach (var e in Center.Queue) if (!e.Active) chLeft++;
-                    _vQueue.text = chLeft > 0
+                    ScreenUi.SetValue(_vQueue, chLeft > 0
                         ? LvnWords.Of("downloads.queue_chapters", "chapters {0}", chLeft) + " · "
                           + LvnWords.Of("downloads.queue_files", "files {0}", filesLeft)
-                        : LvnWords.Of("downloads.queue_files", "files {0}", filesLeft);
-                    _vGot.text = qTotal > 0
+                        : LvnWords.Of("downloads.queue_files", "files {0}", filesLeft));
+                    ScreenUi.SetValue(_vGot, qTotal > 0
                         ? Mb(qDone + batchRec) + " " + LvnWords.Of("common.of", "of") + " " + Mb(qTotal)
-                        : Mb(t.received) + (t.expected > 0 ? " " + LvnWords.Of("common.of", "of") + " " + Mb(t.expected) : "");
-                    if (now - _lastMissingAt > 3f)
+                        : Mb(t.received) + (t.expected > 0 ? " " + LvnWords.Of("common.of", "of") + " " + Mb(t.expected) : ""));
+                    // ОДИН ВОПРОС — ОДИН ОТВЕТ. Рядом стояли два числа из разных
+                    // источников: «скачано X из Y» считал ПЛАН очереди, а
+                    // «осталось» — правду с диска, и они честно расходились
+                    // («94,8 из 139» при «осталось 60,1» — живой скрин). Пока
+                    // очередь идёт, остаток — это ЕЁ остаток; сколько всего не
+                    // на устройстве, отвечает «игра целиком» в настройках.
+                    if (qTotal > 0)
+                        ScreenUi.SetValue(_vLeft, Mb(System.Math.Max(0L, qTotal - (qDone + batchRec))));
+                    else if (now - _lastMissingAt > 3f)
                     {
                         _lastMissingAt = now;
                         var miss = MissingInfo?.Invoke() ?? (0, 0);
-                        _vLeft.text = miss.Item2 > 0 ? Lvn.Content.LvnBytes.Approx(miss.Item1)
-                            : LvnWords.Of("downloads.all_done", "everything downloaded");
+                        ScreenUi.SetValue(_vLeft, miss.Item2 > 0 ? Lvn.Content.LvnBytes.Approx(miss.Item1)
+                            : LvnWords.Of("downloads.all_done", "everything downloaded"));
                     }
                 }
                 if (_expanded && Center != null && _centerDirty) { _centerDirty = false; RebuildSections(animate: false); }
@@ -383,6 +397,7 @@ namespace Lvn.UI.Screens
                     _shown = false;
                     _quietSince = -1f;
                     _speed = 0f;
+                    _speedLast = 0f;   // загрузка кончилась — прочерк снова честен
                     _capsule.experimental.animation.Start(1f, 0f, 200, (_, p) =>
                     {
                         _capsule.style.opacity = p;
@@ -457,6 +472,16 @@ namespace Lvn.UI.Screens
             private float _progress = -1f;  // цель
             private float _shown = -1f;     // что нарисовано: плывёт к цели
             private float _spin;
+            private float _lastTick;
+
+            // Скорость вращения спиннера. Быстрее прежнего (было ~150°/с на
+            // ровных тиках): короткая загрузка должна успеть показать ход, а не
+            // мигнуть неподвижной дугой.
+            private const float SpinDegreesPerSecond = 260f;
+
+            // За сколько дуга догоняет новую долю. Меньше — резче, больше —
+            // ватнее; треть секунды примерно равна шагу данных.
+            private const float SmoothingSeconds = 0.18f;
             private RingGlyph _glyph = RingGlyph.Down;
 
             public RingGlyph Glyph
@@ -490,14 +515,27 @@ namespace Lvn.UI.Screens
                 // просто перерисовывает свежую дугу.
                 schedule.Execute(() =>
                 {
-                    _spin = (_spin + 5f) % 360f;
+                    // ХОД ПО ЧАСАМ, А НЕ ПО ТИКАМ. Угол считался прибавкой на
+                    // каждый тик планировщика, а тик приходит с дрожанием: на
+                    // коротких загрузках колесо дёргалось, будто подвисает.
+                    // Время идёт ровно — и угол вместе с ним.
+                    float now = Lvn.LvnClock.Now();
+                    _spin = (now * SpinDegreesPerSecond) % 360f;
                     // Дуга не скачет между тиками данных (300 мс), а плывёт.
+                    // Сглаживание ПО ВРЕМЕНИ: доля за тик зависела бы от того,
+                    // как часто он пришёл, и на просевшем кадре полоса ползла
+                    // медленнее самой загрузки.
                     if (_progress >= 0f)
-                        _shown = _shown < 0f ? _progress
-                            : Mathf.Lerp(_shown, _progress, 0.18f);
+                    {
+                        float dt = _lastTick > 0f ? Mathf.Clamp(now - _lastTick, 0f, 0.25f) : 0.033f;
+                        float k = 1f - Mathf.Exp(-dt / SmoothingSeconds);
+                        _shown = _shown < 0f ? _progress : Mathf.Lerp(_shown, _progress, k);
+                        if (Mathf.Abs(_progress - _shown) < 0.002f) _shown = _progress; // хвост не тянем
+                    }
                     else _shown = -1f;
+                    _lastTick = now;
                     MarkDirtyRepaint();
-                }).Every(33);
+                }).Every(16);
             }
 
             private void Draw(MeshGenerationContext mgc)
