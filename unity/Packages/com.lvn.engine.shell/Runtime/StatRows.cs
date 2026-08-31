@@ -76,9 +76,7 @@ namespace Lvn.UI.Screens
         {
             var head = new VisualElement();
             head.style.flexShrink = 0;
-            head.style.flexDirection = FlexDirection.Row;
-            head.style.justifyContent = Justify.SpaceBetween;
-            head.style.alignItems = Align.Center;
+            ScreenUi.Row(head, spread: true);
             head.style.marginBottom = 10;
             return head;
         }

@@ -212,6 +212,31 @@ namespace Lvn.UI.Screens
         /// width. Both the boot splash and the chapter loader built this identically;
         /// callers add their own extras (a frame overlay, art) on top.</summary>
         /// <summary>
+        /// РЯД — горизонтальная строка по центру.
+        ///
+        /// <para>Три строки стиля, написанные ТРИДЦАТЬ ЧЕТЫРЕ раза: шапка
+        /// экрана, строка значения, полоса кнопок, чип, карусель. Ни одна не
+        /// выглядит нарушением — «просто стиль», — но именно из таких строк и
+        /// набирается разнобой: где-то забыли выравнивание, где-то поставили
+        /// другое, и одинаковые на вид ряды ведут себя по-разному.</para>
+        ///
+        /// <para><paramref name="spread"/> — «содержимое по краям»: тот же ряд,
+        /// но с разгоном. Внешние поля остаются вызывающему: они про его
+        /// компоновку, а не про сам ряд.</para>
+        /// </summary>
+        public static VisualElement Row(bool spread = false) => Row(new VisualElement(), spread);
+
+        /// <summary>Тот же ряд, но из готового элемента (кнопка-ряд, карточка).</summary>
+        public static T Row<T>(T el, bool spread = false) where T : VisualElement
+        {
+            if (el == null) return el;
+            el.style.flexDirection = FlexDirection.Row;
+            el.style.alignItems = Align.Center;
+            if (spread) el.style.justifyContent = Justify.SpaceBetween;
+            return el;
+        }
+
+        /// <summary>
         /// ПОЛОСА РАСТЁТ, А НЕ ПЕРЕПРЫГИВАЕТ.
         ///
         /// <para>Заполнение ставили присваиванием ширины: данные приходят раз в

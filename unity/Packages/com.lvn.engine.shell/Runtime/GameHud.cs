@@ -71,17 +71,14 @@ namespace Lvn.UI.Screens
                 style.paddingTop = insets.x;
                 style.height = _baseHeight + insets.x;
             });
-            style.flexDirection = FlexDirection.Row;
-            style.alignItems = Align.Center;
-            style.justifyContent = Justify.SpaceBetween;
+            ScreenUi.Row(this, spread: true);
             style.paddingLeft = 24; style.paddingRight = 24;
             style.backgroundColor = UiColor.Named(_cfg.bg_color, LvnTokens.Veil(0.53f));
             pickingMode = PickingMode.Ignore;
 
             // left: progress
             var left = new VisualElement { pickingMode = PickingMode.Ignore };
-            left.style.flexDirection = FlexDirection.Row;
-            left.style.alignItems = Align.Center;
+            ScreenUi.Row(left);
             left.style.display = (_cfg.show_progress ?? true) ? DisplayStyle.Flex : DisplayStyle.None;
             Add(left);
 
@@ -114,8 +111,7 @@ namespace Lvn.UI.Screens
 
             // right: currency pills
             _pillsRow = new VisualElement { pickingMode = PickingMode.Ignore };
-            _pillsRow.style.flexDirection = FlexDirection.Row;
-            _pillsRow.style.alignItems = Align.Center;
+            ScreenUi.Row(_pillsRow);
             Add(_pillsRow);
 
             LvnPicture.Photo(_progressIcon, _cfg.progress_icon_url, _assets, cover: false);

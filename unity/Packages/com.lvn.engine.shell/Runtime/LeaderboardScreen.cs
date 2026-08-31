@@ -72,9 +72,7 @@ namespace Lvn.UI.Screens
             sheet.style.paddingRight = 20;
 
             // ── Header: back + title ────────────────────────────────────────
-            var header = new VisualElement();
-            header.style.flexDirection = FlexDirection.Row;
-            header.style.alignItems = Align.Center;
+            var header = ScreenUi.Row();
             header.style.marginBottom = 14;
             sheet.Add(header);
 
@@ -262,9 +260,7 @@ namespace Lvn.UI.Screens
 
         private VisualElement Row(Entry e)
         {
-            var row = new VisualElement();
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.alignItems = Align.Center;
+            var row = ScreenUi.Row();
             row.style.marginBottom = 8;
             row.style.paddingTop = 10; row.style.paddingBottom = 10;
             row.style.paddingLeft = 14; row.style.paddingRight = 16;
@@ -294,8 +290,7 @@ namespace Lvn.UI.Screens
             var nameCol = new VisualElement();
             nameCol.style.flexGrow = 1;
             nameCol.style.marginLeft = 12;
-            nameCol.style.flexDirection = FlexDirection.Row;
-            nameCol.style.alignItems = Align.Center;
+            ScreenUi.Row(nameCol);
             row.Add(nameCol);
 
             var name = new Label(e.Name);

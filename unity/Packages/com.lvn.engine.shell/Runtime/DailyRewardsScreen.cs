@@ -252,9 +252,7 @@ namespace Lvn.UI.Screens
             // Подпись дня, а у премиального — ещё и звезда РЯДОМ, отдельным
             // элементом: приписывать её к строке значило бы снова полагаться на
             // то, что нужный символ найдётся в шрифте телефона.
-            var labelRow = new VisualElement();
-            labelRow.style.flexDirection = FlexDirection.Row;
-            labelRow.style.alignItems = Align.Center;
+            var labelRow = ScreenUi.Row();
             labelRow.style.justifyContent = Justify.Center;
             labelRow.style.marginBottom = 8;
             var label = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("daily.day", "Day {0}", day));

@@ -411,3 +411,55 @@ func TestChapterEndTakesItsSound(t *testing.T) {
 			"это уже случалось. Зовите StageAudio.SilenceChapter в EndChapterFrame.")
 	}
 }
+
+// РЯД СОБИРАЕТ ДОМ, А НЕ ЭКРАН.
+//
+// «Горизонтально, по центру» — три строки стиля, написанные тридцать четыре
+// раза: шапка экрана, строка значения, полоса кнопок, чип, карусель. Ни одна
+// не выглядит нарушением («просто стиль»), и ровно поэтому из них набирается
+// разнобой: где-то забыли выравнивание, где-то поставили другое, и одинаковые
+// на вид ряды ведут себя по-разному.
+//
+// Признак возврата: рядом стоящие flexDirection = Row и alignItems = Center.
+func TestRowsComeFromScreenUi(t *testing.T) {
+	root := repoRoot(t)
+	dir := filepath.Join(root, filepath.FromSlash("unity/Packages/com.lvn.engine.shell/Runtime"))
+	const budget = 2 // 01.09: остались две строки с двумя присваиваниями в одной; только вниз
+
+	count, scanned := 0, 0
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+			return nil
+		}
+		if strings.HasSuffix(filepath.ToSlash(path), "ScreenUi.cs") {
+			return nil
+		}
+		scanned++
+		lines := strings.Split(stripComments(string(mustRead(t, path))), "\n")
+		for i, l := range lines {
+			if !strings.Contains(l, "flexDirection = FlexDirection.Row") {
+				continue
+			}
+			lo, hi := i-2, i+3
+			if lo < 0 {
+				lo = 0
+			}
+			if hi > len(lines) {
+				hi = len(lines)
+			}
+			if strings.Contains(strings.Join(lines[lo:hi], "\n"), "alignItems = Align.Center") {
+				count++
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("обход оболочки: %v", err)
+	}
+	atLeast(t, scanned, 30, "просмотренных файлов оболочки")
+	if count > budget {
+		t.Errorf("рядов, собранных вручную, стало %d при пороге %d.\n\n"+
+			"Возьмите ScreenUi.Row(spread) — иначе одинаковые на вид ряды снова "+
+			"разойдутся выравниванием.", count, budget)
+	}
+}

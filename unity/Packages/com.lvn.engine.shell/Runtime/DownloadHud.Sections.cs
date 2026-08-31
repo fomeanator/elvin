@@ -187,10 +187,9 @@ namespace Lvn.UI.Screens
 
         private VisualElement ChapterRow(string label, bool cached)
         {
-            var row = new VisualElement();
+            var row = ScreenUi.Row();
             row.pickingMode = PickingMode.Ignore;
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.alignItems = Align.Center;
+            ScreenUi.Row(row);
             row.style.marginTop = 6;
             var mark = new Label(cached ? "√" : "○");
             mark.pickingMode = PickingMode.Ignore;
@@ -208,10 +207,7 @@ namespace Lvn.UI.Screens
 
         private VisualElement QueueRow(DownloadCenter.Entry e)
         {
-            var row = new VisualElement();
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.alignItems = Align.Center;
-            row.style.justifyContent = Justify.SpaceBetween;
+            var row = ScreenUi.Row(spread: true);
             row.style.marginTop = 6;
             if (e.Active)
             {

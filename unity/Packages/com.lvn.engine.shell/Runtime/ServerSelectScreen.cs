@@ -42,8 +42,7 @@ namespace Lvn.UI.Screens
                 checkRow.style.position = Position.Absolute;
                 checkRow.style.left = 16;
                 checkRow.style.bottom = 16;
-                checkRow.style.flexDirection = FlexDirection.Row;
-                checkRow.style.alignItems = Align.Center;
+                ScreenUi.Row(checkRow);
                 var check = new Toggle { value = manual };
                 var checkLabel = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("server.manual", "Choose the server manually"));
                 checkLabel.style.color = new Color(0.65f, 0.65f, 0.65f);
@@ -154,9 +153,7 @@ namespace Lvn.UI.Screens
 
             foreach (var c in candidates)
             {
-                var row = new VisualElement();
-                row.style.flexDirection = FlexDirection.Row;
-                row.style.alignItems = Align.Center;
+                var row = ScreenUi.Row();
                 row.style.marginBottom = 8;
 
                 var dot = new Label("•");

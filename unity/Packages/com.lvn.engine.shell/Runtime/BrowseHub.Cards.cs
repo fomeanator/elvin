@@ -24,10 +24,7 @@ namespace Lvn.UI.Screens
             row.style.flexShrink = 0; // children of a vertical ScrollView must not shrink
             row.style.marginBottom = 30;
 
-            var head = new VisualElement();
-            head.style.flexDirection = FlexDirection.Row;
-            head.style.alignItems = Align.Center;
-            head.style.justifyContent = Justify.SpaceBetween;
+            var head = ScreenUi.Row(spread: true);
             head.style.marginBottom = 14;
             // Подпись знает свой источник: при смене языка её перечитает дом,
             // а карточки не придётся пересобирать — вместе с ними уехали бы
@@ -44,9 +41,7 @@ namespace Lvn.UI.Screens
             // «Все ›» — подпись и векторная стрелка. Стрелка символом «→» на
             // части шрифтов Android тоже отсутствует, а её пропажу замечаешь
             // позже прочих: пустое место в конце строки читается как отступ.
-            var all = new VisualElement();
-            all.style.flexDirection = FlexDirection.Row;
-            all.style.alignItems = Align.Center;
+            var all = ScreenUi.Row();
             var allText = Lvn.UI.LvnRedress.Bind(new Label(),
                 () => _theme.Heading(LvnWords.Pick("hub.all", _cfg?.all_text, "All")));
             allText.pickingMode = PickingMode.Ignore;

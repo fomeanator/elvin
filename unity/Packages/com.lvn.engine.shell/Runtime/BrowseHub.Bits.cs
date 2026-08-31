@@ -62,9 +62,7 @@ namespace Lvn.UI.Screens
         /// собирается ниже.</summary>
         private VisualElement ChipShell()
         {
-            var chip = new VisualElement();
-            chip.style.flexDirection = FlexDirection.Row;
-            chip.style.alignItems = Align.Center;
+            var chip = ScreenUi.Row();
             chip.style.backgroundColor = LvnTokens.Veil(0.28f);
             chip.style.paddingLeft = 10; chip.style.paddingRight = 10;
             chip.style.paddingTop = 4; chip.style.paddingBottom = 4;
@@ -103,9 +101,7 @@ namespace Lvn.UI.Screens
 
         private VisualElement BackBar(out Label title, System.Action onBack)
         {
-            var bar = new VisualElement();
-            bar.style.flexDirection = FlexDirection.Row;
-            bar.style.alignItems = Align.Center;
+            var bar = ScreenUi.Row();
             bar.style.marginBottom = 14;
             // Источник, а не готовая строка: при смене языка подпись обязана
             // спроситься заново (правило Переодевания).

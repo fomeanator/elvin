@@ -180,8 +180,7 @@ namespace Lvn.UI.Screens
             _balances.style.left = 0;
             _balances.style.bottom = Length.Percent(100f);
             _balances.style.marginBottom = 10;
-            _balances.style.flexDirection = FlexDirection.Row;
-            _balances.style.alignItems = Align.Center;
+            ScreenUi.Row(_balances);
             Add(_balances);
 
             // ОДНА СТРОКА ВМЕСТО ТРЁХ (Илья 26.08): заголовка «Гардероб» нет —
@@ -189,9 +188,7 @@ namespace Lvn.UI.Screens
             // зеркально лицам справа; разделы и «Во весь рост» делят эту
             // строку. Лист от этого стал на две строки ниже — куклу видно
             // больше, а лишнего места не осталось.
-            var headRow = new VisualElement();
-            headRow.style.flexDirection = FlexDirection.Row;
-            headRow.style.alignItems = Align.Center;
+            var headRow = ScreenUi.Row();
             Add(headRow);
 
             _title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("wardrobe.title", _cfg.title, "Wardrobe"));
@@ -207,8 +204,7 @@ namespace Lvn.UI.Screens
             // снимается вместе с панелью; возврат наводит его заново (хост).
             var peek = new Button(() => { FireSectionFocus(null); OnPeek?.Invoke(true); }) { text = "" };
             peek.style.flexShrink = 0; // разделы жмутся, кнопка — никогда
-            peek.style.flexDirection = FlexDirection.Row;
-            peek.style.alignItems = Align.Center;
+            ScreenUi.Row(peek);
             peek.style.justifyContent = Justify.Center;
             var peekIcon = LvnIcons.Make(LvnIcon.Chevron, 20f, LvnTokens.Text);
             peekIcon.style.rotate = new Rotate(90f);
@@ -319,17 +315,14 @@ namespace Lvn.UI.Screens
             // рядом круглых свотчей под лентой родителя — причёска и её цвет
             // выбираются в одном разделе.
             _subRow = new VisualElement();
-            _subRow.style.flexDirection = FlexDirection.Row;
-            _subRow.style.alignItems = Align.Center;
+            ScreenUi.Row(_subRow);
             _subRow.style.justifyContent = Justify.Center;
             _subRow.style.marginTop = 10;
             _subRow.style.display = DisplayStyle.None;
             Add(_subRow);
 
             // ◀ item name ▶
-            var carousel = new VisualElement();
-            carousel.style.flexDirection = FlexDirection.Row;
-            carousel.style.alignItems = Align.Center;
+            var carousel = ScreenUi.Row();
             carousel.style.marginTop = 12;
             Add(carousel);
 
@@ -393,9 +386,8 @@ namespace Lvn.UI.Screens
             // число и значок валюты. Собственный text у Button остаётся пустым —
             // иначе он рисовался бы поверх строки.
             _confirmRow = new VisualElement { pickingMode = PickingMode.Ignore };
-            _confirmRow.style.flexDirection = FlexDirection.Row;
+            ScreenUi.Row(_confirmRow);
             _confirmRow.style.justifyContent = Justify.Center;
-            _confirmRow.style.alignItems = Align.Center;
             _confirmRow.style.flexGrow = 1;
             _confirmLabel = new Label(string.Empty) { pickingMode = PickingMode.Ignore };
             _confirmLabel.style.fontSize = LvnTokens.TextBase;
@@ -530,8 +522,7 @@ namespace Lvn.UI.Screens
                 // корона, наряд — вешалка.
                 var b = new Button(() => SelectTab(axis)) { text = "" };
                 b.style.height = 56;
-                b.style.flexDirection = FlexDirection.Row;
-                b.style.alignItems = Align.Center;
+                ScreenUi.Row(b);
                 b.style.marginLeft = 6; b.style.marginRight = 6;
                 b.style.paddingLeft = 18; b.style.paddingRight = 20;
                 LvnChrome.Round(b, LvnTokens.RadiusLg);
@@ -581,8 +572,7 @@ namespace Lvn.UI.Screens
             {
                 var all = new Button(() => SelectTab(AllTab)) { text = "" };
                 all.style.height = 56;
-                all.style.flexDirection = FlexDirection.Row;
-                all.style.alignItems = Align.Center;
+                ScreenUi.Row(all);
                 all.style.marginLeft = 6; all.style.marginRight = 6;
                 all.style.paddingLeft = 18; all.style.paddingRight = 20;
                 LvnChrome.Round(all, LvnTokens.RadiusLg);
