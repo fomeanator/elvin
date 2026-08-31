@@ -151,13 +151,13 @@ namespace Lvn.Tests
         // витрины» смотрит на отправителя: перепиши его на гардероб — и после
         // закрытия листа героиня останется стоять по-примерочному.
         [Test]
-        public void RestoreCommand_НеТрогаетОтправителяПозы()
+        public void RememberCommandOnly_НеТрогаетОтправителяПозы()
         {
             _mem.Remember("victoria", Actor("victoria"), LvnSender.Story);
 
             var прежняя = Actor("victoria");
             прежняя["position"] = "left";
-            _mem.RestoreCommand("victoria", прежняя);
+            _mem.RememberCommandOnly("victoria", прежняя);
 
             Assert.IsTrue(_mem.TryPoseSender("victoria", out var кто), "возврат команды стёр отправителя позы");
             Assert.AreEqual(LvnSender.Story, кто, "возврат команды переписал отправителя позы на себя");
@@ -177,50 +177,6 @@ namespace Lvn.Tests
 
             Assert.IsTrue(_mem.TryPoseSender("victoria", out var кто));
             Assert.AreEqual(LvnSender.Menu, кто, "показ витрины не переподписал позу — подпись осталась авторской");
-        }
-
-        // ── уборка «остаётся одна» ──────────────────────────────────────────
-
-        // Героиня уходит на миссию и возвращается ТОЙ ЖЕ куклой: место и наряд,
-        // с которыми кончилась глава, обязаны пережить переход. Иначе она
-        // пересобирается из умолчаний — живой репорт «открыл гардероб, нажал
-        // полный рост, вернулся — ГГ по центру».
-        [Test]
-        public void ForgetAllExcept_ОставляетОдного_СоВсемЧтоОНёмПомнили()
-        {
-            ПомнитьВсё("victoria", 0.5f, "dress=gala");
-            ПомнитьВсё("agent", 0.2f, "coat=grey");
-            ПомнитьВсё("waiter", 0.8f, "apron=white");
-
-            _mem.ForgetAllExcept("victoria");
-
-            CollectionAssert.AreEquivalent(new[] { "victoria" }, _mem.Ids().ToList(),
-                "после уборки на сцене остался не один");
-            Assert.IsTrue(_mem.TryWhere("victoria", out var место), "оставшаяся потеряла своё место");
-            Assert.AreEqual(0.5f, место.X, 1e-6f, "оставшаяся встала не туда, где стояла");
-            Assert.IsTrue(_mem.TryLook("victoria", out var look), "оставшаяся потеряла наряд — соберётся из умолчаний");
-            Assert.AreEqual("dress=gala", look, "по обе стороны перехода это должна быть ОДНА кукла");
-            Assert.IsTrue(_mem.Knows("victoria"), "оставшуюся стало нечем пересобрать");
-            Assert.IsTrue(_mem.TryTarget("victoria", out _), "оставшаяся потеряла цель");
-            Assert.IsTrue(_mem.TryPoseSender("victoria", out _), "оставшаяся потеряла подпись под позой");
-
-            AssertЗабытаЦеликом("agent", "убрали всех, кроме героини");
-            AssertЗабытаЦеликом("waiter", "убрали всех, кроме героини");
-        }
-
-        // Уборка, которой некого оставлять (никто не назван), обязана оставить
-        // ЧИСТУЮ сцену, а не половину: половина — это и есть тень человека,
-        // ради которой всё сводилось.
-        [Test]
-        public void ForgetAllExcept_НекогоОставлять_СценаЧистая()
-        {
-            ПомнитьВсё("victoria", 0.5f, "dress=gala");
-            ПомнитьВсё("agent", 0.2f, "coat=grey");
-
-            _mem.ForgetAllExcept(null);
-
-            CollectionAssert.IsEmpty(_mem.Ids().ToList(), "уборка без имени оставила половину сцены");
-            AssertЗабытаЦеликом("victoria", "уборка без имени");
         }
 
         // ── перечни отдают только ИЗВЕСТНОЕ ─────────────────────────────────
@@ -290,6 +246,43 @@ namespace Lvn.Tests
             Assert.IsTrue(_mem.TryWhere("agent", out _), "вместе с одеждой ушло и место");
         }
 
+        // ЗАПИСЬ БЕЗ ЕДИНОГО СВЕДЕНИЯ — тень, а не человек. Снять наряд с
+        // неполной фигуры вправе кто угодно (страж, смена контента), стереть
+        // команду — тоже. После такого в переписи оставался пустой человек:
+        // сегодня безвреден, а завтра его выдадут тому, кто спросит «кто на
+        // сцене».
+        [Test]
+        public void ЗаписьБезСведений_ВПереписьНеПопадает()
+        {
+            _mem.SetLook("ghost", "dress=gala");
+            _mem.DropLook("ghost");
+            CollectionAssert.IsEmpty(_mem.Ids().ToList(), "снятый наряд оставил пустого человека");
+
+            _mem.SetLook("ghost2", null);
+            CollectionAssert.IsEmpty(_mem.Ids().ToList(), "«наряда нет» завело запись о человеке");
+
+            _mem.RememberCommandOnly("ghost3", null);
+            CollectionAssert.IsEmpty(_mem.Ids().ToList(), "«команды нет» завело запись о человеке");
+
+            _mem.SetWhere("ghost4", Placement.Standing(0.5f));
+            _mem.DropWhere("ghost4");
+            CollectionAssert.IsEmpty(_mem.Ids().ToList(), "снятое место оставило пустого человека");
+        }
+
+        // Забвение нарядов не трогает людей — но того, о ком знали ТОЛЬКО
+        // наряд, после этого нет вовсе.
+        [Test]
+        public void ForgetLooks_УбираетТогоОКомЗналиТолькоНаряд()
+        {
+            ПомнитьВсё("victoria", 0.5f, "dress=gala");
+            _mem.SetLook("ghost", "coat=grey");
+
+            _mem.ForgetLooks();
+
+            CollectionAssert.AreEquivalent(new[] { "victoria" }, _mem.Ids().ToList(),
+                "после забвения нарядов в переписи осталась тень");
+        }
+
         // ── краевые случаи: память зовут и на пустом месте ──────────────────
 
         // id приходит из команды автора и от хоста — пустым он бывает. Память
@@ -304,7 +297,7 @@ namespace Lvn.Tests
                 Assert.DoesNotThrow(() =>
                 {
                     _mem.Remember(кто, Actor("x"), LvnSender.Story);
-                    _mem.RestoreCommand(кто, Actor("x"));
+                    _mem.RememberCommandOnly(кто, Actor("x"));
                     _mem.SetTarget(кто, Placement.Standing(0.5f));
                     _mem.SetWhere(кто, Placement.Standing(0.5f));
                     _mem.SetLook(кто, "dress=gala");
@@ -361,7 +354,6 @@ namespace Lvn.Tests
                 _mem.DropLook("никто");
                 _mem.ForgetPoses();
                 _mem.ForgetLooks();
-                _mem.ForgetAllExcept("victoria");
             }, "второй заход забвения уронил сцену");
 
             AssertЗабытаЦеликом("victoria", "повторное забвение");

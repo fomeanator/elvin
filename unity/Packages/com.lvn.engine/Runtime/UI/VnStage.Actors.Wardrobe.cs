@@ -128,7 +128,7 @@ namespace Lvn.UI
             foreach (var kv in _preWardrobe)
             {
                 var (cmd, pl, hadCmd, hadPl) = kv.Value;
-                if (hadCmd) _memory.RestoreCommand(kv.Key, cmd); else _memory.Forget(kv.Key);
+                if (hadCmd) _memory.RememberCommandOnly(kv.Key, cmd); else _memory.Forget(kv.Key);
                 if (hadPl) _memory.SetWhere(kv.Key, pl);
             }
             _preWardrobe.Clear();

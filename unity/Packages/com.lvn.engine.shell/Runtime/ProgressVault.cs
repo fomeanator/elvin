@@ -154,15 +154,13 @@ namespace Lvn.UI.Screens
                         int reached = (int?)entry["reached"] ?? 0;
                         string curId = (string)entry["cur"];
                         int num = (int?)entry["num"] ?? 0;
-                        // resolve against the LIVE manifest: id first, number as
-                        // the rename-resilient fallback
-                        LvnChapter resolved = null;
-                        if (t.seasons != null)
-                            foreach (var s in t.seasons)
-                                if (s?.chapters != null)
-                                    foreach (var c in s.chapters)
-                                        if (c != null && (c.id == curId || (resolved == null && num > 0 && c.number == num)))
-                                        { resolved = c; if (c.id == curId) break; }
+                        // Метка ищется по ЖИВОМУ манифесту тем же правилом, что и
+                        // локальная (см. LvnTitleExtensions.ChapterByIdOrNumber):
+                        // id, а если его больше нет — номер. Здесь это правило
+                        // было записано вторым, СВОИМ порядком поиска, и на
+                        // новелле с частично сменившимися id две записи метки
+                        // расходились.
+                        var resolved = t.ChapterByIdOrNumber(curId, num);
                         bool hasLive = LvnProgress.Current(t) != null;
                         LvnProgress.RestoreMarker(t.id,
                             hasLive ? null : resolved?.id,

@@ -376,21 +376,9 @@ namespace Lvn.UI
                     _spinePendingPlay[id] = (play, BoolOr(cmd["loop"], false)); // lands after the build
             }
 
-            // Spine actors join drag & drop like any object: the drag moves the
-            // slot, the skeleton rides the rig and keeps animating.
-            if (cmd["draggable"] != null)
-            {
-                if (BoolOr(cmd["draggable"], false))
-                    _draggables[id] = new DragInfo
-                    {
-                        Home = placement,
-                        Drop = ParseDropMap((string)cmd["on_drop"]),
-                        MissLabel = (string)cmd["on_drop_miss"],
-                        BoundToScreen = (string)cmd["drag_bounds"] != "none",
-                    };
-                else
-                    _draggables.Remove(id);
-            }
+            // Костяная фигура тащится наравне с любым предметом: перетаскивание
+            // двигает слот, скелет едет на нём и продолжает играть.
+            ArmDrag(id, cmd, placement);
         }
     }
 }

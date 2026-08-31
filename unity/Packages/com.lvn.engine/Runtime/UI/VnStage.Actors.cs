@@ -43,6 +43,11 @@ namespace Lvn.UI
         /// </summary>
         private readonly LvnActorMemory _memory = new LvnActorMemory();
 
+        /// <summary>Окно в память сцены для тестов. Правила про липкость позы
+        /// («кто поставил фигуру») проверяются только по ней: на экране их
+        /// не видно, а разъезжаются они молча.</summary>
+        internal LvnActorMemory Memory => _memory;
+
 
         // Поколение показа у каждого актёра — дорожка Хронометриста: быстрый
         // перебор нарядов запускает несколько ApplyActorAsync, чьи загрузки
@@ -168,7 +173,12 @@ namespace Lvn.UI
                     RepinSceneSprites("actor:" + id, null);
                 if (wasVisible && IsCharacterCommand(cmd)) ArmActorExitBarrier(hidePl);
                 _memory.SetWhere(id, hidePl);
-                _memory.Remember(id, cmd, sender);
+                // Скрытие НЕ НАЗНАЧАЕТ ПОЗУ: место фигуры осталось тем же, его
+                // поставил кто-то раньше. Записать сюда себя значило бы объявить
+                // гардероб (или катсцену) автором позы — и следующая авторская
+                // команда без position сочла бы фигуру свежей и увела её в слот
+                // по умолчанию.
+                _memory.RememberCommandOnly(id, cmd);
                 _hotspots.RemoveAll(h => h.id == id);
                 _draggables.Remove(id); // a hidden object must not be draggable
                 return;
@@ -406,22 +416,7 @@ namespace Lvn.UI
             // канвас-сцена — соседний канвас, а не элемент этой панели.
             if (onClick != null && placement.Show) _hotspots.Add((id, onClick));
 
-            // Drag & drop: `draggable=true` arms the object; on_drop maps
-            // target ids to labels ("bag:apple_in_bag"), on_drop_miss is the
-            // released-anywhere-else branch (default: it just stays put).
-            if (cmd["draggable"] != null)
-            {
-                if (BoolOr(cmd["draggable"], false))
-                    _draggables[id] = new DragInfo
-                    {
-                        Home = placement,
-                        Drop = ParseDropMap((string)cmd["on_drop"]),
-                        MissLabel = (string)cmd["on_drop_miss"],
-                        BoundToScreen = (string)cmd["drag_bounds"] != "none",
-                    };
-                else
-                    _draggables.Remove(id);
-            }
+            ArmDrag(id, cmd, placement);
 
             // ── ФИГУРА НЕДЕЛИМА ─────────────────────────────────────────────
             // Человек на сцене — не картинка, которую рисуют заново на каждый

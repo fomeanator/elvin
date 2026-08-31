@@ -229,30 +229,8 @@ namespace Lvn.Content
         {
             if (m?.titles == null || current == null) return null;
             foreach (var title in m.titles)
-            {
-                if (title?.seasons == null) continue;
-                bool contains = false;
-                foreach (var s in title.seasons)
-                {
-                    if (s?.chapters == null) continue;
-                    foreach (var c in s.chapters)
-                        if (c != null && c.id == current.id) { contains = true; break; }
-                    if (contains) break;
-                }
-                if (!contains) continue;
-
-                LvnChapter best = null;
-                foreach (var s in title.seasons)
-                {
-                    if (s?.chapters == null) continue;
-                    foreach (var c in s.chapters)
-                    {
-                        if (c == null || c.number <= current.number) continue;
-                        if (best == null || c.number < best.number) best = c;
-                    }
-                }
-                return best;
-            }
+                if (title.ChapterById(current.id) != null)
+                    return title.ChapterAfter(current);
             return null;
         }
 

@@ -47,20 +47,7 @@ namespace Lvn.UI.Screens
 
         // The next chapter by number, or null when this was the last one.
         private static LvnChapter NextChapterOf(LvnTitle title, LvnChapter current)
-        {
-            if (title?.seasons == null || current == null) return null;
-            LvnChapter best = null;
-            foreach (var s in title.seasons)
-            {
-                if (s?.chapters == null) continue;
-                foreach (var c in s.chapters)
-                {
-                    if (c == null || c.number <= current.number) continue;
-                    if (best == null || c.number < best.number) best = c;
-                }
-            }
-            return best;
-        }
+            => title.ChapterAfter(current);
 
         // Cross-chapter save routing: a slot taken in another chapter resolves to
         // its chapter by script url, fetches that script, plays it and restores —
@@ -143,16 +130,9 @@ namespace Lvn.UI.Screens
         {
             if (_manifest?.titles == null) return (null, null);
             foreach (var t in _manifest.titles)
-            {
-                if (t?.seasons == null) continue;
-                foreach (var s in t.seasons)
-                {
-                    if (s?.chapters == null) continue;
-                    foreach (var c in s.chapters)
-                        if (c != null && Lvn.Content.LvnScriptRef.Same(c.script_url, scriptUrl))
-                            return (t, c);
-                }
-            }
+                foreach (var c in t.ChaptersOf())
+                    if (Lvn.Content.LvnScriptRef.Same(c.script_url, scriptUrl))
+                        return (t, c);
             return (null, null);
         }
 

@@ -72,6 +72,36 @@ namespace Lvn.UI
             return map;
         }
 
+        /// <summary>
+        /// ПРЕДМЕТ МОЖНО ТАЩИТЬ — или больше нельзя.
+        ///
+        /// <para>Слово <c>draggable</c> в команде взводит перетаскивание:
+        /// <c>on_drop</c> сопоставляет цели меткам («bag:apple_in_bag»),
+        /// <c>on_drop_miss</c> — ветка «отпустили мимо всего» (по умолчанию
+        /// предмет просто остаётся там, где его бросили).</para>
+        ///
+        /// <para>Молчание — не отказ: команда БЕЗ слова <c>draggable</c>
+        /// оставляет прежнее решение в силе. Иначе любая следующая команда
+        /// про этот же предмет — сменить позу, подвинуть — молча отнимала бы у
+        /// него возможность тащиться.</para>
+        ///
+        /// <para>Запись стояла ДВАЖДЫ дословно — у обычной фигуры и у костяной,
+        /// — хотя правило одно: тащится ПРЕДМЕТ, а чем он нарисован, к делу не
+        /// относится.</para>
+        /// </summary>
+        private void ArmDrag(string id, JObject cmd, Placement home)
+        {
+            if (cmd["draggable"] == null) return;
+            if (!BoolOr(cmd["draggable"], false)) { _draggables.Remove(id); return; }
+            _draggables[id] = new DragInfo
+            {
+                Home = home,
+                Drop = ParseDropMap((string)cmd["on_drop"]),
+                MissLabel = (string)cmd["on_drop_miss"],
+                BoundToScreen = (string)cmd["drag_bounds"] != "none",
+            };
+        }
+
         private string DraggableAt(Vector2 pos)
         {
             if (_draggables.Count == 0 || _renderer == null) return null;

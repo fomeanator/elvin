@@ -86,18 +86,6 @@ namespace Lvn.UI
             LvnAsync.Fire(ApplyActorAsync(cmd), "ApplyActor");
         }
 
-        /// <summary>Забыть ВСЕХ, кроме одного, — уборка сцены. Тот, кто остаётся
-        /// жить (героиня), сохраняет и своё место, и свой облик: сцена по обе
-        /// стороны перехода помнит ОДНУ И ТУ ЖЕ куклу.</summary>
-        private void ForgetAllActorsExcept(string keep)
-        {
-            // Один список вместо трёх обходов по трём словарям: раньше
-            // «кого забыть» собиралось из ключей каждого по отдельности, с
-            // проверкой на повтор, — и четвёртый словарь в этот сбор не входил
-            // вовсе, его чистили следом наугад.
-            _memory.ForgetAllExcept(keep);
-        }
-
         /// <summary>
         /// ЗАБЫТЬ АКТЁРА — сцена больше не помнит ни его последней команды, ни
         /// постановки, будто его в этой главе не ставили.
@@ -223,7 +211,7 @@ namespace Lvn.UI
             JObject replay = _memory.TryCommand(id, out var current)
                 ? (JObject)current.DeepClone() : null;
             HideActor(id, sender);
-            if (replay != null) _memory.RestoreCommand(id, replay);
+            if (replay != null) _memory.RememberCommandOnly(id, replay);
         }
 
 

@@ -323,12 +323,7 @@ namespace Lvn.UI.Screens
                     if (t == null) continue;
                     Take(t.cover_url);
                     Take(t.card?.image); // detail-screen hero art
-                    if (t.seasons == null) continue;
-                    foreach (var s in t.seasons)
-                    {
-                        if (s?.chapters == null) continue;
-                        foreach (var c in s.chapters) Take(c?.bg_url);
-                    }
+                    foreach (var c in t.ChaptersOf()) Take(c.bg_url);
                 }
             if (_manifest?.collections != null)
                 foreach (var col in _manifest.collections)
