@@ -45,6 +45,10 @@ namespace Lvn.UI.Screens
         private readonly float _radius;
 
         private TaskCompletionSource<int> _tcs;
+        /// <summary>Какой показ сейчас на экране. Отвечает на «а экран ещё
+        /// мой?» — см. ShowAsync.</summary>
+        private int _showGen;
+
         private bool _openFlag;
 
         /// <summary>Алерт на экране. Пишется ТОЛЬКО здесь, и этим же движением
@@ -129,7 +133,15 @@ namespace Lvn.UI.Screens
         public async Task<int> ShowAsync(string title, string message, IReadOnlyList<Button> buttons,
                                          bool dismissable = true, CancellationToken ct = default)
         {
-            // Re-entrancy: cancel any popup currently up, then take over.
+            // ЧЕЙ СЕЙЧАС ЭКРАН. Правило «последний вызов побеждает» было
+            // записано только наполовину: отменённый показ доживал до своей
+            // уборки уже ПОСЛЕ того, как экран занял второй, — и убирал за
+            // ним. Гасил показ, снимал поверхность у Режиссёра и обнулял
+            // ЧУЖОЕ ожидание: кнопки становились мертвы, попап невидим, а
+            // ждущий не возвращался никогда. Два вопроса подряд — а по тапу на
+            // запертую карточку они и идут подряд — вешали игру в том месте,
+            // где ждали ответа. Метка поколения отвечает на «а экран ещё мой?».
+            int gen = ++_showGen;
             if (_open) { _tcs?.TrySetResult(-1); _tcs = null; }
             _open = true;
             _dismissable = dismissable;
@@ -147,19 +159,28 @@ namespace Lvn.UI.Screens
 
             style.display = DisplayStyle.Flex;
             await ScreenFx.FadeAsync(this, 0f, 1f, 0.18f, ct);
-            // Hidden mid-fade (host tore down) — don't park on a TCS nobody resolves.
-            if (!_open) return -1;
+            // Убрали посреди появления (хозяин свернулся) или сменили вторым
+            // вопросом — не парковаться на ожидании, которое некому решить.
+            if (gen != _showGen || !_open) return -1;
 
-            _tcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-            using var reg = ct.Register(() => _tcs?.TrySetResult(-1));
+            // Ждём СВОЁ ожидание, а не поле: пока мы стоим на нём, поле может
+            // уже принадлежать сменщику.
+            var mine = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _tcs = mine;
+            using var reg = ct.Register(() => mine.TrySetResult(-1));
             int result;
-            try { result = await _tcs.Task; }
+            try { result = await mine.Task; }
             finally
             {
-                await ScreenFx.FadeAsync(this, 1f, 0f, 0.18f, CancellationToken.None);
-                style.display = DisplayStyle.None;
-                _open = false;
-                _tcs = null;
+                // Убирать за собой — только если экран ещё наш. Иначе уборка
+                // достанется сменщику.
+                if (gen == _showGen)
+                {
+                    await ScreenFx.FadeAsync(this, 1f, 0f, 0.18f, CancellationToken.None);
+                    style.display = DisplayStyle.None;
+                    _open = false;
+                    _tcs = null;
+                }
             }
             return result;
         }
@@ -186,6 +207,10 @@ namespace Lvn.UI.Screens
         /// <summary>Force-close without a result (host teardown / scene reset).</summary>
         public void Hide()
         {
+            // Поколение сдвигаем и здесь: показ, стоящий на ожидании, не
+            // должен потом убирать ЕЩЁ раз — экран уже убран, и его повторное
+            // затухание вернуло бы непрозрачность на кадр.
+            _showGen++;
             style.opacity = 0f;
             style.display = DisplayStyle.None;
             _open = false;
