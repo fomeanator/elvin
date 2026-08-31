@@ -52,8 +52,15 @@ namespace Lvn.Editor
             var m = new Dictionary<string, List<string>>();
             var declaredAt = new Dictionary<string, int>();
             string[] lines = src.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+            int chevDepth = 0;
             for (int i = 0; i < lines.Length; i++)
             {
+                // Строка «func …» внутри «…» — проза, а не объявление.
+                if (chevDepth > 0 || ChevRun(0, lines[i]) > 0)
+                {
+                    chevDepth = ChevRun(chevDepth, lines[i]);
+                    continue;
+                }
                 Match mm = reFuncDef.Match(lines[i]);
                 if (!mm.Success) continue;
                 var ps = new List<string>();
@@ -203,18 +210,53 @@ namespace Lvn.Editor
             return args;
         }
 
+        /// <summary>Сколько «…» осталось незакрытыми после этой строки.
+        /// Многострочная проза — не код: её `{` и `}` это подстановка или
+        /// просто знаки, и ни развороты, ни сбор функций их не считают.</summary>
+        static int ChevRun(int depth, string s)
+        {
+            foreach (char r in s)
+            {
+                if (r == '«') depth++;
+                else if (r == '»' && depth > 0) depth--;
+            }
+            return depth;
+        }
+
         static string ExpandLoops(string src)
         {
             var stack = new List<Frame>();
             var outLines = new List<string>();
 
             var srcLines = new List<string>();
+            int flatChev = 0;
             foreach (string raw in src.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n'))
+            {
+                // Внутри «…» строка проходит КАК ЕСТЬ. Go так и делает; здесь
+                // разбор шёл по сырому тексту, и `}` в многострочной прозе
+                // ронял сборку с «unmatched '}'» — та же глава через CLI
+                // собиралась.
+                if (flatChev > 0 || ChevRun(0, raw) > 0)
+                {
+                    srcLines.Add(raw);
+                    flatChev = ChevRun(flatChev, raw);
+                    continue;
+                }
                 srcLines.AddRange(SplitInline(raw));
+            }
             var names = new SynthNamer(srcLines);
 
+            int chev = 0;
             foreach (string raw in srcLines)
             {
+                // Проза внутри «…» — не команды: её скобки не открывают и не
+                // закрывают блоков.
+                if (chev > 0 || ChevRun(0, raw) > 0)
+                {
+                    outLines.Add(raw);
+                    chev = ChevRun(chev, raw);
+                    continue;
+                }
                 string det = raw.Trim();
                 int ci = det.IndexOf("//", StringComparison.Ordinal);
                 if (ci >= 0) det = det.Substring(0, ci).Trim();
