@@ -195,6 +195,12 @@ namespace Lvn.UI.Screens
             // Stat/var persistence: a bundled offline build keeps stats locally; a
             // server build syncs through /v1/state (local-first, so it still plays and
             // keeps stats when the server is down).
+            // Свёрток прогресса сливается СВОИМ правилом: пополевое слияние
+            // увидело бы в нём пять ключей и отдало бы «titles» целиком одной
+            // стороне, а внутри — потолок глав, галерея и закладка, у каждого
+            // своя цена ошибки.
+            HttpStateStore.RuleFor(ProgressVault.Scope, ProgressVault.Merge);
+
             _state = OfflineBundled
                 ? (ILvnStateStore)new LocalStateStore()
                 : new HttpStateStore(contentBase, ResolveUserId(), StateKey);
