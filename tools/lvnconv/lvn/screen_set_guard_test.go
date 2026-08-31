@@ -770,3 +770,66 @@ func TestДолиМестСовпадаютСДвижком(t *testing.T) {
 		}
 	}
 }
+
+// Что можно анимировать — один словарь на всех, кто про это спрашивают.
+//
+// Он жил ТОЛЬКО в рантайме (LvnAnimProp.Known). Компилятор `prop=` не смотрел,
+// валидатор молчал, редактор не подсказывал — и «opacity» вместо «alpha»
+// (каноническая описка, названная так в докблоке самого рантайма) проходило
+// всю дорогу до игры, где трек молча пропускался. Полоса не двигалась, и
+// искать было нечего.
+func TestСловарьСвойствАнимацииОдин(t *testing.T) {
+	root := repoRoot(t)
+	csRaw, err := os.ReadFile(filepath.Join(root, "unity", "Packages", "com.lvn.engine",
+		"Runtime", "UI", "LvnAnimProp.cs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	block := regexp.MustCompile(`(?s)Known = new HashSet<string>\s*\{(.*?)\n        \};`).
+		FindStringSubmatch(string(csRaw))
+	if block == nil {
+		t.Fatal("LvnAnimProp.Known не найден — поправь якорь сторожа")
+	}
+	engine := map[string]bool{}
+	for _, m := range regexp.MustCompile(`"([a-z_]+)"`).FindAllStringSubmatch(block[1], -1) {
+		engine[m[1]] = true
+	}
+	if len(engine) != 10 {
+		t.Fatalf("в LvnAnimProp.Known %d имён, ожидалось 10: %v", len(engine), engine)
+	}
+	for w := range engine {
+		if !inSet(AnimProps, w) {
+			t.Fatalf("рантайм умеет анимировать %q, а валидатор об этом не знает — "+
+				"опечатка рядом с ним пройдёт молча", w)
+		}
+	}
+	for _, w := range AnimProps {
+		if !engine[w] {
+			t.Fatalf("валидатор считает %q свойством, а рантайм его не знает — "+
+				"пропустит трек и промолчит", w)
+		}
+	}
+	gRaw, err := os.ReadFile(filepath.Join(root, "tools", "lvn-lang", "src", "grammar.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	list := regexp.MustCompile(`(?s)"attr_values".*?"prop":\s*\[(.*?)\]`).FindStringSubmatch(string(gRaw))
+	if list == nil {
+		t.Fatal("grammar.json: подсказок для prop= нет — автору неоткуда узнать словарь")
+	}
+	ide := map[string]bool{}
+	for _, m := range regexp.MustCompile(`"([a-z_]+)"`).FindAllStringSubmatch(list[1], -1) {
+		ide[m[1]] = true
+	}
+	for w := range engine {
+		if !ide[w] {
+			t.Fatalf("редактор не подсказывает свойство %q, которое движок умеет", w)
+		}
+	}
+	for w := range ide {
+		if !engine[w] {
+			t.Fatalf("редактор подсказывает свойство %q, которого движок не знает — "+
+				"автор напишет его и получит неподвижную полосу", w)
+		}
+	}
+}

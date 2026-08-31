@@ -451,6 +451,18 @@ export const ATTR_VALUES = {
     "distortion",
     "spirit",
     "ascendant"
+  ],
+  "prop": [
+    "x",
+    "y",
+    "screen_x",
+    "screen_y",
+    "scale",
+    "scalex",
+    "scaley",
+    "rotation",
+    "alpha",
+    "frame"
   ]
 };
 
