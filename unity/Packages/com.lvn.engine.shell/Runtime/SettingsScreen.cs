@@ -59,10 +59,7 @@ namespace Lvn.UI.Screens
             _accent = UiColor.Parse(_cfg.accent_color, LvnTokens.Accent);
             _radius = _cfg.corner_radius ?? 12f;
 
-            ScreenUi.Stretch(this);
             style.backgroundColor = UiColor.Parse(_cfg.scrim_color, LvnTokens.Scrim);
-            style.opacity = 0f;
-            style.display = DisplayStyle.None;
             RegisterCallback<ClickEvent>(e => { if (e.target == this) Close(); });
 
             // Поля шире общих — настройки длинный список, ему нужен воздух по
@@ -119,7 +116,7 @@ namespace Lvn.UI.Screens
         // выигрыш — одно движение пальцем на четыре экрана текста. Прокрутка
         // честнее: она не врёт о том, где игрок находится.
         /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
-        public override void Redress() { RedressChrome(); Rebuild(); }
+        protected override void RedressBody() => Rebuild();
 
         private Label _titleLabel;
         private Button _closeButton;

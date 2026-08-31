@@ -82,10 +82,7 @@ namespace Lvn.UI.Screens
         {
             _manifest = manifest;
             _assets = assets;
-            ScreenUi.Stretch(this);
             style.backgroundColor = Color.clear;
-            style.opacity = 0f;
-            style.display = DisplayStyle.None;
             pickingMode = PickingMode.Ignore;
 
             // Плашка листа — снизу, над нижним меню; героиня сцены видна над
@@ -146,9 +143,8 @@ namespace Lvn.UI.Screens
         /// Имена персонажей уходят в лист готовыми строками (<c>SetRoster</c>),
         /// и после смены языка лист пересобрал бы их из прежних — тех же строк
         /// на прежнем языке.</summary>
-        public override void Redress()
+        protected override void RedressBody()
         {
-            base.Redress();
             if (_sheet != null) _sheet.SetRoster(Roster());
         }
 

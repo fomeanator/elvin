@@ -62,10 +62,7 @@ namespace Lvn.UI.Screens
             _assets = assets;
             Entries = DemoEntries();
 
-            ScreenUi.Stretch(this);
             style.backgroundColor = LvnTokens.Scrim;
-            style.opacity = 0f;
-            style.display = DisplayStyle.None;
             // tap the scrim (not the sheet) to close
             RegisterCallback<ClickEvent>(evt => { if (evt.target == this) Close(); });
 
@@ -130,7 +127,7 @@ namespace Lvn.UI.Screens
 
         /// <summary>Re-render the podium and the list from <see cref="Entries"/>.</summary>
         /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
-        public override void Redress() => Rebuild();
+        protected override void RedressBody() => Rebuild();
 
         public void Rebuild()
         {

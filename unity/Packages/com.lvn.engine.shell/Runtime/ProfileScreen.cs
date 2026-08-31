@@ -114,12 +114,9 @@ namespace Lvn.UI.Screens
         {
             _assets = assets;
 
-            ScreenUi.Stretch(this);
             // ВКЛАДКА как главная (Илья 26.08): без листа и скрима, контент на
             // общей атмосфере, дырка под нижнее меню, root не ловит тапы.
             style.backgroundColor = Color.clear;
-            style.opacity = 0f;
-            style.display = DisplayStyle.None;
             pickingMode = PickingMode.Ignore;
 
             var sheet = new VisualElement();
@@ -170,7 +167,7 @@ namespace Lvn.UI.Screens
         /// <summary>Tear down and rebuild the whole body from the current model.
         /// Cheap enough to call after mutating any of the public fields.</summary>
         /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
-        public override void Redress() { RedressChrome(); Rebuild(); }
+        protected override void RedressBody() => Rebuild();
 
         public void Rebuild()
         {

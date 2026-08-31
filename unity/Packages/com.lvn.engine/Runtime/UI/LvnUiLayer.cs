@@ -108,7 +108,12 @@ namespace Lvn.UI
             if (!string.IsNullOrEmpty(action))
             {
                 if (!_trees.TryGetValue(id, out var t)) return;
-                if (action == "hide") { t.Manual = true; t.Root.style.display = DisplayStyle.None; }
+                // ПРЯЧЕМ ТЕМ ЖЕ ПУТЁМ, ЧТО И ПОКАЗЫВАЕМ. Здесь дерево
+                // убиралось напрямую, мимо общего применения стадии, и
+                // признак «стоит на экране» оставался поднятым: вернувшееся
+                // дерево считалось никуда не уходившим и выходило БЕЗ входа —
+                // возникало на месте вместо того, чтобы проступить.
+                if (action == "hide") { t.Manual = true; ApplyStageTo(t); }
                 else if (action == "show") { t.Manual = false; ApplyStageTo(t); }
                 else if (action == "drop") { t.Root.RemoveFromHierarchy(); _trees.Remove(id); }
                 return;
