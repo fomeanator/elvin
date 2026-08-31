@@ -138,9 +138,8 @@ namespace Lvn.UI.Screens
         /// <summary>(Re)build the whole content column. Public so tests/hosts can
         /// render the page without driving <see cref="ShowAsync"/>.</summary>
         /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
-        protected override void RedressBody() => Rebuild();
 
-        public void Rebuild()
+        public override void Rebuild()
         {
             _scroll.Clear();
 

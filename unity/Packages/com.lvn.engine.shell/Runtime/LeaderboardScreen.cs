@@ -127,9 +127,8 @@ namespace Lvn.UI.Screens
 
         /// <summary>Re-render the podium and the list from <see cref="Entries"/>.</summary>
         /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
-        protected override void RedressBody() => Rebuild();
 
-        public void Rebuild()
+        public override void Rebuild()
         {
             BuildPodium();
             BuildList();
