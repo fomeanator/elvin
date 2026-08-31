@@ -434,12 +434,14 @@
     },
     "actor": {
       "position": [
-        "left",
-        "center",
-        "right",
-        "far_left",
-        "far_right",
         "offscreen_left",
+        "far_left",
+        "left",
+        "center_left",
+        "center",
+        "center_right",
+        "right",
+        "far_right",
         "offscreen_right"
       ]
     },
@@ -507,12 +509,14 @@
       "snow"
     ],
     "position": [
-      "left",
-      "center",
-      "right",
-      "far_left",
-      "far_right",
       "offscreen_left",
+      "far_left",
+      "left",
+      "center_left",
+      "center",
+      "center_right",
+      "right",
+      "far_right",
       "offscreen_right"
     ],
     "show": [

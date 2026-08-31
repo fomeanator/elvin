@@ -112,14 +112,41 @@ namespace Lvn.UI
             Show = true, X = x, Y = 1f, AnchorX = 0.5f, AnchorY = 1f, Opacity = 1f,
         };
 
-        /// <summary>Именованные места по горизонтали — привычные VN-слоты от
-        /// дальнего левого до дальнего правого. Автор может не пользоваться ими
-        /// и дать явную долю x. Жило на слое отрисовки, хотя это словарь ЯЗЫКА:
-        /// после сноса UI Toolkit-сцены у понятия один дом — здесь.</summary>
+        /// <summary>
+        /// ИМЕНОВАННЫЕ МЕСТА ПО ГОРИЗОНТАЛИ — словарь ЯЗЫКА, а не таблица слоя
+        /// отрисовки. Привычные VN-слоты от дальнего левого до дальнего правого
+        /// плюс два ЗА кадром. Автор может ими не пользоваться и дать явную
+        /// долю x.
+        ///
+        /// <para>Отвечали на это шестью списками и четырьмя разными словарями.
+        /// Здесь знали `center_left` и `center_right`, но не знали
+        /// `offscreen_left` — а его подсказывал редактор и принимал компилятор,
+        /// и актёр, которого автор увёл ЗА кадр, вставал в ЦЕНТР экрана. Оба
+        /// компилятора, наоборот, не знали про `center_left`: слово молча
+        /// становилось ЭМОЦИЕЙ, и герой получал не место, а несуществующую
+        /// эмоцию. Список стандартных мест для расталкивания толпы был выписан
+        /// теми же числами ещё раз, руками.</para>
+        /// </summary>
+        public static readonly string[] SlotNames =
+        {
+            "offscreen_left", "far_left", "left", "center_left", "center",
+            "center_right", "right", "far_right", "offscreen_right",
+        };
+
+        /// <summary>Места, где можно СТОЯТЬ, — по возрастанию x. Заэкранные сюда
+        /// не входят: расталкивая толпу, никого нельзя вытолкнуть из кадра.</summary>
+        public static readonly float[] StandingSlotXs =
+        {
+            0.12f, 0.25f, 0.38f, 0.50f, 0.62f, 0.75f, 0.88f,
+        };
+
         public static float SlotX(string position)
         {
             switch (position)
             {
+                // За кадром: доля НАМЕРЕННО вне [0,1] — фигура уходит целиком,
+                // а не прижимается к краю.
+                case "offscreen_left": return -0.25f;
                 case "far_left": return 0.12f;
                 case "left": return 0.25f;
                 case "center_left": return 0.38f;
@@ -127,6 +154,7 @@ namespace Lvn.UI
                 case "center_right": return 0.62f;
                 case "right": return 0.75f;
                 case "far_right": return 0.88f;
+                case "offscreen_right": return 1.25f;
                 default: return 0.50f;
             }
         }

@@ -7,6 +7,7 @@ import { interpolate } from "./expr.js";
 import { attach as attachHighlight } from "./highlight.js";
 import { exportHtml } from "./export.js";
 import { lvnColor } from "./color.js";
+import { slotX } from "./place.js";
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -497,7 +498,7 @@ function applyStageDom(cmd, vars) {
           node.appendChild(img);
         }
         const bx = typeof cmd.x === "number" ? cmd.x
-          : cmd.position === "left" ? 0.22 : cmd.position === "right" ? 0.78 : 0.5;
+          : slotX(cmd.position);
         node.style.left = (bx * 100) + "%";
         const h = typeof cmd.height === "number" ? cmd.height : 0.8;
         node.style.height = (h * 100) + "%";
@@ -518,7 +519,7 @@ function applyStageDom(cmd, vars) {
       if (!node) break;
       if (url && node.tagName === "IMG") node.src = art(url);
       const x = typeof cmd.x === "number" ? cmd.x
-        : cmd.position === "left" ? 0.22 : cmd.position === "right" ? 0.78 : 0.5;
+        : slotX(cmd.position);
       node.style.left = (x * 100) + "%";
       if (typeof cmd.width === "number") node.style.maxWidth = (cmd.width * 100) + "%";
       if (typeof cmd.opacity === "number") node.style.opacity = cmd.opacity;

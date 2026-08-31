@@ -619,3 +619,70 @@ func TestАвторскийЦветЧитаютСловарём(t *testing.T) {
 		}
 	}
 }
+
+// Словарь именованных мест один — во всех, кто на него отвечает.
+//
+// Отвечали шестью списками и четырьмя разными словарями. Движок знал
+// center_left/center_right, но не знал offscreen_left — а его подсказывал
+// редактор и принимал компилятор, и актёр, уведённый ЗА кадр, вставал в ЦЕНТР
+// экрана. Компиляторы, наоборот, не знали center_left: слово молча становилось
+// ЭМОЦИЕЙ. Веб-плеер знал три слова из девяти и своими числами.
+func TestСловарьМестОдинВоВсехРантаймах(t *testing.T) {
+	root := repoRoot(t)
+	names := func(path string, re *regexp.Regexp, want int) map[string]bool {
+		raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(path)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := re.FindStringSubmatch(string(raw))
+		if m == nil {
+			t.Fatalf("%s: список мест не найден — поправь якорь сторожа", path)
+		}
+		out := map[string]bool{}
+		for _, w := range regexp.MustCompile(`"?([a-z_]+)"?`).FindAllStringSubmatch(m[1], -1) {
+			if strings.Contains(w[1], "_") || w[1] == "left" || w[1] == "right" || w[1] == "center" {
+				out[w[1]] = true
+			}
+		}
+		if len(out) != want {
+			t.Fatalf("%s: мест %d, ожидалось %d — %v", path, len(out), want, out)
+		}
+		return out
+	}
+	// Движок — правда.
+	truth := names("unity/Packages/com.lvn.engine/Runtime/UI/Placement.cs",
+		regexp.MustCompile(`(?s)SlotNames\s*=\s*\{(.*?)\};`), 9)
+
+	for _, side := range []struct {
+		path string
+		re   *regexp.Regexp
+	}{
+		{"unity/Packages/com.lvn.engine/Editor/LvnsCompiler.cs",
+			regexp.MustCompile(`(?s)(case "left":.*?)ac\["position"\] = tok;`)},
+		{"tools/lvnconv/internal/lvns/convert.go",
+			regexp.MustCompile(`(?s)(case "left", "right".*?):\n`)},
+		// В grammar.json список мест лежит ДВАЖДЫ: закрытые значения поля
+		// `actor position=` (enums) и общие подсказки после `position=`
+		// (attr_values). Сверяем оба — стоило разойтись одному, и редактор
+		// подсказывал бы разное в двух шагах одного набора.
+		{"tools/lvn-lang/src/grammar.json",
+			regexp.MustCompile(`(?s)"enums".*?"position":\s*\[(.*?)\]`)},
+		{"tools/lvn-lang/src/grammar.json",
+			regexp.MustCompile(`(?s)"attr_values".*?"position":\s*\[(.*?)\]`)},
+		{"panel/public/play/place.js",
+			regexp.MustCompile(`(?s)const SLOTS = \{(.*?)\n\};`)},
+	} {
+		got := names(side.path, side.re, 9)
+		for w := range truth {
+			if !got[w] {
+				t.Fatalf("%s: места %q не знает, а движок знает — "+
+					"автор напишет его и получит не то место", side.path, w)
+			}
+		}
+		for w := range got {
+			if !truth[w] {
+				t.Fatalf("%s: знает место %q, которого у движка нет", side.path, w)
+			}
+		}
+	}
+}
