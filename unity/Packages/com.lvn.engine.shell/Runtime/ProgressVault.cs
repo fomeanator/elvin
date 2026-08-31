@@ -134,7 +134,7 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(LvnPrefs.PlayerName)) return false;
             if (manifest?.titles != null)
                 foreach (var t in manifest.titles)
-                    if (t != null && (LvnProgress.Current(t) != null || LvnProgress.HasReached(t)))
+                    if (LvnProgress.Touched(t))
                         return false;
             return true;
         }

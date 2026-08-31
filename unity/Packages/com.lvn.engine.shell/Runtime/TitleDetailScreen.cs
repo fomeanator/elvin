@@ -441,7 +441,7 @@ namespace Lvn.UI.Screens
 
             // "Начать заново" — only once there's progress worth restarting; sits
             // right under the Play action so it reads as a secondary option.
-            if (Title != null && (LvnProgress.Current(Title) != null || LvnProgress.HasReached(Title)))
+            if (LvnProgress.Touched(Title))
             {
                 var restart = Lvn.UI.LvnRedress.Bind(new Button(ShowRestartMenu), () => LvnWords.Of("title.restart", "Start over"));
                 restart.style.marginBottom = 12;
