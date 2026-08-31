@@ -262,7 +262,7 @@ namespace Lvn.UI.Screens
                 _shell.Hub.OnLockedHint = (name, hint) =>
                     _shell.AlertAsync(name, string.IsNullOrEmpty(hint) ? "Locked" : hint);
                 _shell.Hub.OnMenu = () => _shell.OpenSettingsAsync(); // avatar → account/settings
-                _shell.Hub.OnStore = () => _shell.TabGoTo(1);   // вкладка ленты
+                _shell.Hub.OnStore = () => _shell.TabGoTo(LvnTabs.Store);   // вкладка ленты
                 // Гардероб → the REAL, wallet-synced wardrobe for the game's main
                 // heroine (title.hero ?? manifest.hero). Ownership lives in the
                 // shared LvnWallet.Inventory, so it stays in sync with the in-story
@@ -273,7 +273,7 @@ namespace Lvn.UI.Screens
                 // промежуточные вкладки ПРОЛЕТАЮТ через кадр, цель въезжает.
                 // ГАРДЕРОБ ОДИН: в меню — вкладка вокруг общей героини,
                 // в игре — прежний сценический шит (квик-меню/оп wardrobe_show).
-                _shell.Hub.OnWardrobe = () => _shell.TabGoTo(2);
+                _shell.Hub.OnWardrobe = () => _shell.TabGoTo(LvnTabs.Wardrobe);
                 _shell.Hub.OnGallery = OpenGalleryForRealAsync;
                 _shell.Hub.OnProfile = () => OpenProfileWithRelationsAsync();
                 // TR-25: партнёр прячет ежедневную награду данными; сама
@@ -291,7 +291,7 @@ namespace Lvn.UI.Screens
                 }
                 _shell.Hub.Currencies = HubCurrencies();
                 _shell.Hub.ExternalTopBar = true; // валюты несёт единый навбар
-                _shell.Hub.OnHomeNav = () => LvnAsync.Fire(_shell.TabGoTo(0), "TabHome");
+                _shell.Hub.OnHomeNav = () => LvnAsync.Fire(_shell.TabGoTo(LvnTabs.Home), "TabHome");
                 // Tapping a card opens the rich detail page seeded with this title.
                 _shell.Hub.OnOpenDetail = t => OpenDetailWithStatsAsync(t);
             }

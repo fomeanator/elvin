@@ -110,7 +110,7 @@ namespace Lvn.UI.Screens
             p.Wallet = BuildWalletTiles();
             p.OnDeleteAccount = DeleteAccountAndForgetAsync;
             p.OnOpenSettings = () => LvnAsync.Fire(_shell.OpenSettingsAsync(), "OpenSettings");
-            await _shell.TabGoTo(3); // вкладка ленты, не модалка
+            await _shell.TabGoTo(LvnTabs.Profile); // вкладка ленты, не модалка
         }
 
         // Единственная правда о валютах игры: ui.browse.currencies, дефолт —

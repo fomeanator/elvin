@@ -16,12 +16,15 @@ namespace Lvn.UI.Screens
     /// </summary>
     public sealed partial class NovelShell
     {
+        /// <summary>Страница за вкладкой. Номера — у набора вкладок
+        /// (<see cref="LvnTabs"/>), здесь только ответ «чей это экран»: у
+        /// галереи страницы нет вовсе, она открывает модаль.</summary>
         private (VisualElement el, LvnOverlayScreen scr) TabPage(int i) => i switch
         {
-            0 => (Hub?.ContentRoot, null),
-            1 => (PackShop, PackShop),
-            2 => (WardrobeTab, WardrobeTab),
-            3 => (Profile, Profile),
+            LvnTabs.Home => (Hub?.ContentRoot, null),
+            LvnTabs.Store => (PackShop, PackShop),
+            LvnTabs.Wardrobe => (WardrobeTab, WardrobeTab),
+            LvnTabs.Profile => (Profile, Profile),
             _ => (null, null),
         };
 
@@ -75,7 +78,7 @@ namespace Lvn.UI.Screens
                 case Lvn.UI.LvnScreenDirector.QuickMenu: return;
             }
             if (_inChapter) return;    // экран чист, глава идёт — «назад» не наш
-            if (_tab != 0 && !_tabBusy) LvnAsync.Fire(TabGoTo(0), "BackHome");
+            if (_tab != LvnTabs.Home && !_tabBusy) LvnAsync.Fire(TabGoTo(LvnTabs.Home), "BackHome");
         }
 
         public async Task TabGoTo(int target)
@@ -110,7 +113,8 @@ namespace Lvn.UI.Screens
                     OnTabTravelTick?.Invoke(k); // сцена меню — той же кривой
                     if (_canvasTint != null)
                         _canvasTint.style.backgroundColor = Color.Lerp(
-                            TabTints[Mathf.Clamp(_tab, 0, 3)], TabTints[Mathf.Clamp(target, 0, 3)], k);
+                            TabTints[Mathf.Clamp(_tab, 0, LvnTabs.PageCount - 1)],
+                            TabTints[Mathf.Clamp(target, 0, LvnTabs.PageCount - 1)], k);
                     if (p >= 1f) tcs.TrySetResult(true);
                 });
                 await tcs.Task;
@@ -130,15 +134,15 @@ namespace Lvn.UI.Screens
         {
             var from = TabPage(_tab);
             if (from.scr != null) from.scr.HideAsTab();
-            var home = TabPage(0);
+            var home = TabPage(LvnTabs.Home);
             if (home.el != null)
             {
                 home.el.style.display = DisplayStyle.Flex;
                 home.el.style.translate = new Translate(0f, 0f);
             }
-            _tab = 0;
+            _tab = LvnTabs.Home;
             _tabCanvasX = 0f;
-            Hub?.SetActiveTab(0, instant: true);
+            Hub?.SetActiveTab(LvnTabs.Home, instant: true);
         }
 
         // ── НАБОР ЭКРАНОВ ВЕДЁТ СЕБЯ САМ ──

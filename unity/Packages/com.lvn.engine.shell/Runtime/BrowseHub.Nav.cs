@@ -44,19 +44,24 @@ namespace Lvn.UI.Screens
             SetActiveTab(_activeTab, instant: true);
         }
 
-        // Подпись вкладки по её месту: перевод сильнее авторского поля, оно
-        // сильнее умолчания. Раньше подписи стояли строками прямо в сборке, и
-        // обновить их было негде.
-        private string NavLabel(int index)
+        // Подпись вкладки — у набора: правило «перевод сильнее авторского
+        // поля, оно сильнее умолчания» одно на все пять, и жило оно тут
+        // пятикратно переписанным.
+        private string NavLabel(int index) => LvnTabs.Label(index, _cfg);
+
+        // ЧТО ВКЛАДКА ДЕЛАЕТ — единственное, что тут и правда дело хаба.
+        // Обработчики читаются ЛЕНИВО, в момент нажатия: хозяин привязывает их
+        // ПОСЛЕ сборки, и захваченное здесь значение было бы null.
+        private System.Action TabAction(int index)
         {
             switch (index)
             {
-                case 0: return LvnWords.Pick("nav.home", _cfg.nav_home, "Home");
-                case 1: return LvnWords.Pick("nav.store", _cfg.nav_store, "Store");
-                case 2: return LvnWords.Pick("nav.wardrobe", _cfg.nav_wardrobe, "Wardrobe");
-                case 3: return LvnWords.Pick("nav.profile", _cfg.nav_profile, "Profile");
-                case 4: return LvnWords.Pick("nav.gallery", _cfg.nav_gallery, "Gallery");
-                default: return "";
+                case LvnTabs.Home: return () => OnHomeNav?.Invoke();
+                case LvnTabs.Store: return () => { if (OnStore != null) LvnAsync.Fire(OnStore(), "OpenStore"); };
+                case LvnTabs.Wardrobe: return () => { if (OnWardrobe != null) LvnAsync.Fire(OnWardrobe(), "OpenWardrobe"); };
+                case LvnTabs.Gallery: return () => { if (OnGallery != null) LvnAsync.Fire(OnGallery(), "OpenGallery"); };
+                case LvnTabs.Profile: return () => { if (OnProfile != null) LvnAsync.Fire(OnProfile(), "OpenProfile"); };
+                default: return null;
             }
         }
 
@@ -75,13 +80,14 @@ namespace Lvn.UI.Screens
             nav.style.backgroundColor = new Color(_bg.r, _bg.g, _bg.b, 0.96f);
             // Callbacks are read LAZILY at click time — the host wires them AFTER
             // this is built, so capturing the field value here would capture null.
-            nav.Add(NavTab(0, LvnIcon.Home, NavLabel(0),
-                () => OnHomeNav?.Invoke()));
-            nav.Add(NavTab(1, LvnIcon.Store, NavLabel(1), () => { if (OnStore != null) LvnAsync.Fire(OnStore(), "OpenStore"); }));
-            nav.Add(NavTab(2, LvnIcon.Wardrobe, NavLabel(2), () => { if (OnWardrobe != null) LvnAsync.Fire(OnWardrobe(), "OpenWardrobe"); }));
-            if (_cfg.show_gallery ?? true)
-                nav.Add(NavTab(4, LvnIcon.Gallery, NavLabel(4), () => { if (OnGallery != null) LvnAsync.Fire(OnGallery(), "OpenGallery"); }));
-            nav.Add(NavTab(3, LvnIcon.Profile, NavLabel(3), () => { if (OnProfile != null) LvnAsync.Fire(OnProfile(), "OpenProfile"); }));
+            // Ряд идёт по НАБОРУ (LvnTabs.Shown), а не по руке: место, значок
+            // и подпись у вкладки одни на всё приложение. Здесь остаётся
+            // только то, что и правда дело хаба, — что вкладка ДЕЛАЕТ.
+            foreach (var tab in LvnTabs.Shown)
+            {
+                if (tab.Index == LvnTabs.Gallery && !(_cfg.show_gallery ?? true)) continue;
+                nav.Add(NavTab(tab.Index, tab.Icon, NavLabel(tab.Index), TabAction(tab.Index)));
+            }
             SetActiveTab(0, instant: true);
             return nav;
         }
