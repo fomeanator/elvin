@@ -477,15 +477,7 @@ namespace Lvn.Content
                 {
                     _inflight.Remove(url);
                     BatchDone++;
-                    if (BatchDone >= BatchTotal)
-                    {
-                        BatchTotal = 0;
-                        BatchDone = 0;
-                        LastStartedUrl = null;
-                        _attempts.Clear();
-                        _bytesExpected.Clear();
-                        _bytesReceived.Clear();
-                    }
+                    if (BatchDone >= BatchTotal) ClearBatchTally();
                 }
             }, TaskScheduler.Default);
             return task;

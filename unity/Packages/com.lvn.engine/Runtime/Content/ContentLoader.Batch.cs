@@ -74,15 +74,35 @@ namespace Lvn.Content
                 lock (_inflight)
                 {
                     _inflight.Remove(batchKey);
-                    BatchTotal     = 0;
-                    BatchDone      = 0;
-                    LastStartedUrl = null;
-                    _attempts.Clear();
-                    _bytesExpected.Clear();
-                    _bytesReceived.Clear();
+                    ClearBatchTally();
                 }
             }, TaskScheduler.Default);
             return batchTask;
+        }
+
+        /// <summary>
+        /// ОЧЕРЕДЬ ОПУСТЕЛА — счёт обнуляется ВЕСЬ.
+        ///
+        /// <para>Счёт складывают шесть полей: сколько всего, сколько сделано,
+        /// что скачивалось последним, попытки и два словаря байтов. Забыть одно
+        /// из них — значит показать игроку «Скачано 131 из 135» при пустой
+        /// очереди (живой скрин): мусор одиночных фетчей въезжает в проценты
+        /// следующего пакета.</para>
+        ///
+        /// <para>Обнуление стояло дважды — в конце пакета и в конце одиночной
+        /// загрузки, — и это ровно то место, где поле теряют.</para>
+        ///
+        /// <para>Звать ТОЛЬКО под <c>lock (_inflight)</c>: те же поля читает
+        /// полоса загрузки из другого потока.</para>
+        /// </summary>
+        private void ClearBatchTally()
+        {
+            BatchTotal     = 0;
+            BatchDone      = 0;
+            LastStartedUrl = null;
+            _attempts.Clear();
+            _bytesExpected.Clear();
+            _bytesReceived.Clear();
         }
 
         private async Task<byte[]> RunBatchAsync(List<PreloadItem> pending, CancellationToken ct)

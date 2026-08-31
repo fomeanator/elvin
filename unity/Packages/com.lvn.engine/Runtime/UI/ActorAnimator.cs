@@ -196,21 +196,8 @@ namespace Lvn.UI
             {
                 var act = kv.Value;
                 var anim = act.anim;
-                float dur = Mathf.Max(0.0001f, anim.duration);
-                float elapsed = now - act.start;
-                float t = anim.loop ? (anim.yoyo ? Mathf.PingPong(elapsed, dur) : Mathf.Repeat(elapsed, dur)) : Mathf.Min(elapsed, dur);
-
-                // A spline path pair moves at constant speed: warp its sample time
-                // through the arc-length table (other tracks keep wall time).
-                LvnAnimTrack sx = null, sy = null;
-                foreach (var tr in anim.tracks)
-                {
-                    if (tr == null || !string.IsNullOrEmpty(tr.layer) || tr.keys == null) continue;
-                    if (tr.prop == "screen_x") sx = tr;
-                    else if (tr.prop == "screen_y") sy = tr;
-                }
-                bool arcPath = sx != null && sy != null && sx.interp == "spline" && sy.interp == "spline";
-                float pt = arcPath ? ArcTime(sx, sy, t, dur, ref act.Arc) : t;
+                var clock = ClockOf(anim, now - act.start, ref act.Arc);
+                float t = clock.T;
 
                 LvnAnimTrack orientX = null, pathY = null; // move … orient=true: face along the path
                 foreach (var tr in anim.tracks)
@@ -226,8 +213,8 @@ namespace Lvn.UI
                     }
                     else
                     {
-                        bool onPath = arcPath && (tr == sx || tr == sy);
-                        float v = Sample(tr, onPath ? pt : t, easeless: onPath);
+                        bool onPath = clock.OnPath(tr);
+                        float v = Sample(tr, clock.TimeOf(tr), easeless: onPath);
                         if (string.IsNullOrEmpty(tr.layer))
                         {
                             if (tr.prop == "screen_x") { ssx = v; if (tr.orient) orientX = tr; } // move the whole actor across the screen
@@ -243,8 +230,8 @@ namespace Lvn.UI
                     }
                 }
                 if (orientX != null && pathY != null)
-                    rig.Apply("rotation", OrientAngle(orientX, pathY, arcPath ? pt : t, dur));
-                if (!anim.loop && elapsed >= dur) (done ??= new List<string>()).Add(kv.Key);
+                    rig.Apply("rotation", OrientAngle(orientX, pathY, clock.OrientT, clock.Duration));
+                if (clock.Finished) (done ??= new List<string>()).Add(kv.Key);
             }
 
             rig.ApplyTo(_rig);
@@ -411,6 +398,78 @@ namespace Lvn.UI
 
         // The warped sample time for a spline path pair at wall time t: easing
         // drives progress along the length, the table converts it to raw time.
+        /// <summary>
+        /// ЧАСЫ КАНАЛА — где анимация находится ПРЯМО СЕЙЧАС.
+        ///
+        /// <para>Между «сколько прошло секунд» и «какое значение брать у
+        /// дорожки» лежат три решения, и все три — про время, а не про то, что
+        /// анимируют: закольцована ли анимация (и качается ли туда-обратно),
+        /// доиграла ли она, и есть ли у неё ПУТЬ — пара сплайновых дорожек
+        /// screen_x/screen_y, по которой фигура обязана двигаться с ПОСТОЯННОЙ
+        /// СКОРОСТЬЮ, а не с постоянным приростом параметра.</para>
+        ///
+        /// <para>Эти три решения были записаны ДВАЖДЫ дословно — у плоской
+        /// фигуры и у трёхмерной. Расхождение в них не падает и даже не видно
+        /// на глаз: движение просто идёт «не так», рывками или не тем концом
+        /// петли. Такое ищут неделями, поэтому у времени канала один дом.</para>
+        /// </summary>
+        internal struct ChannelClock
+        {
+            /// <summary>Время дорожек — по стенным часам, закольцованное или
+            /// зажатое концом.</summary>
+            public float T;
+            /// <summary>Время дорожек ПУТИ — выправленное по длине дуги, чтобы
+            /// скорость вдоль кривой была ровной.</summary>
+            public float PathT;
+            /// <summary>Длина анимации, не меньше мгновения (делить на неё
+            /// придётся).</summary>
+            public float Duration;
+            /// <summary>Пара дорожек, образующих путь, — если она есть.</summary>
+            public LvnAnimTrack PathX, PathY;
+            /// <summary>Путь сплайновый: время вдоль него выправляется.</summary>
+            public bool ArcPath;
+            /// <summary>Незакольцованная анимация дошла до конца.</summary>
+            public bool Finished;
+
+            /// <summary>Эта дорожка — часть пути?</summary>
+            public bool OnPath(LvnAnimTrack tr) => ArcPath && (tr == PathX || tr == PathY);
+            /// <summary>Время выборки ЭТОЙ дорожки: дорожки пути живут по
+            /// выправленному времени, остальные — по стенному.</summary>
+            public float TimeOf(LvnAnimTrack tr) => OnPath(tr) ? PathT : T;
+            /// <summary>Время, по которому берут наклон пути для разворота
+            /// фигуры «лицом по движению».</summary>
+            public float OrientT => ArcPath ? PathT : T;
+        }
+
+        /// <summary>Часы канала по прошедшему времени. <paramref name="arcCache"/> —
+        /// таблица длины дуги этого канала: строится один раз и живёт с ним.</summary>
+        internal static ChannelClock ClockOf(LvnAnim anim, float elapsed, ref float[] arcCache)
+        {
+            float dur = Mathf.Max(0.0001f, anim.duration);
+            float t = anim.loop
+                ? (anim.yoyo ? Mathf.PingPong(elapsed, dur) : Mathf.Repeat(elapsed, dur))
+                : Mathf.Min(elapsed, dur);
+
+            LvnAnimTrack px = null, py = null;
+            if (anim.tracks != null)
+                foreach (var tr in anim.tracks)
+                {
+                    if (tr == null || !string.IsNullOrEmpty(tr.layer) || tr.keys == null) continue;
+                    if (tr.prop == "screen_x") px = tr;
+                    else if (tr.prop == "screen_y") py = tr;
+                }
+            bool arc = px != null && py != null && px.interp == "spline" && py.interp == "spline";
+
+            return new ChannelClock
+            {
+                T = t,
+                PathT = arc ? ArcTime(px, py, t, dur, ref arcCache) : t,
+                Duration = dur,
+                PathX = px, PathY = py, ArcPath = arc,
+                Finished = !anim.loop && elapsed >= dur,
+            };
+        }
+
         internal static float ArcTime(LvnAnimTrack x, LvnAnimTrack y, float t, float dur, ref float[] cache)
         {
             cache ??= BuildArcTable(x, y, dur);

@@ -372,6 +372,70 @@ namespace Lvn.Content
             list.Sort((a, b) => a.number.CompareTo(b.number));
             return list;
         }
+
+        /// <summary>ПЕРВАЯ ГЛАВА — с наименьшим НОМЕРОМ, а не первая
+        /// перечисленная. Совпадают они лишь пока автор пишет главы по
+        /// порядку; запиши вторую выше первой — и «начать сначала» поведёт не
+        /// туда. Номер — замысел, порядок в файле — случайность формата.</summary>
+        public static LvnChapter FirstChapter(this LvnTitle t)
+        {
+            var all = t.ChaptersOf();
+            return all.Count > 0 ? all[0] : null;
+        }
+
+        /// <summary>ПОСЛЕДНЯЯ ГЛАВА — с наибольшим номером. По ней узнают, что
+        /// новелла пройдена до конца.</summary>
+        public static LvnChapter LastChapter(this LvnTitle t)
+        {
+            var all = t.ChaptersOf();
+            return all.Count > 0 ? all[all.Count - 1] : null;
+        }
+
+        /// <summary>СЛЕДУЮЩАЯ ЗА ЭТОЙ — с наименьшим номером, строго большим
+        /// текущего. Null значит «эта была последней»: звонящий возвращает
+        /// игрока в меню, а не ищет главу дальше.</summary>
+        public static LvnChapter ChapterAfter(this LvnTitle t, LvnChapter current)
+        {
+            if (current == null) return null;
+            foreach (var c in t.ChaptersOf())
+                if (c.number > current.number) return c;
+            return null;
+        }
+
+        /// <summary>Глава по id — ровно она, без догадок.</summary>
+        public static LvnChapter ChapterById(this LvnTitle t, string id)
+        {
+            if (string.IsNullOrEmpty(id)) return null;
+            foreach (var c in t.ChaptersOf())
+                if (c.id == id) return c;
+            return null;
+        }
+
+        /// <summary>
+        /// ГЛАВА, НА КОТОРОЙ ОСТАНОВИЛИСЬ, — по id, а если id больше нет, по
+        /// номеру.
+        ///
+        /// <para>Переимпорт контента переименовывает главы: id, записанный в
+        /// метку прогресса, перестаёт существовать. Потерять из-за этого целое
+        /// прохождение нельзя, поэтому номер держат вторым ключом.</para>
+        ///
+        /// <para>Правило было записано ДВАЖДЫ — в метке прогресса и в разборе
+        /// облачного свёртка, — и порядок поиска в них уже расходился: одна
+        /// сначала обходила все главы по id и лишь потом по номеру, вторая шла
+        /// одним проходом и могла остановиться на совпадении по номеру раньше,
+        /// чем встретила совпадение по id. На новелле, где id сменились не у
+        /// всех глав, они возвращали РАЗНЫЕ главы.</para>
+        /// </summary>
+        public static LvnChapter ChapterByIdOrNumber(this LvnTitle t, string id, int number)
+            => t.ChapterById(id) ?? (number > 0 ? t.ChapterByNumber(number) : null);
+
+        /// <summary>Глава по номеру — резервный ключ прогресса.</summary>
+        public static LvnChapter ChapterByNumber(this LvnTitle t, int number)
+        {
+            foreach (var c in t.ChaptersOf())
+                if (c.number == number) return c;
+            return null;
+        }
     }
 
     public sealed class LvnTitle

@@ -98,5 +98,35 @@ namespace Lvn.Tests.Runtime
             CollectionAssert.AreEqual(new[] { "katya" }, _stage.ActorsOnStage(),
                 "быстрое перещёлкивание оставило на сцене нескольких героев разом");
         }
+
+        /// <summary>
+        /// СКРЫТИЕ НИКОГО НЕ СТАВИТ — и подписываться под позой не вправе.
+        ///
+        /// <para>Гардероб убирает манекен своей командой. Место фигуры при этом
+        /// остаётся прежним, авторским, — но записывался в память отправитель
+        /// СКРЫТИЯ. Дальше правило «авторская команда не наследует чужую позу»
+        /// видело гардероб, объявляло следующую авторскую команду свежей и
+        /// уводило фигуру в слот по умолчанию, обнуляя её явный z. Игрок видит
+        /// это как «закрыл гардероб — героиня переехала».</para>
+        ///
+        /// <para>На экране правило невидимо, поэтому проверяется по памяти
+        /// сцены напрямую.</para>
+        /// </summary>
+        [UnityTest]
+        public IEnumerator HidingDoesNotClaimAuthorshipOfThePose()
+        {
+            _stage.Play(TwoOnStage());
+            yield return new WaitForSecondsRealtime(0.5f);
+            Assert.IsTrue(_stage.Memory.TryPoseSender("katya", out var author),
+                "sanity: позу кто-то поставил");
+            Assert.AreEqual(LvnSender.Story, author, "sanity: ставил её сценарий");
+
+            _stage.HideActor("katya", LvnSender.Wardrobe);
+            yield return new WaitForSecondsRealtime(0.4f);
+
+            Assert.IsTrue(_stage.Memory.TryPoseSender("katya", out var afterHide));
+            Assert.AreEqual(LvnSender.Story, afterHide,
+                "скрытие расписалось под чужой позой — следующая авторская команда уведёт фигуру в слот по умолчанию");
+        }
     }
 }

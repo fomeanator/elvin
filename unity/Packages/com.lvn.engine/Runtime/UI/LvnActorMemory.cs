@@ -40,6 +40,18 @@ namespace Lvn.UI
 
         private readonly Dictionary<string, Entry> _byId = new Dictionary<string, Entry>();
 
+        /// <summary>Запись, о которой не осталось НИЧЕГО, — не «фигура, о
+        /// которой ничего не известно», а тень: снимать наряд с неполной
+        /// записи или стирать команду вправе кто угодно, и после этого в
+        /// переписи оставался пустой человек. Перепись должна отвечать про
+        /// тех, о ком есть что сказать.</summary>
+        private void PruneIfBlank(string id)
+        {
+            if (!_byId.TryGetValue(id, out var e)) return;
+            if (e.Cmd == null && !e.HasTarget && !e.HasPose && !e.HasWhere && e.Look == null)
+                _byId.Remove(id);
+        }
+
         private Entry Of(string id)
         {
             if (!_byId.TryGetValue(id, out var e)) { e = new Entry(); _byId[id] = e; }
@@ -60,14 +72,27 @@ namespace Lvn.UI
             e.HasPose = true;
         }
 
-        /// <summary>Вернуть команду, НЕ трогая отправителя позы. Примерка
-        /// прячет фигуру и возвращает её прежней командой — но ставил-то её
-        /// по-прежнему автор, и правило «авторская команда не наследует позу
-        /// витрины» смотрит именно на отправителя.</summary>
-        public void RestoreCommand(string id, JObject cmd)
+        /// <summary>
+        /// Запомнить команду, НЕ ТРОГАЯ ОТПРАВИТЕЛЯ ПОЗЫ.
+        ///
+        /// <para>Подпись под позой отвечает на вопрос «кто ПОСТАВИЛ фигуру», и
+        /// её ставят не все команды. СКРЫТИЕ никого не ставит: гардероб убрал
+        /// манекен, катсцена расчистила кадр — место фигуры осталось прежним,
+        /// авторским. Примерка так же возвращает прежнюю команду, а ставил её
+        /// по-прежнему автор.</para>
+        ///
+        /// <para>Перепиши тут подпись — и правило «авторская команда не
+        /// наследует чужую позу» решит, что позу ставил гардероб. Следующая
+        /// авторская команда без <c>position</c> посчитается свежей: фигура,
+        /// стоявшая слева, вернётся в слот по умолчанию, а её явный <c>z</c>
+        /// обнулится. Игрок видит это как «закрыл гардероб — героиня
+        /// переехала».</para>
+        /// </summary>
+        public void RememberCommandOnly(string id, JObject cmd)
         {
             if (string.IsNullOrEmpty(id)) return;
             Of(id).Cmd = cmd;
+            if (cmd == null) PruneIfBlank(id);
         }
 
         public bool TryCommand(string id, out JObject cmd)
@@ -158,7 +183,9 @@ namespace Lvn.UI
 
         public void DropWhere(string id)
         {
-            if (!string.IsNullOrEmpty(id) && _byId.TryGetValue(id, out var e)) e.HasWhere = false;
+            if (string.IsNullOrEmpty(id) || !_byId.TryGetValue(id, out var e)) return;
+            e.HasWhere = false;
+            PruneIfBlank(id);
         }
 
         // ── что надето ─────────────────────────────────────────────────────
@@ -167,6 +194,7 @@ namespace Lvn.UI
         {
             if (string.IsNullOrEmpty(id)) return;
             Of(id).Look = look;
+            if (look == null) PruneIfBlank(id);
         }
 
         public bool TryLook(string id, out string look)
@@ -179,13 +207,25 @@ namespace Lvn.UI
 
         public void DropLook(string id)
         {
-            if (!string.IsNullOrEmpty(id) && _byId.TryGetValue(id, out var e)) e.Look = null;
+            if (string.IsNullOrEmpty(id) || !_byId.TryGetValue(id, out var e)) return;
+            e.Look = null;
+            PruneIfBlank(id);
         }
 
         /// <summary>Забыть, что на ком надето, — но не самих людей.</summary>
         public void ForgetLooks()
         {
-            foreach (var kv in _byId) kv.Value.Look = null;
+            List<string> blank = null;
+            foreach (var kv in _byId)
+            {
+                kv.Value.Look = null;
+                // Запись, в которой был ТОЛЬКО облик, после этого пуста — а
+                // пустая запись и есть тень человека.
+                var e = kv.Value;
+                if (e.Cmd == null && !e.HasTarget && !e.HasPose && !e.HasWhere)
+                    (blank ??= new List<string>()).Add(kv.Key);
+            }
+            if (blank != null) foreach (var id in blank) _byId.Remove(id);
         }
 
         // ── забвение ───────────────────────────────────────────────────────
@@ -219,17 +259,6 @@ namespace Lvn.UI
                 e.HasWhere = false;
                 if (e.Look == null) drop.Add(kv.Key);
             }
-            foreach (var id in drop) _byId.Remove(id);
-        }
-
-        /// <summary>Забыть всех, кроме одного: тот, кто остаётся жить, уносит с
-        /// собой и место, и облик — сцена по обе стороны перехода помнит ОДНУ
-        /// И ТУ ЖЕ куклу.</summary>
-        public void ForgetAllExcept(string keep)
-        {
-            var drop = new List<string>();
-            foreach (var kv in _byId)
-                if (!string.Equals(kv.Key, keep, System.StringComparison.Ordinal)) drop.Add(kv.Key);
             foreach (var id in drop) _byId.Remove(id);
         }
     }

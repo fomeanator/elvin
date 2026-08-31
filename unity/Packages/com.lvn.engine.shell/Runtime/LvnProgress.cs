@@ -111,25 +111,13 @@ namespace Lvn.UI.Screens
             if (title?.seasons == null) return null;
             var id = LvnKeep.Get(CurKey(title.id), "");
             if (string.IsNullOrEmpty(id)) return null;
-            foreach (var s in title.seasons)
-                if (s?.chapters != null)
-                    foreach (var c in s.chapters)
-                        if (c != null && c.id == id)
-                            return c;
-            // The id vanished (a re-import renamed chapters) — recover by the
-            // stored NUMBER and heal the marker. Losing a whole playthrough to
-            // an id rename is exactly the progress loss this store must forbid.
-            int num = LvnKeep.Get(CurNumKey(title.id), 0);
-            if (num > 0)
-                foreach (var s in title.seasons)
-                    if (s?.chapters != null)
-                        foreach (var c in s.chapters)
-                            if (c != null && c.number == num)
-                            {
-                                SetCurrent(title, c);
-                                return c;
-                            }
-            return null; // nothing to recover — genuinely fresh
+            // Id пропал (переимпорт переименовал главы) — выручает номер, и
+            // метку тут же лечим. Терять из-за переименования целое
+            // прохождение — ровно та потеря прогресса, которую этот дом
+            // обязан запрещать.
+            var found = title.ChapterByIdOrNumber(id, LvnKeep.Get(CurNumKey(title.id), 0));
+            if (found != null && found.id != id) SetCurrent(title, found);
+            return found; // null — прохождения и правда не было
         }
 
         /// <summary>The furthest chapter number ever started (0 = nothing yet).</summary>

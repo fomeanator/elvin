@@ -55,21 +55,7 @@ namespace Lvn.Content
         /// <para>Номер — авторский замысел, порядок в файле — случайность
         /// формата, поэтому правило одно: наименьший номер.</para>
         /// </summary>
-        public static LvnChapter First(LvnTitle title)
-        {
-            if (title?.seasons == null) return null;
-            LvnChapter best = null;
-            foreach (var s in title.seasons)
-            {
-                if (s?.chapters == null) continue;
-                foreach (var c in s.chapters)
-                {
-                    if (c == null) continue;
-                    if (best == null || c.number < best.number) best = c;
-                }
-            }
-            return best;
-        }
+        public static LvnChapter First(LvnTitle title) => title.FirstChapter();
 
         /// <summary>Номер первой главы — то, что спрашивает
         /// <see cref="ChapterOpen(int,int,int)"/>. Ноль, если глав нет.</summary>
