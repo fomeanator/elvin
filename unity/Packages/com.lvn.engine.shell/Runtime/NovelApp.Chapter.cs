@@ -81,7 +81,11 @@ namespace Lvn.UI.Screens
                         ("at", Stage?.Player?.Index ?? -1),
                         ("label", snap?.AnchorStableLabel ?? snap?.AnchorLabel),
                         ("bg", Lvn.UI.VnStage.LastSceneBgUrl),
-                        ("actors", Stage?.ActorsOnStage()));
+                        ("actors", Stage?.ActorsOnStage()),
+                        // Брошенная глава — самый интересный случай для плавности:
+                        // уходят чаще всего оттуда, где дёргается.
+                        ("hitches", Lvn.LvnFrameWatch.Hitches),
+                        ("worst_ms", Lvn.LvnFrameWatch.WorstMs));
                     FlushUnknownOps(title, chapter);
                     break; // → carousel
                 }
@@ -181,8 +185,13 @@ namespace Lvn.UI.Screens
         private void AnnounceChapterFinish(LvnTitle title, LvnChapter finished)
         {
             ChapterFinished?.Invoke(title, finished);
+            // ПЛАВНОСТЬ — ВЕЛИЧИНА, А НЕ ОЩУЩЕНИЕ. Счёт запинок уходит вместе с
+            // концом главы: по нему видно, стало ли лучше после правки, — раньше
+            // это можно было только почувствовать.
+            var (hitches, worstMs) = Lvn.LvnFrameWatch.Take();
             Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.ChapterFinish,
-                ("title", title?.id), ("chapter", finished.id));
+                ("title", title?.id), ("chapter", finished.id),
+                ("hitches", hitches), ("worst_ms", worstMs));
             FlushUnknownOps(title, finished);
         }
 
