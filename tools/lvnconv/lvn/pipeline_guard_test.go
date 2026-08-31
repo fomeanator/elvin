@@ -131,13 +131,23 @@ func TestКопияГрамматикиВРасширенииНеФорк(t *tes
 // снимок был свежим — как у сгенерированной grammar.js.
 func TestСхемаМанифестаНеОтстаётОтDTO(t *testing.T) {
 	root := repoRoot(t)
-	raw, err := os.ReadFile(filepath.Join(root, "unity", "Packages", "com.lvn.engine",
-		"Runtime", "Content", "LvnUiConfig.cs"))
-	if err != nil {
-		t.Fatal(err)
+	// Оба исходника, как и генератор: облик описан в LvnUiConfig, каталог — в
+	// LvnManifest, а для игрока это один файл.
+	fresh := ManifestSchema{}
+	for _, name := range []string{"LvnUiConfig.cs", "LvnManifest.cs"} {
+		raw, err := os.ReadFile(filepath.Join(root, "unity", "Packages", "com.lvn.engine",
+			"Runtime", "Content", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for cls, fields := range ScrapeManifestSchema(string(raw)) {
+			if _, clash := fresh[cls]; clash {
+				t.Fatalf("класс %s объявлен в обоих исходниках — снимок стал бы неоднозначным", cls)
+			}
+			fresh[cls] = fields
+		}
 	}
-	fresh := ScrapeManifestSchema(string(raw))
-	if len(fresh) < 15 {
+	if len(fresh) < 30 {
 		t.Fatalf("снялось всего %d классов — разбор промахнулся, поправь ScrapeManifestSchema", len(fresh))
 	}
 	stored := ManifestSchema{}
