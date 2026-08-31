@@ -314,3 +314,48 @@ func TestСостояниеГлавыСпрашиваютУДома(t *testing.T
 		}
 	}
 }
+
+// Заголовок раздела собирают ОДИН раз.
+//
+// Он строился четырьмя способами: две частные копии в двух экранах (30 и 28
+// кеглем) и два набора строк на месте. Двое из четверых пропускали огранку
+// темы — и на «Кибере» половина заголовков шла капсом с разрядкой, а половина
+// обычным текстом, в одном и том же экране.
+func TestЗаголовокРазделаСобираютОдинРаз(t *testing.T) {
+	dir := shellRuntimeDir(t)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Признак самодельного заголовка: жирная подпись кеглем «как у раздела»
+	// в одном методе. Ищем по соседству, а не построчно.
+	bold := regexp.MustCompile(`(?s)fontSize = Lvn\.UI\.LvnFonts\.Size\(30f\);\s*\n\s*[\w.]+\.style\.unityFontStyleAndWeight = FontStyle\.Bold`)
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".cs") || e.Name() == "ScreenUi.cs" {
+			continue
+		}
+		raw, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		src := stripCommentsAndStrings(string(raw))
+		if !bold.MatchString(src) {
+			continue
+		}
+		// Кнопка «Играть» тоже жирная и того же кегля — она не заголовок.
+		if strings.Contains(e.Name(), "TitleDetailScreen.cs") || strings.Contains(e.Name(), "LvnTopBar") ||
+			strings.Contains(e.Name(), "BootVeil") || strings.Contains(e.Name(), "ProfileScreen.Account") {
+			continue
+		}
+		t.Fatalf("%s: похоже на самодельный заголовок раздела — его собирает "+
+			"ScreenUi.SectionHeader, и только он накладывает огранку темы", e.Name())
+	}
+	ui, err := os.ReadFile(filepath.Join(dir, "ScreenUi.cs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(ui), "LvnChrome.Heading(lbl)") {
+		t.Fatalf("ScreenUi.SectionHeader перестал накладывать огранку темы — " +
+			"на «Кибере» заголовок обязан идти капсом с разрядкой")
+	}
+}

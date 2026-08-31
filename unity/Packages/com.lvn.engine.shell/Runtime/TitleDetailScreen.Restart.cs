@@ -29,7 +29,7 @@ namespace Lvn.UI.Screens
             var section = new VisualElement();
             section.style.flexShrink = 0;
             section.style.marginTop = 36;
-            section.Add(SectionHeader(LvnWords.Of("saves.title", "Saves")));
+            section.Add(ScreenUi.SectionHeader(LvnWords.Of("saves.title", "Saves")));
 
             bool hasProgress = Title != null
                 && LvnProgress.Touched(Title);
@@ -212,15 +212,7 @@ namespace Lvn.UI.Screens
             scrim.Add(panel);
 
             if (!string.IsNullOrEmpty(heading))
-            {
-                var h = new Label(heading);
-                h.style.color = LvnTokens.Text;
-                h.style.fontSize = Lvn.UI.LvnFonts.Size(30f);
-                h.style.unityFontStyleAndWeight = FontStyle.Bold;
-                h.style.whiteSpace = WhiteSpace.Normal;
-                h.style.marginBottom = 12;
-                panel.Add(h);
-            }
+                panel.Add(ScreenUi.SectionHeader(heading));
             return panel;
         }
 
