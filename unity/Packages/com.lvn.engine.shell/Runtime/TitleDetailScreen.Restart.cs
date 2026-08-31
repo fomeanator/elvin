@@ -32,7 +32,7 @@ namespace Lvn.UI.Screens
             section.Add(SectionHeader(LvnWords.Of("saves.title", "Saves")));
 
             bool hasProgress = Title != null
-                && (LvnProgress.Current(Title) != null || LvnProgress.HasReached(Title));
+                && LvnProgress.Touched(Title);
             if (hasProgress)
             {
                 var cont = Lvn.UI.LvnRedress.Bind(new Button(Play), () => LvnWords.Of("hub.continue", "Continue"));
