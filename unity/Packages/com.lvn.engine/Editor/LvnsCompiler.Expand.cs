@@ -223,27 +223,41 @@ namespace Lvn.Editor
             return depth;
         }
 
+        /// <summary>
+        /// РАЗЛОЖИТЬ ОДНОСТРОЧНЫЕ БЛОКИ по строкам — то, чего ждут все
+        /// последующие проходы. Внутри «…» строка проходит КАК ЕСТЬ: её
+        /// фигурные скобки — подстановка или просто знаки.
+        ///
+        /// <para>Раньше это делалось внутри разворота циклов, а сбор функций
+        /// читал СЫРОЙ текст. Однострочное объявление
+        /// <c>func bow(a) { Кто: {a} }</c> в словарь не попадало вовсе:
+        /// число доводов не сверялось, а строка вызова <c>bow(1)</c> не
+        /// разворачивалась, командой не была и уходила в наррацию — то есть
+        /// ПЕЧАТАЛАСЬ ИГРОКУ. Через CLI та же глава играла правильно.</para>
+        /// </summary>
+        static List<string> FlattenInline(string src)
+        {
+            var outLines = new List<string>();
+            int chev = 0;
+            foreach (string raw in src.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n'))
+            {
+                if (chev > 0 || ChevRun(0, raw) > 0)
+                {
+                    outLines.Add(raw);
+                    chev = ChevRun(chev, raw);
+                    continue;
+                }
+                outLines.AddRange(SplitInline(raw));
+            }
+            return outLines;
+        }
+
         static string ExpandLoops(string src)
         {
             var stack = new List<Frame>();
             var outLines = new List<string>();
 
-            var srcLines = new List<string>();
-            int flatChev = 0;
-            foreach (string raw in src.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n'))
-            {
-                // Внутри «…» строка проходит КАК ЕСТЬ. Go так и делает; здесь
-                // разбор шёл по сырому тексту, и `}` в многострочной прозе
-                // ронял сборку с «unmatched '}'» — та же глава через CLI
-                // собиралась.
-                if (flatChev > 0 || ChevRun(0, raw) > 0)
-                {
-                    srcLines.Add(raw);
-                    flatChev = ChevRun(flatChev, raw);
-                    continue;
-                }
-                srcLines.AddRange(SplitInline(raw));
-            }
+            var srcLines = FlattenInline(src);
             var names = new SynthNamer(srcLines);
 
             int chev = 0;

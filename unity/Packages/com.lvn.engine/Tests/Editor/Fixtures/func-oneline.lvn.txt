@@ -1,0 +1,82 @@
+{
+  "scene": "func_oneline",
+  "script": [
+    {
+      "label": "__fnskip_bow",
+      "op": "goto"
+    },
+    {
+      "id": "__fn_bow",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Кланяюсь, {who}.",
+      "who": "Слуга"
+    },
+    {
+      "op": "return"
+    },
+    {
+      "id": "__fnskip_bow",
+      "op": "label"
+    },
+    {
+      "label": "__fnskip_tally",
+      "op": "goto"
+    },
+    {
+      "id": "__fn_tally",
+      "op": "label"
+    },
+    {
+      "expr": "a + b",
+      "key": "__ret",
+      "op": "set"
+    },
+    {
+      "op": "return"
+    },
+    {
+      "id": "__fnskip_tally",
+      "op": "label"
+    },
+    {
+      "id": "start",
+      "op": "label"
+    },
+    {
+      "expr": "\"сударь\"",
+      "key": "who",
+      "op": "set"
+    },
+    {
+      "label": "__fn_bow",
+      "op": "call"
+    },
+    {
+      "expr": "2",
+      "key": "a",
+      "op": "set"
+    },
+    {
+      "expr": "3",
+      "key": "b",
+      "op": "set"
+    },
+    {
+      "label": "__fn_tally",
+      "op": "call"
+    },
+    {
+      "expr": "__ret",
+      "key": "total",
+      "op": "set"
+    },
+    {
+      "op": "say",
+      "text": "Итого {total}.",
+      "who": "Счетовод"
+    }
+  ]
+}

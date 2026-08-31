@@ -135,8 +135,13 @@ namespace Lvn.Editor
         /// validator refuses. Mirrors Go convertWith.</summary>
         static JObject Convert(string src, SynthNamer inherited, Dictionary<string, string> outerActorMaps)
         {
-            var funcs = CollectFuncs(src);
-            string expanded = ExpandLoops(src);
+            // Уплощаем ОДИН раз и до всего: сбор функций читал сырой текст, и
+            // однострочное объявление `func bow(a) { … }` в словарь не
+            // попадало — вызов уходил в наррацию и печатался игроку. Go
+            // уплощает первым шагом ровно поэтому.
+            string flat = string.Join("\n", FlattenInline(src));
+            var funcs = CollectFuncs(flat);
+            string expanded = ExpandLoops(flat);
             src = ExpandCalls(expanded, funcs);
 
             string scene = null;
