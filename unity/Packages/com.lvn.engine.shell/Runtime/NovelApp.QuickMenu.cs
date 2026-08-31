@@ -115,7 +115,10 @@ namespace Lvn.UI.Screens
                 int amount = faucet.amount ?? 100;
                 // Подстановка была обещана документацией поля и не делалась:
                 // автор, скопировавший умолчание себе, видел «{amount}» буквально.
-                string label = (faucet.label ?? "Получить {amount}").Replace("{amount}", amount.ToString());
+                // Сумму пишет ЦЕННИК, как и везде: голое ToString даёт «10000»
+                // там, где вся остальная игра показывает «10 000».
+                string label = (faucet.label ?? "Получить {amount}")
+                    .Replace("{amount}", Lvn.UI.LvnPriceTag.Amount(amount));
                 StageMenu.AddMenuItem(label, stage => LvnAsync.Fire(GrantFaucetAsync(faucet.currency, amount), "GrantFaucet"));
             }
             Lvn.LvnOps.Register("settings_show", (cmd, ctx) =>

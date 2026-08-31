@@ -16,6 +16,22 @@ namespace Lvn.UI
     /// composites every active channel: null-layer tracks drive the rig wrapper's
     /// transform; layer tracks drive that layer's transform; <c>frame</c> tracks
     /// swap the layer's sprite. Pure sampling math is static (and unit-tested).
+    ///
+    /// <para><b>ЖИВА ТОЛЬКО СТАТИЧЕСКАЯ ПОЛОВИНА — экземпляр НЕ ПОДКЛЮЧЁН.</b>
+    /// Из игры зовут <see cref="Clock"/>, <see cref="ClockOf"/>,
+    /// <see cref="Sample"/>, <see cref="SampleFrame"/>, <see cref="ArcTime"/> и
+    /// <see cref="OrientAngle"/> — их зовёт трёхмерная фигура (<c>WorldActor</c>),
+    /// и они же покрыты тестами. А <c>new ActorAnimator(rig)</c> создают
+    /// ИСКЛЮЧИТЕЛЬНО тесты: сцена рисует канвасом, и путь UI Toolkit, ради
+    /// которого писалась половина с каналами, пружинами и слоями, до экрана
+    /// сейчас не доходит.</para>
+    ///
+    /// <para>ЧЕГО ЖДЁТ. Решения: либо путь UI Toolkit возвращается вторым
+    /// способом рисовать сцену (тогда эта половина — его основа), либо она
+    /// удаляется, а статика переезжает в дом с честным именем. Пока решения
+    /// нет, половина остаётся ВТОРОЙ РЕАЛИЗАЦИЕЙ анимации, и каждая правка
+    /// правил обязана трогать обе — иначе они расходятся молча. Именно так
+    /// разъехалась остановка дорожки (см. <see cref="Stop"/>).</para>
     /// </summary>
     internal sealed class ActorAnimator
     {

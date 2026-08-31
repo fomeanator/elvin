@@ -220,8 +220,7 @@ namespace Lvn.UI.Screens
                 if (p >= 1f) tcs.TrySetResult(true);
             });
             await tcs.Task;
-            style.display = DisplayStyle.None;
-            style.translate = new Translate(0f, 0f);
+            PutAway();
             Closed();
         }
 
@@ -278,7 +277,7 @@ namespace Lvn.UI.Screens
             {
                 PlaySheet(opening: false);
                 await ScreenFx.FadeAsync(this, 1f, 0f, FadeSeconds, CancellationToken.None);
-                style.display = DisplayStyle.None;
+                PutAway();
                 _open = false;
                 Closed();
             }
@@ -297,10 +296,28 @@ namespace Lvn.UI.Screens
             Lvn.UI.LvnMontage.RevealWhenLaidOut(this);
         }
 
-        public void HideAsTab()
+        /// <summary>
+        /// УБРАН — И СТОИТ НА СВОЁМ МЕСТЕ.
+        ///
+        /// <para>Экран ленты вкладок уезжает за кромку целиком
+        /// (<see cref="SlideDirection"/>), и закрытие оставляет его там —
+        /// смещённым на ширину экрана. Вернуть смещение помнили не все: уход по
+        /// вкладке и пролёт помнили, а обычное скрытие и закрытие модалью —
+        /// нет. Следующий показ ВКЛАДКОЙ ставит только <c>display</c>, и раздел
+        /// открывался за кромкой: у игрока пустая страница.</para>
+        ///
+        /// <para>Правило то же, что у въезда в движке: чем бы показ ни
+        /// кончился, поверхность встаёт на место.</para>
+        /// </summary>
+        private void PutAway()
         {
             style.display = DisplayStyle.None;
             style.translate = new Translate(0f, 0f);
+        }
+
+        public void HideAsTab()
+        {
+            PutAway();
             Closed();
         }
 
@@ -308,7 +325,7 @@ namespace Lvn.UI.Screens
         public virtual void Hide()
         {
             style.opacity = 0f;
-            style.display = DisplayStyle.None;
+            PutAway();
             _open = false;
             // Пятый выход — и он тоже обязан снять наложение. Через отпускание
             // ожидания это случалось лишь иногда: если экран стоял модально,

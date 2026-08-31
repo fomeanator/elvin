@@ -127,6 +127,78 @@ namespace Lvn.Tests
                 LvnStyler.Fill(new VisualElement(), tint: LvnTokens.Gold).style.backgroundColor.value);
         }
 
+        // ── строка списка ───────────────────────────────────────────────────
+
+        [Test]
+        public void ПлиткаСтрокиНеСжимаетсяВДлинномСписке()
+        {
+            // Ею набраны списки глав, сейвов, наград и достижений — а список
+            // тем и отличается, что длиннее экрана. Флекс сжимает детей,
+            // которые не помещаются: без запрета двадцатая глава превращается
+            // в полоску в пару пикселей, и вместе со строкой сплющивается всё
+            // её содержимое. Ловится это только на списке, который перерос
+            // экран, — то есть у игрока, а не на стенде.
+            var строка = LvnStyler.ListRow(new VisualElement());
+
+            Assert.AreEqual(0f, строка.style.flexShrink.value, 1e-4f,
+                "строку разрешено сжимать — длинный список схлопнет её в полоску");
+            Assert.AreEqual(14f, строка.style.paddingTop.value.value, 1e-4f,
+                "у строки пропал вертикальный воздух — список читается как сплошная стена");
+            Assert.AreEqual(14f, строка.style.paddingBottom.value.value, 1e-4f,
+                "воздух снизу разошёлся с воздухом сверху — строка стала кривой");
+        }
+
+        [Test]
+        public void СодержимоеСтрокиСтоитВРядПоЦентру()
+        {
+            // Строка списка — это всегда «значок, название, значение справа».
+            // Оставь колонку по умолчанию, и они встанут ДРУГ ПОД ДРУГОМ; без
+            // выравнивания по центру значок и текст разной высоты разъезжаются
+            // по верхнему краю.
+            var строка = LvnStyler.ListRow(new VisualElement());
+
+            Assert.AreEqual(FlexDirection.Row, строка.style.flexDirection.value,
+                "содержимое строки встало столбцом — так список не выглядит списком");
+            Assert.AreEqual(Align.Center, строка.style.alignItems.value,
+                "значок и подпись разной высоты разъедутся по верхнему краю");
+        }
+
+        [Test]
+        public void СтрокаСпискаНеКарточка_УНеёСвоёСкругление()
+        {
+            // Строка и карточка — разные вещи и обязаны читаться разными. Дай
+            // строке скругление карточки, и список глав станет столбиком
+            // карточек: иерархия экрана исчезает.
+            var строка = LvnStyler.ListRow(new VisualElement());
+
+            Assert.AreEqual(LvnTokens.Surface, строка.style.backgroundColor.value,
+                "поверхность строки взята не у темы — смена темы её не перекрасит");
+            Assert.AreEqual(LvnTokens.RadiusSm, строка.style.borderTopLeftRadius.value.value, 1e-4f,
+                "у строки скругление карточки — список превратился в столбик карточек");
+        }
+
+        [Test]
+        public void ПоляВокругСтрокиОстаютсяЭкрану()
+        {
+            // Отступ до соседней строки и поля по горизонтали — про поля
+            // ЭКРАНА, а не про саму строку, и у разных списков они честно
+            // разные (награды шире глав). Забери их роль — и каждый список
+            // пришлось бы чинить обратно поверх роли.
+            var строка = new VisualElement();
+            строка.style.marginBottom = 9;
+            строка.style.paddingLeft = 22;
+            строка.style.paddingRight = 22;
+
+            LvnStyler.ListRow(строка);
+
+            Assert.AreEqual(9f, строка.style.marginBottom.value.value, 1e-4f,
+                "роль съела отступ до следующей строки — список слипся");
+            Assert.AreEqual(22f, строка.style.paddingLeft.value.value, 1e-4f,
+                "роль съела горизонтальные поля экрана");
+            Assert.AreEqual(22f, строка.style.paddingRight.value.value, 1e-4f,
+                "роль съела горизонтальные поля экрана");
+        }
+
         // Роль отвечает за вид, а не за место. Забери она размеры — и экран
         // потеряет право компоновать себя.
         [Test]
@@ -151,6 +223,7 @@ namespace Lvn.Tests
             Assert.IsNull(LvnStyler.Ghost<Button>(null));
             Assert.IsNull(LvnStyler.Card<VisualElement>(null));
             Assert.IsNull(LvnStyler.Track<VisualElement>(null, 10f));
+            Assert.IsNull(LvnStyler.ListRow<VisualElement>(null));
         }
     }
 }

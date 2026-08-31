@@ -429,10 +429,22 @@ func trimTo(s string, n int) string {
 }
 
 // uiClickTargets обходит дерево `ui` и собирает все on_click.
+//
+// ОБЕ ЗАПИСИ, как и на уровне команды: метка одним словом или объект
+// `{goto, set}`. Рантайм понимает обе везде (см. LvnClick), а обход дерева знал
+// только первую — и метка, к которой ведёт единственная кнопка меню, считалась
+// НЕДОСТИЖИМОЙ: опечатка в ней проходила молча, а в игре кнопка вела в никуда.
 func uiClickTargets(node map[string]any) []string {
 	var out []string
-	if s, ok := node["on_click"].(string); ok && s != "" {
-		out = append(out, s)
+	switch v := node["on_click"].(type) {
+	case string:
+		if v != "" {
+			out = append(out, v)
+		}
+	case map[string]any:
+		if g, ok := v["goto"].(string); ok && g != "" {
+			out = append(out, g)
+		}
 	}
 	if kids, ok := node["children"].([]any); ok {
 		for _, k := range kids {
