@@ -199,6 +199,21 @@ var EnumValues = map[string]map[string][]string{
 		"appear": {"fade", "rise", "pop", "slide_up", "slide_down", "slide_left", "slide_right", "drop", "unfold"}},
 }
 
+// AnimProps — что вообще можно анимировать. Словарь ЯЗЫКА, и жил он только в
+// рантайме (Lvn.UI.LvnAnimProp.Known): ни компилятор, ни валидатор, ни
+// подсказки редактора его не знали. Незнакомое имя не давало ошибки — рантайм
+// молча пропускал трек, и автор видел неподвижную полосу без единой подсказки
+// почему. «opacity» вместо «alpha» — каноническая описка, названная так в
+// докблоке самого рантайма.
+var AnimProps = []string{
+	"x", "y", // смещение от места, в долях кадра
+	"screen_x", "screen_y", // движение самого места по экрану
+	"scale", "scalex", "scaley",
+	"rotation",
+	"alpha",
+	"frame", // подмена кадра слоя (кукла, спрайтовый лист)
+}
+
 // bodySafeOps are the ops that survive a choice option's body: pure state plus
 // the jump. Everything else is replayed from the execution trace, which indexes
 // the SCRIPT — and a body command is not in the script.
@@ -494,6 +509,33 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 						msg += fmt.Sprintf(" — did you mean %q?", s)
 					}
 					addWarn(i, op, msg)
+				}
+			}
+		}
+		// СВОЙСТВО ТРЕКА — закрытый словарь, и знал его только рантайм.
+		// Компилятор `prop=` не смотрел вовсе, валидатор тоже, а грамматика
+		// его даже не подсказывала: автор писал естественное «opacity» вместо
+		// «alpha», сборка молчала, а рантайм один раз писал строку в лог и
+		// ПРОПУСКАЛ трек. Полоса не двигалась, и искать было нечего.
+		if op == "anim" {
+			if a, ok := c["anim"].(map[string]any); ok {
+				if tracks, ok := a["tracks"].([]any); ok {
+					for _, t := range tracks {
+						tr, ok := t.(map[string]any)
+						if !ok {
+							continue
+						}
+						prop, _ := tr["prop"].(string)
+						if prop == "" || inSet(AnimProps, prop) {
+							continue
+						}
+						msg := fmt.Sprintf("prop=%q — такого свойства движок не знает, трек будет пропущен (есть: %s)",
+							prop, strings.Join(AnimProps, ", "))
+						if sg := suggest(prop, AnimProps); sg != "" {
+							msg += fmt.Sprintf(" — может быть %q?", sg)
+						}
+						addWarn(i, op, msg)
+					}
 				}
 			}
 		}

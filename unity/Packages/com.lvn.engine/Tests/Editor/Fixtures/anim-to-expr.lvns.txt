@@ -7,6 +7,6 @@ scene anim_to_expr
 :start
 set key=hp value=40
 set key=hp_max value=100
-anim id=bar prop=scale_x to="{hp / hp_max}" dur=0.6
-anim id=bar prop=opacity to=0.5 dur=0.2
+anim id=bar prop=scalex to="{hp / hp_max}" dur=0.6
+anim id=bar prop=alpha to=0.5 dur=0.2
 Лекарь: Полоса поехала.
