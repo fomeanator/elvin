@@ -21,6 +21,7 @@ namespace Lvn.UI
         private VisualElement _choiceTickHost;
         private float _choiceDeadline;
         private float _choiceTotal;
+        private float _choiceLastTick;   // когда такт был в прошлый раз — для честной паузы
 
         private void StartChoiceTimer(float seconds)
         {
@@ -28,6 +29,7 @@ namespace Lvn.UI
             if (seconds <= 0f || _uiRoot == null) return;
             _choiceTotal = seconds;
             _choiceDeadline = LvnClock.Now() + seconds;
+            _choiceLastTick = 0f;   // первый такт нового отсчёта паузе не считается
             _choices?.SetTimer(1f);
             // ОДИН ОТСЧЁТ НА ВСЕ ВЫБОРЫ. Заводился новый на каждый выбор со
             // сроком, а прежний оставался в расписании панели навсегда:
@@ -48,19 +50,39 @@ namespace Lvn.UI
                 // время уводило игрока по своей ветке, а пришедший следом
                 // успешный платёж молча уходил в никуда. Деньги списаны, ветка
                 // чужая, игрок не понял, за что заплатил.
+                // ПАУЗА СДВИГАЕТ СРОК НА ФАКТИЧЕСКИ ПРОШЕДШЕЕ, а не на шаг
+                // расписания. Здесь прибавлялась ровно десятая доля секунды —
+                // столько, сколько шаг ДОЛЖЕН длиться. На слабом устройстве
+                // такт приходит реже (при тридцати кадрах — раз в ~133 мс), и
+                // пауза протекала: срок расходовался на четверть, а при десяти
+                // кадрах — наполовину. То есть ровно тот дефект, который пауза
+                // и закрывает, только медленнее — и невоспроизводимо на
+                // машине разработчика.
+                float now = LvnClock.Now();
+                float since = _choiceLastTick > 0f ? now - _choiceLastTick : 0f;
+                _choiceLastTick = now;
                 if (InputBlocked || _chromeHidden || _choiceCommitInFlight)
-                { _choiceDeadline += 0.1f; return; }
-                float left = _choiceDeadline - LvnClock.Now();
+                { _choiceDeadline += since; return; }
+                float left = _choiceDeadline - now;
                 _choices?.SetTimer(left / _choiceTotal);
                 if (left > 0f) return;
                 StopChoiceTimer();
-                // Таймер выбора истёк — ветку выбрало время. Гасим тем же
-                // способом, что и клик: свой таймер уже остановлен строкой выше.
+
+                // СПРОСИТЬ, ЕСТЬ ЛИ КУДА ИДТИ, — И ТОЛЬКО ПОТОМ СНИМАТЬ МЕНЮ.
+                //
+                // Меню снималось первым, безусловно. У выбора со сроком, но БЕЗ
+                // ветки времени (валидатор такое лишь предупреждает) идти
+                // некуда: варианты уже сняты с экрана, а история осталась стоять
+                // на том же выборе. Игрок видит, как полоска дотикала и
+                // варианты исчезли, — и либо возвращает их тапом, чтобы они
+                // исчезли снова, либо упирается в глухой стоп посреди главы.
+                //
+                // Stale after a load/rollback is a no-op inside the player.
+                if (_player == null || !_player.ResolveChoiceTimeout()) return;
+                // Гасим тем же способом, что и клик: свой таймер уже остановлен.
                 StopWaitingForPlayer(cancelTimer: false);
                 _dialogue?.SuppressAdvanceHint(false);
-                // Stale after a load/rollback is a no-op inside the player.
-                if (_player != null && _player.ResolveChoiceTimeout())
-                    AutosaveNow(); // time picked the branch — same crash contract as a tap
+                AutosaveNow(); // time picked the branch — same crash contract as a tap
             }).Every(100);
         }
 

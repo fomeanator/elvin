@@ -96,6 +96,7 @@ namespace Lvn.UI
                 // из прошлой главы), но и держать выбор занятым нечего:
                 // следующий выбор в новой сцене иначе не нажмётся.
                 _choiceCommitInFlight = false;
+                _choices?.SetEnabled(true);   // симметрично отказу ниже: стопка не остаётся погашенной
                 return;
             }
             if (!paid)
@@ -224,7 +225,7 @@ namespace Lvn.UI
             {
                 int enterMs = Mathf.RoundToInt(DialogueFadeSeconds() * 1000f);
                 _dialogue?.ResetCardVisual();
-                _dialogue.SlideIn(enterMs);
+                _dialogue?.SlideIn(enterMs);
                 LvnAppear.Play(_choices, kind, appearing: true,
                     ms: enterMs,
                     done: () =>
