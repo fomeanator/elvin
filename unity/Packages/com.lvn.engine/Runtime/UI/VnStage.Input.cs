@@ -42,7 +42,14 @@ namespace Lvn.UI
             {
                 // An open menu or the art view freezes the clock — a timed choice
                 // must race the player, not their settings screen.
-                if (InputBlocked || _chromeHidden) { _choiceDeadline += 0.1f; return; }
+                //
+                // ОПЛАТА ВАРИАНТА — ТОЖЕ ПАУЗА. Поход за деньгами идёт через
+                // сеть, и срок продолжал тикать: истёк на медленной связи —
+                // время уводило игрока по своей ветке, а пришедший следом
+                // успешный платёж молча уходил в никуда. Деньги списаны, ветка
+                // чужая, игрок не понял, за что заплатил.
+                if (InputBlocked || _chromeHidden || _choiceCommitInFlight)
+                { _choiceDeadline += 0.1f; return; }
                 float left = _choiceDeadline - LvnClock.Now();
                 _choices?.SetTimer(left / _choiceTotal);
                 if (left > 0f) return;

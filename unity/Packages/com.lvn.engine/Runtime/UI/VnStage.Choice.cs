@@ -71,6 +71,14 @@ namespace Lvn.UI
             if (found && !string.IsNullOrEmpty(picked.WalletCurrency)
                 && picked.WalletAmount > 0 && ChoiceSpend != null)
             {
+                // ВЫБОР ЗАНЯТ УЖЕ СЕЙЧАС, а не после ответа кошелька. Поход за
+                // деньгами идёт через сеть, и без этой пометки второе нажатие
+                // заводило ВТОРОЙ поход: на медленной связи игрок платил дважды
+                // за одну ветку. Даровой выбор так и делал — метку ставит
+                // CommitChoice, — а платный, самый дорогой для ошибки, шёл
+                // мимо.
+                _choiceCommitInFlight = true;
+                _choices?.SetEnabled(false);
                 LvnAsync.Fire(SpendThenChooseAsync(index, picked), "SpendThenChoose");
                 return;
             }
@@ -82,7 +90,14 @@ namespace Lvn.UI
             bool paid = false;
             try { paid = await ChoiceSpend(picked.WalletCurrency, picked.WalletAmount); }
             catch { /* a wallet failure must never crash the choice UI */ }
-            if (!StageCurrent(epoch) || _player == null || !_player.AtChoice) return;
+            if (!StageCurrent(epoch) || _player == null || !_player.AtChoice)
+            {
+                // Сцену сменили посреди оплаты. Ветку доигрывать нельзя (она
+                // из прошлой главы), но и держать выбор занятым нечего:
+                // следующий выбор в новой сцене иначе не нажмётся.
+                _choiceCommitInFlight = false;
+                return;
+            }
             if (!paid)
             {
                 // Слово авторское: фраза была вписана в движок по-русски, и
@@ -97,6 +112,11 @@ namespace Lvn.UI
                     .Replace("{amount}", LvnPriceTag.Amount(picked.WalletAmount))
                     .Replace("{currency}", LvnPriceTag.Of(picked.WalletCurrency).Name ?? "");
                 ApplyHint(new JObject { ["text"] = not_enough, ["duration"] = 3 });
+                // Не заплатили — выбор снова живой: кнопки нажимаются, отсчёт
+                // идёт дальше с того места, где остановился (пока шла оплата,
+                // срок не тикал — см. отсчёт выбора).
+                _choiceCommitInFlight = false;
+                _choices?.SetEnabled(true);
                 return; // menu stays up; the player picks something else
             }
             CommitChoice(index, picked.Text);
