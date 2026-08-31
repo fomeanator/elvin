@@ -23,7 +23,7 @@ namespace Lvn.UI.Screens
             b.style.justifyContent = Justify.Center;
             b.style.paddingLeft = 0; b.style.paddingRight = 0;
             b.style.paddingTop = 0; b.style.paddingBottom = 0;
-            b.Add(LvnIcons.Make(icon, size, color, 0f, _theme.IconGlow));
+            b.Add(LvnIcons.Make(icon, size, color));
             return b;
         }
 
@@ -77,7 +77,7 @@ namespace Lvn.UI.Screens
             var chip = ChipShell();
             if (icon != LvnIcon.None)
             {
-                var ic = LvnIcons.Make(icon, 18f, color, 0f, _theme.IconGlow);
+                var ic = LvnIcons.Make(icon, 18f, color);
                 if (!string.IsNullOrEmpty(text)) ic.style.marginRight = 5;
                 chip.Add(ic);
             }

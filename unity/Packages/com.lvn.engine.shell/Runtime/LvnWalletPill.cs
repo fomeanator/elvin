@@ -134,7 +134,7 @@ namespace Lvn.UI.Screens
             // состояния догаданный. Оттенок так же: свой, если назван.
             var look = LvnPriceTag.Of(_currency);
             var tint = _look.IconTint ?? look.Tint;
-            var ic = LvnIcons.Make(look.Icon, _look.IconSize, tint, 0f, LvnTheme.Current.IconGlow);
+            var ic = LvnIcons.Make(look.Icon, _look.IconSize, tint);
             ic.pickingMode = PickingMode.Ignore;
             ic.style.marginRight = 6;
             return ic;

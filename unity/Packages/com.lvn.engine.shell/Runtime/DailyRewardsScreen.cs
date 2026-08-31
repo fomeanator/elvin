@@ -274,8 +274,7 @@ namespace Lvn.UI.Screens
             // Reward icon (⚡ energy / ◆ gold).
             var icon = LvnIcons.Make(reward.Gold ? LvnIcon.Gem : LvnIcon.Energy,
                                      premium ? 48f : 40f,
-                                     reward.Gold ? LvnTokens.Gold : LvnTokens.Accent,
-                                     0f, LvnTheme.Current.IconGlow);
+                                     reward.Gold ? LvnTokens.Gold : LvnTokens.Accent);
             icon.style.alignSelf = Align.Center;
             cell.Add(icon);
 

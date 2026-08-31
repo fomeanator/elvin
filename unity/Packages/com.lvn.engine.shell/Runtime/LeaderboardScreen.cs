@@ -79,7 +79,7 @@ namespace Lvn.UI.Screens
             header.style.marginBottom = 14;
             sheet.Add(header);
 
-            var back = ScreenUi.BackButton(Close, 46f, 34f);
+            var back = ScreenUi.BackButton(Close, 52f, 36f);
             back.style.marginRight = 12;
             header.Add(back);
 
@@ -198,7 +198,7 @@ namespace Lvn.UI.Screens
             // Место под корону занято и у не-победителей: иначе первый столбец
             // выше остальных на высоту иконки и ряд перекашивает.
             var crown = first
-                ? LvnIcons.Make(LvnIcon.Crown, 30f, LvnTokens.Gold, 0f, LvnTheme.Current.IconGlow)
+                ? LvnIcons.Make(LvnIcon.Crown, 30f, LvnTokens.Gold)
                 : new VisualElement { style = { width = 30, height = 30 } };
             crown.style.marginBottom = 2;
             crown.style.alignSelf = Align.Center;

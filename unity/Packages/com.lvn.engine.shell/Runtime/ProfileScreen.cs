@@ -197,12 +197,12 @@ namespace Lvn.UI.Screens
             row.style.flexDirection = FlexDirection.Row;
             row.style.alignItems = Align.Center;
             row.style.backgroundColor = LvnTokens.Surface;
-            LvnChrome.BorderSoft(row, 0.7f);
+            LvnChrome.BorderSoft(row, 0.64f);
             LvnChrome.Round(row, LvnTokens.RadiusSm);
             row.style.marginBottom = 10;
             row.style.paddingTop = 14; row.style.paddingBottom = 14;
             row.style.paddingLeft = 16; row.style.paddingRight = 16;
-            var ic = LvnIcons.Make(LvnIcon.Book, 22f, LvnTokens.Accent, 0f, LvnTheme.Current.IconGlow);
+            var ic = LvnIcons.Make(LvnIcon.Book, 22f, LvnTokens.Accent);
             ic.style.marginRight = 12;
             row.Add(ic);
             var lbl = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("profile.chapters_read", "Chapters read: {0}",
@@ -239,7 +239,7 @@ namespace Lvn.UI.Screens
             card.style.flexDirection = FlexDirection.Column;
             card.style.backgroundColor = LvnTokens.SurfaceHi;
             LvnChrome.Round(card, LvnTokens.Radius + 2f);
-            LvnChrome.BorderSoft(card, 0.8f);
+            LvnChrome.BorderSoft(card, 0.64f);
             card.style.paddingTop = 18;
             card.style.paddingBottom = 18;
             card.style.paddingLeft = 18;
@@ -271,7 +271,7 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(avatar, avatarSize / 2f);
             LvnChrome.Border(avatar, LvnTokens.Accent, 3f);
 
-            var glyph = LvnIcons.Make(AvatarIcon, 50f, LvnTokens.Text, 0f, LvnTheme.Current.IconGlow);
+            var glyph = LvnIcons.Make(AvatarIcon, 50f, LvnTokens.Text);
             glyph.style.alignSelf = Align.Center;
             avatar.Add(glyph);
             if (!string.IsNullOrEmpty(AvatarUrl))
@@ -453,7 +453,7 @@ namespace Lvn.UI.Screens
             var nameRow = new VisualElement();
             nameRow.style.flexDirection = FlexDirection.Row;
             nameRow.style.alignItems = Align.Center;
-            var heart = LvnIcons.Make(LvnIcon.Heart, 20f, LvnTokens.Accent, 0f, LvnTheme.Current.IconGlow);
+            var heart = LvnIcons.Make(LvnIcon.Heart, 20f, LvnTokens.Accent);
             heart.style.marginRight = 7;
             nameRow.Add(heart);
             var name = new Label(r.Name);

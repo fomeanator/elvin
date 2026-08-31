@@ -149,7 +149,7 @@ namespace Lvn.UI
             if (look.Bold) sum.style.unityFontStyleAndWeight = FontStyle.Bold;
 
             float side = look.IconSize > 0f ? look.IconSize : Mathf.Round(look.FontSize * 1.05f);
-            var icon = LvnIcons.Make(l.Icon, side, color, 0f, LvnTheme.Current.IconGlow);
+            var icon = LvnIcons.Make(l.Icon, side, color);
             if (look.IconFirst) { icon.style.marginRight = look.Gap; row.Add(icon); row.Add(sum); }
             else { icon.style.marginLeft = look.Gap; row.Add(sum); row.Add(icon); }
             return row;
