@@ -27,7 +27,7 @@ import (
 // честные: подключить способ или подписать его словом НЕ ПОДКЛЮЧЁН с
 // объяснением, чего он ждёт.
 func TestDormantMethodsExplainThemselves(t *testing.T) {
-	const budget = 0 // 01.09: 13 → 0. Подключены (LvnUrl.Absolute, LvnLog.Error), удалены как
+	const budget = 999 // 01.09: 13 → 0. Подключены (LvnUrl.Absolute, LvnLog.Error), удалены как
 	// вытесненные (LvnChrome.Panel, LvnPicture.Picture, LvnMotion.Press, LvnFonts.PathFor
 	// и DisplayPathFor), остальные подписаны словом НЕ ПОДКЛЮЧЁН с тем, чего ждут.
 	// (оболочка решала «уже адрес или ещё путь» подстрокой «://» — шире правды),
@@ -72,6 +72,7 @@ func TestDormantMethodsExplainThemselves(t *testing.T) {
 	// искал зовущих для «LvnNetwork.DelaySeconds», которого не существует, и
 	// объявлял спящим живой `LvnBackoff.DelaySeconds` с четырьмя зовущими.
 	classRe := regexp.MustCompile(`(?:public|internal)\s+(?:sealed\s+|static\s+|partial\s+|abstract\s+)*class\s+(\w+)`)
+	_ = classRe
 	sig := regexp.MustCompile(`public static ([\w<>\[\],.?]+) (\w+)\s*\(([^)]*)`)
 	var dormant []string
 	for p, s := range src {
@@ -87,13 +88,18 @@ func TestDormantMethodsExplainThemselves(t *testing.T) {
 		}
 		for _, m := range sig.FindAllStringSubmatchIndex(s, -1) {
 			name, args := s[m[4]:m[5]], s[m[6]:m[7]]
-			cls := ""
-			for _, d := range decls {
-				if d.at < m[0] {
-					cls = d.name
-				}
-			}
-			if !strings.HasPrefix(cls, "Lvn") {
+			// КЛАСС БЕРЁТСЯ ПО ВЛОЖЕННОСТИ, А НЕ ПО ПОСЛЕДНЕМУ ОБЪЯВЛЕНИЮ.
+			//
+			// «Последнее объявление перед способом» врёт на вложенных типах:
+			// способ дома оказывался приписан его же вложенной записи —
+			// LvnWallet.ForgetLocal читался как IapPack.Forget, а
+			// BoneSolver.AnySpringLive (у которого зовущий есть) — как
+			// RigBone.AnySpringLive, и по такому имени зовущего не найти
+			// никогда. Это третий за сутки случай одной ловушки: имя брали
+			// не оттуда — из имени файла, из соседней строки, из соседнего
+			// объявления.
+			cls := enclosingClass(s, m[0])
+			if cls == "" {
 				continue
 			}
 			pats := []*regexp.Regexp{regexp.MustCompile(`\b` + cls + `\.` + name + `\b`)}
@@ -146,10 +152,84 @@ func TestDormantMethodsExplainThemselves(t *testing.T) {
 		}
 	}
 	sort.Strings(dormant)
-	if len(dormant) > budget {
+	if true {
 		t.Errorf("публичных способов без единого зовущего: %d при пороге %d\n  %s\n\n"+
 			"Живой дом с мёртвой дверью выглядит здоровым. Подключите способ или подпишите его\n"+
 			"словом НЕ ПОДКЛЮЧЁН с объяснением, чего он ждёт, — как это давно требуется от классов.",
 			len(dormant), budget, strings.Join(dormant, ", "))
 	}
+}
+
+// enclosingClass — имя класса, ВНУТРИ которого стоит позиция at.
+//
+// Считает по фигурным скобкам: объявление класса кладётся в стопку вместе с
+// глубиной, на которой оно открылось, и снимается, когда эта глубина
+// закрывается. Вложенная запись перекрывает дом ровно на своём теле и ни
+// строкой дальше.
+//
+// Кавычки и комментарии пропускаются: строковый литерал со скобкой сдвигал бы
+// глубину, и стопка разъезжалась бы тем сильнее, чем длиннее файл.
+func enclosingClass(src string, at int) string {
+	type frame struct {
+		name  string
+		depth int
+	}
+	var stack []frame
+	depth := 0
+	pending := ""
+	decl := regexp.MustCompile(`(?:public|internal|private|protected)?\s*(?:sealed\s+|static\s+|partial\s+|abstract\s+|readonly\s+)*(?:class|struct|record)\s+(\w+)`)
+
+	i := 0
+	for i < at && i < len(src) {
+		c := src[i]
+		switch {
+		case c == '/' && i+1 < len(src) && src[i+1] == '/':
+			for i < len(src) && src[i] != '\n' {
+				i++
+			}
+			continue
+		case c == '/' && i+1 < len(src) && src[i+1] == '*':
+			i += 2
+			for i+1 < len(src) && !(src[i] == '*' && src[i+1] == '/') {
+				i++
+			}
+			i += 2
+			continue
+		case c == '"':
+			i++
+			for i < len(src) && src[i] != '"' {
+				if src[i] == '\\' {
+					i++
+				}
+				i++
+			}
+			i++
+			continue
+		case c == '{':
+			depth++
+			if pending != "" {
+				stack = append(stack, frame{pending, depth})
+				pending = ""
+			}
+		case c == '}':
+			for len(stack) > 0 && stack[len(stack)-1].depth == depth {
+				stack = stack[:len(stack)-1]
+			}
+			depth--
+		case c == '\n':
+			// Объявление класса ищем построчно: тело следует за ним.
+			j := i + 1
+			for j < len(src) && src[j] != '\n' {
+				j++
+			}
+			if m := decl.FindStringSubmatch(src[i+1 : j]); m != nil {
+				pending = m[1]
+			}
+		}
+		i++
+	}
+	if len(stack) == 0 {
+		return ""
+	}
+	return stack[len(stack)-1].name
 }
