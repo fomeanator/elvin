@@ -226,6 +226,27 @@ namespace Lvn.UI.Screens
             {
                 await Task.Delay(3000, ct); // let the boot/menu settle first
                 int warmed = 0, skipped = 0;
+
+                // СОГРЕТЬ ОДИН ФАЙЛ — правила общие для всего, что греется в
+                // фоне: уступить активной главе, уступить живой поверхности,
+                // переждать офлайн, не качать лежащее. Тело было вписано в
+                // цикл глав, и второму месту (арт каста) пришлось бы его
+                // скопировать — а разойдись копии, одна очередь начала бы
+                // отбирать полосу у кадра, который игрок видит прямо сейчас.
+                async Task WarmOne(string url)
+                {
+                    if (string.IsNullOrEmpty(url)) return;
+                    while (_chapterSched != null && !_chapterSched.AllDone && !ct.IsCancellationRequested)
+                        await Task.Delay(500, ct);
+                    while (_assets.LivePressure > 0 && !ct.IsCancellationRequested)
+                        await Task.Delay(150, ct);
+                    if (Lvn.LvnNetworkStatus.IsOffline) { await Task.Delay(3000, ct); return; }
+                    if (_assets.Loader.IsAssetCached(url)) { skipped++; return; }
+                    try { await _assets.Loader.DownloadAssetBytes(url, ct); warmed++; }
+                    catch (System.OperationCanceledException) { throw; }
+                    catch { /* self-heal covers per-file failures */ }
+                }
+
                 if (manifest?.titles != null)
                     foreach (var t in manifest.titles)
                     {
@@ -242,27 +263,20 @@ namespace Lvn.UI.Screens
                                 foreach (var kv in ch.assets)
                                 {
                                     if (ct.IsCancellationRequested) return;
-                                    var url = kv.Key;
-                                    if (string.IsNullOrEmpty(url)) continue;
-                                    // an active chapter gate owns the bandwidth
-                                    while (_chapterSched != null && !_chapterSched.AllDone && !ct.IsCancellationRequested)
-                                        await Task.Delay(500, ct);
-                                    // …and so does anything a LIVE surface is
-                                    // waiting to draw right now: an actor
-                                    // mid-scene must never queue behind next
-                                    // week's chapters.
-                                    while (_assets.LivePressure > 0 && !ct.IsCancellationRequested)
-                                        await Task.Delay(150, ct);
-                                    if (Lvn.LvnNetworkStatus.IsOffline)
-                                    { await Task.Delay(3000, ct); continue; }
-                                    if (_assets.Loader.IsAssetCached(url)) { skipped++; continue; }
-                                    try { await _assets.Loader.DownloadAssetBytes(url, ct); warmed++; }
-                                    catch (System.OperationCanceledException) { return; }
-                                    catch { /* self-heal covers per-file failures */ }
+                                    await WarmOne(kv.Key);
                                 }
                             }
                         }
                     }
+                // АРТ КАСТА — облик героини целиком: все слои всех эмоций и
+                // нарядов плюс значки витрины. Гардероб открывают из МЕНЮ, то
+                // есть в любой момент: ждать сети там нечему, и «эмоция
+                // загружается по тапу» — это она и была.
+                foreach (var part in Lvn.Content.LvnParts.OfCast(manifest))
+                {
+                    if (ct.IsCancellationRequested) return;
+                    await WarmOne(part.Url);
+                }
                 LvnLog.Trace($"[lvn-warm] library fully cached ({warmed} fetched, {skipped} already local)");
             }
             catch (System.OperationCanceledException) { /* teardown */ }

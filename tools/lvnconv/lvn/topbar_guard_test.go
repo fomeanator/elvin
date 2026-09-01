@@ -84,3 +84,34 @@ func TestWardrobeStripAsksAboutCards(t *testing.T) {
 			"а карточек не вышло.", n)
 	}
 }
+
+// ОБЕ ВЕТКИ ПЕРЕСБОРКИ ЛЕНТЫ КОНЧАЮТСЯ ПОДСВЕТКОЙ.
+//
+// `RebuildStrip` ветвится: «Моё» (лента из разных осей) и обычная вкладка.
+// Подсветку рисует `StyleStrip`, и он ОБЕ ветки умеет — на «Моё» отмечает
+// надетое, а не k-ю карточку. Но ветка «Моё» выходила раньше, чем до него
+// доходило: после «Выбрать» лента оставалась серой, и надетое было ничем не
+// отмечено. Живой скрин Ильи 01.09.
+func TestBothStripBranchesStyle(t *testing.T) {
+	root := repoRoot(t)
+	src := stripComments(string(mustRead(t, filepath.Join(root,
+		"unity", "Packages", "com.lvn.engine.shell", "Runtime", "WardrobeSheet.Strip.cs"))))
+	i := strings.Index(src, "RebuildStrip(")
+	if i < 0 {
+		t.Fatal("пересборки ленты нет — якорь стража промахнулся")
+	}
+	// Каждый `return;` внутри пересборки обязан иметь StyleStrip() выше себя
+	// в пределах ветки: считаем, что вызовов подсветки не меньше, чем выходов.
+	body := src[i:]
+	if j := strings.Index(body, "\n        private "); j > 0 {
+		body = body[:j]
+	}
+	returns := strings.Count(body, "return;")
+	styles := strings.Count(body, "StyleStrip();")
+	if styles < returns {
+		t.Errorf("в пересборке ленты %d выходов и только %d вызовов подсветки.\n\n"+
+			"Ветка, вышедшая без StyleStrip, оставляет ленту серой: надетое ничем не отмечено.\n"+
+			"На «Моё» это заметнее всего — там подсветка и есть единственный ответ на вопрос\n"+
+			"«что на мне сейчас».", returns, styles)
+	}
+}

@@ -106,6 +106,49 @@ namespace Lvn.Content
                     yield return new LvnPart(col.card.image, Sprite);
         }
 
+        /// <summary>
+        /// АРТ КАСТА — всё, во что герой может быть одет.
+        ///
+        /// <para>Слои сущности перечислимы напрямую: у каждого свой url и своё
+        /// условие (<c>when</c>), а не шаблон с подстановкой. Значит «весь арт
+        /// всех эмоций и нарядов» — это просто список, а не перебор
+        /// сочетаний.</para>
+        ///
+        /// <para>Сюда же значки вещей гардероба: карточка витрины рисует их, а
+        /// витрину открывают из МЕНЮ, то есть в любой момент — ждать сети там
+        /// нечему.</para>
+        ///
+        /// <para>Без этого списка прогрев библиотеки грел скрипты и ассеты
+        /// глав, а облик героини ехал по тапу: игрок нажимает эмоцию и видит,
+        /// как она загружается.</para>
+        /// </summary>
+        public static IEnumerable<LvnPart> OfCast(LvnManifest m)
+        {
+            if (m?.sprites == null) yield break;
+            foreach (var kv in m.sprites)
+            {
+                var e = kv.Value;
+                if (e == null) continue;
+                if (e.layers != null)
+                    foreach (var layer in e.layers)
+                        if (!string.IsNullOrEmpty(layer?.url))
+                            yield return new LvnPart(layer.url, Sprite);
+                // Гардероб принадлежит СУЩНОСТИ, а не новелле: одну героиню
+                // могут одевать в нескольких новеллах, и набор у неё один.
+                if (e.wardrobe == null) continue;
+                foreach (var slot in e.wardrobe.Values)
+                {
+                    if (slot == null) continue;
+                    if (!string.IsNullOrEmpty(slot.icon))
+                        yield return new LvnPart(slot.icon, Sprite);
+                    if (slot.items == null) continue;
+                    foreach (var it in slot.items)
+                        if (!string.IsNullOrEmpty(it?.icon))
+                            yield return new LvnPart(it.icon, Sprite);
+                }
+            }
+        }
+
         /// <summary>Звучание ОБОЛОЧКИ: музыка витрины и звуки интерфейса.</summary>
         public static IEnumerable<LvnPart> OfShellSound(LvnManifest m)
         {

@@ -75,7 +75,7 @@ namespace Lvn.UI.Screens
             Add(sheet);
             LvnAir.PadX(sheet, LvnTokens.Space3);
             sheet.style.paddingBottom = LvnTokens.Space3;
-            sheet.style.paddingTop = 22;
+            sheet.style.paddingTop = LvnTokens.Space4;
 
             // ── Header: ‹ back · "Галерея" · counter ────────────────────────────
             var header = ScreenUi.Row();

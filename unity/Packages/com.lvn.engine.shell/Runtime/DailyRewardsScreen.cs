@@ -107,8 +107,7 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(card, LvnTokens.Radius);
             LvnChrome.Border(card, LvnTokens.Border, 1f);
             LvnAir.PadX(card, LvnTokens.Space4);
-            card.style.paddingBottom = 22;
-            card.style.paddingTop = LvnTokens.Space4;
+            LvnAir.PadY(card, LvnTokens.Space4);
             Add(card);
             AdoptSheet(card); // единый враппер попапа: стекло, окантовка, подъезд
 
@@ -152,7 +151,7 @@ namespace Lvn.UI.Screens
             _claim.style.fontSize = LvnTokens.TextBase;
             _claim.style.unityFontStyleAndWeight = FontStyle.Bold;
             LvnAir.PadY(_claim, LvnTokens.Space3);
-            _claim.style.marginTop = 22;
+            _claim.style.marginTop = LvnTokens.Space4;
             LvnStyler.Primary(_claim, LvnTokens.RadiusSm);
             card.Add(_claim);
 

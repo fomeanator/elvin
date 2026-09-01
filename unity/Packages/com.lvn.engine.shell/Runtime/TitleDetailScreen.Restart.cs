@@ -202,7 +202,7 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(panel, LvnTokens.Radius);
             LvnAir.PadX(panel, LvnTokens.Space3);
             panel.style.paddingBottom = LvnTokens.Space3;
-            panel.style.paddingTop = 22;
+            panel.style.paddingTop = LvnTokens.Space4;
             panel.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             scrim.Add(panel);
 

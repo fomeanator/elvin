@@ -58,8 +58,7 @@ namespace Lvn.UI.Screens
             var panel = Lvn.UI.LvnChrome.Sheet(new VisualElement());
             panel.style.bottom = Length.Percent(7f);
             LvnAir.PadX(panel, LvnTokens.Space4);
-            panel.style.paddingBottom = 22;
-            panel.style.paddingTop = LvnTokens.Space4;
+            LvnAir.PadY(panel, LvnTokens.Space4);
             panel.style.backgroundColor = UiColor.Named(_cfg.panel_color, LvnTokens.Veil(0.65f));
             LvnChrome.Round(panel, LvnTokens.Radius);
             Add(panel);
@@ -108,7 +107,7 @@ namespace Lvn.UI.Screens
             var start = Lvn.UI.LvnRedress.Bind(new Button(Confirm), () => LvnWords.Pick("auth.start", _cfg.start_text, "Start"));
             start.style.fontSize = LvnTokens.TextBase;
             LvnAir.PadY(start, LvnTokens.Space3);
-            start.style.marginTop = 22;
+            start.style.marginTop = LvnTokens.Space4;
             start.style.color = UiColor.Named(_cfg.button_text_color, LvnTokens.OnAccent);
             start.style.backgroundColor = UiColor.Named(_cfg.button_color, LvnTokens.Accent);
             LvnChrome.Round(start, LvnTokens.RadiusSm);
