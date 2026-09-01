@@ -83,10 +83,7 @@ namespace Lvn.UI
 
         private void ArmActorVisibilityBarrier(JObject cmd, bool visibilityChanged, Placement p)
         {
-            if (!visibilityChanged || !IsCharacterCommand(cmd)
-                || p.TransitionDuration <= 0.001f) return;
-            var transition = p.Show ? p.EnterTransition : p.ExitTransition;
-            if (transition == TransitionType.None) return;
+            if (!ShowsVisibleTransition(cmd, visibilityChanged, p)) return;
             _clock.Hold(LvnStageClock.ActorVisibilityBarrier, p.TransitionDuration);
             // A cold asset can begin its real entrance after the nominal early
             // barrier already unlocked the line. Reclaim input immediately and

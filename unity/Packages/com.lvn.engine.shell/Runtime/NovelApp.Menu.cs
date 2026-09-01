@@ -383,14 +383,6 @@ namespace Lvn.UI.Screens
             _menuSceneActor = null;
         }
 
-        private string MenuFavoriteEntity()
-        {
-            var fav = Lvn.UI.LvnPrefs.MenuFavorite;
-            if (!string.IsNullOrEmpty(fav) && _manifest?.sprites != null
-                && _manifest.sprites.ContainsKey(fav)) return fav;
-            var def = _manifest?.ui?.wardrobe?.entity;
-            return !string.IsNullOrEmpty(def) && _manifest?.sprites != null
-                && _manifest.sprites.ContainsKey(def) ? def : null;
-        }
+        private string MenuFavoriteEntity() => LvnFavorite.Entity(_manifest);
     }
 }

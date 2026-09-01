@@ -200,12 +200,7 @@ namespace Lvn.UI
             if (descriptor == null || string.IsNullOrEmpty(descriptor.url)) return;
 
             var loaded = await GetSetBundleAsync(id, descriptor, ct);
-            if (ct.IsCancellationRequested)
-            {
-                if (loaded != null && loaded.Leases == 0 && !loaded.Warm)
-                    _ = UnloadSetBundleNextFrame(loaded);
-                ct.ThrowIfCancellationRequested();
-            }
+            AbandonIfCancelled(ct, loaded);
             if (loaded?.Prefab == null || loaded.Leases > 0 || loaded.Warm) return;
             loaded.Warm = true;
             _warmSets.Remove(loaded);
@@ -255,16 +250,32 @@ namespace Lvn.UI
             return Resources.Load<GameObject>("Sets/" + id) ?? Resources.Load<GameObject>(id);
         }
 
+        /// <summary>ОТМЕНИЛИ ПОСРЕДИ ЗАГРУЗКИ НАБОРА — вернуть память и
+        /// бросить.
+        ///
+        /// <para>Обряд стоял двумя копиями у двух ждущих. Забудь уборку — и
+        /// набор, скачанный ради отменённой главы, остаётся в памяти до конца
+        /// сессии. Забудь условие — и выгрузишь чужое: аренда больше нуля
+        /// значит «им сейчас пользуются», прогретый значит «его нарочно
+        /// держат тёплым».</para>
+        ///
+        /// <para>Бросок оставлен ЗДЕСЬ, а не у вызывающего: уборка без броска
+        /// продолжила бы работу с отменённым токеном, а бросок без уборки —
+        /// то самое протекание. Разделять их вызывающему незачем.</para>
+        /// </summary>
+        private void AbandonIfCancelled(CancellationToken ct, SetBundle loaded)
+        {
+            if (!ct.IsCancellationRequested) return;
+            if (loaded != null && loaded.Leases == 0 && !loaded.Warm)
+                _ = UnloadSetBundleNextFrame(loaded);
+            ct.ThrowIfCancellationRequested();
+        }
+
         private async Task<Lvn3DSetAsset> AcquireSetBundleAsync(
             string id, Lvn3DBundle descriptor, CancellationToken ct)
         {
             var loaded = await GetSetBundleAsync(id, descriptor, ct);
-            if (ct.IsCancellationRequested)
-            {
-                if (loaded != null && loaded.Leases == 0 && !loaded.Warm)
-                    _ = UnloadSetBundleNextFrame(loaded);
-                ct.ThrowIfCancellationRequested();
-            }
+            AbandonIfCancelled(ct, loaded);
             if (loaded?.Prefab == null) return null;
             if (loaded.Warm)
             {
