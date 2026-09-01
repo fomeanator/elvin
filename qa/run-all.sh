@@ -21,6 +21,14 @@ UNITY="/Applications/Unity/Hub/Editor/6000.4.5f1/Unity.app/Contents/MacOS/Unity"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 OUT="$REPO_ROOT/qa/reports/$STAMP-runall"
+
+# УБОРКА ЗА СОБОЙ. Один прогон оставляет ~130 МБ (лог PlayMode — почти весь
+# объём), и за полгода их набралось 644 штуки на 9,5 ГБ: диск кончился прямо
+# посреди работы. Отчёт нужен, пока разбираешь ПОСЛЕДНЮЮ поломку; десяти хватает
+# с запасом. Чистим ДО прогона, чтобы место освободилось раньше, чем понадобится.
+ls -t "$REPO_ROOT/qa/reports" 2>/dev/null | tail -n +11 | while read -r old_run; do
+  rm -rf "$REPO_ROOT/qa/reports/${old_run:?}"
+done
 mkdir -p "$OUT"
 
 DEVICE=0

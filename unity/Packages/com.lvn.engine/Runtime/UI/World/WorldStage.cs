@@ -342,7 +342,7 @@ namespace Lvn.UI.World
             }
             // Полный `off` отменяет и недоставленное — иначе снятый эффект
             // «догнал» бы актёра из очереди.
-            if (cmd["off"] != null && string.IsNullOrEmpty((string)cmd["part"]))
+            if (Lvn.LvnBool.Flag(cmd["off"]) && string.IsNullOrEmpty((string)cmd["part"]))
             {
                 _pendingSfx.Remove(id);
                 return true;
