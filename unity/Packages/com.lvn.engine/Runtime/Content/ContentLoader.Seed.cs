@@ -22,7 +22,7 @@ namespace Lvn.Content
         public void EnableSeed(string seedBase)
         {
             if (string.IsNullOrEmpty(seedBase)) return;
-            _seedBase = seedBase.TrimEnd('/');
+            _seedBase = LvnUrl.Base(seedBase);
             _seedLoad = LoadSeedIndexAsync();
         }
 

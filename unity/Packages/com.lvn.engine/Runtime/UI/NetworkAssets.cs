@@ -31,12 +31,12 @@ namespace Lvn.UI
         public string BaseUrl
         {
             get => _baseUrl;
-            init => _baseUrl = value?.TrimEnd('/');
+            init => _baseUrl = Lvn.LvnUrl.Base(value);
         }
 
         public NetworkAssets(string baseUrl = null)
         {
-            _baseUrl = baseUrl?.TrimEnd('/');
+            _baseUrl = Lvn.LvnUrl.Base(baseUrl);
         }
 
         private string FullUrl(string url)
@@ -54,8 +54,8 @@ namespace Lvn.UI
             // file:// стоит чтение с диска, где «%20» означает файл, которого
             // нет. Тот же загрузчик, на который ссылается комментарий выше,
             // локальные адреса не кодирует НИКОГДА.
-            if (Lvn.Content.LvnUrl.Local(url)) return url;
-            if (!string.IsNullOrEmpty(_baseUrl) && !Lvn.Content.LvnUrl.Remote(url))
+            if (Lvn.LvnUrl.Local(url)) return url;
+            if (!string.IsNullOrEmpty(_baseUrl) && !Lvn.LvnUrl.Remote(url))
                 return _baseUrl + "/" + Lvn.Content.ContentLoader.EncodeUrlPath(url.TrimStart('/'));
             return Lvn.Content.ContentLoader.EncodeUrlPath(url);
         }

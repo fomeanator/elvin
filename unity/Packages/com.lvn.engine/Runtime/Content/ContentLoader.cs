@@ -246,7 +246,7 @@ namespace Lvn.Content
 
         public ContentLoader(string baseUrl, string cacheRoot = null)
         {
-            _baseUrl = (baseUrl ?? "").TrimEnd('/');
+            _baseUrl = LvnUrl.Base(baseUrl);
             _local = LvnUrl.Local(_baseUrl);
             cacheRoot ??= Path.Combine(Application.persistentDataPath, "cache");
             _cacheRoot = cacheRoot;

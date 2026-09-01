@@ -77,7 +77,7 @@ namespace Lvn.UI.Screens
             var list = new List<(string Name, string Url)>();
             void AddUnique(string name, string url)
             {
-                url = (url ?? "").TrimEnd('/');
+                url = Lvn.LvnUrl.Base(url);
                 if (string.IsNullOrEmpty(url)) return;
                 foreach (var c in list) if (c.Url == url) return;
                 list.Add((name, url));
@@ -129,7 +129,7 @@ namespace Lvn.UI.Screens
 
             void Confirm(string url)
             {
-                url = (url ?? "").TrimEnd('/');
+                url = Lvn.LvnUrl.Base(url);
                 if (string.IsNullOrEmpty(url)) return;
                 LvnPrefs.ServerUrlOverride = url == defaultUrl ? "" : url;
                 tcs.TrySetResult(url);

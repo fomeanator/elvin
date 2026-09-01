@@ -162,7 +162,7 @@ namespace Lvn.Content
         /// id used on several devices; defaults to a per-device secret.</param>
         public HttpStateStore(string baseUrl, string userId, string stateKey = null)
         {
-            _base = (baseUrl ?? "").TrimEnd('/');
+            _base = LvnUrl.Base(baseUrl);
             _user = string.IsNullOrEmpty(userId) ? "anon" : userId;
             _key = string.IsNullOrEmpty(stateKey) ? DeviceKey() : stateKey;
         }
