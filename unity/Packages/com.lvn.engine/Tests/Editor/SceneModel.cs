@@ -47,7 +47,12 @@ namespace Lvn.Tests
                     foreach (var p in sticky.Properties()) st[p.Name] = p.Value;
                     foreach (var p in c.Properties())
                         if (p.Name != "op") st[p.Name] = p.Value.DeepClone();
-                    st["__visible"] = c["show"] == null || (bool?)c["show"] != false;
+                    // «Скрыт ли» — вопрос к ДОМУ (Lvn.LvnBool), а не приведение типа:
+                    // компилятор булевых не приводит, и `show=no` доезжает сюда
+                    // строкой. Приведение видело только настоящий bool, и заглушка
+                    // считала скрытую героиню видимой — сертифицируя не то, что
+                    // делает движок.
+                    st["__visible"] = Lvn.LvnBool.Of(c["show"], true);
                     break;
             }
         }
