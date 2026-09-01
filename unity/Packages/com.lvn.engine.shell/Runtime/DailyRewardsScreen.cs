@@ -104,10 +104,8 @@ namespace Lvn.UI.Screens
             card.style.width = Length.Percent(90f);
             card.style.maxWidth = 760;
             card.style.backgroundColor = LvnTokens.PanelBg;
-            LvnChrome.Round(card, LvnTokens.Radius);
-            LvnChrome.Border(card, LvnTokens.Border, 1f);
-            LvnAir.PadX(card, LvnTokens.Space4);
-            LvnAir.PadY(card, LvnTokens.Space4);
+            LvnChrome.Frame(card, LvnTokens.Radius, LvnTokens.Border, 1f);
+            LvnAir.Pad(card, LvnTokens.Space4, LvnTokens.Space4);
             Add(card);
             AdoptSheet(card); // единый враппер попапа: стекло, окантовка, подъезд
 
@@ -282,8 +280,7 @@ namespace Lvn.UI.Screens
                 badge.style.fontSize = LvnTokens.TextXs;
                 badge.style.color = LvnTokens.OnAccent;
                 badge.style.backgroundColor = LvnTokens.Accent;
-                LvnAir.PadX(badge, LvnTokens.Space1);
-                LvnAir.PadY(badge, LvnTokens.Hair);
+                LvnAir.Pad(badge, LvnTokens.Space1, LvnTokens.Hair);
                 LvnChrome.Round(badge, LvnTokens.RadiusXs);
                 cell.Add(badge);
             }

@@ -129,8 +129,7 @@ namespace Lvn.UI
             // Запасной цвет — из токенов, а не числами: без темы сцены поле
             // всё равно обязано быть цвета действующей палитры.
             panel.style.backgroundColor = Theme != null ? Theme.PanelColor : LvnTokens.Panel(0.94f);
-            LvnAir.PadX(panel, Theme != null ? Theme.PanelPaddingX : 22f);
-            LvnAir.PadY(panel, Theme != null ? Theme.PanelPaddingY : 18f);
+            LvnAir.Pad(panel, Theme != null ? Theme.PanelPaddingX : 22f, Theme != null ? Theme.PanelPaddingY : 18f);
             panel.style.overflow = Overflow.Visible;   // рамка выступает наружу
             float r = Theme != null ? Theme.PanelCornerRadius : 12f;
             LvnChrome.Round(panel, r);
@@ -188,8 +187,7 @@ namespace Lvn.UI
             var inner = field.Q(TextField.textInputUssName);
             if (inner != null)
             {
-                LvnChrome.Round(inner, Mathf.Max(8f, r * 0.4f));
-                LvnChrome.Border(inner, Theme != null ? Theme.SpeakerColor : LvnTokens.Accent, 2f);
+                LvnChrome.Frame(inner, Mathf.Max(8f, r * 0.4f), Theme != null ? Theme.SpeakerColor : LvnTokens.Accent, 2f);
                 inner.style.minHeight = 72;   // палец, а не курсор
             }
             // Каретка и выделение — тоже тема: системное синее выделение на

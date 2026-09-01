@@ -255,8 +255,7 @@ namespace Lvn.UI.Screens
             if (!allowed || !Lvn.Services.LvnPlatformAuth.Has(provider)) return;
             var b = new Button { text = label };
             b.style.fontSize = LvnTokens.TextSm;
-            LvnAir.PadX(b, LvnTokens.Space3);
-            LvnAir.PadY(b, LvnTokens.Space2);
+            LvnAir.Pad(b, LvnTokens.Space3, LvnTokens.Space2);
             LvnAir.MarginX(b, LvnTokens.Space1);
             // РОЛЬ, А НЕ ЦВЕТ. Плашка была белой по жёсткому числу (10% белого),
             // и в тёмно-бирюзовой теме, где все приглушённые плашки подкрашены,

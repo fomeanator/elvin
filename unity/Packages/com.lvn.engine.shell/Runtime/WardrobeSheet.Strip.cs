@@ -249,8 +249,7 @@ namespace Lvn.UI.Screens
             badge.style.position = Position.Absolute;
             badge.style.top = 6; badge.style.right = 6;
             badge.style.backgroundColor = LvnTokens.Veil(0.62f);
-            LvnAir.PadX(badge, LvnTokens.Space1);
-            LvnAir.PadY(badge, LvnTokens.Hair);
+            LvnAir.Pad(badge, LvnTokens.Space1, LvnTokens.Hair);
             LvnChrome.Round(badge, LvnTokens.RadiusSm);
             return badge;
         }

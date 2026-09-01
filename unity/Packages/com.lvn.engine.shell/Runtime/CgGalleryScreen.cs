@@ -249,8 +249,7 @@ namespace Lvn.UI.Screens
             cell.style.backgroundColor = LvnTokens.Surface;
             LvnChrome.Edge(cell);
             cell.style.overflow = Overflow.Hidden;
-            LvnChrome.Round(cell, LvnTokens.RadiusSm);
-            LvnChrome.Border(cell, LvnTokens.Border, 1f);
+            LvnChrome.Frame(cell, LvnTokens.RadiusSm, LvnTokens.Border, 1f);
 
             var art = ScreenUi.Stretch(new VisualElement());
             art.pickingMode = PickingMode.Ignore;
@@ -266,8 +265,7 @@ namespace Lvn.UI.Screens
                 cap.style.left = 0;
                 cap.style.right = 0;
                 cap.style.bottom = 0;
-                LvnAir.PadX(cap, LvnTokens.Space2);
-                LvnAir.PadY(cap, LvnTokens.Space1);
+                LvnAir.Pad(cap, LvnTokens.Space2, LvnTokens.Space1);
                 cap.style.backgroundColor = LvnTokens.Veil(0.55f);
                 cap.pickingMode = PickingMode.Ignore;
                 cell.Add(cap);

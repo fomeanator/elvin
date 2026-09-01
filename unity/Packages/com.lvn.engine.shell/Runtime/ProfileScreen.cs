@@ -245,8 +245,7 @@ namespace Lvn.UI.Screens
             avatar.style.alignItems = Align.Center;
             avatar.style.justifyContent = Justify.Center;
             avatar.style.backgroundColor = LvnTokens.SurfaceHi;
-            LvnChrome.Round(avatar, avatarSize / 2f);
-            LvnChrome.Border(avatar, LvnTokens.Accent, 3f);
+            LvnChrome.Frame(avatar, avatarSize / 2f, LvnTokens.Accent, 3f);
 
             var glyph = LvnIcons.Make(AvatarIcon, 50f, LvnTokens.Text);
             glyph.style.alignSelf = Align.Center;
@@ -326,8 +325,7 @@ namespace Lvn.UI.Screens
             tile.style.marginRight = LvnTokens.Space1;
             tile.style.alignItems = Align.Center;
             LvnChrome.Card(tile);
-            LvnAir.PadX(tile, LvnTokens.Space1);
-            LvnAir.PadY(tile, LvnTokens.Space3);
+            LvnAir.Pad(tile, LvnTokens.Space1, LvnTokens.Space3);
 
             var value = new Label(s.Value);
             value.style.color = LvnTokens.Gold;
@@ -402,8 +400,7 @@ namespace Lvn.UI.Screens
         {
             var row = new VisualElement();
             LvnChrome.Card(row);
-            LvnAir.PadX(row, LvnTokens.Space3);
-            LvnAir.PadY(row, LvnTokens.Space2);
+            LvnAir.Pad(row, LvnTokens.Space3, LvnTokens.Space2);
             row.style.marginBottom = LvnTokens.Space2;
 
             var head = ScreenUi.Row(spread: true);

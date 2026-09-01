@@ -216,8 +216,7 @@ namespace Lvn.UI.Screens
             peekLabel.style.marginLeft = LvnTokens.Space1;
             peekLabel.style.color = LvnTokens.Text;
             peek.Add(peekLabel);
-            LvnAir.PadX(peek, LvnTokens.Space2);
-            LvnAir.PadY(peek, LvnTokens.Space1);
+            LvnAir.Pad(peek, LvnTokens.Space2, LvnTokens.Space1);
             SkinButton(peek, false);
 
             // Character pills — ONLY the always-open wardrobe shows them, and
@@ -289,8 +288,7 @@ namespace Lvn.UI.Screens
             {
                 b.style.alignItems = Align.Center;
                 b.style.justifyContent = Justify.Center;
-                LvnAir.PadX(b, LvnTokens.Space3);
-                LvnAir.PadY(b, LvnTokens.Space2);
+                LvnAir.Pad(b, LvnTokens.Space3, LvnTokens.Space2);
                 SkinButton(b, false);
             }
             carousel.Add(prev);

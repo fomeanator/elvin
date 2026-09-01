@@ -224,9 +224,12 @@ namespace Lvn.UI.Screens
                 ? LvnTokens.Accent
                 : UiColor.WithAlpha(LvnTokens.Accent, 0.15f);
             buy.style.unityFontStyleAndWeight = FontStyle.Bold;
-            LvnChrome.Round(buy, LvnTokens.RadiusSm);
-            if (pack.Best) LvnChrome.ClearBorder(buy);
-            else LvnChrome.Border(buy, UiColor.WithAlpha(LvnTokens.Accent, 0.36f), 1f);
+            // Рекомендуемый пак заливкой и без рамки, остальные — обводкой.
+            // Огранка называется целиком в обеих ветках: иначе скругление
+            // живёт отдельно от решения про рамку и разъезжается с ним.
+            if (pack.Best) LvnChrome.Frame(buy, LvnTokens.RadiusSm);
+            else LvnChrome.Frame(buy, LvnTokens.RadiusSm,
+                                 UiColor.WithAlpha(LvnTokens.Accent, 0.36f), 1f);
             buy.clicked += () => Buy(buy, pack);
             body.Add(buy);
 
@@ -245,8 +248,7 @@ namespace Lvn.UI.Screens
                 ribbon.style.letterSpacing = 1.5f;
                 ribbon.style.color = gold ? LvnTokens.Bg : LvnTokens.OnAccent;
                 ribbon.style.backgroundColor = gold ? LvnTokens.Gold : LvnTokens.Accent;
-                LvnAir.PadX(ribbon, LvnTokens.Space2);
-                LvnAir.PadY(ribbon, LvnTokens.Hair);
+                LvnAir.Pad(ribbon, LvnTokens.Space2, LvnTokens.Hair);
                 LvnChrome.Round(ribbon, LvnTokens.RadiusXs);
                 card.Add(ribbon);
             }

@@ -313,12 +313,10 @@ namespace Lvn.UI.Screens
                 var pill = new Button(() => { _tab = idx; Rebuild(); });
                 Lvn.UI.LvnRedress.Bind(pill, () => idx < _tabIds.Count ? TabTitle(_tabIds[idx]) : string.Empty);
                 pill.style.fontSize = LvnTokens.TextSm;
-                LvnAir.PadX(pill, LvnTokens.Space3);
-                LvnAir.PadY(pill, LvnTokens.Space2);
+                LvnAir.Pad(pill, LvnTokens.Space3, LvnTokens.Space2);
                 pill.style.marginBottom = LvnTokens.Space1;
                 pill.style.marginRight = LvnTokens.Space2;
-                LvnChrome.Round(pill, LvnTokens.Radius);
-                LvnChrome.ClearBorder(pill);
+                LvnChrome.Frame(pill, LvnTokens.Radius);
                 StyleTab(pill, i == _tab);
                 _tabsRow.Add(pill);
                 _tabButtons.Add(pill);

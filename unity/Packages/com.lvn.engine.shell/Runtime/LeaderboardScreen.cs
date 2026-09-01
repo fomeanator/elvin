@@ -154,11 +154,9 @@ namespace Lvn.UI.Screens
         {
             var b = new Button(onClick) { text = text };
             b.style.fontSize = LvnTokens.TextSm;
-            LvnAir.PadX(b, LvnTokens.Space4);
-            LvnAir.PadY(b, LvnTokens.Space2);
+            LvnAir.Pad(b, LvnTokens.Space4, LvnTokens.Space2);
             LvnAir.MarginX(b, 0);
-            LvnChrome.ClearBorder(b);
-            LvnChrome.Round(b, LvnTokens.RadiusSm);
+            LvnChrome.Frame(b, LvnTokens.RadiusSm);
             return b;
         }
 
@@ -303,8 +301,7 @@ namespace Lvn.UI.Screens
                 you.style.backgroundColor = LvnTokens.Accent;
                 you.style.unityFontStyleAndWeight = FontStyle.Bold;
                 you.style.unityTextAlign = TextAnchor.MiddleCenter;
-                LvnAir.PadX(you, LvnTokens.Space2);
-                LvnAir.PadY(you, LvnTokens.Hair);
+                LvnAir.Pad(you, LvnTokens.Space2, LvnTokens.Hair);
                 you.style.marginLeft = LvnTokens.Space2;
                 LvnChrome.Round(you, LvnTokens.RadiusSm);
                 nameCol.Add(you);
@@ -335,8 +332,7 @@ namespace Lvn.UI.Screens
             av.style.justifyContent = Justify.Center;
             av.style.backgroundColor = ColorFor(e.Name);
             LvnPicture.Fit(av);
-            LvnChrome.Round(av, size / 2f);
-            LvnChrome.ClearBorder(av);
+            LvnChrome.Frame(av, size / 2f);
 
             var initial = new Label(Initial(e.Name));
             initial.style.color = LvnTokens.OnAccent;

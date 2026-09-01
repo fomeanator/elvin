@@ -197,8 +197,7 @@ namespace Lvn.UI
             _plate.style.alignSelf = Align.FlexStart;
             _plate.style.flexShrink = 0; // never squeezed out of the column when space is tight
             _plate.style.backgroundColor = _theme.PanelColor;
-            LvnAir.PadX(_plate, _theme.NamePaddingX);
-            LvnAir.PadY(_plate, _theme.NamePaddingY);
+            LvnAir.Pad(_plate, _theme.NamePaddingX, _theme.NamePaddingY);
             _plate.style.marginBottom = -2;
             LvnChrome.RoundTop(_plate, _theme.PanelCornerRadius * 0.6f);
             UiStyle.ApplyBackground(_plate, _theme.PlateSprite, _theme.PanelSlice);
@@ -229,8 +228,7 @@ namespace Lvn.UI
             _panelShell.style.overflow = Overflow.Visible;
             _panelShell.style.flexShrink = 0;
             _panel = new VisualElement { name = "vn-panel" };
-            LvnAir.PadX(_panel, _theme.PanelPaddingX);
-            LvnAir.PadY(_panel, _theme.PanelPaddingY);
+            LvnAir.Pad(_panel, _theme.PanelPaddingX, _theme.PanelPaddingY);
             _panel.style.minHeight = _theme.PanelMinHeight;
             // The speaker pointer deliberately rises above the top border.
             // Keep it outside the panel's content clip.

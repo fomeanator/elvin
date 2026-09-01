@@ -401,8 +401,7 @@ namespace Lvn.UI.Screens
             panel.style.top = Length.Percent(10f); panel.style.bottom = Length.Percent(10f);
             panel.style.backgroundColor = UiColor.Named(_cfg.card_bg_color, LvnTokens.Surface);
             LvnChrome.Round(panel, LvnTokens.Radius);
-            LvnAir.PadX(panel, LvnTokens.Space3);
-            LvnAir.PadY(panel, LvnTokens.Space2);
+            LvnAir.Pad(panel, LvnTokens.Space3, LvnTokens.Space2);
             panel.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             _picker.Add(panel);
 
