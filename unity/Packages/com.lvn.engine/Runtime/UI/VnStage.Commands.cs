@@ -410,7 +410,7 @@ namespace Lvn.UI
             _hintHost.style.display = DisplayStyle.Flex;
             if (wasHidden)
                 LvnAppear.Play(_hintHost, LvnAppearKind.SlideDown, true,
-                    VnTheme.MotionMs(0.22f));
+                    VnTheme.MotionMs(seconds: 0.22f));
 
             // A plain hint is a four-second toast. duration=0 remains the explicit
             // authoring escape hatch for a persistent tutorial card.
@@ -428,7 +428,7 @@ namespace Lvn.UI
         {
             if (_hintHost == null || _hintHost.style.display == DisplayStyle.None) return;
             LvnAppear.Play(_hintHost, LvnAppearKind.SlideDown, false,
-                VnTheme.MotionMs(0.18f),
+                VnTheme.MotionMs(seconds: 0.18f),
                 () => { if (_hintHost != null) _hintHost.style.display = DisplayStyle.None; });
         }
 
