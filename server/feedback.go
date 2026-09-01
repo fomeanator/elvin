@@ -24,8 +24,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/fomeanator/elvin/tools/lvnconv/lvn"
 )
 
 const (
@@ -143,7 +141,7 @@ func (s *FeedbackService) handleSubmit(w http.ResponseWriter, r *http.Request) {
 	// Кадр восстанавливаем здесь же: через неделю глава может быть
 	// перекомпилирована, и тот же индекс будет указывать в другое место.
 	if e.Title != "" && e.Chapter != "" && in.At > 0 {
-		if doc := s.loadScript(e.Title, e.Chapter); doc != nil {
+		if doc := s.chapters.loadDoc(e.Title, e.Chapter); doc != nil {
 			var frame exitPoint
 			describeFrame(doc, in.At, &frame)
 			e.Line, e.BG = frame.Line, frame.BG
@@ -158,24 +156,6 @@ func (s *FeedbackService) handleSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
-}
-
-func (s *FeedbackService) loadScript(title, chapter string) *lvn.Doc {
-	rel := s.chapters.scriptURL(title, chapter)
-	root := s.chapters.contentRoot()
-	if rel == "" || root == "" {
-		return nil
-	}
-	rel = strings.TrimPrefix(rel, "/content/")
-	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
-	if err != nil {
-		return nil
-	}
-	doc, err := lvn.Parse(data)
-	if err != nil {
-		return nil
-	}
-	return doc
 }
 
 func (s *FeedbackService) insert(e feedbackEntry) error {

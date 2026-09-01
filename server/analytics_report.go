@@ -20,6 +20,7 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/fomeanator/elvin/tools/lvnconv/lvn"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -973,6 +974,35 @@ func (c *chapterIndex) contentRoot() string {
 		return ""
 	}
 	return filepath.Dir(c.path)
+}
+
+// loadDoc достаёт СКОМПИЛИРОВАННУЮ главу из контента, или nil.
+//
+// Указатель глав знает и адрес скрипта (из манифеста — у импортированных глав
+// имя файла не совпадает с идентификатором), и корень контента. Значит и
+// «прочитать её» принадлежит ему: две службы, аналитика и обратная связь,
+// держали по своей копии этих девяти строк, различаясь лишь порядком двух
+// ранних проверок.
+//
+// Молчание здесь намеренное на каждом шаге: нет адреса, нет корня, файл не
+// читается, разбор не удался — во всех случаях nil. Вызывающие показывают
+// отчёт, а не чинят контент; уронить отчёт из-за одной битой главы значило бы
+// потерять и остальные.
+func (c *chapterIndex) loadDoc(title, chapter string) *lvn.Doc {
+	rel := c.scriptURL(title, chapter)
+	root := c.contentRoot()
+	if rel == "" || root == "" {
+		return nil
+	}
+	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(strings.TrimPrefix(rel, "/content/"))))
+	if err != nil {
+		return nil
+	}
+	doc, err := lvn.Parse(data)
+	if err != nil {
+		return nil
+	}
+	return doc
 }
 
 func (c *chapterIndex) chapterName(title, chapter string) string {

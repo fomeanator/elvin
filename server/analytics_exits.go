@@ -14,14 +14,11 @@ package main
 // посмотреть глазами.
 
 import (
+	"github.com/fomeanator/elvin/tools/lvnconv/lvn"
 	"net/http"
-	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
-
-	"github.com/fomeanator/elvin/tools/lvnconv/lvn"
 )
 
 // exitPoint — одно место выхода с восстановленным кадром.
@@ -94,7 +91,7 @@ func (s *AnalyticsService) handleExits(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	script := s.loadChapterScript(title, chapter)
+	script := s.chapters.loadDoc(title, chapter)
 	for key, n := range ch.Exits {
 		at, err := strconv.Atoi(key)
 		if err != nil {
@@ -118,30 +115,6 @@ func (s *AnalyticsService) handleExits(w http.ResponseWriter, r *http.Request) {
 		rep.Note = "скрипт главы не найден — кадр не восстановить, только индексы"
 	}
 	writeJSON(w, http.StatusOK, rep)
-}
-
-// loadChapterScript достаёт скомпилированную главу из контента. Имя файла
-// выводим из манифеста, а не угадываем: у импортированных глав оно не совпадает
-// с идентификатором.
-func (s *AnalyticsService) loadChapterScript(title, chapter string) *lvn.Doc {
-	rel := s.chapters.scriptURL(title, chapter)
-	if rel == "" {
-		return nil
-	}
-	rel = strings.TrimPrefix(rel, "/content/")
-	root := s.chapters.contentRoot()
-	if root == "" {
-		return nil
-	}
-	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
-	if err != nil {
-		return nil
-	}
-	doc, err := lvn.Parse(data)
-	if err != nil {
-		return nil
-	}
-	return doc
 }
 
 // describeFrame восстанавливает кадр на индексе: реплика, ближайшая авторская
