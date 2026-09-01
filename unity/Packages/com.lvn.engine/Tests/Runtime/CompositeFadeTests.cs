@@ -49,10 +49,10 @@ namespace Lvn.Tests.Runtime
 
             var actor = new GameObject("actor", typeof(RectTransform), typeof(CanvasGroup));
             actor.transform.SetParent(canvasGo.transform, false);
-            Stretch((RectTransform)actor.transform);
+            TestStage.Stretch((RectTransform)actor.transform);
 
-            var body = Layer(actor.transform, Color.white);    // тело — светлое
-            var cloth = Layer(actor.transform, Color.black);   // одежда поверх — тёмная
+            var body = TestStage.Layer(actor.transform, Color.white);    // тело — светлое
+            var cloth = TestStage.Layer(actor.transform, Color.black);   // одежда поверх — тёмная
             yield return null;
 
             // Половина перехода: гаснем ровно наполовину.
@@ -114,9 +114,9 @@ namespace Lvn.Tests.Runtime
             canvas.planeDistance = 1f;
             var actor = new GameObject("clean-fade-actor", typeof(RectTransform), typeof(CanvasGroup));
             actor.transform.SetParent(canvasGo.transform, false);
-            Stretch((RectTransform)actor.transform);
-            var body = Layer(actor.transform, Color.white);
-            var clothes = Layer(actor.transform, Color.white);
+            TestStage.Stretch((RectTransform)actor.transform);
+            var body = TestStage.Layer(actor.transform, Color.white);
+            var clothes = TestStage.Layer(actor.transform, Color.white);
             yield return null;
 
             LvnSpriteFxDriver.SetFadeDir(actor, 1f);
@@ -168,14 +168,14 @@ namespace Lvn.Tests.Runtime
             canvas.planeDistance = 1f;
             var actor = new GameObject("part-fade-actor", typeof(RectTransform), typeof(CanvasGroup));
             actor.transform.SetParent(canvasGo.transform, false);
-            Stretch((RectTransform)actor.transform);
+            TestStage.Stretch((RectTransform)actor.transform);
 
-            var body = Layer(actor.transform, Color.white);
+            var body = TestStage.Layer(actor.transform, Color.white);
             body.name = "layer:body";
             // A part-scoped sfx driver owns this material independently. Before
             // the regression fix the root fade skipped it, while fading clothes.
             body.AddComponent<LvnSpriteFxDriver>();
-            var clothes = Layer(actor.transform, Color.black);
+            var clothes = TestStage.Layer(actor.transform, Color.black);
             clothes.name = "layer:clothes";
             yield return null;
 
@@ -201,20 +201,6 @@ namespace Lvn.Tests.Runtime
             Object.Destroy(rt);
         }
 
-        private static GameObject Layer(Transform parent, Color c)
-        {
-            var go = new GameObject("layer", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            go.transform.SetParent(parent, false);
-            Stretch((RectTransform)go.transform);
-            go.GetComponent<Image>().color = c;
-            return go;
-        }
-
-        private static void Stretch(RectTransform rt)
-        {
-            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
-            rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
-        }
 
     }
 }
