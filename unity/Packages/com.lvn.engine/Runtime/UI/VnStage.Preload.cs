@@ -45,7 +45,7 @@ namespace Lvn.UI
                         LvnAsync.Fire(Warm3DSetBestEffortAsync(id), "Warm3DSetBestEffort");
                     }
                 }
-                else if (op == "bg" || op == "actor" || op == "obj")
+                else if (Lvn.LvnOpKind.CarriesArt(op))
                 {
                     var url = (string)c["sprite_url"];
                     // A Spine actor carries no sprite_url — its (heavy) assets
@@ -57,7 +57,7 @@ namespace Lvn.UI
                     // each page decode is a main-thread hit, and kicking several
                     // scenes at once stacked those hits into a visible stutter
                     // right at chapter entry. Later beats warm the rest.
-                    if (string.IsNullOrEmpty(url) && (op == "actor" || op == "obj"))
+                    if (string.IsNullOrEmpty(url) && Lvn.LvnOpKind.Of(op) == Lvn.LvnOpSubject.Actor)
                     {
                         var sp = Catalog?.Get((string)c["id"]);
                         if (sp != null && sp.kind == "spine" && sp.spine != null)
@@ -93,7 +93,7 @@ namespace Lvn.UI
                         {
                             try
                             {
-                                if (op == "bg")
+                                if (Lvn.LvnOpKind.Of(op) == Lvn.LvnOpSubject.Background)
                                 {
                                     foreach (var u in Catalog.Resolve(cid, AxesFrom(c), CatalogCond()))
                                         if (!string.IsNullOrEmpty(u) && _prefetched.Add(u))
@@ -175,7 +175,7 @@ namespace Lvn.UI
             foreach (var c in _player.PeekForward(lookAhead))
             {
                 var op = (string)c["op"];
-                if (op != "bg" && op != "actor" && op != "obj") continue;
+                if (!Lvn.LvnOpKind.CarriesArt(op)) continue;
                 Take((string)c["sprite_url"]);
                 var id = (string)c["id"];
                 if (!string.IsNullOrEmpty(id) && Catalog != null && Catalog.Has(id))
@@ -185,7 +185,7 @@ namespace Lvn.UI
                     {
                         try
                         {
-                            if (op == "bg")
+                            if (Lvn.LvnOpKind.Of(op) == Lvn.LvnOpSubject.Background)
                                 foreach (var u in Catalog.Resolve(id, AxesFrom(c), CatalogCond())) Take(u);
                             else
                                 foreach (var rl in Catalog.ResolveLayers(id, AxesOf(c), CatalogCond())) Take(rl.Url);
