@@ -443,7 +443,14 @@ namespace Lvn.UI
         private static bool ApplyLayout(VisualElement el, JObject n)
         {
             var s = el.style;
-            s.flexDirection = (string)n["dir"] == "row" ? FlexDirection.Row : FlexDirection.Column;
+            // ЗАКРЫТОЕ СЛОВО, КОТОРОГО НЕТ В СПИСКЕ, — НЕ МОЛЧАНИЕ. Перечисление
+            // случаев имеет тихий исход: не совпало ни с одним — не произошло
+            // ничего. Автор пишет «justify=middle», видит вёрстку по умолчанию и
+            // идёт искать ошибку в другом месте.
+            var dir = (string)n["dir"];
+            s.flexDirection = dir == "row" ? FlexDirection.Row : FlexDirection.Column;
+            if (dir != null && dir != "row" && dir != "column")
+                LvnClosedWord.Unknown("dir", dir, "row | column");
 
             switch ((string)n["justify"])
             {
@@ -452,6 +459,8 @@ namespace Lvn.UI
                 case "between": s.justifyContent = Justify.SpaceBetween; break;
                 case "around": s.justifyContent = Justify.SpaceAround; break;
                 case "start": s.justifyContent = Justify.FlexStart; break;
+                default: LvnClosedWord.Unknown("justify", (string)n["justify"],
+                    "center | end | between | around | start"); break;
             }
             switch ((string)n["align"])
             {
@@ -459,6 +468,8 @@ namespace Lvn.UI
                 case "end": s.alignItems = Align.FlexEnd; break;
                 case "stretch": s.alignItems = Align.Stretch; break;
                 case "start": s.alignItems = Align.FlexStart; break;
+                default: LvnClosedWord.Unknown("align", (string)n["align"],
+                    "center | end | stretch | start"); break;
             }
 
             if (n["grow"] != null) s.flexGrow = Num(n["grow"], 0);
