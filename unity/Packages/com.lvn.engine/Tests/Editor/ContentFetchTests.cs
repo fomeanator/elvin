@@ -64,6 +64,7 @@ namespace Lvn.Tests
         [TearDown]
         public void TearDown()
         {
+            _loader?.Dispose();   // иначе подписка на lowMemory переживёт весь прогон
             // Признак связи общий на процесс: оставить его сбитым — значит
             // покрасить чужие тесты.
             LvnNetworkStatus.ForceOffline = _силойОфлайн;

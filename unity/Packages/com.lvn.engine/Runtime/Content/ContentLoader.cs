@@ -26,7 +26,7 @@ namespace Lvn.Content
     /// prioritize a chapter's release set; <c>NetworkAssets</c> adapts it to the
     /// engine's <c>ILvnAssets</c> seam.
     /// </summary>
-    public partial class ContentLoader
+    public partial class ContentLoader : System.IDisposable
     {
         private readonly string _baseUrl;
         // True when the content origin is a local bundle (file:// on desktop, or
@@ -258,6 +258,28 @@ namespace Lvn.Content
             TuneBudgetForDevice();
             Application.lowMemory += OnLowMemory;
         }
+
+        /// <summary>
+        /// ОТПУСТИТЬ ЗАГРУЗЧИК — обязательно для ВРЕМЕННОГО.
+        ///
+        /// <para>Конструктор подписывается на <c>Application.lowMemory</c>, а
+        /// это событие ЖИВЁТ ВСЮ ИГРУ: не сняв подписку, объект нельзя собрать
+        /// никогда, и на нехватку памяти отзовётся в том числе десяток мёртвых
+        /// загрузчиков — каждый со своим (пустым) кэшем и своей строкой в
+        /// журнале. Живой случай: экран выбора сервера заводил загрузчик НА
+        /// КАЖДУЮ пробу адреса, чтобы один раз позвать healthz.</para>
+        ///
+        /// <para>Хозяйскому загрузчику звать это не нужно — он живёт столько
+        /// же, сколько игра. Дом нужен как раз тем, кто живёт меньше.</para>
+        /// </summary>
+        public void Dispose()
+        {
+            if (_disposed) return;   // «отпустить дважды» бывает штатно
+            _disposed = true;
+            Application.lowMemory -= OnLowMemory;
+        }
+
+        private bool _disposed;
 
         // Бюджет по УСТРОЙСТВУ, а не константа: 384 МБ декода на телефоне с
         // 512 МБ RAM — это смертный приговор от системы. Шестая часть RAM в
