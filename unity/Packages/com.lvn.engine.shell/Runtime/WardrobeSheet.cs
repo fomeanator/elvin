@@ -101,6 +101,79 @@ namespace Lvn.UI.Screens
         /// сценой (NovelApp) наводит по нему камеру — тот же приём, что зум к
         /// лицам фаворитов в прологе (просьба Ильи 28.08).</summary>
         public static event Action<string> SectionFocus;
+        /// <summary>
+        /// КОЛОНКА ЛИЦ СПРАВА ОТ ГЕРОИНИ — вместе с индикатором прокрутки.
+        ///
+        /// <para>Идея Ильи 27.08 («уникальная штука»): эмоции живут не рядом с
+        /// нарядами, а отдельной колонкой над листом — тем же приёмом, что и
+        /// пилюли кошелька слева. Тап примеряет лицо на живую куклу, но в
+        /// гардеробные слоты ось не входит: «Выбрать» её не коммитит, закрытие
+        /// возвращает лицо по умолчанию.</para>
+        ///
+        /// <para>Индикатор прокрутки — часть той же работы, а не украшение: в
+        /// колонке лиц больше, чем помещается, а обычного скроллбара тут нет
+        /// (горизонтальный ряд «странно скроллился» — живой репорт). Кружки
+        /// сбоку и есть единственный ответ на «сколько там ещё».</para>
+        ///
+        /// <para>И правило места: верх колонки прибит к низу навбара, высота
+        /// ограничена зазором до плашки — иначе колонка, растущая вверх,
+        /// наезжала на навбар, когда лиц много (Илья 28.08: «баблы
+        /// перекрываются»).</para>
+        /// </summary>
+        private void BuildEmotionColumn()
+        {
+            // БАБЛИКИ ЭМОЦИЙ (идея Ильи 27.08 — «уникальная штука»): колонка
+            // лиц СПРАВА ОТ ГЕРОИНИ, над листом (как пилюли кошелька слева —
+            // тот же приём bottom:100%). Тап примеряет эмоцию на живую куклу
+            // через Preview оси `emotion`. В гардеробные слоты ось не входит —
+            // «Выбрать» её не коммитит, закрытие листа возвращает лицо по
+            // умолчанию. Горизонтальный ряд в листе «странно скроллился»
+            // (живой репорт) — вертикаль у правого края читается сама.
+            _emotions = Lvn.UI.LvnScroll.Vertical();
+            _emotions.style.position = Position.Absolute;
+            _emotions.style.right = EmoBarLane; // полоса у самого края — под индикатор
+            _emotions.style.display = DisplayStyle.None;
+            _emotions.contentContainer.style.alignItems = Align.FlexEnd;
+            Add(_emotions);
+
+            // ГДЕ МЫ В СПИСКЕ ЛИЦ (Илья 26.08: «показывать кружками скролл —
+            // полупрозрачными прямоугольниками модными, справа место есть»):
+            // сегментированная дорожка у правого края, по ней плавно скользит
+            // бегунок. Своя, а не штатный скроллбар: колонка живёт поверх
+            // куклы, и серая полоса Unity выбивалась бы из оболочки.
+            _emoBar = new VisualElement { pickingMode = PickingMode.Ignore };
+            _emoBar.style.position = Position.Absolute;
+            _emoBar.style.right = 4;
+            _emoBar.style.width = EmoBarWidth;
+            _emoBar.style.display = DisplayStyle.None;
+            Add(_emoBar);
+            for (int s = 0; s < EmoBarSegments; s++)
+            {
+                var seg = new VisualElement { pickingMode = PickingMode.Ignore };
+                seg.style.flexGrow = 1;
+                seg.style.marginBottom = s == EmoBarSegments - 1 ? 0 : 4;
+                seg.style.backgroundColor = new Color(1f, 1f, 1f, 0.13f);
+                LvnChrome.Round(seg, EmoBarWidth * 0.5f);
+                _emoBar.Add(seg);
+            }
+            _emoThumb = new VisualElement { pickingMode = PickingMode.Ignore };
+            _emoThumb.style.position = Position.Absolute;
+            _emoThumb.style.left = 0; _emoThumb.style.right = 0;
+            _emoThumb.style.backgroundColor = new Color(1f, 1f, 1f, 0.62f);
+            LvnChrome.Round(_emoThumb, EmoBarWidth * 0.5f);
+            Smooth(_emoThumb, LvnMotion.Quick, "top", "height");
+            _emoBar.Add(_emoThumb);
+            // Скроллеры спрятаны, но живут — их значение и есть позиция.
+            _emotions.verticalScroller.valueChanged += _ => UpdateEmoScrollBar();
+            _emotions.RegisterCallback<GeometryChangedEvent>(_ => UpdateEmoScrollBar());
+            // ПОД НАВБАРОМ (Илья 28.08: «баблы перекрываются — по топу, под
+            // навбаром лучше»): колонка, растущая от плашки вверх, наезжала на
+            // неё, когда лиц больше, чем зазора. Теперь верх колонки прибит к
+            // низу навбара, а высота ограничена зазором до плашки — лишнее
+            // скроллится внутри, перекрытий не бывает по построению.
+            RegisterCallback<GeometryChangedEvent>(_ => PlaceEmotions());
+        }
+
         private void FireSectionFocus(string axis) => SectionFocus?.Invoke(axis);
         /// <summary>Вернуть зум активного раздела (возврат из «Во весь рост»).</summary>
         public void RefocusSection() => FireSectionFocus(_tab);
@@ -249,56 +322,7 @@ namespace Lvn.UI.Screens
             headRow.Add(_tabs);
             headRow.Add(peek); // строка: разделы — по центру, «Во весь рост» — справа
 
-            // БАБЛИКИ ЭМОЦИЙ (идея Ильи 27.08 — «уникальная штука»): колонка
-            // лиц СПРАВА ОТ ГЕРОИНИ, над листом (как пилюли кошелька слева —
-            // тот же приём bottom:100%). Тап примеряет эмоцию на живую куклу
-            // через Preview оси `emotion`. В гардеробные слоты ось не входит —
-            // «Выбрать» её не коммитит, закрытие листа возвращает лицо по
-            // умолчанию. Горизонтальный ряд в листе «странно скроллился»
-            // (живой репорт) — вертикаль у правого края читается сама.
-            _emotions = Lvn.UI.LvnScroll.Vertical();
-            _emotions.style.position = Position.Absolute;
-            _emotions.style.right = EmoBarLane; // полоса у самого края — под индикатор
-            _emotions.style.display = DisplayStyle.None;
-            _emotions.contentContainer.style.alignItems = Align.FlexEnd;
-            Add(_emotions);
-
-            // ГДЕ МЫ В СПИСКЕ ЛИЦ (Илья 26.08: «показывать кружками скролл —
-            // полупрозрачными прямоугольниками модными, справа место есть»):
-            // сегментированная дорожка у правого края, по ней плавно скользит
-            // бегунок. Своя, а не штатный скроллбар: колонка живёт поверх
-            // куклы, и серая полоса Unity выбивалась бы из оболочки.
-            _emoBar = new VisualElement { pickingMode = PickingMode.Ignore };
-            _emoBar.style.position = Position.Absolute;
-            _emoBar.style.right = 4;
-            _emoBar.style.width = EmoBarWidth;
-            _emoBar.style.display = DisplayStyle.None;
-            Add(_emoBar);
-            for (int s = 0; s < EmoBarSegments; s++)
-            {
-                var seg = new VisualElement { pickingMode = PickingMode.Ignore };
-                seg.style.flexGrow = 1;
-                seg.style.marginBottom = s == EmoBarSegments - 1 ? 0 : 4;
-                seg.style.backgroundColor = new Color(1f, 1f, 1f, 0.13f);
-                LvnChrome.Round(seg, EmoBarWidth * 0.5f);
-                _emoBar.Add(seg);
-            }
-            _emoThumb = new VisualElement { pickingMode = PickingMode.Ignore };
-            _emoThumb.style.position = Position.Absolute;
-            _emoThumb.style.left = 0; _emoThumb.style.right = 0;
-            _emoThumb.style.backgroundColor = new Color(1f, 1f, 1f, 0.62f);
-            LvnChrome.Round(_emoThumb, EmoBarWidth * 0.5f);
-            Smooth(_emoThumb, LvnMotion.Quick, "top", "height");
-            _emoBar.Add(_emoThumb);
-            // Скроллеры спрятаны, но живут — их значение и есть позиция.
-            _emotions.verticalScroller.valueChanged += _ => UpdateEmoScrollBar();
-            _emotions.RegisterCallback<GeometryChangedEvent>(_ => UpdateEmoScrollBar());
-            // ПОД НАВБАРОМ (Илья 28.08: «баблы перекрываются — по топу, под
-            // навбаром лучше»): колонка, растущая от плашки вверх, наезжала на
-            // неё, когда лиц больше, чем зазора. Теперь верх колонки прибит к
-            // низу навбара, а высота ограничена зазором до плашки — лишнее
-            // скроллится внутри, перекрытий не бывает по построению.
-            RegisterCallback<GeometryChangedEvent>(_ => PlaceEmotions());
+            BuildEmotionColumn();
 
             // ЛЕНТА КАРТОЧЕК СКИНОВ (решение Ильи 27.08: единый гардероб —
             // «взял бы плашку из игры, а карусель слить с карточками»): все
