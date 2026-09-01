@@ -31,36 +31,39 @@ namespace Lvn.UI
             return this;
         }
 
-        public async Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct)
+                /// <summary>ПЕРВЫЙ, КТО ОТВЕТИЛ, — ТОТ И ОТВЕЧАЕТ.
+        ///
+        /// <para>Обход цепочки стоял ТРЕМЯ копиями по восемь строк — картинка,
+        /// текст, звук, — и различались они только тем, о чём спрашивают и что
+        /// считать ответом. Цепочка — это механизм: спросить по порядку и
+        /// остановиться на первом, кто дал ответ. Вид содержимого к нему
+        /// отношения не имеет.</para>
+        ///
+        /// <para>Признак ответа остался доводом, потому что он и вправду
+        /// разный: для картинки и звука ответ — не <c>null</c>, для текста
+        /// пустая строка тоже «нечего дать».</para></summary>
+        private async Task<T> FirstAnswerAsync<T>(System.Func<ILvnAssets, Task<T>> ask,
+                                                  System.Func<T, bool> answered)
         {
             foreach (var loader in _chain)
             {
-                var sprite = await loader.LoadSpriteAsync(url, ct);
-                if (sprite != null) return sprite;
+                var got = await ask(loader);
+                if (answered(got)) return got;
             }
-            return null;
+            return default;
         }
 
-        public async Task<string> LoadTextAsync(string url, System.Threading.CancellationToken ct)
-        {
-            foreach (var l in _chain)
-            {
-                var t = await l.LoadTextAsync(url, ct);
-                if (!string.IsNullOrEmpty(t)) return t;
-            }
-            return null;
-        }
+        public Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct)
+            => FirstAnswerAsync(l => l.LoadSpriteAsync(url, ct), s => s != null);
 
-        public async Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct)
-        {
-            foreach (var loader in _chain)
-            {
-                var clip = await loader.LoadAudioAsync(url, ct);
-                if (clip != null) return clip;
-            }
-            return null;
-        }
+        public Task<string> LoadTextAsync(string url, CancellationToken ct)
+            => FirstAnswerAsync(l => l.LoadTextAsync(url, ct), t => !string.IsNullOrEmpty(t));
 
+        public Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct)
+            => FirstAnswerAsync(l => l.LoadAudioAsync(url, ct), c => c != null);
+
+        
+        
         public void Unload(string url)
         {
             foreach (var loader in _chain)
