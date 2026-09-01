@@ -1011,18 +1011,12 @@ func rollupPropIntOK(props map[string]json.RawMessage, keys ...string) (int, boo
 	return 0, false
 }
 
+// rollupPropInt — то же, что rollupPropIntOK, но без признака «нашлось».
+// Половина целого, а не своя работа: раньше она стояла отдельным телом, и
+// правило «какой ключ считать числом» жило в двух копиях.
 func rollupPropInt(props map[string]json.RawMessage, keys ...string) int {
-	for _, k := range keys {
-		raw, ok := props[k]
-		if !ok {
-			continue
-		}
-		var n float64
-		if json.Unmarshal(raw, &n) == nil {
-			return int(n)
-		}
-	}
-	return 0
+	n, _ := rollupPropIntOK(props, keys...)
+	return n
 }
 
 // normalizeAnalyticsTS returns an RFC3339 UTC stamp. Everything downstream

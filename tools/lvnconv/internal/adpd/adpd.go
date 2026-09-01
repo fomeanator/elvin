@@ -195,32 +195,40 @@ type object struct {
 	es      []entry
 }
 
-func (o object) u32(pid uint16) (uint32, bool) {
+// prop — первое свойство с номером pid, метка которого проходит отбор.
+//
+// ОБХОД — МЕХАНИЗМ, МЕТКИ — ЗНАНИЕ О ЧУЖОМ ФОРМАТЕ. Четыре чтеца ходили по
+// списку свойств своей копией цикла, различаясь только набором допустимых
+// меток. Формат .adpd разобран из чужого двоичного файла, и таблица меток здесь
+// — самое ценное и самое хрупкое: каждый новый вид значения добавляют В ОДНО
+// место, а цикл вокруг него переписывать незачем.
+func (o object) prop(pid uint16, tagOK func(uint8) bool) (entry, bool) {
 	for _, e := range o.es {
-		if e.propid == pid && (e.tag == 0xfe || e.tag == 0xfa || e.tag == 0xfb || e.tag == 0xfc || e.tag == 0xfd) {
-			return e.u, true
+		if e.propid == pid && tagOK(e.tag) {
+			return e, true
 		}
 	}
-	return 0, false
+	return entry{}, false
 }
 
+// u32 — целое: метки 0xfa…0xfe несут число в поле u.
+func (o object) u32(pid uint16) (uint32, bool) {
+	e, ok := o.prop(pid, func(t uint8) bool {
+		return t == 0xfe || t == 0xfa || t == 0xfb || t == 0xfc || t == 0xfd
+	})
+	return e.u, ok
+}
+
+// str — строка: метка 0x12 несёт её в поле s.
 func (o object) str(pid uint16) string {
-	for _, e := range o.es {
-		if e.propid == pid && e.tag == 0x12 {
-			return e.s
-		}
-	}
-	return ""
+	e, _ := o.prop(pid, func(t uint8) bool { return t == 0x12 })
+	return e.s
 }
 
 // color returns the packed RGBA colour word of the tag-0xee property pid, if any.
 func (o object) color(pid uint16) (uint32, bool) {
-	for _, e := range o.es {
-		if e.propid == pid && e.tag == 0xee {
-			return e.u, true
-		}
-	}
-	return 0, false
+	e, ok := o.prop(pid, func(t uint8) bool { return t == 0xee })
+	return e.u, ok
 }
 
 func (o object) refs(pid uint16) []uint32 {
