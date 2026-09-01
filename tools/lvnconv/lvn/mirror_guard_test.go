@@ -53,3 +53,31 @@ func TestTextSpeedMirrorIsPushedEverywhere(t *testing.T) {
 			"потому что в самой настройке всё правильно.", writes, mirrored)
 	}
 }
+
+// ТЕМП ПЕЧАТИ УХОДИТ ВМЕСТЕ С ГЛАВОЙ.
+//
+// `text_pace` пишет СТАТИЧЕСКОЕ поле ядра (`TypewriterClock.GlobalCps`), а
+// статическое поле переживает и главу, и новеллу. Сбрасывать его было некому:
+// медленная драматичная сцена замедляла следующую главу, а через меню — и
+// чужую новеллу. Автор второй новеллы искал бы причину у себя и не нашёл: в
+// его сценарии про темп не сказано ни слова.
+//
+// Уборка сцены — единственное место, которое знает про конец главы.
+func TestTextPaceIsClearedWithTheChapter(t *testing.T) {
+	root := repoRoot(t)
+	src := stripComments(string(mustRead(t, filepath.Join(root,
+		"unity", "Packages", "com.lvn.engine", "Runtime", "UI", "VnStage.Playback.cs"))))
+	if !strings.Contains(src, "private void ResetStage()") {
+		t.Fatal("уборки сцены нет — якорь стража промахнулся")
+	}
+	body := src[strings.Index(src, "private void ResetStage()"):]
+	if i := strings.Index(body, "\n        }"); i > 0 {
+		body = body[:i]
+	}
+	if !regexp.MustCompile(`GlobalCps\s*=\s*0`).MatchString(body) {
+		t.Error("уборка сцены не сбрасывает темп печати.\n\n" +
+			"`text_pace` пишет статическое поле ядра, и оно переживает главу: медленная сцена\n" +
+			"замедлит следующую главу, а через меню — и ЧУЖУЮ новеллу. Автор той новеллы будет\n" +
+			"искать причину у себя и не найдёт: в его сценарии про темп не сказано ни слова.")
+	}
+}
