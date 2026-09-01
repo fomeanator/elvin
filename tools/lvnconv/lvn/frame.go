@@ -556,7 +556,7 @@ func flagOn(v any) bool {
 		// Расходились дважды при первом переносе: здесь не было «n», и пустая
 		// строка считалась отказом. У рантайма пустая строка — НЕ слово из
 		// словаря, а значит поле просто «есть», и признак поднят. Сверку держит
-		// TestYesNoDictionariesMatch.
+		// TestСловарьСогласияОдинНаДваЯзыка.
 		switch strings.ToLower(strings.TrimSpace(x)) {
 		case "0", "false", "no", "n", "off", "нет":
 			return false
