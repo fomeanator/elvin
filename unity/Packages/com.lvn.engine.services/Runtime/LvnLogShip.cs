@@ -46,7 +46,6 @@ namespace Lvn.Services
         /// забвения и уходила на сервер уже после него.</summary>
         public static void Forget() => _box.Forget();
 
-        /// <summary>Start capturing. Call once, as early as possible.</summary>
         /// <summary>
         /// Последние строки лога — для отзыва из игры. Берём из ТОГО ЖЕ
         /// буфера, что уходит на сервер: второй буфер означал бы вторую
@@ -72,6 +71,8 @@ namespace Lvn.Services
             return sb.ToString();
         }
 
+        /// <summary>Начать запись. Зовётся один раз и как можно раньше:
+        /// строки, случившиеся до, в отзыв уже не попадут.</summary>
         public static void Boot()
         {
             if (_booted || string.IsNullOrEmpty(LvnBackend.BaseUrl)) return;

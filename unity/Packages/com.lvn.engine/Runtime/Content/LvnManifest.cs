@@ -344,7 +344,6 @@ namespace Lvn.Content
         public List<object[]> keys;
     }
 
-    /// <summary>One title (a series of chapters grouped into seasons).</summary>
     /// <summary>
     /// Помощники над моделью манифеста. Здесь, а не в экранах: «главы новеллы
     /// по порядку» — свойство ДАННЫХ, и каждый экран, считавший его сам,
@@ -457,6 +456,7 @@ namespace Lvn.Content
         }
     }
 
+    /// <summary>Одна новелла: главы, сгруппированные в сезоны.</summary>
     public sealed class LvnTitle
     {
         public string id;

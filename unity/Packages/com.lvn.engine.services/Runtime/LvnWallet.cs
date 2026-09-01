@@ -428,7 +428,6 @@ namespace Lvn.Services
             LvnKeep.Put(PQueue, new JArray(_queue).ToString(Newtonsoft.Json.Formatting.None));
         }
 
-        /// <summary>Wipe the mirror and queue (tests / account switch).</summary>
         /// <summary>Полное локальное забвение при удалении аккаунта: зеркало,
         /// очередь И владелец. NoteUser("") здесь не годится — он намеренно
         /// игнорирует пустой uid.</summary>

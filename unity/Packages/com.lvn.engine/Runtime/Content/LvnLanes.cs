@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -20,10 +21,26 @@ namespace Lvn.Content
     ///
     /// <para><b>Полоса шириной W держит K мест для живого.</b> Фоновая работа
     /// физически не может занять больше <c>W-K</c>, поэтому живому всегда есть
-    /// куда встать. Это БРОНЬ, а не вытеснение: уже начатую фоновую закачку
-    /// полоса не прерывает — она лишь не пускает следующую. Вытеснение (обрыв
-    /// на середине с сохранением куска) — отдельная работа, см.
-    /// <c>docs/loader.md</c>, закон 1.</para>
+    /// куда встать.</para>
+    ///
+    /// <para><b>Брони мало, когда живого много.</b> Бронь спасает ОДНО живое
+    /// дело: она не даёт фону занять последние места. Но у актёра слоёв
+    /// пять-восемь, и все они живые — третий такой запрос встаёт в очередь за
+    /// фоном честно, по устройству полосы. Поэтому у полосы есть и второй
+    /// приём: попросить фон УСТУПИТЬ место.</para>
+    ///
+    /// <para><b>Уступка — не отмена.</b> Тот, кого попросили, получает свой
+    /// признак (<see cref="Pass.Yield"/>), обрывает работу и ЗАХОДИТ СНОВА,
+    /// когда живое прошло. Для его вызывающего ничего не случилось: он не
+    /// видит ни отмены, ни ошибки — только более долгую загрузку. Отмена
+    /// самого вызывающего при этом остаётся отменой: это разные признаки, и
+    /// путать их нельзя — иначе «игрок вышел из главы» станет «повторим
+    /// позже».</para>
+    ///
+    /// <para>Уступивший теряет кусок, скачанный сверх последнего сохранённого:
+    /// на диске остаётся то, что уже дописано в <c>.part</c>, и заход
+    /// продолжается оттуда. Честнее было бы не терять ничего, но это стоило бы
+    /// записи каждого пакета на диск — цена выше пропажи.</para>
     /// </summary>
     public sealed class LvnLane
     {
@@ -78,19 +95,49 @@ namespace Lvn.Content
                     _background.Release();
                     throw;
                 }
+                var seat = new Seat();
+                lock (_seats) _seats.Add(seat);
+                return new Pass(this, seat);
             }
-            else
-            {
-                await _all.WaitAsync(ct).ConfigureAwait(false);
-            }
-            return new Pass(this, live);
+
+            // ЖИВОЕ ПРОСИТ ФОН УСТУПИТЬ — до того, как встать в очередь.
+            // Просим ровно одного и самого давнего: он ближе всех к концу
+            // работы, и его потеря меньше. Просить всех значило бы обрушить
+            // фоновую очередь ради одного кадра.
+            if (_all.CurrentCount == 0) AskOneToYield();
+            await _all.WaitAsync(ct).ConfigureAwait(false);
+            return new Pass(this, null);
         }
 
-        private void Leave(bool live)
+        private void AskOneToYield()
+        {
+            Seat victim = null;
+            lock (_seats)
+                foreach (var s in _seats)
+                    if (!s.Asked) { victim = s; break; }
+            if (victim == null) return;
+            victim.Asked = true;
+            try { victim.Yield.Cancel(); } catch { /* уже ушёл — не беда */ }
+        }
+
+        private void Leave(Seat seat)
         {
             _all.Release();
-            if (!live) _background.Release();
+            if (seat == null) return;
+            lock (_seats) _seats.Remove(seat);
+            seat.Yield.Dispose();
+            _background.Release();
         }
+
+        /// <summary>Занятое фоном место, которое можно попросить вернуть.</summary>
+        internal sealed class Seat
+        {
+            public readonly CancellationTokenSource Yield = new CancellationTokenSource();
+            public bool Asked;
+        }
+
+        // Занятые фоном места, в порядке занятия: первый в списке — самый давний.
+        private readonly List<Seat> _seats = new List<Seat>();
 
         /// <summary>Место в полосе. Освобождается выходом из <c>using</c> —
         /// парного <c>Release()</c> в <c>finally</c> писать больше не нужно, и
@@ -98,9 +145,20 @@ namespace Lvn.Content
         public readonly struct Pass : IDisposable
         {
             private readonly LvnLane _lane;
-            private readonly bool _live;
-            internal Pass(LvnLane lane, bool live) { _lane = lane; _live = live; }
-            public void Dispose() => _lane?.Leave(_live);
+            private readonly Seat _seat;
+            internal Pass(LvnLane lane, Seat seat) { _lane = lane; _seat = seat; }
+
+            /// <summary>Срабатывает, когда место просят вернуть живому. Живое
+            /// место не просят никогда — у него признак пустой.</summary>
+            public CancellationToken Yield
+                => _seat != null ? _seat.Yield.Token : CancellationToken.None;
+
+            /// <summary>Место уже попросили вернуть. Отличать от отмены
+            /// вызывающего обязан тот, кто ловит: уступка означает «зайти
+            /// снова», отмена — «больше не нужно».</summary>
+            public bool Yielded => _seat != null && _seat.Asked;
+
+            public void Dispose() => _lane?.Leave(_seat);
         }
     }
 
