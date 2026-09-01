@@ -62,13 +62,7 @@ namespace Lvn.UI.Screens
                 cam.backgroundColor = new Color(0.063f, 0.063f, 0.082f); // #101015
             }
 
-            _go = new GameObject("LvnBootVeil");
-            var doc = _go.AddComponent<UIDocument>();
-            doc.panelSettings = LvnPanel.Shared;
-            doc.sortingOrder = 100; // above everything until the hand-off fade
-
-            _root = doc.rootVisualElement;
-            _root.style.flexGrow = 1;
+            (_go, _root) = LvnFloor.Open("LvnBootVeil", LvnFloor.BootVeil);
             _root.style.backgroundColor = new Color(0.063f, 0.063f, 0.082f);
             _root.style.alignItems = Align.Center;
             _root.style.justifyContent = Justify.Center;

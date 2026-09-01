@@ -436,7 +436,7 @@ namespace Lvn.UI.Screens
             // layers below the shell (10 < 30) inside the same panel.
             LvnPanel.SetTheme(ShellTheme);
             doc.panelSettings = LvnPanel.Shared;
-            doc.sortingOrder = 10;
+            doc.sortingOrder = Lvn.UI.LvnFloor.Stage;
             var stage = go.AddComponent<VnStage>();
             go.SetActive(true);
             return stage;

@@ -263,7 +263,7 @@ namespace Lvn.UI
             // и меню всегда рисуются поверх сцены.
             {
                 // sortingOrder below the panel (10) so the UITK chrome composites on top.
-                var scene = new World.WorldStage(transform, sortingOrder: 0);
+                var scene = new World.WorldStage(transform, sortingOrder: LvnFloor.Scene);
                 scene.Clock = _clock;   // сроки своих кроссфейдов рендерер сдаёт Хронометристу
                 scene.SetBackgroundColor(Color.black);
                 _renderer = new CanvasSceneRenderer(scene);

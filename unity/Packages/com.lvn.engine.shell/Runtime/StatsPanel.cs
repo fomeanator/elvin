@@ -21,12 +21,8 @@ namespace Lvn.UI.Screens
             Hide();
             if (stats == null || stats.Count == 0) return;
 
-            _go = new GameObject("LvnStatsPanel");
-            var doc = _go.AddComponent<UIDocument>();
-            doc.panelSettings = LvnPanel.Shared;
-            doc.sortingOrder = 50; // above the shell (30), below boot-time overlays
-            var root = doc.rootVisualElement;
-            root.style.flexGrow = 1;
+            VisualElement root;
+            (_go, root) = LvnFloor.Open("LvnStatsPanel", LvnFloor.Panel);
             Lvn.UI.LvnChrome.Scrim(root, Hide);
             root.pickingMode = PickingMode.Position;
 

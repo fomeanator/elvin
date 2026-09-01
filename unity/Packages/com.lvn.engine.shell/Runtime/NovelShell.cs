@@ -248,7 +248,7 @@ namespace Lvn.UI.Screens
         /// <summary>Create a shell on a fresh GameObject with its own UIDocument.
         /// Pass a <paramref name="theme"/> (a runtime ThemeStyleSheet) so text
         /// renders — without one UI Toolkit draws shapes but no glyphs.</summary>
-        public static NovelShell Create(Transform parent = null, int sortingOrder = 30, ThemeStyleSheet theme = null)
+        public static NovelShell Create(Transform parent = null, int sortingOrder = Lvn.UI.LvnFloor.Shell, ThemeStyleSheet theme = null)
         {
             var go = new GameObject("NovelShell", typeof(NovelShell));
             if (parent != null) go.transform.SetParent(parent, false);
