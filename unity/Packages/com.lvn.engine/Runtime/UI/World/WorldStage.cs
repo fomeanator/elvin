@@ -64,7 +64,6 @@ namespace Lvn.UI.World
         {
             public WorldActor Actor;
             public CanvasGroup Group;
-            public float BaseOpacity = 1f;
             public int? Z;          // явный порядок слоя, если сцена его назвала
             public int Birth;       // возраст: чем меньше, тем дальше за спинами
 
@@ -489,7 +488,10 @@ namespace Lvn.UI.World
                 a.MoveSlotBase(previousSlotBase, targetSlotBase, p.TransitionDuration);
 
             CanvasGroup g = null;
-            if (_slots.TryGetValue(id, out var sl)) { sl.BaseOpacity = p.Opacity; g = sl.Group; }
+            // Непрозрачность держит САМ АКТЁР (WorldActor.SetBaseOpacity).
+            // Слот хранил её копию, которую не читал никто: значение писали
+            // в два места, а спрашивали из одного.
+            if (_slots.TryGetValue(id, out var sl)) g = sl.Group;
 
             // ПОЯВЛЕНИЕ И УХОД — ТОЛЬКО НА СМЕНЕ ВИДИМОСТИ. Смена позы или
             // эмоции идёт тем же путём `actor`, и если проявлять на каждом

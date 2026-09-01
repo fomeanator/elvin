@@ -92,7 +92,6 @@ namespace Lvn.UI
 
                 if (d.chars_per_second.HasValue) t.CharsPerSecond = d.chars_per_second.Value;
                 if (d.initial_characters.HasValue) t.InitialVisibleCharacters = Mathf.Max(0, d.initial_characters.Value);
-                if (d.fade_width.HasValue) t.FadeWidth = d.fade_width.Value;
 
                 if (!string.IsNullOrEmpty(d.font)) t.FontResourcePath = d.font;
                 if (d.nvl.HasValue) t.Nvl = d.nvl.Value;
