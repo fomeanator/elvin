@@ -38,6 +38,48 @@ namespace Lvn.UI
         }
 
         /// <summary>
+        /// ДЕВЯТИСЛОЙКА — углы держат форму, стороны тянутся.
+        ///
+        /// <para>Обратное <see cref="Fit"/>: там картинку вписывают целиком,
+        /// здесь она обязана растянуться, но НЕ ВЕЗДЕ — рамка, подложка поля,
+        /// бабл говорящего. Без нарезки углы плывут вместе с размером
+        /// элемента, и заметно это на широком экране, а не на том, где
+        /// проверяли.</para>
+        ///
+        /// <para>Правило стояло ПЯТЬЮ написаниями: скин сцены, обшивка
+        /// стиля, рамка диалога, бабл говорящего — и пятое, мёртвое, прямо
+        /// здесь: способ был написан и не позван ни разу. Мёртвая вторая
+        /// реализация хуже отсутствующей: следующий подключит её, а живая
+        /// останется прежней.</para>
+        ///
+        /// <para>Масштаб (<paramref name="scale"/>) — отдельная ручка: арт
+        /// рисуют под плотный экран, и на обычном срез надо ужимать, иначе
+        /// рамка съедает содержимое.</para>
+        /// </summary>
+        public static void Slice(VisualElement el, int all, float scale = 1f)
+        {
+            if (el == null) return;
+            el.style.unitySliceLeft = all;
+            el.style.unitySliceRight = all;
+            el.style.unitySliceTop = all;
+            el.style.unitySliceBottom = all;
+            el.style.unitySliceScale = scale;
+        }
+
+        /// <summary>Нарезка со СВОИМ срезом у каждой стороны: рамка бывает
+        /// несимметричной (у бабла снизу хвостик). Порядок сторон — тот же,
+        /// что у темы: x — слева, y — справа, z — сверху, w — снизу.</summary>
+        public static void Slice(VisualElement el, Vector4 edges, float scale = 1f)
+        {
+            if (el == null) return;
+            el.style.unitySliceLeft = (int)edges.x;
+            el.style.unitySliceRight = (int)edges.y;
+            el.style.unitySliceTop = (int)edges.z;
+            el.style.unitySliceBottom = (int)edges.w;
+            el.style.unitySliceScale = scale;
+        }
+
+        /// <summary>
         /// ЧТО НА ЭКРАНЕ — НЕ ТРОГАТЬ. Закрепить спрайт за элементом, пока тот
         /// в панели: кэш вытесняет по давности использования и не знает, что
         /// картинку прямо сейчас показывают.
@@ -130,11 +172,17 @@ namespace Lvn.UI
             => Lvn.LvnAsync.Fire(AssignAsync(el, url, assets), what);
 
         /// <summary>
-        /// РАМКА, ТЯНУЩАЯСЯ ПО КРАЯМ (девятислойка): углы держат форму, стороны
-        /// растягиваются. Именно то, чего не хватает обшивке, — и потому здесь
-        /// оговорка: способ написан, но не позван НИ РАЗУ. Рамки, подложки
-        /// полей и полосы прогресса до сих пор показываются простым
-        /// растяжением, отчего их углы плывут вместе с размером элемента.
+        /// РАМКА КАРТИНКОЙ: загрузить арт и растянуть его девятислойкой.
+        ///
+        /// <para>Раньше здесь стояла ВТОРАЯ нарезка, написанная своими
+        /// строками, и в документации значилось «способ написан, но не позван
+        /// НИ РАЗУ». Обе половины были неправдой: зовут её из двух мест
+        /// (обшивка экранов и вкладка гардероба со своим артом), а нарезка
+        /// теперь одна — <see cref="Slice"/>.</para>
+        ///
+        /// <para>Ждёт того же адреса, что и обычный показ: две просьбы к
+        /// одному элементу обязаны разбираться по одному правилу, иначе
+        /// победит не последняя, а доехавшая позже.</para>
         /// </summary>
         public static async System.Threading.Tasks.Task Frame(
             VisualElement el, string url, int slice, ILvnAssets assets)
@@ -145,20 +193,11 @@ namespace Lvn.UI
             try
             {
                 var sprite = await assets.LoadSpriteAsync(url, System.Threading.CancellationToken.None);
-                // Та же сверка адреса, что у показа: рамка живёт в той же
-                // таблице ожиданий, иначе две просьбы к одному элементу
-                // разошлись бы по разным правилам.
                 if (sprite == null || box.Value != url) return;
                 el.style.backgroundImage = new StyleBackground(sprite);
                 Pin(el, sprite, assets);
                 el.style.backgroundColor = Color.clear;
-                if (slice > 0)
-                {
-                    el.style.unitySliceLeft = slice;
-                    el.style.unitySliceRight = slice;
-                    el.style.unitySliceTop = slice;
-                    el.style.unitySliceBottom = slice;
-                }
+                if (slice > 0) Slice(el, slice);
             }
             catch { /* пропавший арт не повод ронять экран */ }
         }

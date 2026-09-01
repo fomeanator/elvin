@@ -183,8 +183,6 @@ namespace Lvn.UI.Screens
             hero.style.height = 700; // placeholder until the width resolves below
             hero.style.backgroundColor = LvnTokens.Surface;
             LvnChrome.Edge(hero, 0.8f);   // кадр — часть интерфейса, а не картинка сверху
-            hero.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            hero.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
             LvnPicture.Fit(hero);
             hero.style.overflow = Overflow.Hidden;
             // fixed aspect: height follows the resolved page width (NOT a percent —

@@ -89,11 +89,7 @@ namespace Lvn.UI
 
             el.style.backgroundImage = new StyleBackground(tex);
             int s = Slice.TryGetValue(name, out var v) ? v : 16;
-            el.style.unitySliceLeft = s;
-            el.style.unitySliceRight = s;
-            el.style.unitySliceTop = s;
-            el.style.unitySliceBottom = s;
-            el.style.unitySliceScale = TextureScale;
+            LvnPicture.Slice(el, s, TextureScale);
 
             // Заливка и рамка снимаются: под текстурой они дают ободок чужого
             // цвета по краю скругления — тот самый «пластиковый» контур, из-за
