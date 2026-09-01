@@ -31,13 +31,13 @@ namespace Lvn.Tests
     /// </summary>
     public sealed class IconGlowTests
     {
-        private string _темаБыла;
+        private readonly ОдолженнаяТема _тема = new ОдолженнаяТема();
 
         [SetUp]
-        public void Запомнить() => _темаБыла = LvnTheme.Current.Name;
+        public void Запомнить() => _тема.Взять();
 
         [TearDown]
-        public void Вернуть() => LvnTheme.Use(_темаБыла);
+        public void Вернуть() => _тема.Вернуть();
 
         /// <summary>Свечение нарисованного значка — поле его элемента.</summary>
         private static float Свечение(VisualElement значок)
