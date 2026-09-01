@@ -65,7 +65,6 @@ namespace Lvn.UI.Screens
         /// лежат в ui.words), но НЕ СОЗДАВАЛСЯ ни в одном месте: игрок не мог
         /// его увидеть никаким путём, а сервис умел отдавать данные.</summary>
         public LeaderboardScreen Leaderboard { get; private set; }
-        /// <summary>The wardrobe / skin shop.</summary>
         /// <summary>The currency-pack shop — ВКЛАДКА ленты (прозрачная страница).</summary>
         public PackShopScreen PackShop { get; private set; }
         /// <summary>Быстрый магазин — МОДАЛЬ со своим фоном: плюсик валют, гейт

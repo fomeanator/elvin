@@ -114,8 +114,6 @@ namespace Lvn.UI
             return fallback;
         }
 
-        /// <summary>Прежнее имя двери: токен темы или hex. Теперь окно в общий
-        /// словарь — набор слов у цвета один, где бы его ни писали.</summary>
         /// <summary>Тот же цвет, но прозрачнее или плотнее. Собиралось по
         /// месту из трёх составляющих — а «тот же цвет с другой плотностью» и
         /// есть работа дома цвета.</summary>
@@ -127,6 +125,8 @@ namespace Lvn.UI
 
         public static Color Darker(Color c, float amount) => Color.Lerp(c, Color.black, amount);
 
+        /// <summary>Прежнее имя двери: токен темы или hex. Теперь окно в общий
+        /// словарь — набор слов у цвета один, где бы его ни писали.</summary>
         public static Color Token(string name, Color fallback) => Named(name, fallback);
 
         /// <summary>
