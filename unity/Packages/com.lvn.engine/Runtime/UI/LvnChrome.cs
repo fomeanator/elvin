@@ -224,6 +224,53 @@ namespace Lvn.UI
             input.style.paddingRight = LvnTokens.Space3;
         }
 
+        /// <summary>
+        /// КРОМКА С ОДНОЙ СТОРОНЫ — толщина и цвет вместе.
+        ///
+        /// <para>Односторонняя кромка в оболочке работает тремя разными
+        /// ролями: волосяной РАЗДЕЛИТЕЛЬ (низ верхнего бара, верх подвала),
+        /// акцентная ПОЛОСКА-маркер слева («это ты» в таблице лидеров,
+        /// «качается сейчас» в очереди) и КРЫШКА сверху. Роли разные, механизм
+        /// один — и он был написан по месту девять раз парами строк, где
+        /// толщина и цвет стоят порознь и разъезжаются поодиночке.</para>
+        ///
+        /// <para>Пара — не украшение: кромка нулевой толщины невидима любого
+        /// цвета, а цветная без толщины не рисуется вовсе. Порознь они значат
+        /// «полработы», и именно так и терялись.</para>
+        /// </summary>
+        public static void EdgeOn(VisualElement el, LvnSide side, Color color, float width)
+        {
+            if (el == null) return;
+            switch (side)
+            {
+                case LvnSide.Top:
+                    el.style.borderTopWidth = width; el.style.borderTopColor = color; break;
+                case LvnSide.Bottom:
+                    el.style.borderBottomWidth = width; el.style.borderBottomColor = color; break;
+                case LvnSide.Left:
+                    el.style.borderLeftWidth = width; el.style.borderLeftColor = color; break;
+                case LvnSide.Right:
+                    el.style.borderRightWidth = width; el.style.borderRightColor = color; break;
+            }
+        }
+
+        /// <summary>РАЗДЕЛИТЕЛЬ — волосяная линия темы, отделяющая полосу от
+        /// того, что под ней. Толщина и тон у неё не «выбраны здесь», а общие:
+        /// разъехавшись, они читаются как небрежность вёрстки.</summary>
+        public static void Divider(VisualElement el, LvnSide side = LvnSide.Bottom, float width = 1f)
+            => EdgeOn(el, side, LvnTokens.Border, width);
+
+        /// <summary>ПОЛОСКА-МАРКЕР слева: кромка работает знаком состояния —
+        /// «эта строка твоя», «эта глава качается». Остальные три стороны
+        /// гасятся: полоска значит «только слева», и строка, доставшаяся от
+        /// прежнего состояния, не должна принести с собой чужую рамку.</summary>
+        public static void Stripe(VisualElement el, Color? color = null, float width = 3f)
+        {
+            if (el == null) return;
+            Border(el, Color.clear, 0f);
+            EdgeOn(el, LvnSide.Left, color ?? LvnTokens.Accent, width);
+        }
+
         /// <summary>Ровная рамка одного цвета и толщины по всем сторонам.</summary>
         public static void Border(VisualElement el, Color color, float width)
         {
@@ -280,9 +327,7 @@ namespace Lvn.UI
         /// </summary>
         public static void Lid(VisualElement el, float width = 2.5f)
         {
-            if (el == null) return;
-            el.style.borderTopWidth = width;
-            el.style.borderTopColor = LvnTokens.Accent;
+            EdgeOn(el, LvnSide.Top, LvnTokens.Accent, width);
         }
 
         public static void Edge(VisualElement el, float strength = 1f)

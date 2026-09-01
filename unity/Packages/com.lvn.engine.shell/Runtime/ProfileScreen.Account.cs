@@ -130,8 +130,7 @@ namespace Lvn.UI.Screens
             var footer = ScreenUi.Row(spread: true);
             footer.style.marginTop = LvnTokens.Space1;
             footer.style.paddingTop = LvnTokens.Space2;
-            footer.style.borderTopWidth = 1;
-            footer.style.borderTopColor = LvnTokens.Border;
+            LvnChrome.Divider(footer, LvnSide.Top);
 
             var id = string.IsNullOrEmpty(Uid) ? "u_unknown" : Uid;
             var idLabel = new Label($"ID: {Shorten(id)}");

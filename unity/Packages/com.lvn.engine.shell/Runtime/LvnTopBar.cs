@@ -125,8 +125,7 @@ namespace Lvn.UI.Screens
             _row = new VisualElement();
             var bg = LvnTokens.PanelBg;
             _row.style.backgroundColor = UiColor.WithAlpha(bg, 0.62f);
-            _row.style.borderBottomWidth = 1f;
-            _row.style.borderBottomColor = LvnTokens.Border;
+            LvnChrome.Divider(_row);
             _row.style.height = RowH;
             ScreenUi.Row(_row);
             _row.style.paddingLeft = LvnTokens.Space2; _row.style.paddingRight = LvnTokens.Space2;
@@ -187,8 +186,7 @@ namespace Lvn.UI.Screens
             _gameRow.style.position = Position.Absolute;
             _gameRow.style.left = 0; _gameRow.style.right = 0; _gameRow.style.top = 0;
             _gameRow.style.backgroundColor = UiColor.WithAlpha(gbg, 0.9f);
-            _gameRow.style.borderBottomWidth = 1f;
-            _gameRow.style.borderBottomColor = LvnTokens.Border;
+            LvnChrome.Divider(_gameRow);
             ScreenUi.Row(_gameRow);
             _gameRow.style.justifyContent = Justify.SpaceAround;
             _gameRow.style.paddingTop = LvnTokens.Space2; _gameRow.style.paddingBottom = LvnTokens.Space2;

@@ -73,8 +73,9 @@ namespace Lvn.UI.Screens
             nav.style.alignItems = Align.Stretch;
             nav.style.flexShrink = 0;
             nav.style.paddingBottom = LvnTokens.Space1; nav.style.paddingTop = LvnTokens.Space1;
-            nav.style.borderTopWidth = _theme.EdgeWidth > 0f ? _theme.EdgeWidth : 1f;
-            nav.style.borderTopColor = _theme.EdgeWidth > 0f ? _theme.EdgeColor : _border;
+            LvnChrome.EdgeOn(nav, LvnSide.Top,
+                _theme.EdgeWidth > 0f ? _theme.EdgeColor : _border,
+                _theme.EdgeWidth > 0f ? _theme.EdgeWidth : 1f);
             // Панель непрозрачна: под ней проезжает лента, и полупрозрачный низ
             // превращается в кашу из букв.
             nav.style.backgroundColor = UiColor.WithAlpha(_bg, 0.96f);

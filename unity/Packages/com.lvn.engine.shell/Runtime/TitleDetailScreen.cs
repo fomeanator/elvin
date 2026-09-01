@@ -398,8 +398,7 @@ namespace Lvn.UI.Screens
             bar.style.paddingRight = 30;
             bar.style.paddingTop = LvnTokens.Space3;
             bar.style.paddingBottom = LvnTokens.Space3; // + safe inset via ApplySafeArea
-            bar.style.borderTopWidth = 1;
-            bar.style.borderTopColor = LvnTokens.Border;
+            LvnChrome.Divider(bar, LvnSide.Top);
             bar.style.backgroundColor = LvnTokens.Bg;
 
             // "Начать заново" — only once there's progress worth restarting; sits

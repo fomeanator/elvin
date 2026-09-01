@@ -122,12 +122,8 @@ namespace Lvn.UI.Screens
                 // Верх акцентный, остальные три — тот же тихий тон, что у
                 // обычной карточки: выделяется одна сторона, а не рамка целиком.
                 var quietEdge = LvnChrome.BorderTone(0.64f);
-                card.style.borderTopWidth = 2; card.style.borderBottomWidth = 1;
-                card.style.borderLeftWidth = 1; card.style.borderRightWidth = 1;
-                card.style.borderTopColor = LvnTokens.Accent;
-                card.style.borderBottomColor = quietEdge;
-                card.style.borderLeftColor = quietEdge;
-                card.style.borderRightColor = quietEdge;
+                LvnChrome.Border(card, quietEdge, 1f);
+                LvnChrome.EdgeOn(card, LvnSide.Top, LvnTokens.Accent, 2f);
             }
 
             // Арт-сцена: не фиолетовая шапка, а тихий стол витрины. Реальная

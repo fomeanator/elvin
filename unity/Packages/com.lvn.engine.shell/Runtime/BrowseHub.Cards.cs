@@ -193,9 +193,7 @@ namespace Lvn.UI.Screens
             card.style.flexDirection = FlexDirection.Row;
             card.style.height = 128;
             card.style.backgroundColor = _card;
-            card.style.borderTopWidth = 1; card.style.borderBottomWidth = 1;
-            card.style.borderLeftWidth = 1; card.style.borderRightWidth = 1;
-            Lvn.UI.LvnChrome.Tint(card, _border);
+            Lvn.UI.LvnChrome.Border(card, _border, 1f);
             card.style.opacity = locked ? 0.55f : 1f;
             LvnChrome.Round(card, _radius);
             card.style.marginBottom = LvnTokens.Space2;
