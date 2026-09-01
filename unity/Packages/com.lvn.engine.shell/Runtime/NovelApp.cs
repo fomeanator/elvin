@@ -245,9 +245,6 @@ namespace Lvn.UI.Screens
             // а не при входе в неё.
             Lvn.Services.LvnStoryFunctions.Install();
             Lvn.Services.LvnExperiments.Install();  // abtest("имя") в выражениях
-            // Хвост лога к отзыву берём из того же кольцевого буфера, что уже
-            // отправляет диагностику: второй буфер — это вторая правда.
-            Lvn.Services.LvnFeedback.TailLog = () => Lvn.Services.LvnLogShip.Tail();
             Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.Boot);
             return OpenContentAndState();
         }

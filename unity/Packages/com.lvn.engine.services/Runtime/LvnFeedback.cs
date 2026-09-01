@@ -19,10 +19,17 @@ namespace Lvn.Services
     /// </summary>
     public static class LvnFeedback
     {
-        /// <summary>Хвост лога для отзыва. Ставится оболочкой (LvnLogShip
-        /// держит кольцевой буфер): именно эти строки превращают «всё
-        /// сломалось» в чинибельное сообщение.</summary>
-        public static System.Func<string> TailLog;
+        /// <summary>
+        /// ХВОСТ ЛОГА ДЛЯ ОТЗЫВА — именно эти строки превращают «всё
+        /// сломалось» в чинибельное сообщение.
+        ///
+        /// <para>Берётся у того же кольцевого буфера, что уже отправляет
+        /// диагностику: второй буфер — это вторая правда. Раньше здесь стоял
+        /// ШОВ (делегат, который ставила оболочка), хотя буфер лежит в ЭТОЙ ЖЕ
+        /// сборке — то есть инверсией шов не был вовсе, а проводку можно было
+        /// забыть, и отзыв уходил бы без единой строки лога.</para>
+        /// </summary>
+        private static string TailLog() => LvnLogShip.Tail();
 
         /// <summary>Где игрок находится прямо сейчас — ОКНА В ОБЩИЙ КОНТЕКСТ
         /// (<see cref="LvnWhereabouts"/>). Раньше это были собственные поля, и
@@ -64,7 +71,7 @@ namespace Lvn.Services
             if (!string.IsNullOrEmpty(CurrentChapter)) body["chapter"] = CurrentChapter;
             if (!string.IsNullOrEmpty(CurrentLabel)) body["label"] = CurrentLabel;
             if (CurrentAt > 0) body["at"] = CurrentAt;
-            var tail = TailLog?.Invoke();
+            var tail = TailLog();
             if (!string.IsNullOrEmpty(tail)) body["log"] = tail;
 
             var (code, _) = await LvnBackend.PostAsync("/v1/feedback", body.ToString());
