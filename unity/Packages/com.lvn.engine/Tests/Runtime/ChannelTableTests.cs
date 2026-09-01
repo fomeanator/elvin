@@ -35,6 +35,7 @@ namespace Lvn.Tests.Runtime
             public Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct) => Task.FromResult(_clip);
             public Task PreloadAsync(IReadOnlyList<string> urls, string kind, CancellationToken ct) => Task.CompletedTask;
             public void Unload(string url) { }
+            public void UnloadAll() { }
         }
 
         private GameObject _go;
