@@ -552,8 +552,13 @@ func flagOn(v any) bool {
 	case float64:
 		return x != 0
 	case string:
+		// Словарь отказа — ТОТ ЖЕ, что у Lvn.LvnBool.Parse, слово в слово.
+		// Расходились дважды при первом переносе: здесь не было «n», и пустая
+		// строка считалась отказом. У рантайма пустая строка — НЕ слово из
+		// словаря, а значит поле просто «есть», и признак поднят. Сверку держит
+		// TestYesNoDictionariesMatch.
 		switch strings.ToLower(strings.TrimSpace(x)) {
-		case "0", "false", "no", "off", "нет", "":
+		case "0", "false", "no", "n", "off", "нет":
 			return false
 		}
 		return true
