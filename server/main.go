@@ -719,10 +719,28 @@ func encodeStateFile(e stateEntry) []byte {
 	return b
 }
 
+// decodeStateFile читает файл состояния: обёртку или, если файл старый, голый
+// документ.
+//
+// ОБЁРТКУ УЗНАЮТ ПО ОБЁРТКЕ, а не по наличию поля с подходящим именем. Раньше
+// хватало одного `doc` — и состояние игрока `{"doc":…, "score":5}` (автор
+// вправе завести переменную `doc`: это обычное слово) читалось как обёртка,
+// теряя ВСЁ, кроме одного поля. Ни ошибки, ни строки в логе: игрок просто
+// возвращался с обнулённым прогрессом.
+//
+// Признак обёртки — РОВНО два поля, `__v` и `doc`, и ничего больше: так её
+// пишет encodeStateFile и никак иначе.
 func decodeStateFile(b []byte) stateEntry {
-	var w stateWrapper
-	if err := json.Unmarshal(b, &w); err == nil && len(w.Doc) > 0 {
-		return stateEntry{body: w.Doc, version: w.V}
+	var probe map[string]json.RawMessage
+	if err := json.Unmarshal(b, &probe); err == nil && len(probe) == 2 {
+		if _, hasV := probe["__v"]; hasV {
+			if doc, hasDoc := probe["doc"]; hasDoc && len(doc) > 0 {
+				var w stateWrapper
+				if json.Unmarshal(b, &w) == nil {
+					return stateEntry{body: w.Doc, version: w.V}
+				}
+			}
+		}
 	}
 	return stateEntry{body: b, version: 0} // legacy: the raw doc itself
 }
