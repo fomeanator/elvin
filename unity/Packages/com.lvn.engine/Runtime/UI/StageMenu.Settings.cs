@@ -130,6 +130,14 @@ namespace Lvn.UI
             return card;
         }
 
+        /// <summary>Строка настройки в СЦЕНЕ: компактная карточка. Что
+        /// показывать, знает каталог; как — этот метод.</summary>
+        private VisualElement RowFor(LvnSettingDef d)
+            => d.Kind == LvnSettingKind.Switch
+                ? ToggleRow(LvnSettingsCatalog.Label(d, _theme), d.Flag(), v => d.SetFlag(v))
+                : SliderRow(LvnSettingsCatalog.Label(d, _theme), d.Min, d.Max, d.Num(),
+                            v => d.SetNum(v), live: d.Live);
+
         /// <summary>
         /// Ряд с ползунком. Вид — из дома, и МОМЕНТ ПРИМЕНЕНИЯ тоже.
         ///
@@ -143,14 +151,6 @@ namespace Lvn.UI
         /// настройках оболочки те же три ползунка уже вели себя гладко —
         /// разошлись ровно эти две записи одного правила.</para>
         /// </summary>
-        /// <summary>Строка настройки в СЦЕНЕ: компактная карточка. Что
-        /// показывать, знает каталог; как — этот метод.</summary>
-        private VisualElement RowFor(LvnSettingDef d)
-            => d.Kind == LvnSettingKind.Switch
-                ? ToggleRow(LvnSettingsCatalog.Label(d, _theme), d.Flag(), v => d.SetFlag(v))
-                : SliderRow(LvnSettingsCatalog.Label(d, _theme), d.Min, d.Max, d.Num(),
-                            v => d.SetNum(v), live: d.Live);
-
         private VisualElement SliderRow(string label, float min, float max, float value,
                                         Action<float> onChange, bool live = false)
         {

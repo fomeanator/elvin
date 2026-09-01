@@ -76,11 +76,6 @@ namespace Lvn.UI
         // Build placement from the command — everything in screen fractions so a
         // script controls any object's position, size, anchor, z, flip, rotation
         // and opacity without knowing the resolution.
-        /// <summary>Sticky placement: merge an actor command over the actor's
-        /// LAST applied placement — only fields the command explicitly mentions
-        /// change, so <c>actor id=knight play="Jump"</c> keeps the position a
-        /// drag, a move-follow-up or an earlier command left him at.
-        /// Transitions are one-shot and always come from the command.</summary>
         /// <summary>A named slot's x for an entity: the catalog def's per-entity
         /// override wins over the global table (see LvnSpriteEntity.slots).</summary>
         internal static float SlotXFor(string position, IReadOnlyDictionary<string, float> slots)
@@ -136,6 +131,11 @@ namespace Lvn.UI
         // The catalog's slot overrides for an actor id (null-safe at every hop).
         private IReadOnlyDictionary<string, float> SlotsOf(string id) => Catalog?.Get(id)?.slots;
 
+        /// <summary>ЛИПКАЯ РАССТАНОВКА: команда актёра накладывается на его
+        /// ПОСЛЕДНЮЮ применённую — меняются только поля, которые команда назвала
+        /// прямо. Поэтому <c>actor id=knight play="Jump"</c> оставляет героя
+        /// там, куда его увели перетаскивание, движение или прежняя команда.
+        /// Переходы одноразовы и всегда приходят из команды.</summary>
         internal static Placement PlacementFrom(JObject cmd, Placement prev,
             IReadOnlyDictionary<string, float> slots = null)
         {
