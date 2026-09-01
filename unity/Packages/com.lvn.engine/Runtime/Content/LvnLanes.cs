@@ -53,6 +53,12 @@ namespace Lvn.Content
         public int Width { get; }
         public int KeptForLive { get; }
 
+        /// <summary>Сколько мест свободно прямо сейчас. Нужно ДИАГНОСТИКЕ и
+        /// проверкам: «место вернулось на любом выходе» — правило, которое не
+        /// видно ниоткуда, кроме этого числа, а стоит его нарушение
+        /// остановки всех загрузок до перезапуска приложения.</summary>
+        public int Free => _all.CurrentCount;
+
         /// <summary>Занять место. Ступень берётся у того, кто просит, а если он
         /// молчит — у окружения (<see cref="LvnRungScope"/>).</summary>
         public Task<Pass> EnterAsync(CancellationToken ct) => EnterAsync(LvnRungScope.Current, ct);

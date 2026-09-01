@@ -368,10 +368,10 @@ namespace Lvn.UI.Screens
             badge.style.marginRight = LvnTokens.Space1;
             badge.style.marginBottom = LvnTokens.Space1;
             badge.style.alignItems = Align.Center;
-            badge.style.backgroundColor = a.Unlocked ? LvnTokens.SurfaceHi : LvnTokens.Surface;
-            LvnChrome.Round(badge, LvnTokens.RadiusSm);
-            LvnAir.PadX(badge, LvnTokens.Space1);
-            LvnAir.PadY(badge, LvnTokens.Space2);
+            // Единственный ярлык, у которого боковой отступ МЕНЬШЕ
+            // вертикального: значок стоит в плотной сетке достижений.
+            LvnStyler.Chip(badge, a.Unlocked ? LvnTokens.SurfaceHi : LvnTokens.Surface,
+                           padX: LvnTokens.Space1, padY: LvnTokens.Space2);
             if (!a.Unlocked) badge.style.opacity = 0.55f;
 
             var icon = LvnIcons.Make(a.Unlocked ? a.Icon : LvnIcon.Lock, 32f,

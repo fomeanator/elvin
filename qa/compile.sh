@@ -51,6 +51,7 @@ ORDER=(Lvn.Engine Lvn.Engine.Content Lvn.Engine.UI Lvn.Engine.Services
        Lvn.Engine.Shell Lvn.Engine.Editor Lvn.Engine.Tests Lvn.Engine.Tests.Runtime)
 
 fail=0
+typeset -a BUILT
 for name in $ORDER; do
   rsp=$DAG/$name.rsp
   [[ -f $rsp ]] || { print "== $name — пропуск: нет $name.rsp"; continue }
@@ -63,9 +64,31 @@ for name in $ORDER; do
     files=(${(f)"$(find $root -name '*.cs')"})
   fi
   # Из rsp берём ВСЁ, кроме списка исходников и путей вывода.
-  local -a opts
+  #
+  # И ПЕРЕНАПРАВЛЯЕМ ССЫЛКИ НА СВОИ СБОРКИ. Без этого оболочка собиралась бы
+  # против ТОЙ Lvn.Engine.UI.dll, которую редактор сложил в прошлый раз, —
+  # и новый дом в UI, которым уже пользуется экран, «не существовал бы».
+  # Проверка, слепая к изменениям через границу сборки, отвечает не на тот
+  # вопрос: она проверяет вчерашний код с сегодняшними вызовами.
+  # ЯВНЫЙ СБРОС. `local` вне функции ничего не ограничивает: массив живёт
+  # между витками цикла, и `fixed+=` копил ссылки ВСЕХ прошлых сборок. Первой
+  # это сходило с рук, а редакторная получила 120 чужих фасадов и легла на
+  # «две сборки с одинаковой личностью». Ошибка выглядела как чужая — про
+  # дубликаты в наборе Unity, — хотя дубликаты сделал я сам.
+  local -a opts fixed
   opts=(${(f)"$(grep -v '^\"' $rsp | grep -v '^-out:' | grep -v '^-refout:')"})
+  fixed=()
+  for o in $opts; do
+    local swapped=$o
+    for done_name in $BUILT; do
+      swapped=${swapped//Library\/Bee\/artifacts\/*.dag\/$done_name.ref.dll/$OUT/$done_name.dll}
+      swapped=${swapped//Library\/Bee\/artifacts\/*.dag\/$done_name.dll/$OUT/$done_name.dll}
+    done
+    fixed+=($swapped)
+  done
+  opts=($fixed)
   print "== $name (${#files} файлов)"
   ( cd $HOST && $DOTNET $CSC -nologo $opts -out:$OUT/$name.dll $files ) || fail=1
+  BUILT+=($name)
 done
 [[ $fail == 0 ]] && print "СОБРАЛОСЬ ВСЁ. Это НЕ прогон: тесты не гонялись." || { print "СБОРКА УПАЛА"; exit 1 }

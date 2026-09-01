@@ -35,13 +35,16 @@ namespace Lvn.Tests
         private static readonly MethodInfo ЗаходЗаБайтами =
             typeof(ContentLoader).GetMethod("GetAsync", BindingFlags.Instance | BindingFlags.NonPublic);
 
-        private static readonly FieldInfo ПолеОчереди =
-            typeof(ContentLoader).GetField("_downloadSlots", BindingFlags.Static | BindingFlags.NonPublic);
-
-        /// <summary>Очередь загрузок: сколько заходов ещё пустят на провод
-        /// одновременно. Общая на весь процесс — потому её утечка и стоит
-        /// дорого.</summary>
-        private static SemaphoreSlim Очередь => (SemaphoreSlim)ПолеОчереди.GetValue(null);
+        /// <summary>Свободных мест в полосе сети: сколько заходов ещё пустят
+        /// на провод одновременно. Полоса общая на весь процесс — потому её
+        /// утечка и стоит дорого.
+        ///
+        /// <para>Раньше это число доставали отражением из приватного семафора.
+        /// Дом полос (<see cref="LvnLane"/>) отвечает на тот же вопрос сам, и
+        /// это лучше вдвойне: проверка перестала зависеть от имени приватного
+        /// поля, а правило «место вернулось» стало видно не только ей.</para>
+        /// </summary>
+        private static int СвободныхМест => LvnLanes.Wire.Free;
 
         private ContentLoader _loader;
         private string _root;
@@ -51,7 +54,6 @@ namespace Lvn.Tests
         public void SetUp()
         {
             Assert.IsNotNull(ЗаходЗаБайтами, "общий заход за байтами переименован — правила ниже проверять нечем");
-            Assert.IsNotNull(ПолеОчереди, "очередь загрузок переименована — правила ниже проверять нечем");
 
             _root = Path.Combine(Path.GetTempPath(), "lvn-fetch-" + Guid.NewGuid().ToString("N"));
             // Порт 9 (discard) — адрес, на который никто не ответит: если тест
@@ -113,7 +115,7 @@ namespace Lvn.Tests
         public void ОтказПоОфлайнуОчередьНеТрогает()
         {
             LvnNetworkStatus.ForceOffline = true;
-            int было = Очередь.CurrentCount;
+            int было = СвободныхМест;
 
             for (int i = 0; i < 15; i++)
             {
@@ -121,7 +123,7 @@ namespace Lvn.Tests
                 Assert.IsNotNull(заход.Exception, "офлайн прошёл молча — звонящий не узнает, что байтов не будет");
             }
 
-            Assert.AreEqual(было, Очередь.CurrentCount,
+            Assert.AreEqual(было, СвободныхМест,
                 "отказы съели очередь загрузок — вернувшаяся связь уже ничего не скачает");
         }
 
@@ -141,7 +143,7 @@ namespace Lvn.Tests
         {
             LvnNetworkStatus.ForceOffline = false;
             LvnNetworkStatus.MarkOnline("тест");
-            int было = Очередь.CurrentCount;
+            int было = СвободныхМест;
 
             // Сбоев больше, чем мест в очереди: если место не возвращать,
             // последние заходы уже не с чем будет отправлять.
@@ -153,7 +155,7 @@ namespace Lvn.Tests
                 _ = заход.Exception;   // сбой замечен — иначе он всплывёт чужим тестом
             }
 
-            Assert.AreEqual(было, Очередь.CurrentCount,
+            Assert.AreEqual(было, СвободныхМест,
                 "сорвавшиеся заходы не вернули места — очередь загрузок встала до перезапуска приложения");
         }
 
@@ -167,7 +169,7 @@ namespace Lvn.Tests
         {
             LvnNetworkStatus.ForceOffline = false;
             LvnNetworkStatus.MarkOnline("тест");
-            int было = Очередь.CurrentCount;
+            int было = СвободныхМест;
 
             using var снято = new CancellationTokenSource();
             снято.Cancel();
@@ -179,7 +181,7 @@ namespace Lvn.Tests
                 _ = заход.Exception;
             }
 
-            Assert.AreEqual(было, Очередь.CurrentCount,
+            Assert.AreEqual(было, СвободныхМест,
                 "снятые загрузки не вернули места — очередь тает с каждым выходом из главы");
         }
     }

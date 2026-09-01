@@ -68,12 +68,7 @@ namespace Lvn.UI.Screens
         /// собирается ниже.</summary>
         private VisualElement ChipShell()
         {
-            var chip = ScreenUi.Row();
-            chip.style.backgroundColor = LvnTokens.Veil(0.28f);
-            LvnAir.PadX(chip, LvnTokens.Space2);
-            LvnAir.PadY(chip, LvnTokens.Tight);
-            LvnChrome.Round(chip, LvnTokens.RadiusSm);
-            return chip;
+            return LvnStyler.Chip(ScreenUi.Row(), LvnTokens.Veil(0.28f));
         }
 
         private VisualElement Chip(string text, Color color, LvnIcon icon = LvnIcon.None)
