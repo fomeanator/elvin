@@ -87,11 +87,6 @@ namespace Lvn.Content
             : IsAudio(url) ? LvnParts.Audio
             : LvnParts.Bin;
 
-        /// <summary>The "@2k" downscale-variant url for large story art, or null
-        /// when the url must load as-is (pixel art, UI skins, already a variant,
-        /// non-raster extensions). Every phase that fetches sprites (display,
-        /// preload, chapter scheduler) must agree on this mapping so they all
-        /// warm/read the SAME cached file.</summary>
         /// <summary>Бокс показа: "@2k" (высокое) или "@1k" (экономия трафика —
         /// ручка «Качество арта»). Хост синхронизирует с настройкой игрока.</summary>
         public static string PreferredSuffix = Q2k;
@@ -208,6 +203,14 @@ namespace Lvn.Content
         /// загрузок, между ними переключается настройка качества.</summary>
         public static readonly string[] QualityVariants = { Q2k, Q1440, Q1k };
 
+        /// <summary>Адрес уменьшенного варианта («@2k») для крупного арта
+        /// истории, либо null, когда файл обязан грузиться как есть: пиксель-арт,
+        /// обшивка интерфейса, уже вариант, нерастровое расширение.
+        ///
+        /// <para>Все фазы, которые тянут спрайты — показ, предзагрузка,
+        /// расписание главы, — обязаны сходиться на этом отображении: иначе они
+        /// греют и читают РАЗНЫЕ файлы, и прогрев не помогает показу.</para>
+        /// </summary>
         public static string DownscaleVariant(string url)
         {
             if (string.IsNullOrEmpty(url)) return null;

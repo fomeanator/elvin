@@ -214,12 +214,6 @@ namespace Lvn.UI.Screens
         private static float ToPanel(IPanel panel, float pixels)
             => Mathf.Max(0f, RuntimePanelUtils.ScreenToPanel(panel, new Vector2(0f, pixels)).y);
 
-        /// <summary>Build a horizontal progress bar centred on (<paramref name="xFrac"/>,
-        /// <paramref name="yFrac"/>) of its parent, sized <paramref name="wFrac"/>×
-        /// <paramref name="hFrac"/>: a coloured <paramref name="track"/> under a
-        /// left-anchored <paramref name="fill"/> the caller animates by setting its
-        /// width. Both the boot splash and the chapter loader built this identically;
-        /// callers add their own extras (a frame overlay, art) on top.</summary>
         /// <summary>
         /// РЯД — горизонтальная строка по центру.
         ///
@@ -297,6 +291,12 @@ namespace Lvn.UI.Screens
                 (e, v) => e.style.opacity = v);
         }
 
+        /// <summary>Горизонтальная полоса прогресса по центру (<paramref name="xFrac"/>,
+        /// <paramref name="yFrac"/>) родителя, размером <paramref name="wFrac"/>×
+        /// <paramref name="hFrac"/>: цветная дорожка <paramref name="track"/> под
+        /// прижатой влево заливкой <paramref name="fill"/>, ширину которой двигает
+        /// вызывающий. Заставка и загрузчик главы строили её одинаково; своё
+        /// (рамку, арт) каждый кладёт сверху.</summary>
         public static VisualElement ProgressBar(
             float xFrac, float yFrac, float wFrac, float hFrac,
             Color trackColor, Color fillColor,

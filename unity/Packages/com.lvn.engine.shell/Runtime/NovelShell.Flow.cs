@@ -205,8 +205,6 @@ namespace Lvn.UI.Screens
         public bool RequestPlay(string titleId) => Browse?.RequestTitle(titleId) ?? false;
 
 
-        /// <summary>The first playable chapter of a title (lowest non-negative
-        /// chapter number across its seasons), or null.</summary>
         /// <summary>Первая глава новеллы — правило у ПРИВРАТНИКА (наименьший
         /// номер): здесь была копия, а в хосте лежала третья версия с другим
         /// правилом.</summary>

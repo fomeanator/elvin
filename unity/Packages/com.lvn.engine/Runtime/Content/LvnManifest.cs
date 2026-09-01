@@ -484,10 +484,6 @@ namespace Lvn.Content
         public List<LvnGalleryItem> gallery;
 
         // ── the hub/collection browse model (ui.browse.layout = "hub") ──
-        /// <summary>Content type — an author tag mirroring the title's collection
-        /// (<c>expedition</c>/<c>date</c>/<c>reality</c>). Purely informational for
-        /// the engine; access/completion is driven by <see cref="unlock"/> and the
-        /// script's <c>global.*</c> flags.</summary>
         /// <summary>Who owns this title — an author id the product services
         /// resolve payouts and per-author statistics through. The client never
         /// sends it: the SERVER reads it from the manifest and stamps it onto
@@ -496,6 +492,10 @@ namespace Lvn.Content
         /// reconstructed afterwards. Empty means unattributed, never guessed.</summary>
         public string author;
 
+        /// <summary>Вид содержимого — авторская пометка, зеркалящая подборку
+        /// (<c>expedition</c>/<c>date</c>/<c>reality</c>). Для движка чисто
+        /// справочная: доступ и завершённость ведут <see cref="unlock"/> и флаги
+        /// <c>global.*</c> из скрипта.</summary>
         public string type;
         /// <summary>Detail-card presentation on the hub's title screen: big image +
         /// description + a Play button. Falls back to name/subtitle/cover_url.</summary>
