@@ -93,7 +93,7 @@ namespace Lvn.UI.Screens
                 RefreshLabel();   // «Рыжая: Голливудские волны» — цвет И причёска
                 RefreshConfirm(); // кнопка предложит купить этот цвет
             }) { text = "" };
-            b.style.width = 54; b.style.height = 54;
+            b.style.width = LvnTokens.TouchLg; b.style.height = LvnTokens.TouchLg;
             LvnAir.Pad(b, 0);
             LvnAir.MarginX(b, LvnTokens.Tight);
             b.style.alignItems = Align.Center;

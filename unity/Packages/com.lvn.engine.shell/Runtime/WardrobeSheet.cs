@@ -486,7 +486,7 @@ namespace Lvn.UI.Screens
                 // из манифеста (slot.icon), иначе вектор по смыслу оси: волосы —
                 // корона, наряд — вешалка.
                 var b = new Button(() => SelectTab(axis)) { text = "" };
-                b.style.height = 56;
+                b.style.height = LvnTokens.TouchLg;
                 ScreenUi.Row(b);
                 LvnAir.PadX(b, LvnTokens.Space3);
                 LvnAir.MarginX(b, LvnTokens.Space1);
@@ -536,7 +536,7 @@ namespace Lvn.UI.Screens
             if (_def.wardrobe.Count > 1)
             {
                 var all = new Button(() => SelectTab(AllTab)) { text = "" };
-                all.style.height = 56;
+                all.style.height = LvnTokens.TouchLg;
                 ScreenUi.Row(all);
                 LvnAir.PadX(all, LvnTokens.Space3);
                 LvnAir.MarginX(all, LvnTokens.Space1);

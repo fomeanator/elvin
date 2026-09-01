@@ -106,7 +106,7 @@ namespace Lvn.UI
             string thumbSlot = null)
         {
             var row = new Button(onClick);
-            row.style.height = 56;
+            row.style.height = LvnTokens.TouchLg;
             row.style.marginBottom = LvnTokens.Space1;
             var tint = _theme.MenuTextColor;
             row.style.backgroundColor = UiColor.WithAlpha(tint, 0.06f);

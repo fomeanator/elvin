@@ -189,7 +189,7 @@ namespace Lvn.UI
         private Button StatStep(string glyph, Action onClick)
         {
             var b = new Button(onClick) { text = glyph };
-            b.style.width = 60; b.style.height = 56;
+            b.style.width = LvnTokens.TouchLg; b.style.height = LvnTokens.TouchLg;
             b.style.fontSize = LvnTokens.TextBase;
             var tint = _theme.MenuTextColor;
             LvnStyler.Plate(b, UiColor.WithAlpha(tint, 0.08f), tint, LvnTokens.RadiusXs);
