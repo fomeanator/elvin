@@ -29,15 +29,11 @@ namespace Lvn.UI
 
         /// <summary>Optional prefix stripped from urls before passing to Addressables.
         /// Default "/content" matches the convention in .lvn files.</summary>
-        public string ContentPrefix = "/content";
+        public string ContentPrefix = LvnAssetPath.ContentPrefix;
 
         private string AddressFor(string url)
         {
-            if (string.IsNullOrEmpty(url)) return null;
-            var addr = url;
-            if (!string.IsNullOrEmpty(ContentPrefix) && addr.StartsWith(ContentPrefix))
-                addr = addr.Substring(ContentPrefix.Length);
-            return addr.TrimStart('/');
+            return LvnAssetPath.Relative(url, ContentPrefix);
         }
 
         public async Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct)
