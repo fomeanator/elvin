@@ -309,9 +309,7 @@ namespace Lvn.UI.Screens
         private VisualElement TileRow(List<Stat> stats)
         {
             var row = new VisualElement();
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.flexWrap = Wrap.Wrap;
-            row.style.justifyContent = Justify.SpaceBetween;
+            LvnFlow.Wrap(row, Justify.SpaceBetween);
             row.style.marginBottom = LvnTokens.Space1;
 
             foreach (var s in stats) row.Add(StatTile(s));
@@ -354,9 +352,7 @@ namespace Lvn.UI.Screens
         private VisualElement BuildAchievements()
         {
             var grid = new VisualElement();
-            grid.style.flexDirection = FlexDirection.Row;
-            grid.style.flexWrap = Wrap.Wrap;
-            grid.style.justifyContent = Justify.FlexStart;
+            LvnFlow.Wrap(grid, Justify.FlexStart);
             grid.style.marginBottom = LvnTokens.Space1;
 
             foreach (var a in Achievements) grid.Add(Badge(a));

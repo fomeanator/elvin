@@ -106,9 +106,7 @@ namespace Lvn.UI.Screens
             // ── Grid of tiles ──────────────────────────────────────────────────
             _grid = Lvn.UI.LvnScroll.Vertical();
             _grid.style.flexGrow = 1;
-            _grid.contentContainer.style.flexDirection = FlexDirection.Row;
-            _grid.contentContainer.style.flexWrap = Wrap.Wrap;
-            _grid.contentContainer.style.justifyContent = Justify.FlexStart;
+            LvnFlow.Wrap(_grid.contentContainer, Justify.FlexStart);
             sheet.Add(_grid);
 
             // ── Fullscreen viewer (hidden until a tile is opened) ──────────────

@@ -186,8 +186,7 @@ namespace Lvn.UI.Screens
             {
                 // Состав набора — пилюлями: читается с одного взгляда.
                 var chips = new VisualElement();
-                chips.style.flexDirection = FlexDirection.Row;
-                chips.style.flexWrap = Wrap.Wrap;
+                LvnFlow.Wrap(chips);
                 chips.style.marginTop = LvnTokens.Space1;
                 foreach (var kv in pack.Grants)
                 {

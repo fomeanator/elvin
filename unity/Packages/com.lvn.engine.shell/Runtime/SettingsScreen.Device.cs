@@ -50,8 +50,7 @@ namespace Lvn.UI.Screens
             box.Add(track);
 
             var buttons = new VisualElement();
-            buttons.style.flexDirection = FlexDirection.Row;
-            buttons.style.flexWrap = Wrap.Wrap;
+            LvnFlow.Wrap(buttons);
             var btn = new Button { text = "…" };
             StyleValueButton(btn, true);
             btn.style.marginRight = LvnTokens.Space1;

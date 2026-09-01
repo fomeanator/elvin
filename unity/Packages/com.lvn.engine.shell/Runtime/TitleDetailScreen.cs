@@ -241,8 +241,7 @@ namespace Lvn.UI.Screens
         {
             var chips = new VisualElement();
             chips.style.flexShrink = 0;
-            chips.style.flexDirection = FlexDirection.Row;
-            chips.style.flexWrap = Wrap.Wrap;
+            LvnFlow.Wrap(chips);
             foreach (var part in Chips.Split('·'))
             {
                 var t = part.Trim();

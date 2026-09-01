@@ -140,9 +140,7 @@ namespace Lvn.UI.Screens
 
             // ── The 7-day grid (wraps: 4 + 3) ──────────────────────────────────
             _grid = new VisualElement();
-            _grid.style.flexDirection = FlexDirection.Row;
-            _grid.style.flexWrap = Wrap.Wrap;
-            _grid.style.justifyContent = Justify.Center;
+            LvnFlow.Wrap(_grid, Justify.Center);
             card.Add(_grid);
 
             // ── The primary claim call to action ───────────────────────────────

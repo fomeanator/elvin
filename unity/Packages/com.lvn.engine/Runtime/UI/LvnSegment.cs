@@ -46,8 +46,7 @@ namespace Lvn.UI
                                           Action<Button, bool> style, bool alignEnd = true)
         {
             var seg = new VisualElement();
-            seg.style.flexDirection = FlexDirection.Row;
-            seg.style.flexWrap = Wrap.Wrap;              // НЕВЫКЛЮЧАЕМО: см. сводку
+            LvnFlow.Wrap(seg);                           // перенос НЕВЫКЛЮЧАЕМ: см. сводку
             // РЯД НЕ ШИРЕ СВОЕГО МЕСТА. Кнопки не сжимаются (иначе теряют
             // подпись), поэтому без предела ряд растягивал родителя и уезжал за
             // край экрана — первый вариант оказывался за левой границей и был

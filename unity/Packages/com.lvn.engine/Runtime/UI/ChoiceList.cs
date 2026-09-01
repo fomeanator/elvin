@@ -228,9 +228,7 @@ namespace Lvn.UI
             if (option.Effects != null && option.Effects.Count > 0)
             {
                 var effRow = new VisualElement();
-                effRow.style.flexDirection = FlexDirection.Row;
-                effRow.style.flexWrap = Wrap.Wrap;
-                effRow.style.justifyContent = Justify.Center;
+                LvnFlow.Wrap(effRow, Justify.Center);
                 effRow.style.marginTop = 4;
                 foreach (var eff in option.Effects)
                 {

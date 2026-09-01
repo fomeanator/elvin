@@ -133,8 +133,7 @@ namespace Lvn.UI.Screens
 
             // ── Category tabs ─────────────────────────────────────────────────
             _tabsRow = new VisualElement();
-            _tabsRow.style.flexDirection = FlexDirection.Row;
-            _tabsRow.style.flexWrap = Wrap.Wrap;
+            LvnFlow.Wrap(_tabsRow);
             _tabsRow.style.marginBottom = LvnTokens.Space2;
             sheet.Add(_tabsRow);
             BuildTabs();
@@ -284,9 +283,7 @@ namespace Lvn.UI.Screens
             // Витрина, а не таблица: обычные паки — сеткой в две колонки,
             // «герой» вкладки и наборы — широкими карточками.
             var grid = new VisualElement();
-            grid.style.flexDirection = FlexDirection.Row;
-            grid.style.flexWrap = Wrap.Wrap;
-            grid.style.justifyContent = Justify.SpaceBetween;
+            LvnFlow.Wrap(grid, Justify.SpaceBetween);
             _list.Add(grid);
             foreach (var p in packs) grid.Add(Card(p));
         }
