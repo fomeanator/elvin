@@ -83,6 +83,12 @@ func TestАдресРазбираетДомАНеМестоВызова(t *testi
 		filepath.Join(repoRoot(t), "unity", "Packages", "com.lvn.engine.shell", "Runtime"),
 	}
 	bare := regexp.MustCompile(`StartsWith\("(https?|file|jar)`)
+	// СРЕЗАНИЕ ЗАПРОСА — то же правило, только с другого конца адреса.
+	// «Найти '?' и отрезать хвост» жило самодельной копией в офлайн-политике,
+	// и копия эта отличалась от дома: дом чистит адрес через LvnUrl.Bare, а
+	// копия — руками, из-за чего рядом (в имени каталога перевода) запрос
+	// вообще не отрезался и файл не находился. Правило одно, дом один.
+	query := regexp.MustCompile(`IndexOf\('\?'\)`)
 	for _, root := range roots {
 		err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
@@ -95,7 +101,14 @@ func TestАдресРазбираетДомАНеМестоВызова(t *testi
 			if err != nil {
 				return err
 			}
-			if m := bare.FindString(stripCommentsAndStrings(string(raw))); m != "" {
+			code := stripCommentsAndStrings(string(raw))
+			if m := query.FindString(code); m != "" {
+				t.Fatalf("%s: запрос из адреса срезают на месте (%q) — возьмите LvnUrl.Bare.\n"+
+					"Самодельная копия уже расходилась с домом: рядом, в имени каталога "+
+					"перевода, запрос не отрезался вовсе, и файл молча не находился",
+					filepath.Base(path), m)
+			}
+			if m := bare.FindString(code); m != "" {
 				t.Fatalf("%s: %q — схему адреса спрашивают у LvnUrl.\n"+
 					"Пока это пишут на месте, правил становится столько же, сколько мест",
 					filepath.Base(path), m)

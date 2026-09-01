@@ -145,5 +145,19 @@ namespace Lvn.Tests
             Assert.AreEqual("/s/ch1.ru.json", LvnUrl.Sibling("/s/ch1", ".ru.json"),
                 "адрес без расширения — тоже адрес");
         }
+
+        // ЗАПРОС ЗА АДРЕСОМ — вторая половина того же факта, что и «чистый
+        // адрес»: где кончается путь. Обе половины жили врозь — дом знал
+        // первую, разбор ссылки-диплинка писал вторую сам, — и якорь «#top»
+        // помнил только один из них.
+        [Test]
+        public void ЗапросБерётсяБезЯкоря()
+        {
+            Assert.AreEqual("title=cold", LvnUrl.Query("lvn://open?title=cold"));
+            Assert.AreEqual("title=cold", LvnUrl.Query("lvn://open?title=cold#top"),
+                "якорь попал в запрос — разбор увидит лишний параметр и откроет не то");
+            Assert.AreEqual("", LvnUrl.Query("lvn://open"), "запроса нет — и брать нечего");
+            Assert.AreEqual("", LvnUrl.Query(null));
+        }
     }
 }
