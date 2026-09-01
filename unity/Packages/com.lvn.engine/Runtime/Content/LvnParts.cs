@@ -129,6 +129,23 @@ namespace Lvn.Content
         /// «живого», считавший две двери из семи. Оба починены, и полоса у
         /// каста теперь своя: после библиотеки, уступая всему живому.</para>
         /// </summary>
+        /// <summary>
+        /// АДРЕС, КОТОРЫЙ МОЖНО СПРОСИТЬ У СЕРВЕРА ПРЯМО СЕЙЧАС.
+        ///
+        /// <para>В каталоге спрайтов адреса слоёв — ШАБЛОНЫ:
+        /// <c>Cold_Adele_{emotion}.png</c>, <c>..._clothes_{outfit}.png</c>.
+        /// Подставляют в них значение оси в момент показа, когда известно, кто
+        /// какой эмоцией стоит. Прогрев этого не знает и качать шаблон не может:
+        /// файла с фигурными скобками в имени нет и быть не должно.</para>
+        ///
+        /// <para>Живой случай 01.09: полосу каста подключили, и она понесла на
+        /// сервер 68 шаблонов из 211 слоёв — треть очереди уходила в
+        /// гарантированный 404. В логе это выглядит как «сервер сломался», а
+        /// сломан был СПИСОК: он просил то, чего никто не выкладывал.</para>
+        /// </summary>
+        private static bool Fetchable(string url)
+            => !string.IsNullOrEmpty(url) && url.IndexOf('{') < 0;
+
         public static IEnumerable<LvnPart> OfCast(LvnManifest m)
         {
             if (m?.sprites == null) yield break;
@@ -138,7 +155,7 @@ namespace Lvn.Content
                 if (e == null) continue;
                 if (e.layers != null)
                     foreach (var layer in e.layers)
-                        if (!string.IsNullOrEmpty(layer?.url))
+                        if (Fetchable(layer?.url))
                             yield return new LvnPart(layer.url, Sprite);
                 // Гардероб принадлежит СУЩНОСТИ, а не новелле: одну героиню
                 // могут одевать в нескольких новеллах, и набор у неё один.
@@ -146,7 +163,7 @@ namespace Lvn.Content
                 foreach (var slot in e.wardrobe.Values)
                 {
                     if (slot == null) continue;
-                    if (!string.IsNullOrEmpty(slot.icon))
+                    if (Fetchable(slot.icon))
                         yield return new LvnPart(slot.icon, Sprite);
                     if (slot.items == null) continue;
                     foreach (var it in slot.items)
