@@ -224,5 +224,32 @@ namespace Lvn.Tests
 
         private static KeyValuePair<string, Placement> Актёр(string id, float x, bool показан = true)
             => new KeyValuePair<string, Placement>(id, new Placement { X = x, Show = показан });
+        // ── Какой переход отвечает за смену видимости ────────────────────────
+
+        [Test]
+        public void ПоказываемБерётВходУводимУход()
+        {
+            var p = new Placement
+            {
+                Show = true,
+                EnterTransition = TransitionType.Fade,
+                ExitTransition = TransitionType.SlideLeft,
+            };
+            Assert.AreEqual(TransitionType.Fade, p.VisibilityTransition);
+
+            p.Show = false;
+            Assert.AreEqual(TransitionType.SlideLeft, p.VisibilityTransition,
+                "уводим — значит играет уход, а не вход");
+        }
+
+        [Test]
+        public void ОтсутствиеПереходаОтличимоОтЕгоНаличия()
+        {
+            // На этом ответе стоят ДВА разных вопроса: «есть ли зримый переход»
+            // и «какой играть». Разойдись они — ввод откроется раньше, чем
+            // героиня доехала, либо будет ждать перехода, которого нет.
+            var p = new Placement { Show = true, EnterTransition = TransitionType.None };
+            Assert.AreEqual(TransitionType.None, p.VisibilityTransition);
+        }
     }
 }

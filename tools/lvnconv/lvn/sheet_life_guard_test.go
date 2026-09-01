@@ -246,3 +246,63 @@ func TestPairedRulesAreReadOnce(t *testing.T) {
 	}
 	sawSources(t, seen, 2, "парных правил")
 }
+
+// ЗЕРКАЛО ОСТАЁТСЯ ЗЕРКАЛОМ: что навязали при сборке — снимают при отпускании.
+//
+// Убранство сцены собирают дважды (рождение и смена темы), и обряд сведён в
+// пару MakeChrome/DropChrome. Обещание пары записано в её докблоке словами:
+// «подписка, которую забыли снять, переживает свой экземпляр». Слова — не
+// проверка, а забыть тут легко ровно потому, что видно НИЧЕГО: старый
+// экземпляр уже никому не нужен, и лишний обработчик просто тикает в пустоту,
+// пока однажды не тикнет по живому.
+//
+// Сторожим состав: каждое `+=` в сборке обязано иметь парное `-=` в
+// отпускании, и наоборот. Это дешевле теста на живой сцене (ей нужны панель и
+// документ) и точнее по времени — ловит саму асимметрию, а не её последствие.
+func TestChromeUnwiresWhatItWires(t *testing.T) {
+	root := repoRoot(t)
+	body := stripComments(string(mustRead(t, filepath.Join(root,
+		"unity/Packages/com.lvn.engine/Runtime/UI/VnStage.Chrome.cs"))))
+
+	cut := func(name string) string {
+		at := strings.Index(body, "private void "+name+"(")
+		if at < 0 {
+			t.Fatalf("%s пропал — на паре держится сборка убранства", name)
+		}
+		end := strings.Index(body[at:], "\n        }")
+		if end < 0 {
+			t.Fatalf("не нашёл конца %s", name)
+		}
+		return body[at : at+end]
+	}
+	pick := func(src, sign string) map[string]bool {
+		out := map[string]bool{}
+		re := regexp.MustCompile(`(_\w+\.\w+)\s*` + regexp.QuoteMeta(sign) + `=\s*(\w+)`)
+		for _, m := range re.FindAllStringSubmatch(src, -1) {
+			out[m[1]+" → "+m[2]] = true
+		}
+		return out
+	}
+	made := pick(cut("MakeChrome"), "+")
+	dropped := pick(cut("DropChrome"), "-")
+	sawSources(t, len(made), 3, "подписок при сборке убранства")
+
+	var lonely []string
+	for k := range made {
+		if !dropped[k] {
+			lonely = append(lonely, "навязали, не снимают: "+k)
+		}
+	}
+	for k := range dropped {
+		if !made[k] {
+			lonely = append(lonely, "снимают, не навязывали: "+k)
+		}
+	}
+	sort.Strings(lonely)
+	if len(lonely) > 0 {
+		t.Errorf("пара сборки и отпускания разошлась (%d):\n  %s\n\n"+
+			"Подписка, которую забыли снять, переживает свой экземпляр: старый "+
+			"обработчик тикает в пустоту, пока однажды не тикнет по живому.",
+			len(lonely), strings.Join(lonely, "\n  "))
+	}
+}
