@@ -268,7 +268,7 @@ namespace Lvn.Tests
                                 if (kv.Value[keep] != null) keptPl[keep] = kv.Value[keep].DeepClone();
                             kv.Value.RemoveAll();
                             foreach (var p in keptPl.Properties()) kv.Value[p.Name] = p.Value.DeepClone();
-                            kv.Value["__visible"] = false;
+                            Видимость.Снять(kv.Value);
                         }
                         break;
                     // obj is a placeable sprite and shares the actor pipeline on
@@ -291,18 +291,12 @@ namespace Lvn.Tests
                         // типа. Здесь это особенно дорого: корпус СЕРТИФИЦИРУЕТ
                         // поведение, и приведение заставляло его сертифицировать
                         // не то, что делает движок, — `show=no` оставался видимым.
-                        st["__visible"] = Lvn.LvnBool.Of(c["show"], true);
+                        Видимость.Отметить(st, c);
                         break;
                 }
             }
 
-            public HashSet<string> Visible()
-            {
-                var v = new HashSet<string>();
-                foreach (var kv in Actors)
-                    if ((bool?)kv.Value["__visible"] == true) v.Add(kv.Key);
-                return v;
-            }
+            public HashSet<string> Visible() => Видимость.Видимые(Actors);
         }
 
         // ── expectation matching ────────────────────────────────────────────

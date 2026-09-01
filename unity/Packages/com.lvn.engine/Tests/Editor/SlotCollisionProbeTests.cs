@@ -73,7 +73,7 @@ namespace Lvn.Tests
                         {
                             var vis = new List<(string id, float x)>();
                             foreach (var kv in stage.Actors)
-                                if ((bool?)kv.Value["__visible"] == true)
+                                if ((bool?)kv.Value[Видимость.Ключ] == true)
                                     vis.Add((kv.Key, EffectiveX(kv.Value)));
                             for (int a = 0; a < vis.Count; a++)
                                 for (int b = a + 1; b < vis.Count; b++)

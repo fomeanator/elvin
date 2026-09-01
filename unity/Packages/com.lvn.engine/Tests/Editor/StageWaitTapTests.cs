@@ -222,23 +222,9 @@ namespace Lvn.Tests
         private const BindingFlags Any =
             BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
 
-        private static FieldInfo Field(string name)
-        {
-            for (Type t = typeof(VnStage); t != null; t = t.BaseType)
-            {
-                FieldInfo f = t.GetField(name, Any);
-                if (f != null) return f;
-            }
-            Assert.Fail($"поле {name} у VnStage пропало — поправь якорь теста");
-            return null;
-        }
+        private static FieldInfo Field(string name) => Внутренности.Поле(name);
 
-        private static PropertyInfo Prop(string name)
-        {
-            PropertyInfo p = typeof(VnStage).GetProperty(name, Any);
-            if (p == null) Assert.Fail($"свойство {name} у VnStage пропало — поправь якорь теста");
-            return p;
-        }
+        private static PropertyInfo Prop(string name) => Внутренности.Свойство(name);
 
         private void Set(string field, object value) => Field(field).SetValue(_stage, value);
 
