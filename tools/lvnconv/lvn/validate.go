@@ -1192,27 +1192,41 @@ var (
 
 // exprIdents pulls the variable identifiers out of an expression, dropping string
 // literals, boolean/keyword tokens, numeric literals, and function-call names.
-func exprIdents(expr string) []string {
+// eachIdent — обойти ИМЕНА в выражении, сообщая для каждого, вызов это или
+// переменная.
+//
+// Различие между «переменной» и «вызовом» — одно: стоит ли за именем открытая
+// скобка, с поправкой на пробелы между ними. Прежде это решали два тела,
+// одинаковых на четырнадцать строк из шестнадцати, и обе повторяли ещё и
+// затирание строковых литералов: имя внутри кавычек — часть текста, а не
+// переменная.
+//
+// Разойдись затирание — и одна половина проверок начнёт видеть переменные там,
+// где их нет: автор получит предупреждение о необъявленном имени, которого он
+// не писал, и пойдёт искать его в скрипте.
+func eachIdent(expr string, visit func(name string, isCall bool)) {
 	if expr == "" {
-		return nil
+		return
 	}
-	expr = strLitRe.ReplaceAllString(expr, " ") // a quoted literal is not a variable
-	var out []string
+	expr = strLitRe.ReplaceAllString(expr, " ") // литерал в кавычках — не переменная
 	for _, m := range identRe.FindAllStringIndex(expr, -1) {
-		id := expr[m[0]:m[1]]
-		if exprKeywords[strings.ToLower(id)] {
-			continue
-		}
-		// A name immediately followed by '(' is a function call, not a variable.
 		j := m[1]
 		for j < len(expr) && (expr[j] == ' ' || expr[j] == '\t') {
 			j++
 		}
-		if j < len(expr) && expr[j] == '(' {
-			continue
-		}
-		out = append(out, id)
+		visit(expr[m[0]:m[1]], j < len(expr) && expr[j] == '(')
 	}
+}
+
+// exprIdents — переменные выражения: имена, за которыми НЕ стоит скобка.
+func exprIdents(expr string) []string {
+	var out []string
+	eachIdent(expr, func(name string, isCall bool) {
+		if isCall || exprKeywords[strings.ToLower(name)] {
+			return
+		}
+		out = append(out, name)
+	})
 	return out
 }
 
@@ -1283,21 +1297,19 @@ func strayAssign(expr string) int {
 // inside a quoted string is never taken for a call. A span carrying `|` is an
 // Ink-style text alternative ({a|b|c}, {cond: yes|no}) whose branches are prose,
 // not expressions, so it yields nothing.
+// exprCalls — вызовы выражения: имена, за которыми стоит скобка.
 func exprCalls(expr string) []string {
-	if expr == "" || !strings.Contains(expr, "(") || strings.Contains(expr, "|") {
+	// Ранний выход не украшение: без скобки вызовов нет вовсе, а вертикальная
+	// черта — чужой синтаксис, разбирать который здесь не наше дело.
+	if !strings.Contains(expr, "(") || strings.Contains(expr, "|") {
 		return nil
 	}
-	expr = strLitRe.ReplaceAllString(expr, " ")
 	var out []string
-	for _, m := range identRe.FindAllStringIndex(expr, -1) {
-		j := m[1]
-		for j < len(expr) && (expr[j] == ' ' || expr[j] == '\t') {
-			j++
+	eachIdent(expr, func(name string, isCall bool) {
+		if isCall {
+			out = append(out, name)
 		}
-		if j < len(expr) && expr[j] == '(' {
-			out = append(out, expr[m[0]:m[1]])
-		}
-	}
+	})
 	return out
 }
 
