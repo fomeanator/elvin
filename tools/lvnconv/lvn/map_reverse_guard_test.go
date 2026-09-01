@@ -47,7 +47,13 @@ func TestEveryHomeInCodeIsInTheMap(t *testing.T) {
 			}
 			scanned++
 			for _, m := range decl.FindAllStringSubmatch(string(mustRead(t, path)), -1) {
-				if !strings.Contains(canon, m[1]) && !strings.Contains(svc, m[1]) {
+				// ПО ГРАНИЦАМ СЛОВА, а не по вхождению: `LvnWardrobe` числился
+				// в карте только потому, что там есть `LvnWardrobeStage`. Пять
+				// имён движка — приставки других (LvnFlow/LvnFlowDistance,
+				// LvnNum/LvnNumberFormat, LvnLog/LvnLogShip), и каждое такое
+				// совпадение прячет дом ровно от того, кто его ищет.
+				word := regexp.MustCompile(`\b` + regexp.QuoteMeta(m[1]) + `\b`)
+				if !word.MatchString(canon) && !word.MatchString(svc) {
 					unlisted = append(unlisted, m[1])
 				}
 			}
