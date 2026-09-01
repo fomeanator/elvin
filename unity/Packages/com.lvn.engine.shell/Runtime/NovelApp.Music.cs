@@ -22,7 +22,7 @@ namespace Lvn.UI.Screens
         {
             try
             {
-                var clip = await _assets.Loader.DownloadAudioClipAsync(url, destroyCancellationToken);
+                var clip = await _assets.Loader.DownloadAudioClipAsync(url, _quitting);
                 if (clip == null) return;
                 _menuMusic = gameObject.AddComponent<AudioSource>();
                 _menuMusic.clip = clip;
@@ -54,7 +54,7 @@ namespace Lvn.UI.Screens
             if (_menuMusic == null || string.IsNullOrEmpty(url)) return;
             try
             {
-                var clip = await _assets.Loader.DownloadAudioClipAsync(url, destroyCancellationToken);
+                var clip = await _assets.Loader.DownloadAudioClipAsync(url, _quitting);
                 if (clip == null || _menuMusic == null) return;
                 bool was = _menuMusic.isPlaying;
                 _menuMusic.Stop();

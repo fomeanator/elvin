@@ -482,7 +482,7 @@ namespace Lvn.UI.Screens
             try
             {
                 var auth = _shell?.Auth;
-                if (auth != null) await auth.AskOnceAsync(destroyCancellationToken);
+                if (auth != null) await auth.AskOnceAsync(_quitting);
             }
             catch (OperationCanceledException) { /* приложение закрывают — история всё равно отпускается домом */ }
         }

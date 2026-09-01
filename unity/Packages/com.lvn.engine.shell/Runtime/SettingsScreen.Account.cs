@@ -14,6 +14,60 @@ namespace Lvn.UI.Screens
     /// </summary>
     public sealed partial class SettingsScreen
     {
+        /// <summary>
+        /// СБРОС АККАУНТА — строка, за которой стоит обряд забвения.
+        ///
+        /// <para>Подтверждение встроено в саму кнопку, а не выведено попапом:
+        /// первое нажатие меняет надпись на «Точно?», второе стирает, и через
+        /// несколько секунд без второго нажатия она возвращается к прежнему
+        /// виду. Так игрок не сносит себя случайным тапом, а тестировщику не
+        /// приходится закрывать окно ради каждого прогона воронки.</para>
+        ///
+        /// <para>Стирается только УСТРОЙСТВО. Серверный аккаунт живёт своей
+        /// жизнью: удаление там — отдельное действие с отдельной ценой, и
+        /// путать их нельзя.</para>
+        /// </summary>
+        private VisualElement ResetRow()
+        {
+            var row = RowEx(LvnWords.Of("settings.reset", "Reset account"),
+                LvnWords.Of("settings.reset_hint",
+                    "Wipes progress, purchases and name on this device — the game starts over"));
+
+            bool armed = false;
+            var btn = Lvn.UI.LvnRedress.Bind(new Button(), () =>
+                armed ? LvnWords.Of("common.sure", "Sure?")
+                      : LvnWords.Of("common.reset", "Reset"));
+            StyleValueButton(btn, false);
+            btn.style.color = Lvn.UI.LvnTheme.Current.Warn;
+
+            IVisualElementScheduledItem disarm = null;
+            btn.clicked += () =>
+            {
+                if (!armed)
+                {
+                    // ВЗВЕДЕНО, НО НЕ НАВСЕГДА. Забытая взведённой кнопка —
+                    // мина: игрок вернётся в настройки через минуту и снесёт
+                    // себя одним касанием, думая, что нажал впервые.
+                    armed = true;
+                    Lvn.UI.LvnRedress.Refresh(btn);
+                    disarm?.Pause();
+                    disarm = btn.schedule.Execute(() =>
+                    {
+                        armed = false;
+                        Lvn.UI.LvnRedress.Refresh(btn);
+                    }).ExecuteLater(LvnMotion.Ms(LvnMotion.Notice) * 3);
+                    return;
+                }
+                disarm?.Pause();
+                armed = false;
+                Lvn.UI.LvnRedress.Refresh(btn);
+                OnResetAccount?.Invoke();
+                LvnMotion.FlashText(btn, LvnWords.Of("common.done", "Done"));
+            };
+            row.Add(btn);
+            return row;
+        }
+
         private VisualElement UidRow()
         {
             var row = RowEx(LvnWords.Pick("account.uid", _cfg.uid_label, "Player ID"),

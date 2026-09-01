@@ -27,6 +27,20 @@ namespace Lvn.UI.Screens
         /// / platform sign-in. Null hides the button.</summary>
         public System.Func<Task> OnSignIn;
 
+        /// <summary>
+        /// СТЕРЕТЬ ИГРОКА НА ЭТОМ УСТРОЙСТВЕ — «начать всё заново».
+        ///
+        /// <para>Обряд забвения (<c>LvnForget.All</c>) написан давно и умеет
+        /// всё: сейвы, галерею, прочитанное, переменные новелл, гардероб,
+        /// кросс-новелльные статы, метки, имя и флаги вступления. В игре его
+        /// не звал НИКТО — он работал только в тестах.</para>
+        ///
+        /// <para>Кто именно стирается, знает не экран: список новелл и
+        /// персонажей живёт в каталоге, а каталог — у приложения. Экран
+        /// говорит «игрок попросил», приложение отвечает «вот кого забыть».</para>
+        /// </summary>
+        public System.Action OnResetAccount;
+
         // ── хранилище (кнопка «Скачать всю игру», ELVIN-85) ──────────────────
         // Хост (NovelApp) отдаёт оценку недокачанного, запуск батча, прогресс
         // и очистку — экран только рисует. Null-хуки прячут секцию целиком.
@@ -178,6 +192,7 @@ namespace Lvn.UI.Screens
             // включая отказ сети.
             Lvn.LvnAsync.Fire(RefreshAccountAsync(), "SettingsAccount");
             _list.Add(RestoreRow());
+            if (OnResetAccount != null) _list.Add(ResetRow());
             _list.Add(VersionRow());
             var links = LinksRow();
             if (links != null) _list.Add(links);
