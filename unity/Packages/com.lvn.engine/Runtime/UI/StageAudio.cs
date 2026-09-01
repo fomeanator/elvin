@@ -17,32 +17,78 @@ namespace Lvn.UI
     [DisallowMultipleComponent]
     public sealed class StageAudio : MonoBehaviour
     {
-        private AudioSource _music, _ambient, _sfx, _ui, _voice;
-
-        // Track what each looping channel is playing (by url) so a replayed audio
-        // command after a load/rollback recognises "this track is already on" and
-        // adjusts volume instead of restarting it from the beginning.
-        private readonly System.Collections.Generic.Dictionary<string, string> _playingUrl
-            = new System.Collections.Generic.Dictionary<string, string>();
-
-        // Per-channel command generation: a later audio command on the same
-        // channel supersedes an earlier one whose clip is still loading, so two
-        // music commands replayed on resume (or a stop racing a play) can't let
-        // the slower load win and play the wrong/old track.
-        private readonly System.Collections.Generic.Dictionary<string, int> _channelGen
-            = new System.Collections.Generic.Dictionary<string, int>();
-
-        // The live fade coroutine per channel, so a new command cancels the
-        // previous fade instead of letting a fade-out keep lerping the volume
-        // down (and Stop()) right over a track the next command just started.
-        private readonly System.Collections.Generic.Dictionary<string, Coroutine> _fadeCo
-            = new System.Collections.Generic.Dictionary<string, Coroutine>();
-
-        private int BumpChannel(string channel)
+        /// <summary>
+        /// КАНАЛ — ОДНА ЗАПИСЬ, А НЕ ПЯТЬ ПАМЯТЕЙ.
+        ///
+        /// <para>Про каждый канал знали пятеро врозь: три именованных поля с
+        /// источниками, три поля с авторской громкостью, словарь «что сейчас
+        /// звучит», словарь поколений и словарь живых затуханий. Одно и то же
+        /// «музыка» приходилось искать в пяти местах, а завести шестой канал
+        /// значило дописать шесть.</para>
+        ///
+        /// <para>Хуже была не цена правки, а её незаметность. Соответствие
+        /// «канал → источник» стояло дважды слово в слово, и в одной копии
+        /// забыли озвучку — голос звучал мимо своего ползунка. Уборка кадра
+        /// снимала печать и голос, а музыку не снимал никто: её просто не
+        /// было в списке того, что уносит уходящая глава, и трек главы играл
+        /// в меню поверх витринного («выходишь из главы, музыка
+        /// дублируется», 01.09).</para>
+        ///
+        /// <para>Теперь различия каналов — ДАННЫЕ (какой ползунок, ведёт ли
+        /// непрерывный трек, слышит ли авторские команды), а работа с ними
+        /// одна на всех.</para>
+        /// </summary>
+        private sealed class Channel
         {
-            int g = (_channelGen.TryGetValue(channel, out var c) ? c : 0) + 1;
-            _channelGen[channel] = g;
-            return g;
+            public string Name;        // как канал зовут авторские команды
+            public AudioSource Src;
+            public string Slider;      // каким ползунком его масштабирует игрок
+            public bool Loops;         // ведёт непрерывный трек (иначе одиночный звук)
+            public bool Authorable;    // слышит команды `audio` из сценария
+            public bool Sustained;     // громкостью источника владеем мы, а не каждый пуск
+
+            public float Authored = 1f; // что попросил сценарий
+            public string PlayingUrl;   // что на нём сейчас звучит
+            public int Gen;             // поколение команды: поздняя отменяет раннюю
+            public Coroutine Fade;      // живое затухание, если идёт
+        }
+
+        private readonly System.Collections.Generic.List<Channel> _all
+            = new System.Collections.Generic.List<Channel>();
+        private readonly System.Collections.Generic.Dictionary<string, Channel> _byName
+            = new System.Collections.Generic.Dictionary<string, Channel>();
+
+        /// <summary>Канал по имени. НЕИЗВЕСТНОЕ ИМЯ — звук: новая команда не
+        /// должна звучать мимо настроек только потому, что её не внесли в
+        /// таблицу. Правило одно и живёт здесь.</summary>
+        private Channel Of(string channel)
+            => channel != null && _byName.TryGetValue(channel, out var c) ? c : _byName[LvnVolumes.Sfx];
+
+        /// <summary>Канал, которому адресована АВТОРСКАЯ команда. Не всякий
+        /// канал сценарию слышен: у печати, озвучки и интерфейса свой ведущий,
+        /// и «audio channel=voice» обязан звучать звуком, а не перебивать
+        /// реплику, — ровно так это и работало, пока имена искали ветвлением.
+        /// Правило переехало сюда целиком, чтобы таблица не сделала слышимым
+        /// то, что слышимым не задумано.</summary>
+        private Channel Addressed(string channel)
+        {
+            var c = Of(channel);
+            return c.Authorable ? c : _byName[LvnVolumes.Sfx];
+        }
+
+        private Channel Add(string name, string slider, bool loops, bool authorable, bool sustained)
+        {
+            var src = gameObject.AddComponent<AudioSource>();
+            src.playOnAwake = false;
+            src.loop = loops;
+            var ch = new Channel
+            {
+                Name = name, Src = src, Slider = slider,
+                Loops = loops, Authorable = authorable, Sustained = sustained,
+            };
+            _all.Add(ch);
+            _byName[name] = ch;
+            return ch;
         }
 
         /// <summary>Чем кончается затухание. Флага «останавливать ли» не хватило:
@@ -54,73 +100,66 @@ namespace Lvn.UI
 
         private void StartFade(string channel, AudioSource src, float from, float to, float seconds, FadeEnd end)
         {
-            if (_fadeCo.TryGetValue(channel, out var old) && old != null) StopCoroutine(old);
-            _fadeCo[channel] = StartCoroutine(FadeAudio(src, from, to, seconds, end));
+            var ch = Of(channel);
+            if (ch.Fade != null) StopCoroutine(ch.Fade);
+            ch.Fade = StartCoroutine(FadeAudio(src, from, to, seconds, end));
         }
-
-        // The author's last set volume per channel — the player's preference
-        // multiplies onto it, so "музыка 50%" scales whatever the script asked for
-        // instead of overriding it.
-        private float _authMusic = 1f, _authAmbient = 1f, _authSfx = 1f;
 
         private void Awake()
         {
-            _music = gameObject.AddComponent<AudioSource>();
-            _ambient = gameObject.AddComponent<AudioSource>();
-            _sfx = gameObject.AddComponent<AudioSource>();
-            _ui = gameObject.AddComponent<AudioSource>();
-            _voice = gameObject.AddComponent<AudioSource>();
-            foreach (var s in new[] { _music, _ambient, _sfx, _ui, _voice }) s.playOnAwake = false;
-            _music.loop = true;
-            _ambient.loop = true;
+            // ТАБЛИЦА КАНАЛОВ — единственное место, где они перечислены.
+            // Различия — данные: ползунок, непрерывность, слышит ли сценарий,
+            // владеем ли громкостью источника.
+            Add(LvnVolumes.Music,   LvnVolumes.Music,   loops: true,  authorable: true,  sustained: true);
+            Add(LvnVolumes.Ambient, LvnVolumes.Ambient, loops: true,  authorable: true,  sustained: true);
+            Add(LvnVolumes.Sfx,     LvnVolumes.Sfx,     loops: false, authorable: true,  sustained: true);
+            Add(LvnVolumes.Voice,   LvnVolumes.Voice,   loops: false, authorable: false, sustained: true);
+            // Печать — свой источник: PlayOneShot не остановить, а стук живёт
+            // ровно столько, сколько проявляется строка. Канал интерфейса не
+            // годится — щелчок по нему прозвучал бы прямо поверх печати.
+            Add(TypingChannel,      LvnVolumes.Ui,      loops: true,  authorable: false, sustained: true);
+            // Интерфейс — одиночные пуски: громкость даётся каждому выстрелу,
+            // и домножать её ещё и на источник значило бы применить ползунок
+            // дважды.
+            Add(LvnVolumes.Ui,      LvnVolumes.Ui,      loops: false, authorable: false, sustained: false);
             LvnPrefs.Changed += ApplyUserVolumes;
         }
 
         private void OnDestroy() => LvnPrefs.Changed -= ApplyUserVolumes;
 
-        // Громкость канала знает ЗВУКОРЕЖИССЁР — здесь была своя таблица
-        // каналов, и в ней не было озвучки: реплика играла мимо настроек.
-        private static float Master => LvnVolumes.Master;
-        private static float UserScale(string channel) => LvnVolumes.Of(channel);
-
-        // Re-scale the live sources when the player moves a volume slider or flips
-        // the master sound switch. A fade in flight keeps its own target (it snaps
-        // on the next command) — fine for a settings tweak.
+        // Пересчитать живые источники, когда игрок двинул ползунок или щёлкнул
+        // общим тумблером. Затухание в полёте держит свою цель (щёлкнет на
+        // следующей команде) — для правки настроек это верно.
         private void ApplyUserVolumes()
         {
             // Авторская громкость (что просил сценарий) × пользовательская
             // (что выставил игрок). Вторая половина — у Звукорежиссёра.
-            if (_music != null) _music.volume = _authMusic * LvnVolumes.Of(LvnVolumes.Music);
-            if (_ambient != null) _ambient.volume = _authAmbient * LvnVolumes.Of(LvnVolumes.Ambient);
-            if (_sfx != null) _sfx.volume = _authSfx * LvnVolumes.Of(LvnVolumes.Sfx);
-            if (_voice != null) _voice.volume = LvnVolumes.Of(LvnVolumes.Voice);
-            // Печать — такой же живой источник: без этой строки выключенный
-            // посреди реплики звук продолжал стучать до её конца.
-            if (_typing != null && _typing.isPlaying)
-                _typing.volume = _authTyping * LvnVolumes.Of(LvnVolumes.Ui);
-        }
-
-        private void RememberAuthored(string channel, float v)
-        {
-            if (channel == LvnVolumes.Music) _authMusic = v;
-            else if (channel == LvnVolumes.Ambient) _authAmbient = v;
-            else _authSfx = v;
+            //
+            // ОБХОД, А НЕ СПИСОК. Списком тут дважды забывали строку: сперва
+            // голос (звучал мимо своего ползунка), потом печать (выключенный
+            // посреди реплики звук стучал до её конца). Канал, добавленный в
+            // таблицу, пересчитывается сам.
+            foreach (var ch in _all)
+                if (ch.Sustained && ch.Src != null)
+                    ch.Src.volume = ch.Authored * LvnVolumes.Of(ch.Slider);
         }
 
         /// <summary>True while a voice-over line is speaking — the stage mutes the
         /// typewriter blip under it.</summary>
-        public bool VoicePlaying => _voice != null && _voice.isPlaying;
+        public bool VoicePlaying => Voice.Src != null && Voice.Src.isPlaying;
+
+        private Channel Voice => _byName[LvnVolumes.Voice];
 
         /// <summary>Voice the line on screen: stop the previous one (voice never
         /// overlaps itself) and play the clip at the player's voice volume. A null/
         /// missing url or a failed load is silence — unvoiced novels no-op. The
         /// generation guard drops a slow load that finishes after the NEXT line
         /// already started (or stopped) its own voice.</summary>
-        private int _voiceGen;
         public async Task PlayVoiceAsync(string url, ILvnAssets assets, CancellationToken ct)
         {
-            int gen = ++_voiceGen;
-            if (_voice != null) _voice.Stop();
+            var voice = Voice;
+            int gen = ++voice.Gen;
+            if (voice.Src != null) voice.Src.Stop();
             if (string.IsNullOrEmpty(url) || assets == null) return;
             AudioClip clip = null;
             try { clip = await assets.LoadAudioAsync(url, ct); }
@@ -134,15 +173,15 @@ namespace Lvn.UI
                 // картинкой.
                 Lvn.Content.ContentLoader.NoteAssetUnusable(url, "озвучка: " + ex.GetType().Name);
             }
-            if (clip == null && _voice != null && gen == _voiceGen)
+            if (clip == null && voice.Src != null && gen == voice.Gen)
                 Lvn.Content.ContentLoader.NoteAssetUnusable(url, "озвучка не стала клипом");
-            if (clip == null || _voice == null || gen != _voiceGen) return;
-            _voice.clip = clip;
+            if (clip == null || voice.Src == null || gen != voice.Gen) return;
+            voice.Src.clip = clip;
             // ЧЕРЕЗ ЗВУКОРЕЖИССЁРА, а не с ползунка напрямую: здесь терялся
             // общий тумблер, и при выключенном звуке реплика всё равно
             // звучала — до ближайшего пересчёта громкостей.
-            _voice.volume = LvnVolumes.Of(LvnVolumes.Voice);
-            _voice.Play();
+            voice.Src.volume = LvnVolumes.Of(voice.Slider);
+            voice.Src.Play();
         }
 
         /// <summary>Cut the voice line (scene reset / chapter end).</summary>
@@ -163,44 +202,29 @@ namespace Lvn.UI
         {
             StopVoice();
             StopTypingLoop();
-            Silence(LvnVolumes.Music, fade);
-            Silence(LvnVolumes.Ambient, fade);
-            Silence(LvnVolumes.Sfx, 0f);   // короткий звук доигрывать нечему — обрываем
+            // ОБХОД, А НЕ СПИСОК — ровно та строка, которой здесь не было.
+            // Непрерывное гаснет плавно (обрыв на полутакте слышен как сбой),
+            // короткий звук обрывается: доигрывать нечему.
+            foreach (var ch in _all)
+                if (ch.Authorable) Silence(ch.Name, ch.Loops ? fade : 0f);
         }
-
-        /// <summary>
-        /// КАКОЙ ИСТОЧНИК ВЕДЁТ ЭТОТ КАНАЛ. Соответствие стояло дважды, слово в
-        /// слово, и оба раза литералами — при том что имена каналов объявлены
-        /// домом громкостей и сопровождены там прямым напоминанием: «те же, что
-        /// в авторских командах звука».
-        ///
-        /// <para>Таблица каналов сцены уже расходилась с той: канал озвучки в
-        /// ней просто забыли, и голос звучал мимо своего ползунка. Пока
-        /// соответствие пишут по месту, забыть его снова ничего не мешает.</para>
-        ///
-        /// <para>Неизвестный канал — эффект, то же правило, что у громкости:
-        /// новая команда звука не должна звучать мимо настроек только потому,
-        /// что её не внесли в таблицу.</para>
-        /// </summary>
-        private AudioSource SourceOf(string channel)
-            => channel == LvnVolumes.Music ? _music
-             : channel == LvnVolumes.Ambient ? _ambient
-             : _sfx;
 
         private void Silence(string channel, float fade)
         {
-            var src = SourceOf(channel);
+            var ch = Of(channel);
+            var src = ch.Src;
             if (src == null) return;
-            BumpChannel(channel);        // команда в полёте теряет право на канал
-            _playingUrl.Remove(channel);
+            ch.Gen++;                    // команда в полёте теряет право на канал
+            ch.PlayingUrl = null;
             if (fade > 0f && src.isPlaying) StartFade(channel, src, src.volume, 0f, fade, FadeEnd.Stop);
             else { CancelFade(channel); src.Stop(); }
         }
 
         public void StopVoice()
         {
-            _voiceGen++;
-            if (_voice != null) _voice.Stop();
+            var voice = Voice;
+            voice.Gen++;
+            if (voice.Src != null) voice.Src.Stop();
         }
 
         /// <summary>Play a UI one-shot (tap / choice / typewriter blip) on a channel
@@ -208,10 +232,11 @@ namespace Lvn.UI
         /// preference; a null clip no-ops (a novel without UI audio stays silent).</summary>
         public void PlayUi(AudioClip clip, float volume = 1f)
         {
-            if (clip == null || _ui == null || !LvnPrefs.SoundOn) return;
+            var ui = _byName[LvnVolumes.Ui];
+            if (clip == null || ui.Src == null || !LvnPrefs.SoundOn) return;
             // Через дом громкости: прямой ползунок не знал про общий тумблер,
             // и «звук выключен» глушил историю, но не интерфейс.
-            _ui.PlayOneShot(clip, Mathf.Clamp01(volume) * LvnVolumes.Of(LvnVolumes.Ui));
+            ui.Src.PlayOneShot(clip, Mathf.Clamp01(volume) * LvnVolumes.Of(ui.Slider));
         }
 
         // ── луп печати (ui.sounds.type) ──────────────────────────────────────
@@ -224,11 +249,11 @@ namespace Lvn.UI
         // же места и идёт по кругу (loop). Старт заново на каждой строке
         // звучал как заикание одного и того же начала. Входы/выходы — с
         // короткими фейдами, чтобы стук не рубился на полу-ударе.
-        private AudioSource _typing;
-        // Что просил автор — чтобы ползунок и тумблер могли домножиться на это
-        // ЖИВЬЁМ: раньше громкость печати вычислялась один раз на старте строки,
-        // и выключенный посреди длинной реплики звук стучал до её конца.
-        private float _authTyping = 1f;
+        private Channel Typing => _byName[TypingChannel];
+        // Авторская громкость печати живёт в её канале — чтобы ползунок и
+        // тумблер домножались на неё ЖИВЬЁМ: раньше она вычислялась один раз
+        // на старте строки, и выключенный посреди длинной реплики звук стучал
+        // до её конца.
         private const string TypingChannel = "typing";
 
         /// <summary>Клавиатура стучит, пока строка печатается: продолжение с
@@ -236,35 +261,32 @@ namespace Lvn.UI
         public void PlayTypingLoop(AudioClip clip, float volume = 1f)
         {
             if (clip == null || !LvnPrefs.SoundOn) return;
-            if (_typing == null)
+            var typing = Typing;
+            var src = typing.Src;
+            if (src == null) return;
+            if (src.clip != clip)
             {
-                _typing = gameObject.AddComponent<AudioSource>();
-                _typing.loop = true;
-                _typing.playOnAwake = false;
-                _typing.volume = 0f;
+                src.clip = clip;
+                src.Stop();
+                src.volume = 0f;
             }
-            if (_typing.clip != clip)
+            if (!src.isPlaying)
             {
-                _typing.clip = clip;
-                _typing.Stop();
-                _typing.volume = 0f;
+                src.UnPause();                    // с места паузы…
+                if (!src.isPlaying) src.Play();   // …или первый запуск
             }
-            if (!_typing.isPlaying)
-            {
-                _typing.UnPause();                    // с места паузы…
-                if (!_typing.isPlaying) _typing.Play(); // …или первый запуск
-            }
-            _authTyping = Mathf.Clamp01(volume);
-            StartFade(TypingChannel, _typing, _typing.volume,
-                      _authTyping * LvnVolumes.Of(LvnVolumes.Ui), 0.09f, FadeEnd.Keep);
+            typing.Authored = Mathf.Clamp01(volume);
+            StartFade(TypingChannel, src, src.volume,
+                      typing.Authored * LvnVolumes.Of(typing.Slider), 0.09f, FadeEnd.Keep);
         }
 
         /// <summary>Строка допечаталась (или её докрутили тапом) — фейд-аут и
         /// ПАУЗА: позиция записи сохраняется до следующей печати.</summary>
         public void StopTypingLoop()
         {
-            if (_typing == null || !_typing.isPlaying) return;
-            StartFade(TypingChannel, _typing, _typing.volume, 0f, 0.18f, FadeEnd.Pause);
+            var src = Typing.Src;
+            if (src == null || !src.isPlaying) return;
+            StartFade(TypingChannel, src, src.volume, 0f, 0.18f, FadeEnd.Pause);
         }
 
         /// <summary>Apply one <c>audio</c> command. Missing audio is silent — a host
@@ -272,14 +294,15 @@ namespace Lvn.UI
         /// in-flight clip load with the chapter.</summary>
         public async Task ApplyAsync(JObject cmd, ILvnAssets assets, CancellationToken ct)
         {
-            var channel = (string)cmd["channel"] ?? LvnVolumes.Sfx;
-            var src = SourceOf(channel);
+            var ch = Addressed((string)cmd["channel"]);
+            var channel = ch.Name;
+            var src = ch.Src;
             float fade = NumOr(cmd["fade"], 0f);
-            int gen = BumpChannel(channel); // this command now owns the channel
+            int gen = ++ch.Gen; // this command now owns the channel
 
             if ((string)cmd["action"] == "stop")
             {
-                _playingUrl.Remove(channel);
+                ch.PlayingUrl = null;
                 if (fade > 0f) StartFade(channel, src, src.volume, 0f, fade, FadeEnd.Stop);
                 else { CancelFade(channel); src.Stop(); }
                 return;
@@ -289,13 +312,15 @@ namespace Lvn.UI
             if (assets == null || string.IsNullOrEmpty(url)) return;
 
             float volume = NumOr(cmd["volume"], 1f);
-            RememberAuthored(channel, volume);
-            float effective = volume * UserScale(channel);
+            ch.Authored = volume;
+            float effective = volume * LvnVolumes.Of(ch.Slider);
 
             // Idempotent for looping channels: the same track already playing (a
             // load/rollback replay) keeps its position — only the volume updates.
-            if (channel != LvnVolumes.Sfx && src.isPlaying
-                && _playingUrl.TryGetValue(channel, out var cur) && cur == url)
+            // «Непрерывный» — свойство канала, а не «всё, кроме звука»: второе
+            // читается как правило про sfx и разъезжается, как только каналов
+            // становится больше трёх.
+            if (ch.Loops && src.isPlaying && ch.PlayingUrl == url)
             {
                 src.volume = effective;
                 return;
@@ -316,12 +341,12 @@ namespace Lvn.UI
             // StopVoice/ResetStage's stop) started on this channel while we loaded
             // — it must win. Without this the slower of two replayed music loads
             // plays last and the wrong track ends up on screen.
-            if (!_channelGen.TryGetValue(channel, out var g2) || g2 != gen) return;
+            if (ch.Gen != gen) return;
 
-            if (channel != LvnVolumes.Sfx)
+            if (ch.Loops)
             {
                 src.loop = BoolOr(cmd["loop"], true);
-                _playingUrl[channel] = url;
+                ch.PlayingUrl = url;
             }
             src.clip = clip;
             if (fade > 0f)
@@ -340,8 +365,9 @@ namespace Lvn.UI
 
         private void CancelFade(string channel)
         {
-            if (_fadeCo.TryGetValue(channel, out var old) && old != null) StopCoroutine(old);
-            _fadeCo.Remove(channel);
+            var ch = Of(channel);
+            if (ch.Fade != null) StopCoroutine(ch.Fade);
+            ch.Fade = null;
         }
 
         // Tolerant field reads (mirror VnStage's): a malformed value degrades to the
