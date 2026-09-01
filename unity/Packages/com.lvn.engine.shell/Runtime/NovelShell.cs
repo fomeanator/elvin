@@ -168,13 +168,13 @@ namespace Lvn.UI.Screens
             _doc.sortingOrder = sortingOrder;
         }
 
-        /// <summary>Build the screen tree from the manifest. Idempotent.</summary>
         /// <summary>Какую витрину просит манифест. Правило живёт ЗДЕСЬ, рядом с
         /// постройкой: хаба мало объявить флагом — без подборок ему нечего
         /// показать, и игрок упёрся бы в пустой экран.</summary>
         private static bool UseHub(LvnManifest m) =>
             m?.ui?.browse?.layout == "hub" && m.collections != null && m.collections.Count > 0;
 
+        /// <summary>Собрать дерево экранов по манифесту. Идемпотентно.</summary>
         public void Build(LvnManifest manifest, ILvnAssets assets)
         {
             _manifest = manifest ?? new LvnManifest();
@@ -363,8 +363,6 @@ namespace Lvn.UI.Screens
 
 
 
-        /// <summary>ONE store: every entry (quick menu, wallet "+", scripts'
-        /// <c>ext store_show</c>, the hub) opens the pack shop.</summary>
         /// <summary>Прежнее имя магазина. НЕ ЗОВЁТСЯ внутри движка — оставлено
         /// для хостов, собранных до переименования: две двери в одну комнату
         /// дешевле сломанной сборки у того, кто взял библиотеку.</summary>
@@ -402,8 +400,10 @@ namespace Lvn.UI.Screens
             => ShowModalAsync(Daily, ct);
         public Task OpenLeaderboardAsync(CancellationToken ct = default)
             => ShowModalAsync(Leaderboard, ct);
-        /// <summary>Быстрый магазин — модаль со своим фоном (вкладка ленты —
-        /// отдельный инстанс, её открывает TabGoTo(1)).</summary>
+        /// <summary>ОДИН МАГАЗИН: любой вход — быстрое меню, плюсик кошелька,
+        /// авторская команда <c>ext store_show</c>, хаб — открывает его же.
+        /// Модаль со своим фоном; вкладка ленты — отдельный инстанс, её
+        /// открывает TabGoTo(1).</summary>
         public Task OpenPackShopAsync(CancellationToken ct = default)
             => ShowModalAsync(PackShopModal, ct);
 
@@ -419,10 +419,6 @@ namespace Lvn.UI.Screens
                                        string cancel = null, CancellationToken ct = default)
             => Popup != null ? Popup.ConfirmAsync(title, message, confirm, cancel, ct) : Task.FromResult(false);
 
-        /// <summary>Apply a live content update — swap in a freshly-fetched
-        /// manifest and re-render the data-driven screens (the carousel rebuilds
-        /// its deck, keeping the selected title). Cheap and safe to call any time;
-        /// the host's content-sync loop calls it when the server version changes.</summary>
         /// <summary>
         /// ЖИВОЕ ОБНОВЛЕНИЕ МЕНЯЕТ ДАННЫЕ, А НЕ ОФОРМЛЕНИЕ — и это граница, а не
         /// недоделка.
@@ -449,9 +445,6 @@ namespace Lvn.UI.Screens
         }
 
 
-        /// <summary>Вводная новелла, которую ещё не прошли, или null. Новелла
-        /// объявляет себя вводной полем <c>type: "intro"</c> в манифесте — как и
-        /// всякий другой вид новеллы, данными, а не кодом оболочки.</summary>
         /// <summary>Сессия главы началась/кончилась — для всего, что живёт
         /// ТОЛЬКО вне новеллы (музыка меню и т.п.): хост глушит на старте и
         /// возвращает по выходу в меню.</summary>
@@ -570,14 +563,14 @@ namespace Lvn.UI.Screens
 
 
 
-        /// <summary>Fade the (still opaque) chapter loader into whatever is on
-        /// stage now. The host calls this once the scene is dressed — the swap
-        /// reads as a single crossfade into the LIVE scene. Safe to call when
-        /// the loader is already hidden (seamless chapter 2+).</summary>
         /// <summary>Manifest <c>ui.transitions</c> — between-screen pacing knobs
         /// (loader crossfade, cached floor, backdrop grace). Null = defaults.</summary>
         public TransitionsConfig Transitions { get; private set; }
 
+        /// <summary>Проявить сцену из-под ещё непрозрачного экрана загрузки.
+        /// Хост зовёт это, когда сцена одета: подмена читается как один
+        /// кроссфейд в ЖИВУЮ сцену. Безопасно и когда экран уже скрыт
+        /// (бесшовный переход во вторую главу и дальше).</summary>
         public async Task RevealFromLoadingAsync(CancellationToken ct = default)
         {
             bool visible = Loading != null && Loading.resolvedStyle.display != DisplayStyle.None;
