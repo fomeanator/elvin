@@ -16,14 +16,11 @@ namespace Lvn.UI
     /// </summary>
     public sealed class NetworkAssets : ILvnAssets
     {
-        private readonly Dictionary<string, Sprite> _spriteCache = new Dictionary<string, Sprite>();
-        private readonly Dictionary<string, AudioClip> _audioCache = new Dictionary<string, AudioClip>();
-        // In-flight de-dup: a prefetch and a show racing for the same url must
-        // share ONE download — the loser of an unguarded race overwrote the
-        // cache entry and leaked the winner's Texture2D/AudioClip forever.
-        // Main-thread only (Unity awaits resume on the main thread), no locks.
-        private readonly Dictionary<string, Task<Sprite>> _spriteInFlight = new Dictionary<string, Task<Sprite>>();
-        private readonly Dictionary<string, Task<AudioClip>> _audioInFlight = new Dictionary<string, Task<AudioClip>>();
+        // «Готовое отдаём, начатое разделяем» — у дома (LvnOnce). Здесь была
+        // половина правила, написанная дважды: свой кэш и свой словарь полёта
+        // отдельно картинкам и отдельно звуку.
+        private readonly Lvn.Content.LvnOnce<Sprite> _sprites = new Lvn.Content.LvnOnce<Sprite>();
+        private readonly Lvn.Content.LvnOnce<AudioClip> _audio = new Lvn.Content.LvnOnce<AudioClip>();
         private readonly string _baseUrl;
 
         /// <summary>Optional base url prepended to relative urls.
@@ -60,20 +57,8 @@ namespace Lvn.UI
             return Lvn.Content.ContentLoader.EncodeUrlPath(url);
         }
 
-        public async Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct)
-        {
-            if (string.IsNullOrEmpty(url)) return null;
-            if (_spriteCache.TryGetValue(url, out var hit)) return hit;
-            if (_spriteInFlight.TryGetValue(url, out var pending))
-            {
-                try { return await pending; }
-                catch { return null; } // the initiating call's ct fired — behave like a plain miss
-            }
-            var task = LoadSpriteCoreAsync(url, ct);
-            _spriteInFlight[url] = task;
-            try { return await task; }
-            finally { _spriteInFlight.Remove(url); }
-        }
+        public Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct)
+            => _sprites.GetAsync(url, () => LoadSpriteCoreAsync(url, ct));
 
         private async Task<Sprite> LoadSpriteCoreAsync(string url, CancellationToken ct)
         {
@@ -100,9 +85,7 @@ namespace Lvn.UI
                 // is pristine and frame-packed atlases never risk resample skew.
                 // Потолок размера — только на телефоне: настольная машина держит
                 // исходное качество, а телефон показывает всё равно ~1080p.
-                var sprite = Lvn.Content.AssetMemory.MakeSprite(tex, Application.isMobilePlatform);
-                _spriteCache[url] = sprite;
-                return sprite;
+                return Lvn.Content.AssetMemory.MakeSprite(tex, Application.isMobilePlatform);
             }
             catch
             {
@@ -110,20 +93,8 @@ namespace Lvn.UI
             }
         }
 
-        public async Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct)
-        {
-            if (string.IsNullOrEmpty(url)) return null;
-            if (_audioCache.TryGetValue(url, out var hit)) return hit;
-            if (_audioInFlight.TryGetValue(url, out var pending))
-            {
-                try { return await pending; }
-                catch { return null; }
-            }
-            var task = LoadAudioCoreAsync(url, ct);
-            _audioInFlight[url] = task;
-            try { return await task; }
-            finally { _audioInFlight.Remove(url); }
-        }
+        public Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct)
+            => _audio.GetAsync(url, () => LoadAudioCoreAsync(url, ct));
 
         private async Task<AudioClip> LoadAudioCoreAsync(string url, CancellationToken ct)
         {
@@ -141,11 +112,7 @@ namespace Lvn.UI
 
                 if (request.result != UnityWebRequest.Result.Success) return null;
 
-                var clip = DownloadHandlerAudioClip.GetContent(request);
-                if (clip == null) return null;
-
-                _audioCache[url] = clip;
-                return clip;
+                return DownloadHandlerAudioClip.GetContent(request);
             }
             catch
             {
@@ -157,9 +124,9 @@ namespace Lvn.UI
         // Выгрузка — в общем доме (AssetMemory): у поставщиков разные кэши, но
         // одинаковые правила освобождения. Копия здесь и была тем местом, где
         // «почти одинаково» однажды становится «по-разному».
-        public void Unload(string url) => Lvn.Content.AssetMemory.Forget(url, _spriteCache, _audioCache);
+        public void Unload(string url) => Lvn.Content.AssetMemory.Forget(url, _sprites.Done, _audio.Done);
 
-        public void UnloadAll() => Lvn.Content.AssetMemory.ForgetAll(_spriteCache, _audioCache);
+        public void UnloadAll() => Lvn.Content.AssetMemory.ForgetAll(_sprites.Done, _audio.Done);
 
     }
 }

@@ -188,9 +188,21 @@ namespace Lvn.Content
                         var (late, lateBytes) = await TryDecodeKtx2Async(url, ct);
                         if (late != null) return CacheSprite(url, late, lateBytes);
                     }
-                    LvnLog.Error($"[content] {url}: кода нет и через {Ktx2Waits * Ktx2WaitMs / 1000} с, "
-                               + "а растром арт истории мы не показываем. "
-                               + "Соберите коды (tools/warm-ktx2.sh) или проверьте basisu на сервере");
+                    // «КОДА НЕТ» И «СЕТИ НЕТ» — РАЗНЫЕ БЕДЫ.
+                    //
+                    // Показать вторую как первую значит послать разбираться не
+                    // туда: человек пойдёт проверять basisu и очередь сервера,
+                    // хотя до сервера просто не достучались. Про обрыв связи
+                    // кричит сетевой слой, и второй крик тут — шум.
+                    //
+                    // Поймано прогоном 01.09: два теста, идущих БЕЗ сервера,
+                    // покраснели на строке про кодировщик.
+                    if (Lvn.LvnNetworkStatus.IsOffline)
+                        LvnLog.Warn($"[content] {url}: кода не спросить — связи нет");
+                    else
+                        LvnLog.Error($"[content] {url}: кода нет и через {Ktx2Waits * Ktx2WaitMs / 1000} с, "
+                                   + "а растром арт истории мы не показываем. "
+                                   + "Соберите коды (tools/warm-ktx2.sh) или проверьте basisu на сервере");
                     return null;
                 }
 
