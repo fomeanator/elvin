@@ -29,7 +29,7 @@ namespace Lvn.Services
             LvnOps.Register("wallet_earn", (cmd, ctx) =>
             {
                 var (cur, amt) = MoneyArgs(cmd, ctx.Vars);
-                if (amt > 0) LvnAsync.Fire(LvnWallet.EarnAsync(cur, amt, (string)cmd["reason"] ?? "script"), "Earn");
+                if (amt > 0) LvnAsync.Fire(EarnOrSayAsync(cur, amt, (string)cmd["reason"] ?? "script"), "Earn");
             });
 
             LvnOps.Register("wallet_spend", (cmd, ctx) =>
@@ -51,7 +51,7 @@ namespace Lvn.Services
                 LvnAsync.Fire(LvnLeaderboard.SubmitAsync(board, score, name), "Submit");
             });
 
-            LvnOps.Register("daily_claim", (cmd, ctx) => LvnAsync.Fire(LvnDaily.ClaimAsync(), "Claim"));
+            LvnOps.Register("daily_claim", (cmd, ctx) => LvnAsync.Fire(ClaimOrSayAsync(), "Claim"));
 
             // ext ad_reward placement=gold_small — a story-placed rewarded ad
             // (the wall between chapters, the "double your loot" beat). Holds
@@ -301,6 +301,31 @@ namespace Lvn.Services
         private static async System.Threading.Tasks.Task RunAdAsync(string placement, ILvnOpContext ctx)
         {
             await LvnAds.WatchAndRewardAsync(placement);
+        }
+
+        /// <summary>Начисление, которого не произошло. Обратная сторона
+        /// списания: автор обещал игроку награду, сервер отказал или ответа не
+        /// было — и игрок остался без обещанного, не узнав об этом. Здесь
+        /// молчание дешевле (никто не получил лишнего), но след в логе нужен
+        /// такой же: иначе «мне не дали монеты» нечем проверить.</summary>
+        private static async System.Threading.Tasks.Task EarnOrSayAsync(
+            string currency, long amount, string reason)
+        {
+            if (await LvnWallet.EarnAsync(currency, amount, reason)) return;
+            UnityEngine.Debug.LogWarning(
+                $"[lvn] wallet_earn {amount} {currency} НЕ ПРОШЛО (причина «{reason}») — " +
+                "игрок не получил обещанного и об этом не знает.");
+        }
+
+        /// <summary>Ежедневная награда, которую не выдали. Игрок нажал «забрать»
+        /// и не получил ничего: отказ сервера, «сегодня уже брали», нет сети.
+        /// Экран при этом закрывается как ни в чём не бывало.</summary>
+        private static async System.Threading.Tasks.Task ClaimOrSayAsync()
+        {
+            if (await LvnDaily.ClaimAsync()) return;
+            UnityEngine.Debug.LogWarning(
+                "[lvn] daily_claim не прошёл: отказ сервера, «сегодня уже брали» или нет сети. " +
+                "Игрок нажал «забрать» и не получил ничего.");
         }
 
         /// <summary>
