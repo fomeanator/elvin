@@ -22,7 +22,11 @@ namespace Lvn.UI.Screens
         // reconcile with the server so the balance survives restarts.
         private async Task GrantFaucetAsync(string currency, int amount)
         {
-            await Lvn.Services.LvnWallet.EarnAsync(currency, amount, "debug_faucet");
+            if (!await Lvn.Services.LvnWallet.EarnAsync(currency, amount, "debug_faucet"))
+                // Кран нужен для проверки экономики: молча не начислить —
+                // значит подсунуть проверяющему ложный результат опыта.
+                Debug.LogWarning($"[lvn] отладочный кран не начислил {amount} {currency} — " +
+                                 "отказ сервера или нет сети; баланс остался прежним.");
             await Lvn.Services.LvnWallet.RefreshAsync();
         }
 
