@@ -543,11 +543,12 @@ namespace Lvn.UI
             StoryFrame.Actors.Clear();
             StoryFrame.Background = null;
             StoryFrame.Veil = null;
-            foreach (var kv in _spineActors) if (kv.Value != null) Destroy(kv.Value);
+            foreach (var kv in _skeletons) if (kv.Value.Go != null) Destroy(kv.Value.Go);
             UnpinAllSpinePages(); // release page-texture pins so the LRU can reclaim them
-            _spineActors.Clear();
-            _spineLoading.Clear();
-            _spinePendingPlay.Clear();
+            // Одна запись — одна уборка. Раньше здесь стояли три Clear подряд,
+            // и четвёртая память (место в порядке давности) в них не входила.
+            _skeletons.Clear();
+            _spineMru.Clear();
         }
 
         private void RecordSay(string who, string text, string style)
