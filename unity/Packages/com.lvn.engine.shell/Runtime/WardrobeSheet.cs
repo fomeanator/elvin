@@ -20,7 +20,7 @@ namespace Lvn.UI.Screens
     /// slot, a ◀ item name ▶ carousel, one big confirm with the total price.
     /// Opened by <c>ext wardrobe_show char=id</c> (the story holds meanwhile).
     /// </summary>
-    public sealed partial class WardrobeSheet : VisualElement, Lvn.UI.ILvnRedress, ILvnHides
+    public sealed partial class WardrobeSheet : VisualElement, Lvn.UI.ILvnRedress, ILvnHides, ILvnContentAware
     {
         private readonly WardrobeConfig _cfg;
         private readonly DialogueConfig _dlg;
@@ -353,7 +353,22 @@ namespace Lvn.UI.Screens
 
 
 
-        public void SetManifest(LvnManifest manifest) => _manifest = manifest;
+        /// <summary>
+        /// Приехал свежий манифест (<see cref="ILvnContentAware"/>).
+        ///
+        /// <para>Метод назывался <c>SetManifest</c> — своим словом, — и потому
+        /// лист не подходил под общую пометку «живу манифестом». Следствие
+        /// было не косметическим: соседним экранам содержимое развозил НАБОР
+        /// по пометке, а этому листу его вручали по имени, отдельной строкой,
+        /// которую надо было не забыть. Именно эту строку однажды и забыли —
+        /// вкладка гардероба одна оставалась на прежнем содержимом, пока
+        /// соседи показывали новое.</para>
+        ///
+        /// <para>Одна работа под двумя именами не выглядит дублем: она
+        /// выглядит двумя разными работами, и общее правило её просто не
+        /// видит.</para>
+        /// </summary>
+        public void SetContent(LvnManifest manifest) => _manifest = manifest;
 
         private VisualElement _rosterRow;
         public async Task ShowAsync(string entityId, CancellationToken ct = default)

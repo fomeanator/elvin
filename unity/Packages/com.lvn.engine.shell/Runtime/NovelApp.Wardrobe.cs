@@ -162,7 +162,7 @@ namespace Lvn.UI.Screens
             {
                 var ui = _manifest?.ui ?? new LvnUiConfig();
                 _storySheet = new WardrobeSheet(ui.wardrobe, ui.dialogue, ui.choices, _assets);
-                _storySheet.SetManifest(_manifest);
+                _storySheet.SetContent(_manifest);
                 _storySheet.OpenStore = () => _shell.OpenPackShopAsync();
                 // Кнопки — из economy-конфига, как у энергетических ворот: жёсткий
                 // англ. хардкод здесь светился игроку («а че у нас тут инглишь»).

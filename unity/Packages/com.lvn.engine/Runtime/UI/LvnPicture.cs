@@ -127,12 +127,6 @@ namespace Lvn.UI
             = new System.Collections.Generic.Dictionary<
                 VisualElement, (Lvn.Content.ContentLoader, Sprite)>();
 
-        /// <summary>Подложка под картинку: элемент, который не ловит касания и
-        /// уже знает, как вписывать арт. Ровно то, что писали руками перед
-        /// каждой загрузкой фона.</summary>
-        public static VisualElement Picture(bool cover = true)
-            => Fit(new VisualElement { pickingMode = PickingMode.Ignore }, cover);
-
         /// <summary>
         /// ФОТОГРАФИЯ: обложка, фон главы, аватар, кадр галереи. Вписывается в
         /// своё место и НЕ искажается.

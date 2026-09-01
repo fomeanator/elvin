@@ -34,7 +34,7 @@ namespace Lvn.UI.Screens
         {
             if (manifest == null) return;
             _manifest = manifest;
-            _sheet?.SetManifest(manifest);
+            _sheet?.SetContent(manifest);
         }
         private readonly ILvnAssets _assets;
         private readonly VisualElement _panel;
@@ -151,7 +151,7 @@ namespace Lvn.UI.Screens
             if (_sheet != null) return;
             var ui = _manifest?.ui;
             _sheet = new WardrobeSheet(ui?.wardrobe, ui?.dialogue, ui?.choices, _assets);
-            _sheet.SetManifest(_manifest);
+            _sheet.SetContent(_manifest);
             _sheet.HideBalances = true;    // валюты уже в навбаре
             _sheet.TabMode = true;         // уйти можно навбаром — «Отменить» вправе гаснуть
             _sheet.OnlySeen = false;       // ВИТРИНА: весь каталог скинов

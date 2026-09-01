@@ -433,17 +433,5 @@ namespace Lvn.UI
             plate.style.marginLeft = t.SpeakerBubbleOffsetX;
             return true;
         }
-
-        /// <summary>Панель темы: поверхность, скругление (у технической темы —
-        /// срез) и кромка одним вызовом.</summary>
-        public static void Panel(VisualElement el, float strength = 1f)
-        {
-            if (el == null) return;
-            var t = LvnTheme.Current;
-            el.style.backgroundColor = t.Surface;
-            el.style.borderTopLeftRadius = t.Radius; el.style.borderTopRightRadius = t.Radius;
-            el.style.borderBottomLeftRadius = t.Radius; el.style.borderBottomRightRadius = t.Radius;
-            Edge(el, strength);
-        }
     }
 }

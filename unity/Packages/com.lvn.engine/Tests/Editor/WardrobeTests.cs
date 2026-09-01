@@ -149,7 +149,7 @@ namespace Lvn.Tests
         public void Sheet_BrowsingPreviewsOnTheLiveActor()
         {
             var sheet = new WardrobeSheet(new WardrobeConfig { confirm_text = "Выбрать наряд" }, new TestAssets());
-            sheet.SetManifest(Manifest());
+            sheet.SetContent(Manifest());
             try
             {
                 sheet.BuildFor(Entity);
@@ -177,7 +177,7 @@ namespace Lvn.Tests
         {
             var sheet = new WardrobeSheet(new WardrobeConfig
             { confirm_text = "Выбрать", buy_text = "Купить" }, new TestAssets());
-            sheet.SetManifest(Manifest());
+            sheet.SetContent(Manifest());
             try
             {
                 sheet.BuildFor(Entity);
@@ -203,7 +203,7 @@ namespace Lvn.Tests
             Lvn.Services.LvnWallet.ResetLocal();
             var sheet = new WardrobeSheet(new WardrobeConfig
             { confirm_text = "Выбрать", buy_text = "Купить" }, new TestAssets());
-            sheet.SetManifest(Manifest());
+            sheet.SetContent(Manifest());
             try
             {
                 await Lvn.Services.LvnWallet.EarnAsync("gold", 400, "test");

@@ -621,7 +621,6 @@ namespace Lvn.UI.Screens
             try { await _downloads.MenuRefreshAsync(manifest, default); }
             catch { /* best-effort; never blocks the live update */ }
             _shell?.ApplyLiveUpdate(manifest);
-            _storySheet?.SetManifest(manifest); // the in-story wardrobe follows live edits too
             // Содержимое манифеста применяет тот же дом, что и на старте
             // (NovelApp.Manifest): два списка одного факта расходились при
             // следующем добавленном поле. Смена темы безопасна посреди реплики —
