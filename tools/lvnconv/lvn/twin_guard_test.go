@@ -90,7 +90,16 @@ func TestNoNearTwins(t *testing.T) {
 					}
 				}
 				if len(code) >= 6 && len(code) <= 70 {
-					bodies = append(bodies, body{filepath.Base(p), src[m[2]:m[3]], code})
+					// Имя — первая непустая группа: у объявлений JS их две
+					// (обычная функция и стрелка в константе).
+					name := ""
+					for g := 2; g+1 < len(m); g += 2 {
+						if m[g] >= 0 {
+							name = src[m[g]:m[g+1]]
+							break
+						}
+					}
+					bodies = append(bodies, body{filepath.Base(p), name, code})
 				}
 			}
 			return nil
@@ -106,8 +115,18 @@ func TestNoNearTwins(t *testing.T) {
 	for _, dir := range []string{"server", "tools/lvnconv"} {
 		collect(dir, ".go", goDecl)
 	}
+	// ПАНЕЛЬ АВТОРА — третий язык. Обход по ней нашёл ровно один двойник, но
+	// показательный: плитка показателя стояла тремя копиями под двумя именами
+	// ПРИ ЖИВОМ доме общих частей. Язык, оставленный без стража, разъезжается
+	// так же, как остальные, — просто медленнее, потому что кода меньше.
+	jsDecl := regexp.MustCompile(
+		`(?m)^[ \t]*(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\([^)]*\)\s*\{` +
+			`|(?m)^[ \t]*(?:export\s+)?const\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>\s*\{`)
+	for _, ext := range []string{".jsx", ".js"} {
+		collect("panel/src", ext, jsDecl)
+	}
 
-	sawSources(t, len(bodies), 1900, "тел способов")
+	sawSources(t, len(bodies), 2000, "тел способов")
 
 	sets := make([]map[string]int, len(bodies))
 	for i, b := range bodies {
