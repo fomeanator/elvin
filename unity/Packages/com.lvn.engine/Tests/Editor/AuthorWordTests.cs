@@ -53,7 +53,7 @@ namespace Lvn.Tests
             LvnAuthorWord.ForgetComplaints();
             foreach (var go in _мусор) if (go != null) UnityEngine.Object.DestroyImmediate(go);
             _мусор.Clear();
-            if (_темаБыла != null) { LvnTheme.Use(_темаБыла); _темаБыла = null; }
+            _тема.Вернуть();
         }
 
         /// <summary>Голос дома у жалобы один — метка <c>[lvn-cfg]</c>. По ней
@@ -347,14 +347,14 @@ namespace Lvn.Tests
         // ── ПОТРЕБИТЕЛЬ: РЕЖИМ ИГРОВОГО HUD ─────────────────────────────────
 
         private readonly List<GameObject> _мусор = new List<GameObject>();
-        private string _темаБыла;
+        private readonly ОдолженнаяТема _тема = new ОдолженнаяТема();
 
         /// <summary>Оболочка с заданным режимом HUD. Тема запоминается: хаб
         /// выбирает её на сборке, и без возврата чужие тесты досталась бы
         /// наша.</summary>
         private NovelShell Оболочка(string режим, bool безРаздела = false)
         {
-            if (_темаБыла == null) _темаБыла = LvnTheme.Current.Name;
+            _тема.Взять();   // лениво: тему меняет сама сборка оболочки
             var shell = NovelShell.Create();
             _мусор.Add(shell.gameObject);
             shell.Build(new LvnManifest

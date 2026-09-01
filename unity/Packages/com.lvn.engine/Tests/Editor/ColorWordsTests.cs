@@ -45,13 +45,13 @@ namespace Lvn.Tests
     /// </summary>
     public sealed class ColorWordsTests
     {
-        private string _темаБыла;
+        private readonly ОдолженнаяТема _тема = new ОдолженнаяТема();
 
         [SetUp]
-        public void Запомнить() => _темаБыла = LvnTheme.Current.Name;
+        public void Запомнить() => _тема.Взять();
 
         [TearDown]
-        public void Вернуть() => LvnTheme.Use(_темаБыла);
+        public void Вернуть() => _тема.Вернуть();
 
         /// <summary>Токены темы: слово и то место темы, откуда оно берётся.
         /// <c>clear</c> сюда не входит — прозрачность теме не принадлежит.</summary>

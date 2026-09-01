@@ -32,17 +32,13 @@ namespace Lvn.Tests
         private const string Вторая = "t_2dev_other";
         private const string Героиня = "t_2dev_hero";
 
-        private string _имяБыло;
-        private string _сейфБыл;
+        private readonly ОдолженныйСейф _сейф = new ОдолженныйСейф();
 
-        private static string ПутьСейфа =>
-            System.IO.Path.Combine(Application.persistentDataPath, "lvn_progress.json");
 
         [SetUp]
         public void Приготовить()
         {
-            _имяБыло = LvnPrefs.PlayerName;
-            _сейфБыл = System.IO.File.Exists(ПутьСейфа) ? System.IO.File.ReadAllText(ПутьСейфа) : null;
+            _сейф.Взять();   // имя игрока и файл прогресса принадлежат стенду
             Стереть();
         }
 
@@ -50,9 +46,7 @@ namespace Lvn.Tests
         public void Убрать()
         {
             Стереть();
-            LvnPrefs.PlayerName = _имяБыло ?? "";
-            if (_сейфБыл != null) System.IO.File.WriteAllText(ПутьСейфа, _сейфБыл);
-            else if (System.IO.File.Exists(ПутьСейфа)) System.IO.File.Delete(ПутьСейфа);
+            _сейф.Вернуть();
         }
 
         private static void Стереть()

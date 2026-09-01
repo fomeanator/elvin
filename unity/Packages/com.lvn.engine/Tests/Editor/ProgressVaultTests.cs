@@ -37,13 +37,11 @@ namespace Lvn.Tests
         private const string Id = "t_vault_novel";
         private const string Ноль = "t_vault_pilot";
 
-        private string _имяБыло;
-        private string _сейфБыл;   // содержимое файлового дома до теста — или null
+        private readonly ОдолженныйСейф _сейф = new ОдолженныйСейф();
 
         /// <summary>Тот же путь, что и у дома: файловый сейф игрока рядом с
         /// остальными его данными.</summary>
-        private static string ПутьСейфа =>
-            System.IO.Path.Combine(Application.persistentDataPath, "lvn_progress.json");
+        private static string ПутьСейфа => ОдолженныйСейф.Путь;
 
         private static LvnTitle Title(string id, params (string id, int number)[] chapters)
         {
@@ -72,10 +70,7 @@ namespace Lvn.Tests
         [SetUp]
         public void Приготовить()
         {
-            _имяБыло = LvnPrefs.PlayerName;
-            // Сейф на диске принадлежит стенду, а не тесту: берём его на
-            // сохранение и кладём обратно, чем бы тест ни кончился.
-            _сейфБыл = System.IO.File.Exists(ПутьСейфа) ? System.IO.File.ReadAllText(ПутьСейфа) : null;
+            _сейф.Взять();   // имя игрока и файл прогресса принадлежат стенду
             Стереть();
         }
 
@@ -83,9 +78,7 @@ namespace Lvn.Tests
         public void Убрать()
         {
             Стереть();
-            LvnPrefs.PlayerName = _имяБыло ?? "";
-            if (_сейфБыл != null) System.IO.File.WriteAllText(ПутьСейфа, _сейфБыл);
-            else if (System.IO.File.Exists(ПутьСейфа)) System.IO.File.Delete(ПутьСейфа);
+            _сейф.Вернуть();
         }
 
         private static void Стереть()

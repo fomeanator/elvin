@@ -194,15 +194,15 @@ namespace Lvn.Tests
         // ── НАБОР ОБОЛОЧКИ: НАКРЫТЫ ЛИ ИМ ВСЕ ЭКРАНЫ ────────────────────────
 
         private readonly List<GameObject> _мусор = new List<GameObject>();
-        private string _темаБыла;
+        private readonly ОдолженнаяТема _тема = new ОдолженнаяТема();
 
         [SetUp]
-        public void Запомнить() => _темаБыла = LvnTheme.Current.Name;
+        public void Запомнить() => _тема.Взять();
 
         [TearDown]
         public void Прибрать()
         {
-            LvnTheme.Use(_темаБыла);   // хаб выбирает тему на сборке — вернём чужим тестам их
+            _тема.Вернуть();   // хаб выбирает тему на сборке — вернём чужим тестам их
             foreach (var go in _мусор) if (go != null) UnityEngine.Object.DestroyImmediate(go);
             _мусор.Clear();
         }
