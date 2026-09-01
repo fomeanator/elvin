@@ -248,10 +248,10 @@ namespace Lvn.UI
             _scrim.Clear();
             var p = LvnChrome.Sheet(new VisualElement());
             p.style.top = Length.Percent(12); p.style.bottom = Length.Percent(12);
-            p.style.backgroundColor = _theme.MenuBgColor;
-            LvnAir.PadX(p, LvnTokens.Space3);
-            LvnAir.PadY(p, LvnTokens.Space2);
-            LvnChrome.Round(p, _theme.MenuCornerRadius + 2f);
+            // Меню сцены плотнее оболочечных панелей и берёт скругление у
+            // темы новеллы, а не у токенов движка.
+            LvnStyler.Panel(p, _theme.MenuBgColor, _theme.MenuCornerRadius + 2f,
+                            LvnTokens.Space3, LvnTokens.Space2);
             _scrim.Add(p);
 
             var head = new VisualElement();

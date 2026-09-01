@@ -29,11 +29,10 @@ namespace Lvn.UI.Screens
             var panel = LvnChrome.Sheet(new VisualElement());
             panel.style.top = Length.Percent(14f);
             panel.style.maxHeight = Length.Percent(72f);
-            panel.style.backgroundColor = LvnTokens.PanelBg;
-            LvnAir.PadX(panel, LvnTokens.Space4);
+            LvnStyler.Panel(panel, LvnTokens.PanelBg);
+            // Единственная панель с несимметричным воздухом: снизу меньше,
+            // потому что под списком стоит кнопка со своим отступом.
             panel.style.paddingBottom = LvnTokens.Space3;
-            panel.style.paddingTop = LvnTokens.Space4;
-            LvnChrome.Round(panel, LvnTokens.Radius);
             root.Add(panel);
 
             panel.Add(ScreenUi.SectionHeader(() => LvnWords.Of("stats.title", "Your stats")));

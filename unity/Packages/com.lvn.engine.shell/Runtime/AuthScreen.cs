@@ -58,10 +58,7 @@ namespace Lvn.UI.Screens
             // ── bottom panel: title, subtitle, (nickname), start, status ──
             var panel = Lvn.UI.LvnChrome.Sheet(new VisualElement());
             panel.style.bottom = Length.Percent(7f);
-            LvnAir.PadX(panel, LvnTokens.Space4);
-            LvnAir.PadY(panel, LvnTokens.Space4);
-            panel.style.backgroundColor = UiColor.Named(_cfg.panel_color, LvnTokens.Veil(0.65f));
-            LvnChrome.Round(panel, LvnTokens.Radius);
+            LvnStyler.Panel(panel, UiColor.Named(_cfg.panel_color, LvnTokens.Veil(0.65f)));
             Add(panel);
 
             var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("auth.welcome", _cfg.title, "Welcome"));
