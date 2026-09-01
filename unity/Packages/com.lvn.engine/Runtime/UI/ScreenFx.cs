@@ -1,29 +1,18 @@
 using System.Threading;
 using System.Threading.Tasks;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Lvn.UI
 {
-    /// <summary>Small async helpers shared by the built-in screens — currently a
-    /// smoothstep opacity fade driven off unscaled time.</summary>
+    /// <summary>ОКНО в дом движения: гашение, которого можно дождаться.
+    ///
+    /// <para>Работа переехала к <see cref="LvnMotion"/> — там живёт время
+    /// движения, и там же гашение наконец спрашивает темп. Имя осталось: его
+    /// знают девять экранов, и переписывать их ради переезда дороже, чем
+    /// оставить дверь.</para></summary>
     public static class ScreenFx
     {
-        public static async Task FadeAsync(VisualElement el, float from, float to, float seconds, CancellationToken ct)
-        {
-            if (el == null) return;
-            if (seconds <= 0f) { el.style.opacity = to; return; }
-            float t0 = LvnClock.Now();
-            while (true)
-            {
-                if (ct.IsCancellationRequested) { el.style.opacity = to; return; }
-                float t = Mathf.Clamp01(LvnClock.Since(t0) / seconds);
-                t = t * t * (3f - 2f * t); // smoothstep
-                el.style.opacity = Mathf.Lerp(from, to, t);
-                if (t >= 1f) return;
-                try { await Task.Yield(); }
-                catch (System.OperationCanceledException) { el.style.opacity = to; return; }
-            }
-        }
+        public static Task FadeAsync(VisualElement el, float from, float to, float seconds, CancellationToken ct)
+            => LvnMotion.FadeAsync(el, from, to, seconds, ct);
     }
 }
