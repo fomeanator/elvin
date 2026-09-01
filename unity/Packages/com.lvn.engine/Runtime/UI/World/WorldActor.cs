@@ -76,30 +76,31 @@ namespace Lvn.UI.World
 
         /// <summary>Make a layered actor one visual for the duration of a normal
         /// alpha transition.  A single-layer actor stays on the ordinary path.</summary>
-        public bool BeginTransitionVisual()
+        public bool BeginTransitionVisual() => BeginComposite(includeSingleLayer: false);
+
+        /// <summary>СНЯТЬ СНИМОК ТЕКУЩЕГО ВИДА — общая часть перехода и смены
+        /// арта. Разница между ними ровно одна: брать ли в снимок вид из
+        /// единственного слоя.
+        ///
+        /// <para>Прокси-композит рисует сырые текстуры слоёв — надетый sfx
+        /// (тёмный силуэт, голограмма) он воспроизвести не может:
+        /// герой-голограмма «раздевался» до светлого арта на время каждого
+        /// фейда. Поэтому с эффектом снимок не берётся вовсе, и переход играет
+        /// живыми слоями. Причина одна на оба случая, и записана она была
+        /// дважды — во втором месте уже сокращённо, ссылкой на первое.</para>
+        /// </summary>
+        private bool BeginComposite(bool includeSingleLayer)
         {
             EnsureRig();
-            // Прокси-композит рисует сырые текстуры слоёв — надетый sfx (тёмный
-            // силуэт, голограмма) он воспроизвести не может: герой-голограмма
-            // «раздевался» до светлого арта на время каждого фейда. С эффектом
-            // переход играет живыми слоями.
             if (LvnSpriteFxDriver.WearsAuthoredFx(gameObject)) return false;
             if (_transitionComposite == null)
                 _transitionComposite = GetComponent<LvnActorComposite>() ?? gameObject.AddComponent<LvnActorComposite>();
-            return _transitionComposite.Begin(_transition, _rig);
+            return _transitionComposite.Begin(_transition, _rig, includeSingleLayer);
         }
 
         /// <summary>Snapshot even a single-layer current look before replacing
         /// it. Wardrobe/emotion swaps use this as the opaque outgoing card.</summary>
-        public bool BeginArtSwapVisual()
-        {
-            EnsureRig();
-            // Та же причина, что у переходов: снимок-прокси не умеет носить sfx.
-            if (LvnSpriteFxDriver.WearsAuthoredFx(gameObject)) return false;
-            if (_transitionComposite == null)
-                _transitionComposite = GetComponent<LvnActorComposite>() ?? gameObject.AddComponent<LvnActorComposite>();
-            return _transitionComposite.Begin(_transition, _rig, includeSingleLayer: true);
-        }
+        public bool BeginArtSwapVisual() => BeginComposite(includeSingleLayer: true);
 
         /// <summary>Авторский sfx применили ПОСРЕДИ композитного перехода:
         /// сценарий пишет «actor …» и «sfx …» подряд, и переход стартует на

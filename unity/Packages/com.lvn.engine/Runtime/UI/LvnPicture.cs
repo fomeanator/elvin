@@ -167,23 +167,13 @@ namespace Lvn.UI
         /// одному элементу обязаны разбираться по одному правилу, иначе
         /// победит не последняя, а доехавшая позже.</para>
         /// </summary>
-        public static async System.Threading.Tasks.Task Frame(
+        public static System.Threading.Tasks.Task Frame(
             VisualElement el, string url, int slice, ILvnAssets assets)
-        {
-            if (el == null || string.IsNullOrEmpty(url) || assets == null) return;
-            var box = _awaited.GetValue(el, _ => new System.Runtime.CompilerServices.StrongBox<string>(null));
-            box.Value = url;
-            try
+            => ShowAsync(el, url, assets, e =>
             {
-                var sprite = await assets.LoadSpriteAsync(url, System.Threading.CancellationToken.None);
-                if (sprite == null || box.Value != url) return;
-                el.style.backgroundImage = new StyleBackground(sprite);
-                Pin(el, sprite, assets);
-                el.style.backgroundColor = Color.clear;
-                if (slice > 0) Slice(el, slice);
-            }
-            catch { /* пропавший арт не повод ронять экран */ }
-        }
+                e.style.backgroundColor = Color.clear;
+                if (slice > 0) Slice(e, slice);
+            });
 
         // ЧЕГО ЖДЁТ ЭТОТ ЭЛЕМЕНТ ПРЯМО СЕЙЧАС.
         //
@@ -205,8 +195,26 @@ namespace Lvn.UI
         /// арт — не беда: элемент остаётся с тем, что у него было. Устаревший —
         /// тем более: пришедший позже ответ на отменённую просьбу не имеет права
         /// перекрасить элемент.</summary>
-        public static async System.Threading.Tasks.Task AssignAsync(
+        public static System.Threading.Tasks.Task AssignAsync(
             VisualElement el, string url, ILvnAssets assets)
+            => ShowAsync(el, url, assets, null);
+
+        /// <summary>ПОКАЗАТЬ КАРТИНКУ, КОГДА ОНА ПРИЕДЕТ — общая часть всех
+        /// присвоений фона.
+        ///
+        /// <para>Здесь живёт сторож устаревания: пока картинка едет, элементу
+        /// могли назначить ДРУГОЙ адрес, и медленный ответ обязан промолчать.
+        /// Сторож стоял в двух телах отдельно, и это самое опасное место для
+        /// копии: заведи третье присвоение, забудь коробку — и на быстром
+        /// пролистывании карточка покажет чужую обложку. Ошибки при этом нет
+        /// нигде.</para>
+        ///
+        /// <para>Что делать сверх показа — довод: обычному присвоению ничего,
+        /// рамке ещё очистить заливку и нарезать девять частей.</para>
+        /// </summary>
+        private static async System.Threading.Tasks.Task ShowAsync(
+            VisualElement el, string url, ILvnAssets assets,
+            System.Action<VisualElement> then)
         {
             if (el == null || string.IsNullOrEmpty(url) || assets == null) return;
             var box = _awaited.GetValue(el, _ => new System.Runtime.CompilerServices.StrongBox<string>(null));
@@ -214,11 +222,10 @@ namespace Lvn.UI
             try
             {
                 var sprite = await assets.LoadSpriteAsync(url, System.Threading.CancellationToken.None);
-                if (sprite != null && box.Value == url)
-                {
-                    el.style.backgroundImage = new StyleBackground(sprite);
-                    Pin(el, sprite, assets);
-                }
+                if (sprite == null || box.Value != url) return;
+                el.style.backgroundImage = new StyleBackground(sprite);
+                Pin(el, sprite, assets);
+                then?.Invoke(el);
             }
             catch { /* пропавший арт не повод ронять экран */ }
         }
