@@ -164,10 +164,10 @@ namespace Lvn.UI
                 }
                 LvnAir.PadX(this, _theme.EdgePadding);
                 // alignItems places the box across the screen width.
+                // Умолчание окна реплики — левый край: так авторские отступы
+                // читаются от того же угла, что и подписи.
                 style.alignItems = stretch ? Align.Stretch
-                    : align == "center" ? Align.Center
-                    : align == "right" ? Align.FlexEnd
-                    : Align.FlexStart;
+                    : LvnAnchor.Across(align, Align.FlexStart);
                 if (stretch) _box.style.flexGrow = 1;
             }
 

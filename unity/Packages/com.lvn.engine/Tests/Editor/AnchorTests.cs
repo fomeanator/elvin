@@ -1,5 +1,6 @@
 using Lvn.UI;
 using NUnit.Framework;
+using UnityEngine.UIElements;
 
 namespace Lvn.Tests
 {
@@ -58,6 +59,35 @@ namespace Lvn.Tests
         {
             Assert.AreEqual(LvnAnchor.Percent("top-left", "center"),
                             LvnAnchor.Percent("Top-Left", "center"));
+        }
+
+        [Test]
+        public void ЗнакомыеСловаЧитаютсяОдинаковоНезависимоОтУмолчания()
+        {
+            foreach (var fallback in new[] { Align.Center, Align.FlexStart, Align.Stretch })
+            {
+                Assert.AreEqual(Align.FlexStart, LvnAnchor.Across("left", fallback), "«left»");
+                Assert.AreEqual(Align.FlexEnd, LvnAnchor.Across("right", fallback), "«right»");
+                Assert.AreEqual(Align.Center, LvnAnchor.Across("center", fallback), "«center»");
+            }
+        }
+
+        [Test]
+        public void НезнакомоеСловоОтдаётсяУмолчаниюЗОВУЩЕГО()
+        {
+            // Умолчание — решение экрана, а не разбора: выборы стоят
+            // посередине, окно реплики прижато влево.
+            Assert.AreEqual(Align.Center, LvnAnchor.Across("centre", Align.Center));
+            Assert.AreEqual(Align.FlexStart, LvnAnchor.Across("centre", Align.FlexStart));
+        }
+
+        [Test]
+        public void ПустоеИНичегоТожеУходятВУмолчание()
+        {
+            Assert.AreEqual(Align.Center, LvnAnchor.Across(null, Align.Center));
+            Assert.AreEqual(Align.Center, LvnAnchor.Across("", Align.Center));
+            Assert.AreEqual(Align.FlexEnd, LvnAnchor.Across("   ", Align.FlexEnd),
+                "пробелы — это не слово; разбирать их не наше дело, но и падать нельзя");
         }
     }
 }
