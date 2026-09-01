@@ -369,6 +369,49 @@ namespace Lvn.Content
                         return bytes;
                     }
                     catch (OperationCanceledException) { throw; }
+                    // ДИАПАЗОН ЗА КОНЦОМ ФАЙЛА (416) — НЕ СБОЙ СЕТИ, А НАШЕ
+                    // СОСТОЯНИЕ.
+                    //
+                    // Докачка всегда просит продолжение с байта, равного длине
+                    // недокачанного куска. Но кусок бывает УЖЕ ПОЛНЫМ: прошлая
+                    // попытка дописала последний байт и не успела переименовать
+                    // файл — приложение свернули, ход отменили, редактор
+                    // остановили. Тогда мы просим байты, которых нет, и сервер
+                    // законно отвечает «такого диапазона у меня не будет».
+                    //
+                    // Раньше это падало в общий обработчик и уходило на повтор —
+                    // с тем же куском, тем же смещением и тем же ответом. Живой
+                    // экран (01.09): «0,2 МБ из 0,2 МБ, всё скачано», очередь
+                    // висит, в логе «attempt 6 failed, resume in 16.0s». Ждать
+                    // можно было вечно: каждая следующая попытка повторяла ту же
+                    // невозможную просьбу.
+                    catch (LvnFetchException ex) when (ex.Status == 416)
+                    {
+                        var whole = LvnQuiet.Try(
+                            () => File.Exists(partPath) ? File.ReadAllBytes(partPath) : null, (byte[])null);
+                        var want = IntegrityVersionFor(url);
+                        if (whole != null && want != null && Sha256Matches(whole, want))
+                        {
+                            // Файл целиком у нас — не хватало переименования.
+                            Debug.Log($"[content] {url}: кусок уже полон — забираем его без сети");
+                            lock (_inflight)
+                            {
+                                _attempts.Remove(url);
+                                _bytesReceived[url] = whole.Length;
+                                _bytesExpected[url] = whole.Length;
+                            }
+                            if (File.Exists(path)) File.Delete(path);
+                            File.Move(partPath, path);
+                            return whole;
+                        }
+                        // Хеша нет или не сходится: кусок длиннее серверного
+                        // файла — хвост от прошлой версии. Начинаем с нуля;
+                        // следующий заход пойдёт без Range и повториться не
+                        // сможет.
+                        Debug.LogWarning($"[content] {url}: кусок не сходится с сервером — качаем заново");
+                        LvnQuiet.Try(() => File.Delete(partPath));
+                        lock (_inflight) { _bytesReceived[url] = 0; _bytesExpected.Remove(url); }
+                    }
                     catch (LvnFetchException ex) when (ex.Code == "network" && LvnNetworkStatus.IsOffline)
                     {
                         throw; // offline — retrying is pointless; caller falls back to cache
