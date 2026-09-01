@@ -265,20 +265,13 @@ namespace Lvn.UI.Screens
                     _shell.OnMenuVisible += ShowMenuScene;
                 }
             }
-            _assets.Set3DSetCatalog(manifest.sets3d);
-            Stage.Assets = _assets;
-            Stage.Catalog = new SpriteCatalog(manifest.sprites);
-            Stage.NameInput = manifest.ui?.name_input;   // оформление формы ввода — авторское
-            // Theme the in-game dialogue/choices from the manifest, the same way
-            // the shell screens read manifest.ui — so the whole game is themeable.
-            // (A title can override this per-game; applied in PlayChapterAsync.)
-            _globalUi = manifest.ui;
-            TeachHousesFrom(manifest);
-            _manifest = manifest;
-            ApplyMenuStaging(manifest);
+            Stage.Assets = _assets;   // ДО принятия: тема грузит свой арт через него
+            // Содержимое манифеста применяет ОДИН дом (NovelApp.Manifest) — он
+            // же отвечает на живое обновление. Здесь остаётся только то, что
+            // относится к запуску.
+            ApplyManifest(manifest);
             WarmMenuCanvas();     // полотно витрины — к первому же показу меню
             WatchMenuBackdrop();  // и под наблюдение Лекаря: витрина без фона — недуг
-            Stage.ApplyTheme(VnThemeBuilder.From(manifest.ui, Stage.Theme));
             Stage.CrossChapterLoader = CrossChapterLoadAsync;
 
             // Language: the manifest declares which catalogs exist (Settings shows

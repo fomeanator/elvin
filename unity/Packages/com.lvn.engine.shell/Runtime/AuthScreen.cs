@@ -34,7 +34,8 @@ namespace Lvn.UI.Screens
             _maxLength = _cfg.max_length ?? PlayerNameInput.MaxLength;
 
             ScreenUi.Stretch(this);
-            style.backgroundColor = UiColor.Named(_cfg.bg_color, LvnTokens.Bg);
+            // Землю ставит Ground() при показе: чем закрывать — зависит от
+            // того, что под нами, а на сборке это ещё неизвестно.
             style.opacity = 0f;
             style.display = DisplayStyle.None;
 
@@ -171,8 +172,38 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(nick)) LvnPlayerName.Set(nick);
         }
 
+        /// <summary>
+        /// ЧЕМ ЗАКРЫВАТЬ ТО, ЧТО ПОД НАМИ.
+        ///
+        /// <para>Экран знакомства приходит по двум поводам, и под ним лежит
+        /// РАЗНОЕ. На первом запуске под ним пусто — тогда он и есть земля, и
+        /// красит себя цветом темы. По команде сценария («агент просит
+        /// представиться») под ним ЖИВАЯ СЦЕНА, которую игрок в этот момент
+        /// разглядывает, — и непрозрачная заливка стирает её начисто.</para>
+        ///
+        /// <para>Правило одно и то же по всей игре: наложение поверх сцены её
+        /// ЗАВЕШИВАЕТ. Так ведут себя форма ввода, выборы и меню; экран
+        /// знакомства был единственным, кто сцену заменял, — и заметно это
+        /// стало только когда сценарий начал звать его посреди главы.</para>
+        ///
+        /// <para>Названный автором цвет сильнее любого правила: он писал его,
+        /// глядя на свой экран.</para>
+        /// </summary>
+        private void Ground()
+        {
+            if (!string.IsNullOrEmpty(_cfg.bg_color))
+            {
+                style.backgroundColor = UiColor.Named(_cfg.bg_color, LvnTokens.Bg);
+                return;
+            }
+            style.backgroundColor = LvnScreenDirector.Current.InChapter
+                ? LvnTokens.Veil(0.72f)   // под нами сцена — завешиваем
+                : LvnTokens.Bg;           // под нами пусто — мы и есть земля
+        }
+
         public async Task<string> AskAsync(CancellationToken ct = default)
         {
+            Ground();
             style.display = DisplayStyle.Flex;
             if (_field != null)
             {
