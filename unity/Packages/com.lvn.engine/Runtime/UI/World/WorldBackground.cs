@@ -258,11 +258,10 @@ namespace Lvn.UI.World
             _image.uvRect = new Rect((1f - u) * _panX, (1f - v) * 0.5f, u, v);
         }
 
-        private static void Stretch(RectTransform rt)
-        {
-            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
-            rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
-            rt.pivot = new Vector2(0.5f, 0.5f);
-        }
+        // Полотну пивот в центре — в отличие от фигуры, которая растёт от ног.
+        // Сама растяжка живёт у расстановки: четыре строки, из которых забыть
+        // можно любую, а узел схлопнется в точку.
+        private static void Stretch(RectTransform rt) =>
+            WorldPlacement.Fill(rt, new Vector2(0.5f, 0.5f));
     }
 }
