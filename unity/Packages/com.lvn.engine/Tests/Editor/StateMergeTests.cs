@@ -1,3 +1,4 @@
+using Lvn;
 using Lvn.Content;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
@@ -62,6 +63,62 @@ namespace Lvn.Tests
             Assert.AreEqual(0, HttpStateStore.MergeVars(null, null, null).Count);
             var onlyLocal = HttpStateStore.MergeVars(null, J(@"{""a"":1}"), null);
             Assert.AreEqual(1, (int)onlyLocal["a"]);
+        }
+        // ── Круг: записали — прочитали — то же самое ─────────────────────────
+        //
+        // Слияние проверено выше, а САМА ЗАПИСЬ и чтение — нет. Пара половин
+        // одного факта: разойдись они в мелочи (кириллица, вложенность, ноль
+        // против отсутствия), и потеря будет молчаливой — прогресс игрока
+        // просто станет другим, без единой строки в логе.
+
+        private const string КругТитул = "t_roundtrip_probe";
+
+        [TearDown]
+        public void УбратьПробу()
+        {
+            LvnKeep.Drop(LocalStateStore.Key(КругТитул));
+            LvnKeep.Drop(LocalStateStore.BaseKey(КругТитул));
+        }
+
+        [Test]
+        public void ЗаписанноеЧитаетсяОбратноБезПотерь()
+        {
+            var doc = new JObject
+            {
+                ["число"] = 42,
+                ["дробь"] = 0.5,
+                ["ложь"] = false,
+                ["пусто"] = "",
+                ["строка"] = "Виктория «в кавычках» и \\ слэш",
+                ["вложенное"] = new JObject { ["Way"] = new JObject { ["Moral"] = 3 } },
+            };
+            LocalStateStore.WriteDoc(КругТитул, doc);
+            var назад = LocalStateStore.ReadDoc(КругТитул);
+
+            Assert.NotNull(назад, "записанное не прочиталось вовсе");
+            Assert.IsTrue(JToken.DeepEquals(doc, назад),
+                $"круг не сошёлся:\n  было {doc.ToString(Newtonsoft.Json.Formatting.None)}" +
+                $"\n  стало {назад.ToString(Newtonsoft.Json.Formatting.None)}");
+        }
+
+        [Test]
+        public void ОснованиеСинхронизацииХодитТемЖеКругом()
+        {
+            // База сравнения живёт по своему ключу, и путать её с документом
+            // нельзя: на ней стоит ответ «что менял ИМЕННО ЭТОТ прибор».
+            var b = new JObject { ["Relationships"] = new JObject { ["Anna"] = 2 } };
+            LocalStateStore.WriteBase(КругТитул, b);
+            Assert.IsTrue(JToken.DeepEquals(b, LocalStateStore.ReadBase(КругТитул)));
+            Assert.IsNull(LocalStateStore.ReadDoc(КругТитул),
+                "база записалась в документ — ключи перепутаны, и слияние будет сравнивать себя с собой");
+        }
+
+        [Test]
+        public void НезаписанноеЧитаетсяКакНичего()
+        {
+            // «Ничего» и «пустой объект» — разные ответы: на первом слияние
+            // берёт всё с сервера, на втором считает, что прибор всё стёр.
+            Assert.IsNull(LocalStateStore.ReadDoc("t_never_written_probe"));
         }
     }
 }
