@@ -141,11 +141,11 @@ namespace Lvn.UI.Screens
             LvnPicture.Photo(logo, _cfg.logo_url, _assets, cover: false);
         }
 
-        /// <summary>Show the screen, kick the silent device sign-in (its result
-        /// only drives the status line) and resolve with the nickname once the
-        /// player taps Start. Empty string when the field is off or blank.</summary>
         /// <summary>
-        /// ЗНАКОМСТВО — ОДИН РАЗ ЗА УСТАНОВКУ.
+        /// ЗНАКОМСТВО — ОДИН РАЗ ЗА УСТАНОВКУ. Показывает экран, запускает тихий
+        /// вход по устройству (его исход двигает только строку состояния) и
+        /// отдаёт имя, когда игрок нажал «Начать»; пустая строка — если поля
+        /// нет или оно не заполнено.
         ///
         /// <para>Обряд из четырёх частей: не знакомились ли уже, спросить,
         /// поставить метку, посеять имя игрока. Стоял он ДВАЖДЫ — на первом

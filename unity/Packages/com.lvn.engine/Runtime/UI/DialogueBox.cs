@@ -401,8 +401,6 @@ namespace Lvn.UI
         private float _userOpacity = 1f;
         private float _styleBgScale = 1f;
 
-        /// <summary>Scale the dialogue window's background opacity (0.2–1) — the
-        /// player's comfort setting. Text stays fully opaque.</summary>
         /// <summary>ПЕРЕЧИТАТЬ НАСТРОЙКИ ТЕКСТА НА ЖИВОМ ЭКРАНЕ. Кегль и
         /// гарнитура ставятся при сборке реплики, и без этого вызова выбор в
         /// настройках доезжал бы только со следующей строкой — то есть игрок,
@@ -451,6 +449,8 @@ namespace Lvn.UI
         /// читались бы как разные экраны.</summary>
         private int SpeakerSize => LvnFonts.Size(_theme.SpeakerFontSize * LvnPrefs.TextScale);
 
+        /// <summary>Плотность подложки окна реплики (0,2–1) — настройка
+        /// удобства игрока. Текст остаётся полностью непрозрачным.</summary>
         public void SetUserOpacity(float value)
         {
             _userOpacity = Mathf.Clamp(value, 0.2f, 1f);

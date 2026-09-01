@@ -565,11 +565,8 @@ namespace Lvn.Content
         public float? min_seconds;       // default 1.0
     }
 
-    /// <summary>The title slider / carousel on the main menu.</summary>
-    /// <summary>The hub/collection browse flow (BrowseHub) — an alternative to the
-    /// carousel selected by <c>layout = "hub"</c>. Three themeable screens: the hub
-    /// (game title + collection tiles), a collection (title cards), and a title
-    /// detail (image + description + Play). Every colour/label optional.</summary>
+    /// <summary>Один трек в списке музыки меню: чем он зовётся и откуда
+    /// берётся.</summary>
     public sealed class MusicOption
     {
         public string id;
@@ -577,6 +574,11 @@ namespace Lvn.Content
         public string url;
     }
 
+    /// <summary>Витрина: как игрок выбирает новеллу. «carousel» — лента
+    /// карточек на главной; «hub» — хаб с подборками (BrowseHub): три
+    /// оформляемых экрана — хаб (заголовок игры и плитки подборок), подборка
+    /// (карточки новелл) и деталь (картинка, описание, «Играть»). Любой цвет и
+    /// любая подпись необязательны.</summary>
     public sealed class BrowseConfig
     {
         public string layout;            // "carousel" (default) | "hub"
@@ -646,6 +648,7 @@ namespace Lvn.Content
         public string nav_profile;
     }
 
+    /// <summary>Лента новелл на главном экране.</summary>
     public sealed class CarouselConfig
     {
         public string bg_color;          // default #101015
