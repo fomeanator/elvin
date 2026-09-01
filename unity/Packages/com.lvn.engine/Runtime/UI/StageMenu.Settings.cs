@@ -37,7 +37,7 @@ namespace Lvn.UI
 
             // Language — only when the content ships catalogs (manifest.languages).
             // Tapping cycles Original → each language → Original.
-            if (LvnPrefs.AvailableLocales.Count > 0)
+            if (LvnLocale.Offered)
                 scroll.Add(LanguageRow());
         }
 

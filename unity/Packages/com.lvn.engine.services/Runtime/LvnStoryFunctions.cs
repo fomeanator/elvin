@@ -55,7 +55,7 @@ namespace Lvn.Services
                 {
                     var cur = S(0);
                     if (string.IsNullOrEmpty(cur)) return 0d;
-                    return LvnWallet.Balances.TryGetValue(cur, out var v) ? (double)v : 0d;
+                    return LvnWallet.Balance(cur);
                 }
 
                 // worn("dress") или worn("hill", "dress") — что надето.
