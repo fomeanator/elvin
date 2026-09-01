@@ -207,3 +207,42 @@ func TestAudioDecoderTypeComesFromTheHome(t *testing.T) {
 			strings.Join(strays, "\n  "))
 	}
 }
+
+// ПРАВИЛО, ПОЛОВИНЫ КОТОРОГО СВЕРЯЮТСЯ, ЧИТАЕТСЯ ИЗ ОДНОГО МЕСТА.
+//
+// Два правила сцены устроены одинаково опасно: их спрашивают ДВОЕ и делают
+// разное, а ответ обязан совпасть до последнего знака.
+//
+// Темп строки: печать берёт скорость и печатает, а ОЦЕНКА берёт ту же скорость
+// и говорит входящему актёру, когда осесть вместе с текстом. Разойдись они на
+// строке с авторской скоростью — герой заканчивает движение в чужом ритме.
+//
+// Переход видимости: один спрашивает «есть ли зримый переход», другой «какой
+// играть». Вопросы разные, выбор один, и живёт он у самой расстановки.
+//
+// Сторожим не поведение, а ЧИСЛО ЧТЕНИЙ: формула, написанная во второй раз, и
+// есть начало расхождения.
+func TestPairedRulesAreReadOnce(t *testing.T) {
+	root := repoRoot(t)
+	cases := []struct {
+		file, needle, why string
+		limit             int
+	}{
+		{"unity/Packages/com.lvn.engine/Runtime/UI/DialogueBox.Reveal.cs",
+			"_theme.CharsPerSecond",
+			"темп темы читают мимо PaceFor: печать и её оценка разойдутся на авторской скорости", 1},
+		{"unity/Packages/com.lvn.engine/Runtime/UI/VnStage.Actors.Placement.cs",
+			"p.Show ? p.EnterTransition",
+			"выбор перехода пишут тернаркой мимо Placement.VisibilityTransition", 0},
+	}
+	seen := 0
+	for _, c := range cases {
+		body := stripComments(string(mustRead(t, filepath.Join(root, c.file))))
+		seen++
+		if n := strings.Count(body, c.needle); n > c.limit {
+			t.Errorf("%s: «%s» встречается %d раз при пределе %d — %s",
+				filepath.Base(c.file), c.needle, n, c.limit, c.why)
+		}
+	}
+	sawSources(t, seen, 2, "парных правил")
+}

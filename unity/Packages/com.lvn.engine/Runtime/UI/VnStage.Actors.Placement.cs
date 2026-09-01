@@ -41,7 +41,7 @@ namespace Lvn.UI
         {
             if (!visibilityChanged || !IsCharacterCommand(cmd) || p.TransitionDuration <= 0.001f)
                 return false;
-            return (p.Show ? p.EnterTransition : p.ExitTransition) != TransitionType.None;
+            return p.VisibilityTransition != TransitionType.None;
         }
 
         private static void LengthenCharacterVisibility(JObject cmd, bool visibilityChanged,
@@ -63,7 +63,7 @@ namespace Lvn.UI
         private static void ShortenCharacterMovement(JObject cmd, ref Placement p)
         {
             if (!IsCharacterCommand(cmd) || p.TransitionDuration <= 0.001f) return;
-            var visibilityTransition = p.Show ? p.EnterTransition : p.ExitTransition;
+            var visibilityTransition = p.VisibilityTransition;
             if (p.SmoothPosition || visibilityTransition == TransitionType.Drift)
                 p.TransitionDuration *= ActorMovementDurationScale;
         }
