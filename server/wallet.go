@@ -500,36 +500,41 @@ func (s *WalletService) AllUserIDs() []string {
 
 // Clawback removes currency (support/ops corrections), flooring at zero —
 // audited like everything else. A non-nil error means nothing was removed.
-func (s *WalletService) Clawback(userID, currency string, amount int64, reason string) error {
-	if !reUserFile.MatchString(userID) || amount <= 0 {
-		return fmt.Errorf("bad clawback: user %q amount %d", userID, amount)
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	doc, err := s.load(userID)
-	if err != nil {
-		return err
-	}
-	s.accrue(doc, s.now())
-	doc.Balances[currency] -= amount
-	if doc.Balances[currency] < 0 {
-		doc.Balances[currency] = 0
-	}
-	s.accrue(doc, s.now())
-	doc.History = append(doc.History, walletEntry{
-		TS: time.Now().UTC().Format(time.RFC3339), Type: "spend",
-		Currency: currency, Amount: amount, Reason: reason,
-	})
-	return s.save(userID, doc)
-}
 
 // Grant credits a user outside an HTTP request (the daily service etc.) —
 // same lock, same audit history as any earn. A non-nil error means nothing
 // was credited (the write goes through a temp file, so a failed save leaves
 // the previous balance intact).
+// Grant — административная выдача валюты.
 func (s *WalletService) Grant(userID, currency string, amount int64, reason string) error {
+	return s.adminAdjust(userID, currency, amount, "earn", reason)
+}
+
+// Clawback — административное изъятие. В минус не уводит: отрицательный баланс
+// не значит ничего, что игра умела бы показать, и следующая покупка спорила бы
+// с числом, которого игрок никогда не видел.
+func (s *WalletService) Clawback(userID, currency string, amount int64, reason string) error {
+	return s.adminAdjust(userID, currency, amount, "spend", reason)
+}
+
+// adminAdjust — ПРАВКА БАЛАНСА РУКОЙ ВЛАДЕЛЬЦА: выдать или отобрать.
+//
+// Выдача и изъятие держали по своему телу, одинаковому на пятнадцать строк из
+// восемнадцати: проверка имени и суммы, замок, чтение записи, начисление по
+// времени ДО и ПОСЛЕ правки, строка в историю, сохранение.
+//
+// Свести их стоило не ради длины. Знак правки и слово в истории писались
+// ПОРОЗНЬ — «минус к балансу» здесь, «earn» там, — и ничто не мешало им
+// разойтись: баланс уменьшился бы, а история сказала «начислено». Отчёт по
+// деньгам после такого не сходится, и найти причину можно только сверкой всех
+// записей игрока. Теперь и знак, и слово выводятся из ОДНОГО довода.
+//
+// Начисление по времени зовётся дважды намеренно: первый раз доводит
+// накопленное до момента правки (иначе правка легла бы на устаревший баланс),
+// второй — переоткрывает отсчёт от нового значения.
+func (s *WalletService) adminAdjust(userID, currency string, amount int64, kind, reason string) error {
 	if !reUserFile.MatchString(userID) || amount <= 0 {
-		return fmt.Errorf("bad grant: user %q amount %d", userID, amount)
+		return fmt.Errorf("bad %s: user %q amount %d", kind, userID, amount)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -538,10 +543,17 @@ func (s *WalletService) Grant(userID, currency string, amount int64, reason stri
 		return err
 	}
 	s.accrue(doc, s.now())
-	doc.Balances[currency] += amount
+	if kind == "spend" {
+		doc.Balances[currency] -= amount
+		if doc.Balances[currency] < 0 {
+			doc.Balances[currency] = 0
+		}
+	} else {
+		doc.Balances[currency] += amount
+	}
 	s.accrue(doc, s.now())
 	doc.History = append(doc.History, walletEntry{
-		TS: time.Now().UTC().Format(time.RFC3339), Type: "earn",
+		TS: time.Now().UTC().Format(time.RFC3339), Type: kind,
 		Currency: currency, Amount: amount, Reason: reason,
 	})
 	return s.save(userID, doc)
