@@ -67,6 +67,32 @@ func TestEveryHomeInTheMapExists(t *testing.T) {
 		}
 	}
 
+	// ДОМА БЫВАЮТ И НА GO: гейт манифеста живёт двумя половинами — проверка
+	// в конвертере и её вызов на сервере. Читать только C# значило бы, что
+	// такие строки карты не проверяются вовсе.
+	goFunc := regexp.MustCompile(`(?m)^func\s+(?:\([^)]*\)\s*)?(\w+)\s*\(`)
+	for _, rel := range []string{"tools/lvnconv", "server"} {
+		dir := filepath.Join(root, rel)
+		if _, err := os.Stat(dir); err != nil {
+			continue
+		}
+		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") {
+				return nil
+			}
+			src, err := os.ReadFile(path)
+			if err != nil {
+				return nil
+			}
+			for _, m := range goFunc.FindAllStringSubmatch(string(src), -1) {
+				known[m[1]] = true
+			}
+			return nil
+		})
+	}
+	known["lvn"] = true    // пакет конвертера — приставка в именах карты
+	known["server"] = true // и пакет сервера
+
 	// Только таблицы ДОМОВ: ниже по документу такой же таблицей описаны
 	// глаголы записной книжки (`Put`, `Flush`), а они не дома и в коде их
 	// ищут не по имени класса.
@@ -74,12 +100,23 @@ func TestEveryHomeInTheMapExists(t *testing.T) {
 	if i := strings.Index(text, "## Что игра помнит между запусками"); i > 0 {
 		text = text[:i]
 	}
-	// Первая колонка таблицы: | `Имя` | … — и только она.
-	rowHome := regexp.MustCompile("(?m)^\\|\\s*`([^`]+)`\\s*\\|")
+	// Первая колонка таблицы — целиком. Раньше здесь стояло «одно имя в
+	// обратных кавычках, и сразу вертикальная черта», и любая клетка с ДВУМЯ
+	// именами («`A` / `B`», «`A` + `B`») под правило не подходила — страж
+	// молча пропускал её целиком. Так из 157 строк карты не проверялись 23:
+	// канон, которому нельзя верить, дороже отсутствующего.
+	rowCell := regexp.MustCompile("(?m)^\\|([^|]*)\\|")
+	backticked := regexp.MustCompile("`([^`]+)`")
 	var missing []string
 	seen := map[string]bool{}
-	for _, m := range rowHome.FindAllStringSubmatch(text, -1) {
-		name := strings.TrimSpace(m[1])
+	var cellNames []string
+	for _, c := range rowCell.FindAllStringSubmatch(text, -1) {
+		for _, n := range backticked.FindAllStringSubmatch(c[1], -1) {
+			cellNames = append(cellNames, n[1])
+		}
+	}
+	for _, raw := range cellNames {
+		name := strings.TrimSpace(raw)
 		// «LvnRedress (ILvnRedress)» — дом и его интерфейс в одной клетке;
 		// «LvnNum / LvnBool» — два дома одной темы; «ContentLoader.SpriteCache»
 		// — вложенный. Проверяем каждое имя по отдельности.
