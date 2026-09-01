@@ -20,7 +20,11 @@ namespace Lvn.UI.Screens
         private readonly Label _chapter;
         private readonly Button _continue;
         private readonly Button _menu;
-        private TaskCompletionSource<bool> _tcs;
+        // Ожидание закрытия — у дома: связка из пяти обязательных частей
+        // (флаг продолжения, отпустить прошлого ждущего, подписать отмену,
+        // дождаться, снять подписку) стоила слишком дорого, чтобы держать
+        // её копию. Свою пятую часть этот экран отдал дому.
+        private readonly LvnCloseGate _gate = new LvnCloseGate();
 
         public ChapterEndScreen(ChapterEndConfig cfg, ILvnAssets assets)
         {
@@ -84,13 +88,11 @@ namespace Lvn.UI.Screens
         /// the continue button hides and the only way out is the menu (false).</summary>
         public Task<bool> ShowAsync(string chapterName, bool hasNext)
         {
-            _tcs?.TrySetResult(false); // a stale awaiter must never deadlock the loop
-            _tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             _chapter.text = chapterName ?? "";
             _chapter.style.display = string.IsNullOrEmpty(chapterName) ? DisplayStyle.None : DisplayStyle.Flex;
             _continue.style.display = hasNext ? DisplayStyle.Flex : DisplayStyle.None;
             style.display = DisplayStyle.Flex;
-            return _tcs.Task;
+            return _gate.ReopenAsync();
         }
 
         /// <summary>Уйти с экрана и ОТПУСТИТЬ ждущего: экран конца главы
@@ -100,14 +102,13 @@ namespace Lvn.UI.Screens
         public void Hide()
         {
             style.display = DisplayStyle.None;
-            _tcs?.TrySetResult(false);   // некуда продолжать — значит, в меню
-            _tcs = null;
+            _gate.Release(false);   // некуда продолжать — значит, в меню
         }
 
         private void Resolve(bool next)
         {
             style.display = DisplayStyle.None;
-            _tcs?.TrySetResult(next);
+            _gate.Release(next);
         }
     }
 }
