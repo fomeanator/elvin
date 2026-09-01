@@ -203,9 +203,11 @@ namespace Lvn.UI.Screens
                 SkinButton(b, active);
                 LvnStyler.Chosen(b, active, _accent);
                 // Дети пилюли (лейбл и пара глифов) красятся вручную — кнопочный
-                // skin их не достаёт.
+                // skin их не достаёт. Чернила берутся ТЕМ ЖЕ правилом, что у
+                // самой кнопки: иначе авторский цвет реплик доезжает до пилюли
+                // и не доезжает до подписи на ней.
                 var lbl = b.Q<Label>("ax-label");
-                if (lbl != null) lbl.style.color = active ? _accentText : _text;
+                if (lbl != null) lbl.style.color = SkinInk(active);
                 var icOff = b.Q<VisualElement>("ax-ic-off");
                 var icOn = b.Q<VisualElement>("ax-ic-on");
                 if (icOff != null) icOff.style.display = active ? DisplayStyle.None : DisplayStyle.Flex;
