@@ -27,7 +27,7 @@ import (
 // честные: подключить способ или подписать его словом НЕ ПОДКЛЮЧЁН с
 // объяснением, чего он ждёт.
 func TestDormantMethodsExplainThemselves(t *testing.T) {
-	const budget = 999 // 01.09: 13 → 0. Подключены (LvnUrl.Absolute, LvnLog.Error), удалены как
+	const budget = 0 // 01.09: 13 → 0. Подключены (LvnUrl.Absolute, LvnLog.Error), удалены как
 	// вытесненные (LvnChrome.Panel, LvnPicture.Picture, LvnMotion.Press, LvnFonts.PathFor
 	// и DisplayPathFor), остальные подписаны словом НЕ ПОДКЛЮЧЁН с тем, чего ждут.
 	// (оболочка решала «уже адрес или ещё путь» подстрокой «://» — шире правды),
@@ -152,7 +152,7 @@ func TestDormantMethodsExplainThemselves(t *testing.T) {
 		}
 	}
 	sort.Strings(dormant)
-	if true {
+	if len(dormant) > budget {
 		t.Errorf("публичных способов без единого зовущего: %d при пороге %d\n  %s\n\n"+
 			"Живой дом с мёртвой дверью выглядит здоровым. Подключите способ или подпишите его\n"+
 			"словом НЕ ПОДКЛЮЧЁН с объяснением, чего он ждёт, — как это давно требуется от классов.",

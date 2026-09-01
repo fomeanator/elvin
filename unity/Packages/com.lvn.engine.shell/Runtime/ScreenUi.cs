@@ -98,10 +98,6 @@ namespace Lvn.UI.Screens
         // чем она пришла: Lvn.UI.LvnPicture.Photo (обложка, фон, аватар —
         // вписывается) или .Skin (рамка, подложка, полоса — тянется).
 
-        /// <summary>Окно в дом картинок: девятислойная рамка.</summary>
-        public static Task AssignNineSliceAsync(VisualElement el, string url, int slice, ILvnAssets assets)
-            => Lvn.UI.LvnPicture.Frame(el, url, slice, assets);
-
         /// <summary>
         /// ЗАГОЛОВОК РАЗДЕЛА внутри экрана — «Главы», «Достижения», «Ваши
         /// статы», шапка окна перезапуска.
@@ -200,13 +196,6 @@ namespace Lvn.UI.Screens
 
         /// <summary>Null-safe label text setter.</summary>
         public static void SetText(Label l, string t) { if (l != null) l.text = t; }
-
-        /// <summary>The device safe-area insets (notch / home indicator) converted
-        /// to panel units for <paramref name="el"/>'s panel: x = top, y = bottom.
-        /// Zero before the element is attached (or on notchless screens) — call it
-        /// from a <see cref="GeometryChangedEvent"/> so it re-resolves once real.</summary>
-        public static Vector2 SafeVerticalInsets(VisualElement el)
-            => Lvn.UI.LvnEdges.Insets(el);   // окно в Кромочника
 
         /// <summary>ОТСТУП СВЕРХУ — сколько единиц панели занимает вырез камеры
         /// (чёлка, «остров», статус-бар).
