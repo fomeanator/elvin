@@ -60,6 +60,15 @@ namespace Lvn.UI
         public float HoverOpacity;
         public TransitionType EnterTransition;
         public TransitionType ExitTransition;
+
+        /// <summary>ПЕРЕХОД, ОТВЕЧАЮЩИЙ ЗА СМЕНУ ВИДИМОСТИ: вход, если фигуру
+        /// показывают, иначе уход.
+        ///
+        /// <para>Выбор писали тернаркой на месте, и рядом — дважды, в ответ на
+        /// РАЗНЫЕ вопросы: «есть ли зримый переход» и «какой именно играть».
+        /// Вопросы разные, а выбор один, и жить ему у самой расстановки: она
+        /// одна знает, показывают фигуру или уводят.</para></summary>
+        public TransitionType VisibilityTransition => Show ? EnterTransition : ExitTransition;
         public float TransitionDuration;
         /// <summary>One-shot renderer hint: an already-visible actor received an
         /// explicit position/x/y command and should tween to it. Never persist it.</summary>
