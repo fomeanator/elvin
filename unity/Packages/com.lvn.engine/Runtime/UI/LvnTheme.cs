@@ -51,7 +51,14 @@ namespace Lvn.UI
         /// выбор сервера брал рассветный — один вопрос, два ответа. Теперь у
         /// темы есть свой, а рассвет остаётся зеркалом для минуты до неё.</para>
         /// </summary>
+        /// <para>Тревога — ОТДЕЛЬНЫЙ цвет, а не акцент: покрасишь
+        /// предупреждение тем же, чем кнопку, и экран теряет способность
+        /// кричать. Правило это было записано здесь же и здесь же нарушено —
+        /// у полуночной темы `Warn` стоял РАВНЫМ акценту, у романтической
+        /// почти совпадал с бедой. Держит правило страж: смысловые цвета
+        /// обязаны различаться между собой и с акцентом.</para>
         public Color Ok = Hex("#5fce77");
+        public Color Warn = Hex("#f0c24a");
         public Color Bad = Hex("#e0555f");
         /// <summary>Заливка кнопки-призрака.</summary>
         public Color Faint = new Color(1f, 1f, 1f, 0.08f);
@@ -64,11 +71,6 @@ namespace Lvn.UI
         public Color Track = new Color(1f, 1f, 1f, 0.13f);
         /// <summary>Фон панели диалога и нижних листов.</summary>
         public Color PanelBg = new Color(0.086f, 0.063f, 0.094f, 0.97f);
-        /// <summary>Тревога и «новое». ОТДЕЛЬНЫЙ цвет, а не акцент: если
-        /// предупреждение красить тем же, чем кнопку, экран теряет способность
-        /// кричать.</summary>
-        public Color Warn = Hex("#ec5a92");
-
         // ── огранка ─────────────────────────────────────────────────────────
         /// <summary>Скругление карточек. Малое значение читается как срез —
         /// именно так и делается фаска, которой в UI Toolkit нет.</summary>
@@ -258,8 +260,8 @@ namespace Lvn.UI
             Silver = Hex("#B9D8E6"),
             Bronze = Hex("#D69A5C"),
             Ok = Hex("#3BE58F"),
+            Warn = Hex("#FFB020"),
             Bad = Hex("#FF5C6C"),
-            Warn = Hex("#FF2E88"),
             Faint = new Color(0.18f, 0.90f, 0.84f, 0.07f),
             Track = new Color(0.18f, 0.90f, 0.84f, 0.16f),
             Scrim = new Color(0.02f, 0.04f, 0.07f, 0.82f),
@@ -310,8 +312,8 @@ namespace Lvn.UI
             Silver = Hex("#d6c6cd"),
             Bronze = Hex("#c8895f"),
             Ok = Hex("#5cc47f"),
+            Warn = Hex("#e8b45c"),
             Bad = Hex("#e05a6a"),
-            Warn = Hex("#ff5c7a"),
             Faint = new Color(1f, 1f, 1f, 0.07f),
             Track = new Color(1f, 1f, 1f, 0.12f),
             Scrim = new Color(0.05f, 0.03f, 0.06f, 0.80f),

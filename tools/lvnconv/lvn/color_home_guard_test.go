@@ -71,7 +71,7 @@ func TestColorParsingLivesInOneHome(t *testing.T) {
 // цветов аватара и запасные значения для полей, которые автор вправе
 // переназначить. Число обязано только УМЕНЬШАТЬСЯ.
 func TestShellTakesColorFromTheme(t *testing.T) {
-	const budget = 21
+	const budget = 20
 	root := repoRoot(t)
 	dir := filepath.Join(root, "unity/Packages/com.lvn.engine.shell/Runtime")
 	entries, err := os.ReadDir(dir)

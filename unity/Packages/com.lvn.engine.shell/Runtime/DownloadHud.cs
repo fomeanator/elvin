@@ -566,7 +566,7 @@ namespace Lvn.UI.Screens
                 if (_glyph == RingGlyph.Alert)
                 {
                     // «!»: штрих + точка — сеть пропала, загрузка ждёт.
-                    p.strokeColor = new Color(1f, 0.76f, 0.3f);
+                    p.strokeColor = LvnTokens.Warn;
                     p.BeginPath();
                     p.MoveTo(new Vector2(c.x, c.y - a));
                     p.LineTo(new Vector2(c.x, c.y + a * 0.35f));
