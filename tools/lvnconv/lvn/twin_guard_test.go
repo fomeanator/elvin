@@ -34,7 +34,10 @@ func TestNoNearTwins(t *testing.T) {
 
 	// Оправдания поимённо: пара, которая ПОХОЖА, но одна работа в двух видах
 	// её не делает.
-	known := map[string]string{}
+	known := map[string]string{
+		"analytics_report.go::sumCounts ↔ main.go::sumStats": "шесть строк суммы по карте, но МОДУЛИ РАЗНЫЕ: " +
+			"сервер и компилятор собираются порознь, и общий дом ради этого стоил бы дороже копии",
+	}
 
 	type body struct {
 		file, name string
@@ -47,20 +50,28 @@ func TestNoNearTwins(t *testing.T) {
 	// строке. Первая версия знала только один вид и прочла 847 тел вместо
 	// полутора тысяч — порог пустоты это и поймал, чем себя оправдал.
 	decl := regexp.MustCompile(`(?m)^\s{8}(?:private|internal|public|protected)[^\n(=]*\s(\w+)\s*\([^)]*\)[^{;=]*\{`)
-	for _, dir := range []string{
-		"unity/Packages/com.lvn.engine/Runtime",
-		"unity/Packages/com.lvn.engine.shell/Runtime",
-		"unity/Packages/com.lvn.engine.services/Runtime",
-	} {
+	// ГО ТОЖЕ. Первая версия стража читала только C#, и это было ошибкой
+	// прицела: обход по серверу и компилятору, пущенный вручную, нашёл ДВАДЦАТЬ
+	// ЧЕТЫРЕ пары — больше, чем в оболочке. Два расстояния Левенштейна, три
+	// обрезки строки, два сопоставителя скобок, две правки баланса. Класс,
+	// закрытый в одном языке и открытый в другом, закрыт наполовину.
+	goDecl := regexp.MustCompile(`(?m)^func\s+(?:\([^)]*\)\s*)?(\w+)\s*\([^)]*\)[^{]*\{`)
+
+	collect := func(dir, ext string, re *regexp.Regexp) {
 		_ = filepath.Walk(filepath.Join(root, dir), func(p string, i os.FileInfo, err error) error {
-			if err != nil || i.IsDir() || !strings.HasSuffix(p, ".cs") {
+			if err != nil || i.IsDir() || !strings.HasSuffix(p, ext) {
 				return err
 			}
+			// Испытания сравнивать не с чем: они НАРОЧНО похожи друг на друга,
+			// и это не копия работы, а один способ говорить о разных случаях.
+			if strings.HasSuffix(p, "_test.go") || strings.Contains(p, "/Tests/") {
+				return nil
+			}
 			src := stripComments(string(mustRead(t, p)))
-			for _, m := range decl.FindAllStringSubmatchIndex(src, -1) {
+			for _, m := range re.FindAllStringSubmatchIndex(src, -1) {
 				start := m[1] - 1 // скобка уже захвачена выражением
 				depth, end := 0, start
-				for j := start; j < len(src) && j < start+12000; j++ {
+				for j := start; j < len(src) && j < start+14000; j++ {
 					if src[j] == '{' {
 						depth++
 					} else if src[j] == '}' {
@@ -85,7 +96,18 @@ func TestNoNearTwins(t *testing.T) {
 			return nil
 		})
 	}
-	sawSources(t, len(bodies), 1200, "тел способов")
+	for _, dir := range []string{
+		"unity/Packages/com.lvn.engine/Runtime",
+		"unity/Packages/com.lvn.engine.shell/Runtime",
+		"unity/Packages/com.lvn.engine.services/Runtime",
+	} {
+		collect(dir, ".cs", decl)
+	}
+	for _, dir := range []string{"server", "tools/lvnconv"} {
+		collect(dir, ".go", goDecl)
+	}
+
+	sawSources(t, len(bodies), 1900, "тел способов")
 
 	sets := make([]map[string]int, len(bodies))
 	for i, b := range bodies {
