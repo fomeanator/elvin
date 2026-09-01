@@ -215,50 +215,60 @@ namespace Lvn.UI.Screens
             Lvn.UI.Screens.WardrobeSheet.SectionFocus -= OnWardrobeSection;
             Lvn.UI.Screens.WardrobeSheet.SectionFocus += OnWardrobeSection;
 
-            // СЦЕНА МЕНЮ НЕ ЗАВИСИТ ОТ МУЗЫКИ. Весь этот блок — витрина,
-            // панорама полотна, переход в главу — стоял ВНУТРИ «если у меню есть
-            // трек»: новелла без музыки оставалась без сцены меню и без
-            // перехода вовсе, а связи между этими вещами нет никакой.
-            {
-                _shell.OnMenuVisible -= ShowMenuScene;
-                _shell.OnMenuVisible += ShowMenuScene; // сцена меню по факту показа хаба
-                _shell.OnTabTravel = PanMenuScene;     // полотно панорамирует с вкладками
-                _shell.OnTabTravelTick = k =>          // …кадр в кадр с UI
-                {
-                    if (_chapterPlaying || Stage == null
-                        || !Stage.ShowsBackdrop(_manifest?.ui?.browse?.canvas)) return;
-                    Stage.SetBackgroundPan(Mathf.Lerp(_menuPanFrom, _menuPanTo, k));
-                };
-                // Смена наряда в гардеробе не должна ронять фон (живой скрин:
-                // Equip стирал полотно) — пере-ставим сцену меню следом.
-                // …БЕЗ ВРАТ: смена наряда — пересборка куклы, а не приход в
-                // меню. Со створом это выглядело так, будто каждая юбка
-                // открывает портал (живой репорт 28.08).
-                // Через поводок, как две подписки выше. Здесь стояла безымянная
-                // лямбда — отписаться от неё нельзя вовсе, и правило «подписался
-                // — умей отпустить» держалось у двух соседей из трёх.
-                System.Action<string> onWardrobe =
-                    _ => { if (!_chapterPlaying) ShowMenuScene(withPortal: false); };
-                _leash.Hold(() => Lvn.UI.LvnWardrobe.Changed += onWardrobe,
-                            () => Lvn.UI.LvnWardrobe.Changed -= onWardrobe);
-                // Сцена перехода: панель ведёт экран, створ и героиню — хост.
-                _shell.OnPortalEnter = EnterPortalAsync;
-                // РЕЖИМ ОБЪЯВЛЯЕТ ОБОЛОЧКА, а не хост: она владеет сессией
-                // главы и уже говорит об этом Режиссёру. Здесь стоял второй
-                // такой же вызов — оба идемпотентны, поэтому дубль не ломался,
-                // но «кто объявляет режим» имело два ответа, а это ровно то,
-                // от чего роль Режиссёра и заводилась.
-                _shell.OnChapterSessionStart += () => { _menuMusic?.Pause(); HideMenuSceneActor(); };
-                _shell.OnChapterSessionEnd += () =>
-                {
-                    if (_menuMusic != null && _menuMusic.clip != null) _menuMusic.UnPause();
-                };
-            }
+            WireMenuScene();
             var menuTrack = ResolveMenuTrackUrl(manifest);
             if (!string.IsNullOrEmpty(menuTrack)) LvnAsync.Fire(StartMenuMusicAsync(menuTrack), "MenuMusic");
 
             WireBrowse(manifest);
 
+        }
+
+        /// <summary>
+        /// ПОДКЛЮЧИТЬ СЦЕНУ МЕНЮ: живое полотно за витриной, панорама вместе с
+        /// вкладками, наезд камеры на раздел гардероба, уход куклы на время
+        /// главы.
+        ///
+        /// <para>Весь этот блок стоял ВНУТРИ условия «если у меню есть трек»:
+        /// новелла без музыки оставалась без сцены меню и без перехода в главу
+        /// вовсе. Связи между музыкой и сценой нет никакой — и, вынесенная в
+        /// свой метод, она уже не сможет случайно оказаться под чужим
+        /// условием.</para>
+        /// </summary>
+        private void WireMenuScene()
+        {
+            _shell.OnMenuVisible -= ShowMenuScene;
+            _shell.OnMenuVisible += ShowMenuScene; // сцена меню по факту показа хаба
+            _shell.OnTabTravel = PanMenuScene;     // полотно панорамирует с вкладками
+            _shell.OnTabTravelTick = k =>          // …кадр в кадр с UI
+            {
+                if (_chapterPlaying || Stage == null
+                    || !Stage.ShowsBackdrop(_manifest?.ui?.browse?.canvas)) return;
+                Stage.SetBackgroundPan(Mathf.Lerp(_menuPanFrom, _menuPanTo, k));
+            };
+            // Смена наряда в гардеробе не должна ронять фон (живой скрин:
+            // Equip стирал полотно) — пере-ставим сцену меню следом.
+            // …БЕЗ ВРАТ: смена наряда — пересборка куклы, а не приход в
+            // меню. Со створом это выглядело так, будто каждая юбка
+            // открывает портал (живой репорт 28.08).
+            // Через поводок, как две подписки выше. Здесь стояла безымянная
+            // лямбда — отписаться от неё нельзя вовсе, и правило «подписался
+            // — умей отпустить» держалось у двух соседей из трёх.
+            System.Action<string> onWardrobe =
+                _ => { if (!_chapterPlaying) ShowMenuScene(withPortal: false); };
+            _leash.Hold(() => Lvn.UI.LvnWardrobe.Changed += onWardrobe,
+                        () => Lvn.UI.LvnWardrobe.Changed -= onWardrobe);
+            // Сцена перехода: панель ведёт экран, створ и героиню — хост.
+            _shell.OnPortalEnter = EnterPortalAsync;
+            // РЕЖИМ ОБЪЯВЛЯЕТ ОБОЛОЧКА, а не хост: она владеет сессией
+            // главы и уже говорит об этом Режиссёру. Здесь стоял второй
+            // такой же вызов — оба идемпотентны, поэтому дубль не ломался,
+            // но «кто объявляет режим» имело два ответа, а это ровно то,
+            // от чего роль Режиссёра и заводилась.
+            _shell.OnChapterSessionStart += () => { _menuMusic?.Pause(); HideMenuSceneActor(); };
+            _shell.OnChapterSessionEnd += () =>
+            {
+                if (_menuMusic != null && _menuMusic.clip != null) _menuMusic.UnPause();
+            };
         }
 
         /// <summary>
