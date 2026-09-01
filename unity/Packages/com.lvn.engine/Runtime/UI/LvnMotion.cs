@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Threading;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -332,6 +333,42 @@ namespace Lvn.UI
         {
             await Task.Delay(span * 3 + 250);
             tcs.TrySetResult(false);
+        }
+
+        /// <summary>ГАШЕНИЕ, КОТОРОГО МОЖНО ДОЖДАТЬСЯ.
+        ///
+        /// <para><see cref="FadeIn"/> объявляет переход и уходит — так делают
+        /// плитки и надписи, которым никто не ждёт. Экрану же нужно ЗНАТЬ, что
+        /// прозрачность доехала: бут-вуаль передаёт кадр следующему, всплывашка
+        /// не снимается, пока не погасла. Отсюда второй вид — по кадру и с
+        /// ожиданием.</para>
+        ///
+        /// <para>Жил он отдельным домом в один глагол (`ScreenFx`) и потому НЕ
+        /// СПРАШИВАЛ ТЕМП: игрок включал «уменьшить движение», плитки начинали
+        /// летать втрое быстрее, а девять экранных гашений оставались прежними.
+        /// Настройка работала наполовину, и половина эта не называлась
+        /// нигде.</para>
+        ///
+        /// <para>Отмена не бросает элемент на полпути: прозрачность ставится
+        /// конечной. Незаконченное гашение оставляет экран полупрозрачным
+        /// навсегда — это хуже, чем резкий, но целый кадр.</para></summary>
+        public static async Task FadeAsync(VisualElement el, float from, float to,
+                                           float seconds, CancellationToken ct)
+        {
+            if (el == null) return;
+            seconds = Sec(seconds);   // темп — общий для всего движения
+            if (seconds <= 0f) { el.style.opacity = to; return; }
+            float t0 = LvnClock.Now();
+            while (true)
+            {
+                if (ct.IsCancellationRequested) { el.style.opacity = to; return; }
+                float t = Mathf.Clamp01(LvnClock.Since(t0) / seconds);
+                t = t * t * (3f - 2f * t); // сглаженный ход: без рывка на концах
+                el.style.opacity = Mathf.Lerp(from, to, t);
+                if (t >= 1f) return;
+                try { await Task.Yield(); }
+                catch (System.OperationCanceledException) { el.style.opacity = to; return; }
+            }
         }
 
         /// <summary>ТОЛЬКО ПРОЯВЛЕНИЕ, без сдвига и пружины (Илья 26.08:
