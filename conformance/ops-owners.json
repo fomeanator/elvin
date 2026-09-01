@@ -10,6 +10,34 @@
     "player+stage": "both: LvnPlayer has an explicit case (it pauses or bails out) AND forwards the command to the stage",
     "shell-op": "registered as a host op with LvnOps.Register inside com.lvn.engine.shell"
   },
+  "browser": {
+    "note": "ВЕБ-ПЛЕЕР — ОБЪЯВЛЕННОЕ ПОДМНОЖЕСТВО, а не второй полный рантайм. Решено 01.09: паритет с движком перестал быть целью. Новая операция НЕ обязана приезжать в браузер — обязана лишь не ломать его.",
+    "interprets": [
+      "actor",
+      "audio",
+      "bg",
+      "call",
+      "choice",
+      "clear",
+      "dim",
+      "fade",
+      "goto",
+      "if",
+      "inc",
+      "input",
+      "label",
+      "obj",
+      "return",
+      "say",
+      "set",
+      "text",
+      "tint",
+      "track",
+      "wait"
+    ],
+    "forwards": "Всё, что не названо выше, плеер отдаёт рендереру как есть (ветка default в Player.step) и не толкует. Строка `js` у случая значит «плеер не давится», а не «плеер это рисует»: требовать второго — и есть тот самый паритет, от которого отказались.",
+    "blind": "ИЗВЕСТНАЯ СЛЕПОТА: браузерный прогон (browser-runner.mjs) сверяет только остановки, переменные и выражения. Блок `expect.scene` он НЕ смотрит вовсе — сценический случай с `js` проходит, ничего про сцену не проверив. Записано, а не починено, нарочно: достраивать проверку — вложение в замороженный рантайм."
+  },
   "ops": {
     "say": {
       "owner": "engine",

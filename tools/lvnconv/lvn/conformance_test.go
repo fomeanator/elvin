@@ -35,7 +35,13 @@ type opOwner struct {
 }
 
 type ownersFile struct {
-	Ops map[string]opOwner `json:"ops"`
+	Ops     map[string]opOwner `json:"ops"`
+	Browser struct {
+		Note       string   `json:"note"`
+		Interprets []string `json:"interprets"`
+		Forwards   string   `json:"forwards"`
+		Blind      string   `json:"blind"`
+	} `json:"browser"`
 }
 
 // repoRoot walks up from the package directory until it finds the conformance
@@ -578,6 +584,63 @@ func TestEveryOpIsCoveredOrExcusedInWriting(t *testing.T) {
 			"ops-owners.json строку note с причиной. Непроверенный оп, о "+
 			"котором корпус молчит, выглядит точно так же, как проверенный.",
 			len(mute), strings.Join(mute, "\n  "))
+	}
+}
+
+// ВЕБ-ПЛЕЕР — ОБЪЯВЛЕННОЕ ПОДМНОЖЕСТВО, И СПИСОК НЕ ГНИЁТ.
+//
+// Решение 01.09: паритет веб-плеера с движком перестал быть целью. Он остаётся
+// песочницей и одностраничным экспортом — путём «визитка → playground → джем»,
+// — но новая операция НЕ обязана туда приезжать.
+//
+// Отказ от паритета работает только пока подмножество ОБЪЯВЛЕНО. Иначе выходит
+// худшее из двух: обязательства нет, и знания о том, что умеет плеер, тоже
+// нет, — и первый же вопрос «а это в браузере работает?» снова превращается в
+// чтение исходников.
+//
+// Страж держит список честным в одну сторону: что объявлено — то и в коде.
+// Обратной стороны НЕТ намеренно: плеер вправе уметь больше молча, а вот
+// обещать несуществующее — нет.
+func TestBrowserSubsetIsDeclaredAndReal(t *testing.T) {
+	owners, root := loadOwners(t)
+	if strings.TrimSpace(owners.Browser.Note) == "" || strings.TrimSpace(owners.Browser.Forwards) == "" {
+		t.Fatal("блок browser в ops-owners.json пуст — подмножество должно быть объявлено словами, " +
+			"иначе отказ от паритета превращается в отказ от знания")
+	}
+	sawSources(t, len(owners.Browser.Interprets), 15, "операций в объявленном подмножестве")
+
+	var src strings.Builder
+	dir := filepath.Join(root, "panel", "public", "play")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("исходники веб-плеера не читаются: %v", err)
+	}
+	files := 0
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".js") {
+			continue
+		}
+		files++
+		src.Write(mustRead(t, filepath.Join(dir, e.Name())))
+	}
+	sawSources(t, files, 3, "файлов веб-плеера")
+	body := src.String()
+
+	var lying []string
+	for _, op := range owners.Browser.Interprets {
+		if !strings.Contains(body, `"`+op+`"`) {
+			lying = append(lying, op)
+		}
+		if _, known := owners.Ops[op]; !known {
+			lying = append(lying, op+" (нет такого опа вовсе)")
+		}
+	}
+	sort.Strings(lying)
+	if len(lying) > 0 {
+		t.Errorf("подмножество обещает то, чего в плеере нет: %s\n\n"+
+			"Список в ops-owners.json.browser.interprets — это обещание. "+
+			"Убрали разбор — уберите и строку, иначе обещание переживёт код.",
+			strings.Join(lying, ", "))
 	}
 }
 
