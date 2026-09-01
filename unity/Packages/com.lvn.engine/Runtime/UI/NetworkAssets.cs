@@ -86,7 +86,7 @@ namespace Lvn.UI
                 var op = request.SendWebRequest();
                 // Ждёт дом: он же обрывает запрос по молчанию — здесь висели до
                 // срока UnityWebRequest, а он про весь ответ, не про застой.
-                if (!await Lvn.Content.LvnNetWait.AwaitAsync(request, op, ct))
+                if (!await Lvn.LvnNetWait.AwaitAsync(request, op, ct))
                     ct.ThrowIfCancellationRequested();
 
                 if (request.result != UnityWebRequest.Result.Success) return null;
@@ -136,7 +136,7 @@ namespace Lvn.UI
                 var op = request.SendWebRequest();
                 // Ждёт дом: он же обрывает запрос по молчанию — здесь висели до
                 // срока UnityWebRequest, а он про весь ответ, не про застой.
-                if (!await Lvn.Content.LvnNetWait.AwaitAsync(request, op, ct))
+                if (!await Lvn.LvnNetWait.AwaitAsync(request, op, ct))
                     ct.ThrowIfCancellationRequested();
 
                 if (request.result != UnityWebRequest.Result.Success) return null;

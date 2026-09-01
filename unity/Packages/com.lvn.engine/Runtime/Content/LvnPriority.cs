@@ -1,0 +1,114 @@
+using System.Collections.Generic;
+
+namespace Lvn.Content
+{
+    /// <summary>
+    /// ЧТО КАЧАТЬ РАНЬШЕ — одна лестница на весь движок.
+    ///
+    /// <para>Правило порядка было размазано по четырём местам, и каждое знало
+    /// свою половину: класс ассета (<c>DownloadPolicy.NeededAtBoot</c>),
+    /// «что рисует первый кадр» (<c>NeededForFirstFrame</c>), расписание главы
+    /// с критичными файлами (<c>AssetScheduler</c>) и гейты фонового прогрева.
+    /// Пока порядок не назван вслух, «положить в очередь» звучит как решение —
+    /// а это только половина: очередь без порядка ЗАБИВАЕТСЯ, и первым не
+    /// доезжает как раз то, чего игрок ждёт.</para>
+    ///
+    /// <para>Живой случай 01.09: прогрев каста (все позы всех героинь) встал в
+    /// ту же очередь, что и глава ноль. Формально всё «в фоне», а на деле
+    /// агент и фавориты вводной не доезжали — их арт оказался за спиной у
+    /// сотни картинок, которых никто не ждал.</para>
+    ///
+    /// <para><b>Лестница.</b> Ниже ступень — позже очередь.</para>
+    /// </summary>
+    public enum LvnRung
+    {
+        /// <summary>Ждёт ПОВЕРХНОСТЬ прямо сейчас: актёр в кадре, фон, который
+        /// проявляется. Всё остальное обязано уступить — игрок смотрит на
+        /// пустое место ровно столько, сколько едет это.</summary>
+        Live = 0,
+
+        /// <summary>ПЕРВЫЙ КАДР текущей главы: её скрипт, её фон и та поза
+        /// актёра, которую покажут первой. Не «весь актёр» — именно первая
+        /// поза: остальные его позы игрок увидит через реплику, минуту или
+        /// никогда.</summary>
+        FirstFrame = 1,
+
+        /// <summary>Остальное ТЕКУЩЕЙ главы — то, что понадобится по ходу.</summary>
+        CurrentChapter = 2,
+
+        /// <summary>ВИТРИНА: обложки, арт карточек, фоны экрана загрузки. Игрок
+        /// увидит их, как только выйдет в меню, — то есть в любую секунду.</summary>
+        Shelf = 3,
+
+        /// <summary>СЛЕДУЮЩАЯ глава: её ждут через несколько минут, но ждут.</summary>
+        NextChapter = 4,
+
+        /// <summary>Остальная библиотека: другие главы, другие новеллы.</summary>
+        Library = 5,
+
+        /// <summary>ОБЛИК ПРО ЗАПАС: позы и наряды, которых сюжет пока не
+        /// просил. Их качают последними и только когда не мешают: гардероб
+        /// открывают из меню, но открывают его не в первую минуту после
+        /// установки.</summary>
+        Spare = 6,
+    }
+
+    /// <summary>Кто на какой ступени. Ответ один на всех, кто наполняет
+    /// очередь: расписание главы, фоновый прогрев, центр загрузок.</summary>
+    public static class LvnPriority
+    {
+        /// <summary>Ступень части главы: критичное — первый кадр, прочее —
+        /// по ходу главы. «Критичность» ставит АВТОР в манифесте, и это
+        /// правильно: движок не знает, какая поза откроет сцену.</summary>
+        public static LvnRung OfChapterPart(LvnPart part, bool current)
+        {
+            if (part.Critical) return current ? LvnRung.FirstFrame : LvnRung.NextChapter;
+            return current ? LvnRung.CurrentChapter : LvnRung.NextChapter;
+        }
+
+        /// <summary>
+        /// Ступень по КЛАССУ ассета — для того, что не принадлежит главе:
+        /// обложки, арт карточек, огранка интерфейса.
+        ///
+        /// <para>Правило «что нужно на подъёме» уже жило у
+        /// <c>DownloadPolicy.NeededAtBoot</c> и отвечало «да/нет». Ответ
+        /// «да/нет» — это лестница из двух ступеней, и её не хватило, как
+        /// только ступеней стало семь: «нужно вскоре» и «нужно первым» — разные
+        /// вещи, и путать их значит качать обложку раньше кадра, который игрок
+        /// уже видит пустым.</para>
+        /// </summary>
+        public static LvnRung OfClass(AssetClass cls)
+        {
+            switch (cls)
+            {
+                case AssetClass.Ui:        return LvnRung.Shelf;
+                case AssetClass.Cover:     return LvnRung.Shelf;
+                case AssetClass.ChapterBg: return LvnRung.Shelf;
+                case AssetClass.Script:    return LvnRung.CurrentChapter;
+                case AssetClass.SceneBg:   return LvnRung.CurrentChapter;
+                case AssetClass.Actor:     return LvnRung.Spare;
+                default:                   return LvnRung.Library;
+            }
+        }
+
+        /// <summary>Ступень по адресу — тот же ответ, когда класс не посчитан.</summary>
+        public static LvnRung OfUrl(string url) => OfClass(DownloadPolicy.Classify(url));
+
+        /// <summary>Разложить части по ступеням: сперва ступень, внутри ступени
+        /// — как пришло. Порядок внутри ступени НЕ выдумывается: автор
+        /// перечислил ассеты в том порядке, в каком они нужны сцене.</summary>
+        public static IEnumerable<T> ByRung<T>(IEnumerable<T> parts, System.Func<T, LvnRung> rung)
+        {
+            var buckets = new SortedDictionary<LvnRung, List<T>>();
+            foreach (var p in parts)
+            {
+                var r = rung(p);
+                if (!buckets.TryGetValue(r, out var list)) buckets[r] = list = new List<T>();
+                list.Add(p);
+            }
+            foreach (var kv in buckets)
+                foreach (var p in kv.Value)
+                    yield return p;
+        }
+    }
+}
