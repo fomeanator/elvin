@@ -505,14 +505,7 @@ namespace Lvn.Tests
         /// переход. Живого тапа в EditMode нет: события разносит панель, а
         /// панели здесь нет вовсе, поэтому спрашиваем саму кнопку, к чему она
         /// приведёт. Null — не подписан никто.</summary>
-        private static System.Action Handler(Button b)
-        {
-            Assert.NotNull(b, "кнопки нет на экране");
-            foreach (var f in typeof(Clickable).GetFields(
-                         BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public))
-                if (f.GetValue(b.clickable) is System.Action a) return a;
-            return null;
-        }
+        private static System.Action Handler(Button b) => Нажатие.Обработчик(b);
 
         [Test]
         public void НажатиеПоКнопкеВедётПоМеткеАвтора()

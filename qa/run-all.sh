@@ -95,11 +95,16 @@ fi
 # кроме игнорируемого) стоит две секунды и тридцать шесть мегабайт. Стражи
 # ищут корень сами, вверх по дереву от своего файла, — в снимке они находят
 # снимок и читают согласованное состояние, что бы ни делали снаружи.
+#
+# quotePath=false обязателен: по умолчанию git ЭКРАНИРУЕТ не-ASCII имена
+# ("\320\236\320\264…"), rsync такого файла не находит, и снимок молча не
+# выходит — прогон продолжается по живому дереву, то есть ровно без той защиты,
+# ради которой заведён. Поймано 02.09 первым же файлом с кириллицей в имени.
 GO_ROOT="$REPO_ROOT"
 if command -v go >/dev/null 2>&1 && command -v rsync >/dev/null 2>&1; then
   GO_SNAP="$(mktemp -d)/repo"
   if mkdir -p "$GO_SNAP" \
-     && (cd "$REPO_ROOT" && git ls-files -c -o --exclude-standard 2>/dev/null > "$GO_SNAP/../files.txt") \
+     && (cd "$REPO_ROOT" && git -c core.quotePath=false ls-files -c -o --exclude-standard 2>/dev/null > "$GO_SNAP/../files.txt") \
      && [ -s "$GO_SNAP/../files.txt" ] \
      && rsync -a --files-from="$GO_SNAP/../files.txt" "$REPO_ROOT/" "$GO_SNAP" 2>/dev/null; then
     GO_ROOT="$GO_SNAP"

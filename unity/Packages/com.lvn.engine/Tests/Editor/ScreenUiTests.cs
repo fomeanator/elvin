@@ -55,17 +55,9 @@ namespace Lvn.Tests
 
         // ── кнопка «назад» ──────────────────────────────────────────────────
 
-        /// <summary>К чему приведёт нажатие. Живого тапа в EditMode нет —
-        /// события разносит панель, а панели здесь нет, — поэтому спрашиваем
-        /// саму кнопку. Null значит «не подписан никто».</summary>
-        private static System.Action Обработчик(Button b)
-        {
-            Assert.NotNull(b, "кнопки нет");
-            foreach (var f in typeof(Clickable).GetFields(
-                         BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public))
-                if (f.GetValue(b.clickable) is System.Action a) return a;
-            return null;
-        }
+        /// <summary>К чему приведёт нажатие — вопрос к дому
+        /// (<see cref="Нажатие"/>): приём один на четыре файла.</summary>
+        private static System.Action Обработчик(Button b) => Нажатие.Обработчик(b);
 
         [Test]
         public void КнопкаНазадВозвращаетсяЗвонящемуДляДонастройки()
