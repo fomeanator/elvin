@@ -96,6 +96,30 @@ export function LoadState({ loading, error, empty, emptyText, children }) {
 // Facet: the spec's dashed "+ filter" button with a checkbox popover. Options
 // carry live counts; picked values render as badges inside the button after a
 // separator. Click-outside and Esc close the popover; «Сбросить» clears.
+// ПЛИТКА ПОКАЗАТЕЛЯ — крупное число и подпись под ним.
+//
+// Роль стояла тремя копиями под двумя именами: «Stat» в аналитике (с тоном),
+// «Stat» в обратной связи (без тона) и «Kpi» на сводке (кнопкой). Различия
+// настоящие, но их ровно два — тон и нажимаемость, — а вёрстка одна.
+//
+// Копии успели разойтись именно там, где это заметно глазом: плитка-кнопка и
+// плитка-табличка выглядели по-разному в одном ряду, потому что у кнопки браузер
+// свои поля и шрифт. Здесь обе идут через один класс.
+export function Kpi({ label, value, tone, onClick }) {
+  const cls = "adm-kpi" + (onClick ? "" : " as-stat") + (tone ? " " + tone : "");
+  const body = (
+    <>
+      <span className="adm-kpi-value">{value}</span>
+      <span className="adm-kpi-label">{label}</span>
+    </>
+  );
+  // Нажимаемая плитка — КНОПКА, а не div с обработчиком: иначе до неё не
+  // добраться с клавиатуры и её не объявит экранный диктор.
+  return onClick
+    ? <button className={cls} onClick={onClick}>{body}</button>
+    : <div className={cls}>{body}</div>;
+}
+
 export function Facet({ label, options, selected, onChange }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);

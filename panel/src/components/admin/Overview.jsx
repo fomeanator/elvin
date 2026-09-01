@@ -1,6 +1,6 @@
 import { adminUsers, adminOrders, adminAnalytics, adminFiles } from "../../lib/api.js";
 import { useAsync, fmt, dt } from "../adminShared.jsx";
-import { Page, LoadState, Empty } from "./ui.jsx";
+import { Page, LoadState, Empty, Kpi } from "./ui.jsx";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -102,11 +102,3 @@ export default function Overview({ token, onNav, pending }) {
   );
 }
 
-function Kpi({ label, value, onClick }) {
-  return (
-    <button className="adm-kpi" onClick={onClick}>
-      <span className="adm-kpi-value">{value}</span>
-      <span className="adm-kpi-label">{label}</span>
-    </button>
-  );
-}
