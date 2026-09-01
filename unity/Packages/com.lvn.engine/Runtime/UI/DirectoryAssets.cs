@@ -23,17 +23,14 @@ namespace Lvn.UI
         private readonly Dictionary<string, AudioClip> _audioCache = new Dictionary<string, AudioClip>();
 
         /// <summary>Url prefix stripped before mapping to a file (default "/content").</summary>
-        public string ContentPrefix = "/content";
+        public string ContentPrefix = LvnAssetPath.ContentPrefix;
 
         public DirectoryAssets(string baseDir) => _base = baseDir;
 
         private string PathFor(string url)
         {
-            if (string.IsNullOrEmpty(url)) return null;
-            var rel = url;
-            if (!string.IsNullOrEmpty(ContentPrefix) && rel.StartsWith(ContentPrefix))
-                rel = rel.Substring(ContentPrefix.Length);
-            return Path.Combine(_base, rel.TrimStart('/'));
+            var rel = LvnAssetPath.Relative(url, ContentPrefix);
+            return rel == null ? null : Path.Combine(_base, rel);
         }
 
         public async Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct)
