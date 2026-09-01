@@ -20,6 +20,7 @@ import (
 // 60 рядом с форматированием. Внутри дома это работа, снаружи — вторая копия
 // правила, которая разойдётся с первой молча.
 func TestDurationFormattingHasOneHome(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 
 	// Своё: арифметика времени, не подпись. Каждая строка — с причиной.
@@ -42,6 +43,7 @@ func TestDurationFormattingHasOneHome(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return err
 			}
+			scanned++
 			base := filepath.Base(path)
 			if _, ok := allowed[base]; ok {
 				return nil
@@ -73,6 +75,8 @@ func TestDurationFormattingHasOneHome(t *testing.T) {
 	}
 
 	sort.Strings(found)
+	atLeast(t, scanned, 60, "просмотренных файлов")
+
 	if len(found) > 0 {
 		t.Fatalf("секунды переводят в подпись мимо дома: %s\n"+
 			"возьмите LvnTimeWords.Clock/Coarse/Ago/Stamp — вид выбирает экран, "+

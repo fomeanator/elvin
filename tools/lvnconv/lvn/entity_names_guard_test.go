@@ -25,6 +25,7 @@ import (
 // Страж смотрит на «.name ??» — конструкцию «авторское имя, иначе id», ровно
 // ту, которой обходят словарь.
 func TestEntityNamesGoThroughTheDictionary(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 
 	// Имена, которые словарю не принадлежат.
@@ -46,6 +47,7 @@ func TestEntityNamesGoThroughTheDictionary(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return err
 			}
+			scanned++
 			base := filepath.Base(path)
 			if _, ok := allowed[base]; ok {
 				return nil
@@ -67,6 +69,8 @@ func TestEntityNamesGoThroughTheDictionary(t *testing.T) {
 	}
 
 	sort.Strings(found)
+	atLeast(t, scanned, 60, "просмотренных файлов")
+
 	if len(found) > 0 {
 		t.Fatalf("имя сущности берётся мимо словаря: %s\n"+
 			"спросите его у дома: LvnWords.Name(\"title\"|\"collection\"|\"actor\"|\"skin\"|\"cg\", id, авторское) — "+

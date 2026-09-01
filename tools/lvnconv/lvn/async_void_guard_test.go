@@ -20,6 +20,7 @@ import (
 // который сам ловит своё исключение и восстанавливается. Оба обязаны нести
 // внутри try.
 func TestBackgroundWorkGoesThroughFire(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 	allowed := map[string]string{
 		"unity/Packages/com.lvn.engine.shell/Runtime/NovelApp.Boot.cs": "Start",           // точка входа Unity
@@ -35,6 +36,7 @@ func TestBackgroundWorkGoesThroughFire(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return err
 			}
+			scanned++
 			b, err := os.ReadFile(path)
 			if err != nil {
 				return err
@@ -63,6 +65,8 @@ func TestBackgroundWorkGoesThroughFire(t *testing.T) {
 			t.Fatalf("обход %s: %v", pkg, err)
 		}
 	}
+	atLeast(t, scanned, 60, "просмотренных файлов")
+
 	if len(strays) > 0 {
 		t.Fatalf("фоновая работа запущена мимо Fire:\n  %s\n\nСделайте тело `async Task` и зовите"+
 			" LvnAsync.Fire(ЧтоТоAsync(), \"имя\"): упавший `async void` уносит с собой и лог, и всё,"+

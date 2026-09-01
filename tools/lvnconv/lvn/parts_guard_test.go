@@ -567,9 +567,9 @@ func TestFileKindHasOneAnswer(t *testing.T) {
 	root := repoRoot(t)
 	// Явные исключения — они отвечают на ДРУГОЙ вопрос, а не на «что это за файл».
 	allowed := map[string]string{
-		"DownloadPolicy.cs": "сам определитель",
-		"DirectoryAssets.cs": "каким декодером читать звук (AudioType), а не какого файл рода",
-		"VnStage.Spine.cs":   "разбор атласа Spine: страницы перечислены внутри файла",
+		"DownloadPolicy.cs":    "сам определитель",
+		"DirectoryAssets.cs":   "каким декодером читать звук (AudioType), а не какого файл рода",
+		"VnStage.Spine.cs":     "разбор атласа Spine: страницы перечислены внутри файла",
 		"LvnSpineBootstrap.cs": "то же — страницы атласа",
 	}
 	sniff := regexp.MustCompile(`EndsWith\("\.(lvn|png|jpg|jpeg|webp|ogg|wav|mp3)"`)
