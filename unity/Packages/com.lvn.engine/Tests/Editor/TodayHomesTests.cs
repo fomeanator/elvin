@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using Lvn;
 using Lvn.UI;
+using Lvn.Content;
 
 namespace Lvn.Tests
 {
@@ -170,6 +171,34 @@ namespace Lvn.Tests
             var d = track[0].style.transitionDuration;
             Assert.IsTrue(d.keyword == StyleKeyword.Null || d.value == null || d.value.Count == 0,
                 "шкала рождается без перехода — как ходить, решает вызывающий");
+        }
+
+        // ── Совет устройства ────────────────────────────────────────────────
+
+        [Test]
+        public void СоветУстройстваОдинИзТрёхСтупенейИНеМеняется()
+        {
+            var a = LvnDeviceProfile.RecommendedArtQuality();
+            CollectionAssert.Contains(new[] { "2k", "1440", "1k" }, a,
+                "ступень не из словаря даст адрес, которого сервер не собирал");
+            Assert.AreEqual(a, LvnDeviceProfile.RecommendedArtQuality(),
+                "совет обязан быть запомненным: Screen и SystemInfo отдаёт "
+                + "только главный поток, а адреса строит и фон");
+        }
+
+        [Test]
+        public void БоксКачестваБезПрисваиванияРавенСовету()
+        {
+            var was = DownloadPolicy.PreferredSuffix;
+            DownloadPolicy.PreferredSuffix = null;
+            try
+            {
+                Assert.AreEqual(DownloadPolicy.SuffixFor(LvnDeviceProfile.RecommendedArtQuality()),
+                                DownloadPolicy.PreferredSuffix,
+                    "иначе прогрев и показ берут разные файлы — так 01.09 "
+                    + "картинка ехала дважды, второй раз растром");
+            }
+            finally { DownloadPolicy.PreferredSuffix = was; }
         }
     }
 }
