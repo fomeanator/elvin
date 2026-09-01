@@ -130,43 +130,9 @@ namespace Lvn.UI.Screens
                 Lvn.LvnOps.Awaiting(ctx, () => _shell.OpenSettingsAsync(), "OpenSettingsFromScript");
             });
 
-            // The long-press art view hides the stage's chrome; mirror it onto the
-            // shell HUD (a separate UIDocument) so the WHOLE screen is just the scene.
-            Stage.ChromeHiddenChanged += hidden =>
-            {
-                if (_shell?.Hud != null)
-                    _shell.Hud.style.visibility = hidden
-                        ? UnityEngine.UIElements.Visibility.Hidden
-                        : UnityEngine.UIElements.Visibility.Visible;
-            };
+            MirrorStageChromeToHud();
 
-            // ui.hud.mode == "choices": corner-minimal reading — the HUD stays off
-            // the reading surface and surfaces exactly while a choice is up (the
-            // one moment costs and balances matter). Chapter end hides it again
-            // via the shell's normal Hide(Hud).
-            if (_shell.HudChoicesOnly)
-                Stage.ChoicesVisibleChanged += visible =>
-                {
-                    if (_shell?.Hud != null)
-                        _shell.Hud.style.display = visible
-                            ? UnityEngine.UIElements.DisplayStyle.Flex
-                            : UnityEngine.UIElements.DisplayStyle.None;
-                };
-
-            // Live content sync — poll the version endpoint; reload on change.
-            if (SyncInterval > 0f)
-            {
-                _sync = new ContentSync(_assets.Loader)
-                {
-                    IntervalSeconds = SyncInterval,
-                    // Reconcile once immediately after the long boot. Without this,
-                    // an edit made after the chapter fetch but before ContentSync
-                    // starts becomes the first baseline and is never hot-reloaded.
-                    NotifyOnFirstPoll = true,
-                };
-                _sync.OnChanged += OnContentChanged;
-                _sync.Start();
-            }
+            StartContentSync();
 
             // МУЗЫКА МЕНЮ (ui.browse.music): играет везде, кроме самой новеллы.
             // Глушится хуками сессии главы — воронка, стартующая с порога,
@@ -221,6 +187,65 @@ namespace Lvn.UI.Screens
 
             WireBrowse(manifest);
 
+        }
+
+        /// <summary>
+        /// ЗЕРКАЛО: HUD ОБОЛОЧКИ ПОВТОРЯЕТ РЕШЕНИЯ СЦЕНЫ.
+        ///
+        /// <para>Экран один, а документов два: сцена рисует свой, оболочка —
+        /// свой, поверх. Поэтому «сцена спрятала хром» само по себе ничего не
+        /// делает с HUD: он живёт в другом документе и остаётся на месте. Долгий
+        /// тап по картинке прятал сцену и оставлял поверх неё панель — вместо
+        /// чистого кадра получалась картинка с интерфейсом.</para>
+        ///
+        /// <para>Второе зеркало — режим «только выборы»: HUD не занимает
+        /// поверхность чтения и всплывает ровно на время выбора, когда цены и
+        /// балансы и вправду нужны.</para>
+        /// </summary>
+        private void MirrorStageChromeToHud()
+        {
+            // shell HUD (a separate UIDocument) so the WHOLE screen is just the scene.
+            Stage.ChromeHiddenChanged += hidden =>
+            {
+                if (_shell?.Hud != null)
+                    _shell.Hud.style.visibility = hidden
+                        ? UnityEngine.UIElements.Visibility.Hidden
+                        : UnityEngine.UIElements.Visibility.Visible;
+            };
+
+            // ui.hud.mode == "choices": corner-minimal reading — the HUD stays off
+            // the reading surface and surfaces exactly while a choice is up (the
+            // one moment costs and balances matter). Chapter end hides it again
+            // via the shell's normal Hide(Hud).
+            if (_shell.HudChoicesOnly)
+                Stage.ChoicesVisibleChanged += visible =>
+                {
+                    if (_shell?.Hud != null)
+                        _shell.Hud.style.display = visible
+                            ? UnityEngine.UIElements.DisplayStyle.Flex
+                            : UnityEngine.UIElements.DisplayStyle.None;
+                };
+        }
+
+        /// <summary>
+        /// ЖИВОЙ КОНТЕНТ: опрос версии и перезагрузка на изменение — чтобы
+        /// правка автора доезжала до открытой игры без перезапуска.
+        /// </summary>
+        private void StartContentSync()
+        {
+            if (SyncInterval > 0f)
+            {
+                _sync = new ContentSync(_assets.Loader)
+                {
+                    IntervalSeconds = SyncInterval,
+                    // Reconcile once immediately after the long boot. Without this,
+                    // an edit made after the chapter fetch but before ContentSync
+                    // starts becomes the first baseline and is never hot-reloaded.
+                    NotifyOnFirstPoll = true,
+                };
+                _sync.OnChanged += OnContentChanged;
+                _sync.Start();
+            }
         }
 
         /// <summary>
