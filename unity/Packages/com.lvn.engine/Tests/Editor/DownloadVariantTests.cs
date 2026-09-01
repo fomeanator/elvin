@@ -135,5 +135,27 @@ namespace Lvn.Tests
             Assert.Greater(DownloadPolicy.UnknownSizeBytes, 0);
             Assert.Less(DownloadPolicy.UnknownSizeBytes, 1L << 20);
         }
+    
+        // УМОЛЧАНИЕ БОКСА — СОВЕТ УСТРОЙСТВА, А НЕ КОНСТАНТА.
+        //
+        // Прогрев витрины спрашивает адрес РАНЬШЕ, чем оболочка успевает
+        // присвоить ступень. Пока умолчанием была константа «@2k», прогрев и
+        // показ на устройстве полосы 1440 брали РАЗНЫЕ файлы: прогрев грел то,
+        // чего показ не просил, а показ платил полную цену растра.
+        [Test]
+        public void DefaultBoxFollowsTheDeviceNotAConstant()
+        {
+            var was = DownloadPolicy.PreferredSuffix;
+            DownloadPolicy.PreferredSuffix = null;   // как на самом старте
+            try
+            {
+                var expected = DownloadPolicy.SuffixFor(Lvn.LvnDeviceProfile.RecommendedArtQuality());
+                StringAssert.EndsWith(expected + ".png",
+                    DownloadPolicy.DownscaleVariant("/sprites/hill/body_west.png"),
+                    "без присваивания бокс обязан совпадать с советом устройства — " +
+                    "иначе прогрев и показ берут разные файлы");
+            }
+            finally { DownloadPolicy.PreferredSuffix = was; }
+        }
     }
 }
