@@ -95,8 +95,7 @@ namespace Lvn.UI.Screens
         {
             var card = new VisualElement();
             card.style.backgroundColor = LvnTokens.Faint;
-            LvnChrome.Edge(card); // тонкий бордер токеном — карточка, не пятно
-            LvnChrome.Round(card, LvnTokens.Radius);
+            LvnChrome.Edged(card, LvnTokens.Radius); // кромка + скругление: карточка, не пятно
             LvnAir.Pad(card, LvnTokens.Space2);
             card.style.marginBottom = LvnTokens.Space2;
             return card;

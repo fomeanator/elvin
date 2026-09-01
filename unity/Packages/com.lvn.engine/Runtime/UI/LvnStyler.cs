@@ -282,6 +282,77 @@ namespace Lvn.UI
             return el;
         }
 
+        /// <summary>ШКАЛА ЦЕЛИКОМ: дорожка с заливкой внутри.
+        ///
+        /// <para>Собиралась вручную в трёх экранах и в слое живых значений —
+        /// четыре копии одной вёрстки. Копии уже разъехались: профиль писал
+        /// высоту заливки ЧИСЛОМ (<c>fill.style.height = 16</c>), статы —
+        /// процентом; при смене высоты дорожки первый вариант молча оставил бы
+        /// заливку прежней.</para>
+        ///
+        /// <para>Здесь же названы два правила, которые вызывающие держали в
+        /// уме: <b>радиус заливки — половина высоты</b> (иначе её углы не
+        /// совпадают с дорожкой) и <b>заливка занимает дорожку по высоте</b>.
+        /// Оба выводятся из одной величины, и делить её пополам вручную больше
+        /// не нужно.</para>
+        ///
+        /// <para>Заливка — первый ребёнок дорожки: на это уже опирается слой
+        /// живых значений, и <see cref="BarSet"/> обновляет её оттуда же.</para>
+        /// </summary>
+        public static VisualElement Bar(float height, float frac = 0f,
+                                        Color? tone = null, Color? tint = null)
+        {
+            var track = Track(new VisualElement(), height, tone);
+            var fill = Fill(new VisualElement(), height * 0.5f, tint);
+            fill.style.height = Length.Percent(100f);
+            track.Add(fill);
+            BarSet(track, frac);
+            return track;
+        }
+
+        /// <summary>Подвинуть шкалу: заливка — первый ребёнок дорожки.</summary>
+        public static void BarSet(VisualElement track, float frac)
+        {
+            if (track == null || track.childCount == 0) return;
+            FillTo(track[0], frac);
+        }
+
+        /// <summary>ПОЛОСА РАСТЁТ, А НЕ ПЕРЕПРЫГИВАЕТ.
+        ///
+        /// <para>Заполнение ставили присваиванием ширины: данные приходят раз в
+        /// треть секунды, и полоса дёргалась ступеньками — на глаз это читается
+        /// как подвисание, а не как ход. Здесь она доезжает до новой доли за
+        /// один короткий ход, поэтому движение непрерывно даже на редких
+        /// данных.</para>
+        ///
+        /// <para>Назад — БЕЗ анимации: откат (сменилась глава, пересчитали
+        /// знаменатель) не событие для глаза, а поправка учёта; ползти назад
+        /// значило бы показывать несуществующее «разгружается».</para>
+        ///
+        /// <para>Правило жило в оболочке (<c>ScreenUi.SetFill</c>), пока шкалу
+        /// собирали руками в четырёх местах. Оно принадлежит шкале: экран,
+        /// который её показывает, не обязан знать, как она ходит.</para>
+        /// </summary>
+        public static void FillTo(VisualElement fill, float frac)
+        {
+            if (fill == null) return;
+            frac = Mathf.Clamp01(frac);
+            // Откуда ехать: у ВЫСТАВЛЕННОЙ доли ключевое слово Undefined (Null
+            // значит «свойство не трогали»). Перепутать их значит каждый раз
+            // начинать ход от нуля — полоса дёргалась бы к началу на каждом
+            // обновлении.
+            var w = fill.style.width;
+            float now = w.keyword == StyleKeyword.Undefined && w.value.unit == LengthUnit.Percent
+                ? Mathf.Clamp01(w.value.value / 100f) : 0f;
+            if (frac <= now + 0.0005f)   // назад и на месте — сразу
+            {
+                fill.style.width = new Length(frac * 100f, LengthUnit.Percent);
+                return;
+            }
+            fill.experimental.animation.Start(now, frac, LvnMotion.Ms(LvnMotion.Calm),
+                (e, v) => e.style.width = new Length(v * 100f, LengthUnit.Percent));
+        }
+
         /// <summary>ЗАЛИВКА ШКАЛЫ — пройденная часть. По умолчанию акцент;
         /// <paramref name="tint"/> — для шкал со своим смыслом (золото за
         /// покупку, тревожный тон на исходе). Ширину ставит экран: это

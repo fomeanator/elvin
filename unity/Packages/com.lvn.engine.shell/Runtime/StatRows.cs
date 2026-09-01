@@ -84,13 +84,8 @@ namespace Lvn.UI.Screens
         // Shared 0..1 filled track (an Accent-filled portion over SurfaceHi).
         public static VisualElement Meter(float frac)
         {
-            var track = LvnStyler.Track(new VisualElement(), 12f, LvnTokens.SurfaceHi);
+            var track = LvnStyler.Bar(12f, (float)frac, LvnTokens.SurfaceHi);
             track.style.flexShrink = 0;
-
-            var fill = LvnStyler.Fill(new VisualElement(), 6f);
-            fill.style.height = Length.Percent(100f);
-            fill.style.width = Length.Percent(Mathf.Clamp01(frac) * 100f);
-            track.Add(fill);
             return track;
         }
 

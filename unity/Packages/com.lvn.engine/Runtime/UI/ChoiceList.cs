@@ -190,8 +190,7 @@ namespace Lvn.UI
             // Кромка темы — до радиуса: у технической темы вариант выбора без
             // светящегося контура выпадает из экрана, на котором контур есть у
             // всего остального.
-            LvnChrome.Edge(btn, 0.85f);
-            LvnChrome.Round(btn, _theme.ChoiceCornerRadius);
+            LvnChrome.Edged(btn, _theme.ChoiceCornerRadius, 0.85f);
             btn.style.flexDirection = FlexDirection.Column;
             btn.style.alignItems = Align.Center;
 

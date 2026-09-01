@@ -283,13 +283,7 @@ namespace Lvn.UI.Screens
             int next = XpNext > 0 ? XpNext : 1;
             float frac = Mathf.Clamp01((float)Xp / next);
 
-            var track = LvnStyler.Track(new VisualElement(), 16f, LvnTokens.SurfaceHi);
-            col.Add(track);
-
-            var fill = LvnStyler.Fill(new VisualElement(), 8f);
-            fill.style.height = 16;
-            fill.style.width = Length.Percent(frac * 100f);
-            track.Add(fill);
+            col.Add(LvnStyler.Bar(16f, frac, LvnTokens.SurfaceHi));
 
             var xpLabel = new Label($"{LvnPriceTag.Amount(Xp)} / {LvnPriceTag.Amount(next)} XP");
             xpLabel.style.color = LvnTokens.TextDim;
@@ -423,14 +417,7 @@ namespace Lvn.UI.Screens
             pct.style.unityFontStyleAndWeight = FontStyle.Bold;
             head.Add(pct);
 
-            var track = new VisualElement();
-            LvnStyler.Track(track, 14f, LvnTokens.SurfaceHi);
-            row.Add(track);
-
-            var fill = LvnStyler.Fill(new VisualElement(), 7f);
-            fill.style.height = 14;
-            fill.style.width = Length.Percent(r.Affection * 100f);
-            track.Add(fill);
+            row.Add(LvnStyler.Bar(14f, r.Affection, LvnTokens.SurfaceHi));
 
             return row;
         }

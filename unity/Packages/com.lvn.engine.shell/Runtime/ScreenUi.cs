@@ -253,24 +253,7 @@ namespace Lvn.UI.Screens
         /// значило бы показывать несуществующее «разгружается».</para>
         /// </summary>
         public static void SetFill(VisualElement fill, float frac)
-        {
-            if (fill == null) return;
-            frac = Mathf.Clamp01(frac);
-            // Откуда ехать: у ВЫСТАВЛЕННОЙ доли ключевое слово Undefined (Null
-            // значит «свойство не трогали»). Перепутать их значит каждый раз
-            // начинать ход от нуля — полоса дёргалась бы к началу на каждом
-            // обновлении.
-            var w = fill.style.width;
-            float now = w.keyword == StyleKeyword.Undefined && w.value.unit == LengthUnit.Percent
-                ? Mathf.Clamp01(w.value.value / 100f) : 0f;
-            if (frac <= now + 0.0005f)   // назад и на месте — сразу
-            {
-                fill.style.width = new Length(frac * 100f, LengthUnit.Percent);
-                return;
-            }
-            fill.experimental.animation.Start(now, frac, Lvn.UI.LvnMotion.Ms(Lvn.UI.LvnMotion.Calm),
-                (e, v) => e.style.width = new Length(v * 100f, LengthUnit.Percent));
-        }
+            => Lvn.UI.LvnStyler.FillTo(fill, frac);
 
         /// <summary>
         /// ЗНАЧЕНИЕ, КОТОРОЕ СМЕНИЛОСЬ, — МИГАЕТ.

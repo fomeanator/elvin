@@ -243,8 +243,7 @@ namespace Lvn.UI.Screens
             info.pickingMode = PickingMode.Ignore;
             info.style.marginTop = LvnTokens.Space2;
             info.style.backgroundColor = LvnTokens.Faint;
-            LvnChrome.Edge(info);
-            LvnChrome.Round(info, LvnTokens.Radius);
+            LvnChrome.Edged(info, LvnTokens.Radius);
             LvnAir.PadX(info, LvnTokens.Space2);
             info.style.paddingBottom = LvnTokens.Space1;
             info.style.paddingTop = LvnTokens.Space2;
