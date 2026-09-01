@@ -1,0 +1,91 @@
+{
+  "id": "stage-text-hud",
+  "title": "text reaches the presentation layer verbatim — appearance, update and hide",
+  "why": "`text` is the reactive HUD label: the author names it once and the runtimes keep it on screen, re-evaluating its {expr} template as variables move. It is a staging op, so the interpreter must forward every field untouched — including the `hide` that takes the label away. Дыра была не в коде, а в корпусе: оп жил в словаре, в грамматике и в обоих плеерах, а случая не имел ни одного, и рантаймы были вольны расходиться о нём молча.",
+  "runtimes": [
+    "csharp",
+    "js"
+  ],
+  "doc": {
+    "scene": "conformance",
+    "script": [
+      {
+        "op": "set",
+        "key": "hp",
+        "value": 3
+      },
+      {
+        "op": "text",
+        "id": "hp",
+        "text": "HP: {hp}",
+        "anchor": "top_right",
+        "size": 18
+      },
+      {
+        "op": "say",
+        "text": "Полоса на месте."
+      },
+      {
+        "op": "inc",
+        "key": "hp",
+        "by": 2
+      },
+      {
+        "op": "text",
+        "id": "hp",
+        "color": "#ec5a92"
+      },
+      {
+        "op": "say",
+        "text": "Полоса покраснела."
+      },
+      {
+        "op": "text",
+        "id": "hp",
+        "hide": true
+      },
+      {
+        "op": "say",
+        "text": "Полосы нет."
+      }
+    ]
+  },
+  "expect": {
+    "vars": {
+      "hp": 5
+    },
+    "stops": [
+      {
+        "say": "Полоса на месте."
+      },
+      {
+        "say": "Полоса покраснела."
+      },
+      {
+        "say": "Полосы нет."
+      },
+      {
+        "end": true
+      }
+    ],
+    "stage": [
+      {
+        "op": "text",
+        "id": "hp",
+        "text": "HP: {hp}",
+        "anchor": "top_right",
+        "size": 18
+      },
+      {
+        "op": "text",
+        "id": "hp",
+        "color": "#ec5a92"
+      },
+      {
+        "op": "text",
+        "id": "hp",
+        "hide": true
+      }
+    ]
+  }
+}

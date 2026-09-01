@@ -520,6 +520,63 @@ func TestCorpusCoversTheCoreOps(t *testing.T) {
 	}
 }
 
+// КАЖДЫЙ ОП ЛИБО ПРОВЕРЕН, ЛИБО ПРОПУЩЕН ВСЛУХ.
+//
+// TestCorpusCoversTheCoreOps держит список из четырнадцати имён — пол, ниже
+// которого нельзя. Про остальные двадцать четыре он молчал, и молчание читалось
+// как «покрыто»: корпус показывал зелёное, имея СЕМЬ операций без единого
+// случая. Ровно эту форму README называет тихой дырой у пропущенного `node`:
+// пропуск целого рантайма выглядит так же, как его прохождение.
+//
+// Правило то же, что у владения: пропуск разрешён, НЕЗАЯВЛЕННЫЙ пропуск —
+// нет. У операции без случая обязана быть строка `note`, объясняющая почему:
+// трогает диск, снимает трёхмерную сцену, живёт в оболочке. Тогда новая
+// операция не может тихо приехать без проверки — она обязана либо получить
+// случай, либо назвать причину, и причину эту прочтёт человек.
+func TestEveryOpIsCoveredOrExcusedInWriting(t *testing.T) {
+	owners, root := loadOwners(t)
+	covered := map[string]bool{}
+	entries, err := os.ReadDir(filepath.Join(root, "conformance", "cases"))
+	if err != nil {
+		t.Fatalf("conformance/cases unreadable: %v", err)
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(root, "conformance", "cases", e.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var c confCase
+		if err := json.Unmarshal(data, &c); err != nil {
+			continue // reported by TestConformanceCasesWellFormed
+		}
+		if doc, err := Parse(c.Doc); err == nil {
+			for _, op := range opsUsed(doc) {
+				covered[op] = true
+			}
+		}
+	}
+	sawSources(t, len(covered), 20, "операций в корпусе")
+
+	var mute []string
+	for op, row := range owners.Ops {
+		if covered[op] || strings.TrimSpace(row.Note) != "" {
+			continue
+		}
+		mute = append(mute, op)
+	}
+	sort.Strings(mute)
+	if len(mute) > 0 {
+		t.Errorf("операций без случая и без объяснения: %d\n  %s\n\n"+
+			"Либо напишите случай в conformance/cases, либо впишите в "+
+			"ops-owners.json строку note с причиной. Непроверенный оп, о "+
+			"котором корпус молчит, выглядит точно так же, как проверенный.",
+			len(mute), strings.Join(mute, "\n  "))
+	}
+}
+
 // opsUsed lists the distinct ops a document uses, choice option bodies included.
 func opsUsed(d *Doc) []string {
 	set := map[string]bool{}
