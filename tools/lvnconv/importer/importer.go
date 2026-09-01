@@ -295,16 +295,10 @@ func Run(projectDir string, opt Options) (*Result, error) {
 		for who, spr := range opt.ExtraCast {
 			cast[who] = spr
 		}
-		applySpeakerAliasesToCast(cast, tpl)  // author-declared "these labels are one person"
-		ensureProtagonistCast(doc, cast, tpl) // a spriteless protagonist still gets staged
-		AutoStage(doc, cast, tpl)             // reads inline say text — must run before Localize
-		// "{player}" rescoping + display-name overrides are Template-only (no
-		// bundle/xlsx data needed) — a plain single-project import gets the
-		// same protagonist naming a bundle import gets via PostProcessBundle.
-		ops := cmdsAsOps(doc.Script)
-		applyProtagonistSpeakerRename(ops, tpl)
-		applySpeakerNameOverrides(ops, tpl)
-		applyVarAliases(ops, tpl) // content-typo rescue (e.g. Relationship.→Relationships.)
+		applySpeakerAliasesToCast(cast, tpl)    // author-declared "these labels are one person"
+		ensureProtagonistCast(doc, cast, tpl)   // a spriteless protagonist still gets staged
+		AutoStage(doc, cast, tpl)               // reads inline say text — must run before Localize
+		applyNaming(cmdsAsOps(doc.Script), tpl) // см. alias.go: три шага, один порядок
 	}
 	PricePremiumChoices(doc, tpl)   // "[premium]" markers → template-priced wallet costs
 	AnnotateChoiceEffects(doc, tpl) // "+2 Роман" preview on choice buttons
@@ -437,13 +431,7 @@ func runMultiChapter(projectDir string, opt Options, chs []adpd.ChapterExport) (
 		if opt.AutoStage {
 			ensureProtagonistCast(doc, cast, tpl) // a spriteless protagonist still gets staged
 			AutoStage(doc, cast, tpl)
-			// "{player}" rescoping + display-name overrides are Template-only —
-			// a plain single-project import gets the same protagonist naming a
-			// bundle import gets via PostProcessBundle.
-			ops := cmdsAsOps(doc.Script)
-			applyProtagonistSpeakerRename(ops, tpl)
-			applySpeakerNameOverrides(ops, tpl)
-			applyVarAliases(ops, tpl) // content-typo rescue (e.g. Relationship.→Relationships.)
+			applyNaming(cmdsAsOps(doc.Script), tpl) // см. alias.go: три шага, один порядок
 		}
 		PricePremiumChoices(doc, tpl)   // "[premium]" markers → template-priced wallet costs
 		AnnotateChoiceEffects(doc, tpl) // "+2 Роман" preview on choice buttons

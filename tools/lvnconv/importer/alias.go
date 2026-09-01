@@ -8,16 +8,24 @@ import "strings"
 // text. A prefix ending in "." can't accidentally hit its own longer form
 // ("Relationship." never matches inside "Relationships." — the next rune
 // there is 's', not the dot the prefix requires).
-func applyVarAliases(ops []map[string]any, tpl *Template) {
+//
+// Отдаёт, БЫЛО ЛИ что менять: пакетный путь переписывает файл на диске, и
+// перезапись без перемен меняет отпечаток в манифесте на ровном месте.
+func applyVarAliases(ops []map[string]any, tpl *Template) bool {
 	aliases := tpl.resolve().VarAliases
 	if len(aliases) == 0 {
-		return
+		return false
 	}
+	changed := false
 	fix := func(s string) string {
+		out := s
 		for from, to := range aliases {
-			s = strings.ReplaceAll(s, from, to)
+			out = strings.ReplaceAll(out, from, to)
 		}
-		return s
+		if out != s {
+			changed = true
+		}
+		return out
 	}
 	for _, op := range ops {
 		if op == nil {
@@ -45,6 +53,30 @@ func applyVarAliases(ops []map[string]any, tpl *Template) {
 			}
 		}
 	}
+	return changed
+}
+
+// ИМЕНА ПРИВОДЯТСЯ К КАНОНУ ПРОЕКТА — три шага, и все три обязательны.
+//
+// Порядок не случаен: сперва имя героя ({player} вместо articy-метки), потом
+// переопределения подписей из шаблона, и только затем спасение опечаток в
+// именах переменных. Обряд стоял ДВУМЯ копиями в importer.go — вместе с
+// одинаковым трёхстрочным комментарием, — а пакетный путь звал первые два
+// порознь и третий НЕ ЗВАЛ ВОВСЕ.
+//
+// Дыра была спящая: `var_aliases` сегодня не объявляет ни один шаблон. Она
+// проснулась бы ровно в тот день, когда кто-то чинит опечатку контента: на
+// одиночном импорте починка сработает, на пакетном — молча нет. А пакетный —
+// это путь, которым едет живой контент.
+func applyNaming(ops []map[string]any, tpl *Template) bool {
+	changed := applyProtagonistSpeakerRename(ops, tpl)
+	if applySpeakerNameOverrides(ops, tpl) {
+		changed = true
+	}
+	if applyVarAliases(ops, tpl) {
+		changed = true
+	}
+	return changed
 }
 
 // applySpeakerAliasesToCast resolves every declared Template.SpeakerAliases
