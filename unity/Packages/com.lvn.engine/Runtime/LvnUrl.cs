@@ -102,11 +102,30 @@ namespace Lvn
         /// адресу БЕЗ запроса — иначе «.png?v=3» перестаёт быть картинкой.</summary>
         public static string Extension(string url)
         {
+            var (_, ext) = SplitExtension(url);
+            return ext.Length == 0 ? "" : ext.Substring(1).ToLowerInvariant();
+        }
+
+        /// <summary>ГДЕ КОНЧАЕТСЯ ИМЯ И НАЧИНАЕТСЯ РАСШИРЕНИЕ — одно правило на
+        /// обоих спрашивающих.
+        ///
+        /// <para>Правило кажется в одну строку, и потому его писали второй раз
+        /// руками — там, где нужны обе половины, а не только расширение. В
+        /// рукописной копии не было ГЛАВНОГО: точка в имени ПАПКИ расширением
+        /// не считается. Адрес вида <c>content/v1.2/cover</c> рукописный разбор
+        /// делит по точке в «v1.2», и дальше рассуждает про несуществующее
+        /// расширение «.2/cover».</para>
+        ///
+        /// <para>Расширение возвращается С ТОЧКОЙ: половинки должны склеиваться
+        /// обратно в исходный адрес без догадок о том, кто её потерял.</para>
+        /// </summary>
+        public static (string Stem, string Ext) SplitExtension(string url)
+        {
             var u = Bare(url);
             int dot = u.LastIndexOf('.');
             int slash = u.LastIndexOf('/');
-            if (dot < 0 || dot < slash) return "";
-            return u.Substring(dot + 1).ToLowerInvariant();
+            if (dot <= 0 || dot < slash) return (u, "");
+            return (u.Substring(0, dot), u.Substring(dot));
         }
     }
 }
