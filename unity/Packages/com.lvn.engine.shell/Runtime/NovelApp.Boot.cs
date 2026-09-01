@@ -231,38 +231,9 @@ namespace Lvn.UI.Screens
                 $"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms boot prefetch settled (background)"),
                 TaskScheduler.FromCurrentSynchronizationContext());
 
-            // Progress vault: a VIRGIN install (corrupted prefs, a reinstall
-            // under the same identity) gets the player's progress re-planted —
-            // file home first (instant, offline), then the server backup —
-            // BEFORE the hub renders, so «Продолжить» is right from frame one.
-            try
-            {
-                if (ProgressVault.IsVirgin(manifest))
-                {
-                    ProgressVault.Apply(ProgressVault.ReadLocal(), manifest);
-                    if (ProgressVault.IsVirgin(manifest) && _state != null)
-                        ProgressVault.Apply(
-                            await _state.LoadVarsAsync(ProgressVault.Scope, destroyCancellationToken),
-                            manifest);
-                }
-                else if (_state != null)
-                {
-                    // НЕ ЧИСТОЕ УСТРОЙСТВО — и это не повод пройти мимо. Подъём
-                    // работал только на пустом, поэтому второй телефон игрока,
-                    // у которого свой прогресс есть, не узнавал о вечере,
-                    // сыгранном на планшете, НИКОГДА. Здесь обе стороны
-                    // настоящие: не восстановление, а слияние по правилам вида
-                    // данных (потолок и галерея доливаются, закладка едет за
-                    // тем устройством, где играли позже).
-                    ProgressVault.Absorb(
-                        await _state.LoadVarsAsync(ProgressVault.Scope, destroyCancellationToken),
-                        manifest);
-                }
-            }
-            catch (OperationCanceledException) { }   // приложение закрывают — не отказ
-            catch (Exception e) { Debug.LogWarning("[vault] restore skipped: " + e.Message); }
+            await RestoreProgressAsync(manifest);
 
-            _shell = NovelShell.Create(transform, 30, ShellTheme);
+            _shell = NovelShell.Create(transform, theme: ShellTheme);
             _shell.Build(manifest, _assets);
             Mark("shell built");
             WireQuickMenu(manifest);
@@ -517,6 +488,55 @@ namespace Lvn.UI.Screens
         // Server content changed: refresh the version index, re-apply the manifest
         // (carousel rebuilds), and hot-reload the open chapter if its script moved.
         private void OnContentChanged() => LvnAsync.Fire(OnContentChangedAsync(), "OnContentChanged");
+
+        /// <summary>
+        /// ПРОГРЕСС ИГРОКА ВОЗВРАЩАЕТСЯ ДО ПЕРВОГО КАДРА ВИТРИНЫ.
+        ///
+        /// <para>Чистая установка (переустановка под той же учёткой, побитые
+        /// настройки) поднимает прогресс: сперва из файлового дома — мгновенно
+        /// и без сети, — потом из серверной копии. Делается это ДО того, как
+        /// витрина нарисуется, иначе «Продолжить» в первом кадре покажет не ту
+        /// главу и игрок нажмёт её раньше, чем правда приедет.</para>
+        ///
+        /// <para>Не чистое устройство — не повод пройти мимо. Подъём работал
+        /// только на пустом, и второй телефон игрока, у которого свой прогресс
+        /// есть, не узнавал о вечере, сыгранном на планшете, НИКОГДА. Здесь обе
+        /// стороны настоящие: не восстановление, а слияние по правилам вида
+        /// данных — потолок глав и галерея доливаются, закладка едет за тем
+        /// устройством, где играли позже.</para>
+        ///
+        /// <para>Фаза вынута из общего запуска: тот дорос до трёхсот семидесяти
+        /// строк, и в нём эта работа читалась как ещё один try посреди прочих.</para>
+        /// </summary>
+        private async Task RestoreProgressAsync(LvnManifest manifest)
+        {
+            try
+            {
+                if (ProgressVault.IsVirgin(manifest))
+                {
+                    ProgressVault.Apply(ProgressVault.ReadLocal(), manifest);
+                    if (ProgressVault.IsVirgin(manifest) && _state != null)
+                        ProgressVault.Apply(
+                            await _state.LoadVarsAsync(ProgressVault.Scope, destroyCancellationToken),
+                            manifest);
+                }
+                else if (_state != null)
+                {
+                    // НЕ ЧИСТОЕ УСТРОЙСТВО — и это не повод пройти мимо. Подъём
+                    // работал только на пустом, поэтому второй телефон игрока,
+                    // у которого свой прогресс есть, не узнавал о вечере,
+                    // сыгранном на планшете, НИКОГДА. Здесь обе стороны
+                    // настоящие: не восстановление, а слияние по правилам вида
+                    // данных (потолок и галерея доливаются, закладка едет за
+                    // тем устройством, где играли позже).
+                    ProgressVault.Absorb(
+                        await _state.LoadVarsAsync(ProgressVault.Scope, destroyCancellationToken),
+                        manifest);
+                }
+            }
+            catch (OperationCanceledException) { }   // приложение закрывают — не отказ
+            catch (Exception e) { Debug.LogWarning("[vault] restore skipped: " + e.Message); }
+        }
 
         /// <summary>
         /// Проба докладывает СВОИМ ЧЕРЕДОМ. Её вопрос — «сеть есть?», и ответ
