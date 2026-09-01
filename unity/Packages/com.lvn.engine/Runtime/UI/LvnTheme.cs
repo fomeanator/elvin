@@ -38,6 +38,21 @@ namespace Lvn.UI
         public Color Accent = Hex("#ec5a92");
         public Color OnAccent = Hex("#1a0f16");
         public Color Gold = Hex("#f0d9a0");
+        /// <summary>Серебро и бронза — второе и третье место. Живут рядом с
+        /// золотом: подиум спрашивает про все три разом, а тема, у которой
+        /// золото своё, а серебро навсегда белое, — половина темы.</summary>
+        public Color Silver = Hex("#c7cbdb");
+        public Color Bronze = Hex("#cc8c59");
+
+        /// <summary>ПОЛУЧИЛОСЬ и БЕДА — смысловые цвета, отдельные от акцента.
+        ///
+        /// <para>Их знала предтемовая палитра (<see cref="LvnDawn"/>) и не
+        /// знала тема: экран удаления аккаунта заводил свой красный числом, а
+        /// выбор сервера брал рассветный — один вопрос, два ответа. Теперь у
+        /// темы есть свой, а рассвет остаётся зеркалом для минуты до неё.</para>
+        /// </summary>
+        public Color Ok = Hex("#5fce77");
+        public Color Bad = Hex("#e0555f");
         /// <summary>Заливка кнопки-призрака.</summary>
         public Color Faint = new Color(1f, 1f, 1f, 0.08f);
         /// <summary>Затемнение под модальными окнами.</summary>
@@ -240,6 +255,10 @@ namespace Lvn.UI
             Accent = Hex("#2EE6D6"),
             OnAccent = Hex("#06202A"),
             Gold = Hex("#FFC46B"),
+            Silver = Hex("#B9D8E6"),
+            Bronze = Hex("#D69A5C"),
+            Ok = Hex("#3BE58F"),
+            Bad = Hex("#FF5C6C"),
             Warn = Hex("#FF2E88"),
             Faint = new Color(0.18f, 0.90f, 0.84f, 0.07f),
             Track = new Color(0.18f, 0.90f, 0.84f, 0.16f),
@@ -288,6 +307,10 @@ namespace Lvn.UI
             Accent = Hex("#e05a8a"),
             OnAccent = Hex("#1d0f16"),
             Gold = Hex("#f0d9a0"),
+            Silver = Hex("#d6c6cd"),
+            Bronze = Hex("#c8895f"),
+            Ok = Hex("#5cc47f"),
+            Bad = Hex("#e05a6a"),
             Warn = Hex("#ff5c7a"),
             Faint = new Color(1f, 1f, 1f, 0.07f),
             Track = new Color(1f, 1f, 1f, 0.12f),

@@ -341,8 +341,7 @@ namespace Lvn.UI.Screens
                 // Сборный таб «Все»: тап примеряет предмет в ЕГО ось; подсветка
                 // и имя обновляются перестройкой (кэш делает её мгновенной).
                 bool worn = IsWornIn(axis, item.value);
-                LvnChrome.Border(card, worn ? _accent : new Color(1f, 1f, 1f, 0.12f),
-                    worn ? 2.5f : 1.5f);
+                LvnStyler.Chosen(card, worn, _accent);
                 var a2 = axis; var v2 = item.value;
                 var n2 = Lvn.Content.LvnWords.Name("skin", item.value, item.name);
                 card.RegisterCallback<ClickEvent>(_ =>
@@ -422,8 +421,7 @@ namespace Lvn.UI.Screens
                 // На «Моё» отмечается НАДЕТОЕ, а не k-я карточка: лента там из
                 // разных осей, и номер вкладки к ней отношения не имеет.
                 bool on = _tab == AllTab ? IsWornCard(_stripCards[k]) : k == cur;
-                LvnChrome.Border(_stripCards[k],
-                    on ? _accent : new Color(1f, 1f, 1f, 0.12f), on ? 2.5f : 1.5f);
+                LvnStyler.Chosen(_stripCards[k], on, _accent);
             }
             // Довозим В КАДР ТУ ЖЕ карточку, что и отметили, — иначе на «Моё»
             // лента уезжала к безразличной k-й, а отмеченная оставалась за краем.

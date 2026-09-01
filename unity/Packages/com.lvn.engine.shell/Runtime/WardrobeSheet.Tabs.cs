@@ -113,8 +113,7 @@ namespace Lvn.UI.Screens
                     ResolveIcon(item.icon)), "WardrobeSwatch");
                 b.Add(art);
             }
-            LvnChrome.Border(b, worn ? _accent : new Color(1f, 1f, 1f, 0.28f),
-                worn ? 3f : 1.5f);
+            LvnStyler.Chosen(b, worn, _accent);
             if (!IsOwnedIn(axis, item))
             {
                 var dot = new Label("◆") { pickingMode = PickingMode.Ignore };
@@ -202,7 +201,7 @@ namespace Lvn.UI.Screens
                 if (b == null) continue;
                 bool active = (b.userData as string) == _tab;
                 SkinButton(b, active);
-                LvnChrome.Border(b, active ? _accent : new Color(1f, 1f, 1f, 0.15f), 2f);
+                LvnStyler.Chosen(b, active, _accent);
                 // Дети пилюли (лейбл и пара глифов) красятся вручную — кнопочный
                 // skin их не достаёт.
                 var lbl = b.Q<Label>("ax-label");
