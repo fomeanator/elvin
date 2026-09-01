@@ -1994,11 +1994,12 @@ type synthNamer struct {
 
 func newSynthNamer(lines []string) *synthNamer {
 	n := &synthNamer{scope: "head", seq: map[string]int{}, taken: map[string]bool{}}
-	for _, l := range lines {
-		if id, ok := sourceLabelID(l); ok {
-			n.taken[id] = true
-		}
-	}
+	// Через absorb, а не своей копией цикла: правило «что считать авторской
+	// меткой» одно. Разойдись копии — конструктор перестанет видеть метки
+	// нового вида в ГЛАВНОМ источнике, продолжая видеть их во вплетённых, и
+	// придуманное имя однажды совпадёт с авторским. Переход уедет не туда, а
+	// в логе будет пусто.
+	n.absorb(lines)
 	return n
 }
 
