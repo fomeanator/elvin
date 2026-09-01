@@ -78,9 +78,7 @@ namespace Lvn.UI
 
         private void Tick()
         {
-            float now = LvnClock.Now();
-            float dt = Mathf.Min(0.1f, now - _last);
-            _last = now;
+            float dt = LvnClock.Step(ref _last);
 
             float w = resolvedStyle.width;
             float h = resolvedStyle.height;

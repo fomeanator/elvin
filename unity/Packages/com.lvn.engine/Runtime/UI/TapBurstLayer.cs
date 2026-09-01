@@ -79,9 +79,9 @@ namespace Lvn.UI
 
         private void Tick()
         {
-            float now = LvnClock.Now();
-            float dt = Mathf.Min(0.05f, now - _last);
-            _last = now;
+            // Потолок ниже общего: вспышка живёт доли секунды, и даже
+            // десятая доля съела бы её целиком одним шагом.
+            float dt = LvnClock.Step(ref _last, 0.05f);
             for (int i = _live.Count - 1; i >= 0; i--)
             {
                 var h = _live[i];
