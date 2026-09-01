@@ -199,8 +199,7 @@ namespace Lvn.UI.Screens
             ring.style.height = avatar + (first ? 12 : 8);
             ring.style.alignItems = Align.Center;
             ring.style.justifyContent = Justify.Center;
-            ring.style.backgroundColor = first ? LvnTokens.Gold
-                : (place == 2 ? new Color(0.78f, 0.80f, 0.86f) : new Color(0.80f, 0.55f, 0.35f));
+            ring.style.backgroundColor = LvnTokens.Medal(place);
             LvnChrome.Round(ring, (avatar + 12f) / 2f);
             col.Add(ring);
 
@@ -211,8 +210,7 @@ namespace Lvn.UI.Screens
             badge.style.fontSize = LvnTokens.TextSm;
             badge.style.unityFontStyleAndWeight = FontStyle.Bold;
             badge.style.color = LvnTokens.OnAccent;
-            badge.style.backgroundColor = first ? LvnTokens.Gold
-                : (place == 2 ? new Color(0.78f, 0.80f, 0.86f) : new Color(0.80f, 0.55f, 0.35f));
+            badge.style.backgroundColor = LvnTokens.Medal(place);
             badge.style.unityTextAlign = TextAnchor.MiddleCenter;
             badge.style.width = 34; badge.style.height = 34;
             badge.style.marginTop = -16;

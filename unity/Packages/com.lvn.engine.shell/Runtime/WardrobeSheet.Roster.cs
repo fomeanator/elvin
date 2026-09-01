@@ -50,7 +50,7 @@ namespace Lvn.UI.Screens
                     b.style.fontSize = LvnTokens.TextXs;
                     bool active = pid == _entity;
                     SkinButton(b, active);
-                    LvnChrome.Border(b, active ? _accent : new Color(1f, 1f, 1f, 0.15f), 2f);
+                    LvnStyler.Chosen(b, active, _accent);
                     _rosterRow.Add(b);
                     shown++;
                 }

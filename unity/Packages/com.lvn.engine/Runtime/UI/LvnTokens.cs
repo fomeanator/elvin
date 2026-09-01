@@ -44,8 +44,26 @@ namespace Lvn.UI
 
         // Тёплое золото — суммы, премиальные метки, призыв к покупке.
         public static Color Gold     => LvnTheme.Current.Gold;
+        public static Color Silver   => LvnTheme.Current.Silver;
+        public static Color Bronze   => LvnTheme.Current.Bronze;
+
+        /// <summary>ЦВЕТ МЕСТА НА ПОДИУМЕ — золото, серебро, бронза; дальше
+        /// третьего подиума нет, и место без медали берёт тихую грань.
+        ///
+        /// <para>Вопрос задавали дважды в одной постройке — кольцо аватара и
+        /// значок номера, — и оба раза писали серебро с бронзой числами прямо
+        /// в тернарнике, хотя золото рядом уже приходило токеном. Тема, у
+        /// которой золото своё, а серебро навсегда белое, — половина
+        /// темы.</para></summary>
+        public static Color Medal(int place) =>
+            place == 1 ? Gold : place == 2 ? Silver : place == 3 ? Bronze : Border;
 
         // Перекрытия.
+        /// <summary>Смысловые цвета: получилось и беда. Отдельны от акцента —
+        /// акцент это тон новеллы, а красный это исход действия.</summary>
+        public static Color Ok  => LvnTheme.Current.Ok;
+        public static Color Bad => LvnTheme.Current.Bad;
+
         public static Color Scrim   => LvnTheme.Current.Scrim;
         public static Color PanelBg => LvnTheme.Current.PanelBg;
         public static Color Track   => LvnTheme.Current.Track;

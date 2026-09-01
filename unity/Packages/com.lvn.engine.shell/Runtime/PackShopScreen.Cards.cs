@@ -139,7 +139,7 @@ namespace Lvn.UI.Screens
             var halo = new VisualElement { pickingMode = PickingMode.Ignore };
             halo.style.position = Position.Absolute;
             halo.style.width = wide ? 78 : 60; halo.style.height = wide ? 78 : 60;
-            halo.style.backgroundColor = new Color(1f, 1f, 1f, 0.07f);
+            halo.style.backgroundColor = LvnTokens.Faint; // ореол под значком — тихая плашка темы
             LvnChrome.Round(halo, wide ? 39f : 30f);
             art.Add(halo);
             var glyph = LvnIcons.Make(pack.Emblem, wide ? 46f : 36f, LvnTokens.Text, 0f, LvnTheme.Current.IconGlow * 0.55f);
