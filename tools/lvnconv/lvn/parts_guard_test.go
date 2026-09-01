@@ -990,6 +990,7 @@ func TestIntroIsKnownByItsHome(t *testing.T) {
 	root := repoRoot(t)
 	lit := regexp.MustCompile(`"intro"`)
 	flag := regexp.MustCompile(`LvnPrefs\.IntroDone\s*=`)
+	welcome := regexp.MustCompile(`LvnPrefs\.SeenWelcome\s*=`)
 
 	var found []string
 	scanned := 0
@@ -1011,6 +1012,11 @@ func TestIntroIsKnownByItsHome(t *testing.T) {
 			// решение «пройдена», а стирание следов.
 			if flag.MatchString(l) && base != "LvnForget.cs" {
 				found = append(found, fmt.Sprintf("%s:%d — второй свидетель «пройдена»", base, i+1))
+			}
+			// Та же история у знакомства: обряд «спросить, отметить, посеять
+			// имя» стоял двумя копиями, и обе правили одну метку устройства.
+			if welcome.MatchString(l) && base != "LvnForget.cs" && base != "AuthScreen.cs" {
+				found = append(found, fmt.Sprintf("%s:%d — знакомство отмечают мимо экрана знакомства", base, i+1))
 			}
 		}
 		return nil

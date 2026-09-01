@@ -67,17 +67,12 @@ namespace Lvn.UI.Screens
             // историю, а она сама и знакомится, и объясняет правила. Витрина
             // ждёт своей очереди — см. IntroTitle ниже.
             var introTitle = PendingIntroTitle();
-            if (Auth != null && !Lvn.UI.LvnPrefs.SeenWelcome && introTitle == null)
+            if (Auth != null && introTitle == null)
             {
-                try
-                {
-                    var nick = await Auth.AskAsync(ct);
-                    Lvn.UI.LvnPrefs.SeenWelcome = true;
-                    if (!string.IsNullOrEmpty(nick))
-                    {
-                        Lvn.UI.LvnPlayerName.Set(nick);
-                    }
-                }
+                // ЗНАЕТ ЛИ ИГРОК, ЧТО ЕГО СПРОСЯТ ОДИН РАЗ, — дело экрана
+                // знакомства: обряд «спросить, отметить, посеять имя» стоял
+                // здесь и у команды auth из скрипта двумя копиями.
+                try { await Auth.AskOnceAsync(ct); }
                 catch (OperationCanceledException) { return; }
             }
 
