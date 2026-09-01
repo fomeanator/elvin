@@ -120,7 +120,7 @@ func TestTypeScaleDoesNotSpreadFurther(t *testing.T) {
 //
 // Ноль не считается: «убрать отступ» — не ступень шкалы, а его отсутствие.
 func TestSpaceScaleDoesNotSpreadFurther(t *testing.T) {
-	const budget = 46 // 01.09: сведены все, отстоявшие на ±2 (331 место, шаг
+	const budget = 62 // 01.09: сведены все, отстоявшие на ±2 (331 место, шаг
 	//                    невидим глазом поодиночке и виден в сумме). Остались
 	//                    волосяные линии (1–5 px — не ступень, а линия) и
 	//                    осознанно крупные (22, 30, 34, 36, 52, 72, 124).
@@ -132,11 +132,23 @@ func TestSpaceScaleDoesNotSpreadFurther(t *testing.T) {
 	//                    РАЗРЕШЕНИЕ: он молча пропустил бы тридцать семь новых
 	//                    самоделок. Опускать порог надо тем же движением,
 	//                    которым чинят места.
+	//
+	//                    46 → 62 — это НЕ рост долга. Страж научился видеть
+	//                    второе написание (дом воздуха), и шестнадцать чисел,
+	//                    невидимых с утра, вернулись в счёт. Честный порог
+	//                    выше нечестного — так и должно быть.
 
 	root := repoRoot(t)
 	scanned := 0
 	scale := map[int]bool{8: true, 12: true, 18: true, 26: true, 40: true, 60: true}
-	re := regexp.MustCompile(`style\.(?:padding|margin)\w*\s*=\s*(\d+)`)
+	// ДВА НАПИСАНИЯ ОДНОГО ДЕЙСТВИЯ. Отступ ставят сырым присваиванием
+	// (`style.paddingLeft = 14`) и через дом воздуха (`LvnAir.PadX(el, 14)`).
+	// Страж знал только первое — и ослеп ровно там, куда 01.09 переехали 315
+	// присваиваний: шестнадцать чисел мимо шкалы стали невидимы, не изменившись.
+	// Рефакторинг, уводящий код из-под правила, — это не улучшение, а обход,
+	// сделанный своими руками; заметить его можно только пересчётом.
+	re := regexp.MustCompile(`style\.(?:padding|margin)\w*\s*=\s*(\d+)` +
+		`|LvnAir\.(?:Pad|Margin)(?:X|Y)?\([^,]+,\s*(\d+)`)
 
 	off := 0
 	for _, pkg := range []string{"com.lvn.engine", "com.lvn.engine.shell"} {
@@ -159,7 +171,11 @@ func TestSpaceScaleDoesNotSpreadFurther(t *testing.T) {
 					code = code[:c]
 				}
 				for _, m := range re.FindAllStringSubmatch(code, -1) {
-					n, _ := strconv.Atoi(m[1])
+					lit := m[1]
+					if lit == "" {
+						lit = m[2]
+					}
+					n, _ := strconv.Atoi(lit)
 					if n != 0 && !scale[n] {
 						off++
 					}
