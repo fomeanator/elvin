@@ -842,3 +842,52 @@ func TestStageCallsChannelsByTheirHomeNames(t *testing.T) {
 			len(found), strings.Join(found, "\n  "))
 	}
 }
+
+// ЛЕСТНИЦА СТУПЕНЕЙ АРТА ОДИНАКОВА У КЛИЕНТА И СЕРВЕРА.
+//
+// Варианты («@2k», «@1440», «@1k», «@mini») — это ДОГОВОР между сторонами:
+// клиент просит «имя@ступень.png», сервер по этому имени делает файл. Обе
+// стороны держат список сами, и разойтись он может молча: клиент просит бокс,
+// которого сервер не делает, и получает 404 — выглядит как «арт не качается».
+//
+// Страж не сводит списки в один (у языков разные дома), он сверяет их состав.
+func TestArtVariantLadderMatchesServer(t *testing.T) {
+	root := repoRoot(t)
+
+	cs := stripComments(string(mustRead(t, filepath.Join(root,
+		"unity/Packages/com.lvn.engine/Runtime/Content/DownloadPolicy.cs"))))
+	csRe := regexp.MustCompile(`const\s+string\s+Q\w+\s*=\s*"(@\w+)"`)
+	client := map[string]bool{}
+	for _, m := range csRe.FindAllStringSubmatch(cs, -1) {
+		client[m[1]] = true
+	}
+
+	goSrc := stripComments(string(mustRead(t, filepath.Join(root, "server/downscale.go"))))
+	goRe := regexp.MustCompile(`const\s+\w*[sS]uffix\s*=\s*"(@\w+)"`)
+	server := map[string]bool{}
+	for _, m := range goRe.FindAllStringSubmatch(goSrc, -1) {
+		server[m[1]] = true
+	}
+
+	atLeast(t, len(client), 4, "ступеней у клиента")
+	atLeast(t, len(server), 4, "ступеней у сервера")
+
+	var only []string
+	for v := range client {
+		if !server[v] {
+			only = append(only, "клиент просит, сервер не делает: "+v)
+		}
+	}
+	for v := range server {
+		if !client[v] {
+			only = append(only, "сервер делает, клиент не просит: "+v)
+		}
+	}
+	if len(only) > 0 {
+		sort.Strings(only)
+		t.Errorf("лестница ступеней арта разошлась (%d):\n  %s\n\n"+
+			"Клиент просит «имя@ступень.png», сервер по этому имени делает файл. "+
+			"Ступень, которую знает только одна сторона, даёт 404 — а выглядит это "+
+			"как «арт не качается».", len(only), strings.Join(only, "\n  "))
+	}
+}

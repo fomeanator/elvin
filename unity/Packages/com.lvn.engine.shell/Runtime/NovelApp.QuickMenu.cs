@@ -173,7 +173,7 @@ namespace Lvn.UI.Screens
             // музыку меню не услышит вовсе, и это правильно.
             // Качество арта: настройка игрока ведёт бокс показа (@2k/@1k) —
             // синхронизируем до первой загрузки и на каждом изменении.
-            DownloadPolicy.PreferredSuffix = "@" + EffectiveArtQuality();
+            DownloadPolicy.PreferredSuffix = DownloadPolicy.SuffixFor(EffectiveArtQuality());
             // Делегат сохраняется в переменную, а не пишется прямо в событие:
             // анонимную подписку отписать НЕЧЕМ — её и не отписывали.
             System.Action onPrefsChanged = () =>
@@ -190,7 +190,7 @@ namespace Lvn.UI.Screens
                     _lastMenuFavorite = favNow;
                     ShowMenuScene(withPortal: false); // смена фаворита — живьём, без врат
                 }
-                var next = "@" + EffectiveArtQuality();
+                var next = DownloadPolicy.SuffixFor(EffectiveArtQuality());
                 if (DownloadPolicy.PreferredSuffix != next)
                 {
                     DownloadPolicy.PreferredSuffix = next;
