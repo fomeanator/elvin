@@ -88,7 +88,7 @@ namespace Lvn.UI.Screens
             try
             {
                 var json = await _assets.Loader.DownloadScriptText(
-                    "/content/ui/words." + locale + ".json", default, singleAttempt: true);
+                    LvnAssetPath.Under("ui/words." + locale + ".json"), default, singleAttempt: true);
                 var words = string.IsNullOrEmpty(json) ? null : Newtonsoft.Json.JsonConvert
                     .DeserializeObject<System.Collections.Generic.Dictionary<string, string>>(json);
                 _uiWordsCache[locale] = words;   // и ОТСУТСТВИЕ файла запоминаем: второй раз не ходим

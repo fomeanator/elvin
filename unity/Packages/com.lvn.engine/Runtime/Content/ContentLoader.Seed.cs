@@ -62,7 +62,7 @@ namespace Lvn.Content
         private string SeedKey(string url)
         {
             if (_seedIndex == null || _seedIndex.Count == 0 || string.IsNullOrEmpty(url)) return null;
-            int at = url.IndexOf("/content/", StringComparison.Ordinal);
+            int at = url.IndexOf(LvnAssetPath.ContentPrefix + "/", StringComparison.Ordinal);
             if (at < 0) return null;
             var rel = url.Substring(at + 1);          // "content/bg/x@2k.jpg"
             if (_seedIndex.Contains(rel)) return rel;

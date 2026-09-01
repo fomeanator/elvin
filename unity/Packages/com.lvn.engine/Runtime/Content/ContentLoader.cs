@@ -46,7 +46,7 @@ namespace Lvn.Content
         // falls back to the legacy url-only key (still works, just not auto-busted).
         private Dictionary<string, string> _versions = new();
         private readonly object _versionsLock = new();
-        private const string VersionsPath = "/content/asset-versions.json";
+        private static readonly string VersionsPath = LvnAssetPath.Under("asset-versions.json");
 
 
         // Срок ответа — из общего дома: «сколько игра ждёт сеть» спрашивают
@@ -381,7 +381,7 @@ namespace Lvn.Content
                 path = LvnQuiet.Try(() => new System.Uri(path).AbsolutePath, path);
             }
             var p = path.TrimStart('/');                                  // content/bg/... or bg/...
-            var afterContent = p.StartsWith("content/") ? p.Substring("content/".Length) : p;
+            var afterContent = LvnAssetPath.Relative(p);                  // bg/...
             if (map.TryGetValue(afterContent, out var v)) return v;
             if (map.TryGetValue(p, out var v2)) return v2;
             // Derived display variants ("X@2k.png" downscales, "X.ktx2"/"X.astc"
