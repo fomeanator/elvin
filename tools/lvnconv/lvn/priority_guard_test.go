@@ -81,3 +81,40 @@ func TestEveryAssetClassHasARung(t *testing.T) {
 			"класса, а игрок, подождавший лишнего.", strings.Join(missing, ", "))
 	}
 }
+
+// «Я ЖИВОЙ — УСТУПИТЕ» СЧИТАЕТСЯ В ОДНОМ МЕСТЕ.
+//
+// Фоновый прогрев ждёт, пока счётчик живых загрузок не станет нулём. Правило
+// поднимали ПО МЕСТУ — и подняли у двух дверей из семи: спрайта и звука.
+// Скрипт главы, префаб, объёмный набор и файл на диск шли мимо счёта, и
+// прогрев им не уступал. Первый запуск 01.09 вставал именно так: вводной нужен
+// был её СКРИПТ, а он грузился дверью, которой гейт не видел.
+func TestLivePressureIsCountedInOnePlace(t *testing.T) {
+	root := repoRoot(t)
+	src := stripComments(string(mustRead(t, filepath.Join(root,
+		"unity", "Packages", "com.lvn.engine", "Runtime", "UI", "CachingAssets.cs"))))
+
+	inc := strings.Count(src, "Interlocked.Increment(ref _livePressure)")
+	if inc != 1 {
+		t.Errorf("счётчик живых загрузок поднимают в %d местах (ожидалось одно — LiveAsync).\n\n"+
+			"Правило, написанное по месту, поднимут не у всех дверей: так скрипт главы и оказался\n"+
+			"невидим для гейта, а фоновый прогрев не уступил тому, чего ждал игрок.", inc)
+	}
+	if !strings.Contains(src, "LiveAsync") {
+		t.Error("общего правила LiveAsync нет — счёт снова разойдётся по дверям")
+	}
+	// Двери, которых игрок ЖДЁТ, обязаны идти через правило.
+	for _, door := range []string{"LoadSpriteAsync", "LoadAudioAsync", "LoadTextAsync", "EnsureCachedFileAsync"} {
+		i := strings.Index(src, door)
+		if i < 0 {
+			t.Fatalf("двери %s нет — якорь стража промахнулся", door)
+		}
+		tail := src[i:]
+		if j := strings.Index(tail, "\n        public "); j > 0 {
+			tail = tail[:j]
+		}
+		if !strings.Contains(tail, "LiveAsync") {
+			t.Errorf("дверь %s идёт мимо правила «я живой»: прогрев ей не уступит", door)
+		}
+	}
+}
