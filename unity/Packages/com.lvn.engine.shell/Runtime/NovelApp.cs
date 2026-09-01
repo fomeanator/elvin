@@ -459,7 +459,7 @@ namespace Lvn.UI.Screens
         {
             var locale = CurrentLocale;
             if (string.IsNullOrEmpty(locale) || string.IsNullOrEmpty(scriptUrl)) return null;
-            var url = Lvn.Content.LvnUrl.Sibling(scriptUrl, "." + locale + ".json");
+            var url = Lvn.LvnUrl.Sibling(scriptUrl, "." + locale + ".json");
             if (_stringsCache.TryGetValue(url, out var cached)) return cached;
             try
             {
@@ -505,7 +505,7 @@ namespace Lvn.UI.Screens
             if (string.IsNullOrEmpty(url) || _shell == null) return;
             // Где кончается путь и начинается запрос — знает дом адресов: он же
             // отбрасывает якорь «#top», о котором здесь легко забыть.
-            var q = Lvn.Content.LvnUrl.Query(url);
+            var q = Lvn.LvnUrl.Query(url);
             if (string.IsNullOrEmpty(q)) return;
 
             string titleId = null, chapterId = null;

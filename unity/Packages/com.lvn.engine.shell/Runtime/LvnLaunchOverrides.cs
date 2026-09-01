@@ -30,7 +30,7 @@ namespace Lvn.UI.Screens
             if (!isDebugBuild) return null;
             raw = raw?.Trim();
             if (string.IsNullOrEmpty(raw)) return null;
-            return raw.TrimEnd('/');
+            return Lvn.LvnUrl.Base(raw);
         }
 
         private static string RawValue()

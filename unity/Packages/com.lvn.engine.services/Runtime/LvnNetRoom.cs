@@ -208,7 +208,7 @@ namespace Lvn.Services
         private static async Task<(long code, string body)> SendAsync(
             string method, string path, string json, string token)
         {
-            var url = (LvnBackend.BaseUrl ?? "").TrimEnd('/') + path;
+            var url = Lvn.LvnUrl.Base(LvnBackend.BaseUrl) + path;
             using (var req = new UnityWebRequest(url, method))
             {
                 if (json != null)
