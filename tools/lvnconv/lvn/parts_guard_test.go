@@ -1040,7 +1040,11 @@ func TestIntroIsKnownByItsHome(t *testing.T) {
 // показывают.
 func TestLayerOrderComesFromItsHome(t *testing.T) {
 	root := repoRoot(t)
-	raw := regexp.MustCompile(`sortingOrder\s*[=:]\s*\d`)
+	// Этаж вписывают тремя способами, и все три надо видеть: присваиванием,
+	// именованным аргументом и ПОЗИЦИОННЫМ числом. Последнее уже дважды
+	// пряталось от этого стража — сперва в NovelShell.Create(transform, 30, …),
+	// потом в LvnFloor.Open(имя, 50) при проверке поломкой.
+	raw := regexp.MustCompile(`sortingOrder\s*[=:]\s*\d|LvnFloor\.Open\([^)]*,\s*\d`)
 
 	var found []string
 	scanned := 0
