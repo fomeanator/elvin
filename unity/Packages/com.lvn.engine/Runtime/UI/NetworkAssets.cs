@@ -103,7 +103,13 @@ namespace Lvn.UI
 
         private Task<AudioClip> LoadAudioCoreAsync(string url, CancellationToken ct)
             => FetchAsync(url,
-                          u => UnityWebRequestMultimedia.GetAudioClip(u, AudioType.UNKNOWN),
+                          // Тип декодера — из ДОМА, а не UNKNOWN: дом и заведён
+                          // потому, что таблица стояла дважды, а сеть ходила
+                          // мимо неё третьей. UNKNOWN на адресе без расширения
+                          // (или с хвостом версии) значит «скачано, но не
+                          // звучит» — без ошибки и без строки в логе.
+                          u => UnityWebRequestMultimedia.GetAudioClip(
+                              u, Lvn.Content.DownloadPolicy.AudioTypeOf(u)),
                           DownloadHandlerAudioClip.GetContent,
                           ct);
 

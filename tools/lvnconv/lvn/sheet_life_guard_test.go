@@ -160,3 +160,50 @@ func TestOnlyOneHomeDecodesImages(t *testing.T) {
 			strings.Join(strays, ", "))
 	}
 }
+
+// ТИП ЗВУКОВОГО ДЕКОДЕРА БЕРУТ У ДОМА.
+//
+// Таблица «расширение → декодер Unity» стояла дважды, её свели в
+// `DownloadPolicy.AudioTypeOf` — и ровно об этом написано в докблоке дома. А
+// сетевой поставщик ходил мимо него ТРЕТЬИМ и слал `AudioType.UNKNOWN`.
+//
+// UNKNOWN — не «пусть Unity разберётся», а «разбирайся по адресу»: на ссылке
+// без расширения или с хвостом версии разбираться не по чему, и клип не
+// строится. Наружу это выглядит как «файл скачан, но не звучит» — без ошибки и
+// без строки в логе, ровно тот случай, что назван в докблоке дома.
+func TestAudioDecoderTypeComesFromTheHome(t *testing.T) {
+	root := repoRoot(t)
+	seen := 0
+	var strays []string
+	err := filepath.Walk(filepath.Join(root, "unity", "Packages"),
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+				return err
+			}
+			seen++
+			if strings.Contains(path, "/Tests/") {
+				return nil
+			}
+			body := stripComments(string(mustRead(t, path)))
+			// Вложенная скобка обязательна в шаблоне: сам вызов дома —
+			// AudioTypeOf(path) — стоит ВНУТРИ, и «до первой закрывающей»
+			// обрывало бы совпадение ровно на правильном коде.
+			for _, m := range regexp.MustCompile(`GetAudioClip\((?:[^()]|\([^()]*\))*\)`).FindAllString(body, -1) {
+				if !strings.Contains(m, "AudioTypeOf") && !strings.Contains(m, "type") {
+					strays = append(strays, filepath.Base(path)+": "+strings.Join(strings.Fields(m), " "))
+				}
+			}
+			return nil
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sawSources(t, seen, 300, "файлов .cs")
+	sort.Strings(strays)
+	if len(strays) > 0 {
+		t.Errorf("звук просят без типа из дома:\n  %s\n\n"+
+			"Берите DownloadPolicy.AudioTypeOf(url). UNKNOWN на адресе без "+
+			"расширения даёт «скачано, но не звучит» — молча.",
+			strings.Join(strays, "\n  "))
+	}
+}
