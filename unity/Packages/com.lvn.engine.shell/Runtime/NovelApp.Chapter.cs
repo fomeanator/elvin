@@ -288,6 +288,22 @@ namespace Lvn.UI.Screens
                             }
                         }
                     }
+                // ОБЛИК ПРО ЗАПАС — последняя ступень лестницы: позы и наряды,
+                // которых сюжет пока не просил. Гардероб открывают из меню, то
+                // есть в любую минуту, и ждать там сети нечему.
+                //
+                // Стоит это ПОСЛЕ библиотеки и только теперь: 01.09 тот же
+                // список, поставленный в общую очередь, задавил первый запуск —
+                // не потому, что был лишним, а потому, что гейт «живого» считал
+                // две двери из семи и не видел, как вводная ждёт свой СКРИПТ.
+                // Гейт починен; порядок назван лестницей; полоса у каста своя —
+                // последняя.
+                foreach (var part in Lvn.Content.LvnParts.OfCast(manifest))
+                {
+                    if (ct.IsCancellationRequested) return;
+                    await WarmOne(part.Url);
+                }
+
                 LvnLog.Trace($"[lvn-warm] library fully cached ({warmed} fetched, {skipped} already local)");
             }
             catch (System.OperationCanceledException) { /* teardown */ }
