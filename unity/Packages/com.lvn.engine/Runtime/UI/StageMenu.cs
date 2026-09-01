@@ -373,11 +373,10 @@ namespace Lvn.UI
             var b = new Button(onClick) { text = label };
             b.style.height = 64;
             b.style.fontSize = LvnTokens.TextSm;
-            b.style.color = _theme.MenuTextColor;
-            b.style.backgroundColor = Color.clear;
+            // Призрак: плашки нет вовсе — пункт меню не спорит с содержимым.
+            LvnStyler.Ghost(b, _theme.MenuTextColor);
             b.style.unityTextAlign = TextAnchor.MiddleLeft;
             b.style.paddingLeft = LvnTokens.Space3;
-            LvnChrome.ClearBorder(b);
             LvnFonts.Apply(b, _theme.Font);
             return b;
         }
