@@ -68,6 +68,9 @@ namespace Lvn.UI.Screens
             if (_tab != null && _tab != AllTab)
                 foreach (var sub in SubAxesOf(_tab))
                 {
+                    // НАРОЧНО мимо костюмера: вопрос узкий — что ПРИМЕРЕНО и не
+                    // куплено. Лесенка «примерка → надетое → дефолт» ответила бы
+                    // и про надетое, а за него платить не надо.
                     LvnWardrobe.Previewed(_entity).TryGetValue(sub, out var v);
                     if (v == null) continue;
                     var it = Find(sub, v);

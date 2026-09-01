@@ -214,9 +214,12 @@ namespace Lvn.UI.Screens
         private void StyleEmotions(bool reveal = true)
         {
             if (_emotionAxis == null) return;
-            LvnWardrobe.Previewed(_entity).TryGetValue(_emotionAxis, out var current);
-            if (current == null && _def?.defaults != null)
-                _def.defaults.TryGetValue(_emotionAxis, out current);
+            // Через костюмера: лесенка тут была написана ЗАНОВО и неполной —
+            // «примерка → дефолт», без надетого. То есть выбранная игроком
+            // эмоция без активной примерки подсвечивалась не своей карточкой,
+            // а дефолтной: игрок видел, что выбрано не то, что он выбрал.
+            var current = LvnCostumer.Chosen(_entity, _emotionAxis, _def?.defaults);
+            if (string.IsNullOrEmpty(current)) current = null;
             foreach (var c in _emotions.contentContainer.Children())
             {
                 var b = c as Button;
