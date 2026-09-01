@@ -18,8 +18,7 @@ namespace Lvn.UI.World
     /// </summary>
     public sealed class LvnBlurEffect : MonoBehaviour
     {
-        private Material _mat;
-        private bool _shaderMissing;
+        private LvnShaderSlot _slot;   // материал эффекта: одна попытка, один ответ
 
         // Self-contained tween (realtime, like the stage's other effects).
         private float _cur, _from, _to = -1f, _dur;
@@ -61,15 +60,12 @@ namespace Lvn.UI.World
         {
             Advance();
 
-            if (_mat == null && !_shaderMissing)
-            {
-                // Через LvnShaders: пропажу шейдера он объясняет вслух, а
-                // прежде здесь молча поднимался флаг — и эффекта просто не было.
-                _mat = LvnShaders.Material("LvnBlur");
-                if (_mat == null) _shaderMissing = true;
-            }
+            // Материал берёт ЯЧЕЙКА: одна попытка за жизнь, жалобу про
+            // пропавший шейдер дом уже произнёс. Прежде здесь стояли две
+            // памяти и обряд из четырёх строк — слово в слово в трёх эффектах.
+            var _mat = _slot.Of("LvnBlur");
 
-            if (_shaderMissing || _cur <= 0.004f)
+            if (_slot.Missing || _cur <= 0.004f)
             {
                 Graphics.Blit(src, dst); // pass the frame through untouched
                 if (_start < 0f) enabled = false; // idle at zero — stop paying for the hook
@@ -96,7 +92,7 @@ namespace Lvn.UI.World
 
         private void OnDestroy()
         {
-            if (_mat != null) Destroy(_mat);
+            _slot.Release();   // материал завёл слот — он же и уберёт
         }
     }
 }

@@ -104,9 +104,8 @@ namespace Lvn.Content
             BatchTotal     = 0;
             BatchDone      = 0;
             LastStartedUrl = null;
-            _attempts.Clear();
-            _bytesExpected.Clear();
-            _bytesReceived.Clear();
+            // Итоги пакета сброшены — записи о загрузках уходят целиком.
+            _fetch.Clear();
         }
 
         // Пакеты идут ПО ОЧЕРЕДИ: канал один, и два пакета, тянущие его
@@ -136,8 +135,10 @@ namespace Lvn.Content
                     // Чистый старт: словари байтов копят и одиночные фетчи
                     // (фоновый стриминг), и их мусор въезжал в прогресс батча —
                     // «Скачано 131 из 135» при пустой очереди (живой скрин).
-                    _bytesReceived.Clear();
-                    _bytesExpected.Clear();
+                    // ЧИСТЫЙ СТАРТ ПО БАЙТАМ, но не по повторам: счётчик
+                    // попыток принадлежит идущей закачке, и обнулить его здесь
+                    // значило бы подарить ей лишний повтор.
+                    foreach (var f in _fetch.Values) { f.Received = 0; f.Expected = 0; }
                     BatchTotal     = pending.Count;
                     BatchDone      = 0;
                     LastStartedUrl = pending[0].Url;
@@ -178,7 +179,7 @@ namespace Lvn.Content
                 {
                     try
                     {
-                        lock (_inflight) _attempts[asset.Url] = attempt;
+                        lock (_inflight) Progress(asset.Url).Attempt = attempt;
 
                         // Reuse warm prefetch if it was for this URL and didn't fault.
                         Task<byte[]> fetchTask;
@@ -203,11 +204,13 @@ namespace Lvn.Content
 
                             if (prefetchUrl == null) // not yet decided for next file
                             {
-                                long exp, rec;
+                                // Нет записи — значит про этот адрес ещё ничего не
+                                // знают: ноль честнее, чем «неизвестно».
+                                long exp = 0, rec = 0;
                                 lock (_inflight)
                                 {
-                                    exp = _bytesExpected.GetValueOrDefault(asset.Url);
-                                    rec = _bytesReceived.GetValueOrDefault(asset.Url);
+                                    if (_fetch.TryGetValue(asset.Url, out var f))
+                                    { exp = f.Expected; rec = f.Received; }
                                 }
                                 if (exp > 0 && (float)rec / exp >= 0.9f)
                                 {

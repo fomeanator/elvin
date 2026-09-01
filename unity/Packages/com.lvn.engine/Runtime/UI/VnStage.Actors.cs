@@ -476,6 +476,29 @@ namespace Lvn.UI
 
             // Loading may have outlived the early nominal barrier. Re-arm from
             // the frame where the renderer actually starts the entrance.
+            // ФИГУРА ВЫХОДИТ ЦЕЛИКОМ ИЛИ НЕ ВЫХОДИТ. Слой, который не доехал,
+            // прежде молча выбрасывался (`if (s != null) layers.Add(s)`), и на
+            // экран попадало то, что осталось: живой случай 01.09 — на витрине
+            // стояли одни ВОЛОСЫ, без тела, лица и платья. Код неполноту даже
+            // замечал и писал о ней в лог — и всё равно показывал.
+            //
+            // Фигура без тела не бывает «частично правильной»: это не
+            // недогруженная картинка, это другой объект на экране. Лучше
+            // прежний кадр (или пустое место), чем парящие волосы.
+            bool whole = layers == null || urls == null || layers.Count == urls.Count;
+            if (!whole)
+            {
+                LvnLog.Warn($"[lvn-actor] {id}: доехало {layers.Count} из {urls.Count} слоёв — "
+                          + "НЕ показываем: неполная фигура хуже отсутствующей. Пробуем ещё раз");
+                _memory.DropLook(id);
+                // Повтор — не «когда-нибудь»: следующий кадр перезапустит ту же
+                // команду, и слои, которых не хватило, доедут по второму разу.
+                // Без него безликость становится вечной: игрок ушёл в меню, и
+                // обрывать нечего — показ уже «состоялся».
+                LvnAsync.Fire(RetryActorSoonAsync(cmd, epoch, lane, gen), "ActorRetry");
+                return;
+            }
+
             ArmActorVisibilityBarrier(cmd, visibilityChanged, placement);
             _renderer?.ApplyActor(id, layers, placement, onClick, layerIds, layerRects, layerDefs);
             RepinSceneSprites("actor:" + id, layers); // что на экране — LRU не трогает
@@ -489,8 +512,8 @@ namespace Lvn.UI
             // переставала быть временной: самолечение слоя живёт, пока этот
             // показ новейший, а выход в меню его обрывает — и героиня
             // застревала без лица уже на главном экране.
-            bool wholeLook = layers != null && urls != null && layers.Count == urls.Count;
-            if (wholeLook) _memory.SetLook(id, look);
+            bool wholeLook = whole && layers != null;
+            if (wholeLook) { _memory.SetLook(id, look); _actorRetry.Remove(id); }
             else
             {
                 _memory.DropLook(id); // неполной фигуре следующий показ обязан пересобрать облик
@@ -507,6 +530,46 @@ namespace Lvn.UI
             // грузились слои.
 
             await ApplyActorAnimsAsync(id, cmd, placement, epoch, lane, gen);
+        }
+
+        // Сколько раз подряд фигуре дают доехать. Повтор не бесплатный — он
+        // заново просит слои, — но и молчать нельзя: без него безликость
+        // становится вечной. Три попытки покрывают холодный кэш и одну
+        // потерянную загрузку; дальше беда не в спешке, и её видно в логе.
+        private const int ActorRetries = 3;
+        private readonly Dictionary<string, int> _actorRetry = new Dictionary<string, int>();
+
+        /// <summary>
+        /// ФИГУРА НЕ ДОЕХАЛА — попробовать ещё раз, тем же кадром.
+        ///
+        /// <para>Показ неполной фигуры запрещён, и одного запрета мало: если
+        /// просто не показать, героиня не появится ВООБЩЕ («она не доезжает
+        /// даже опосля», Илья 01.09). Значит команду надо переиграть — ту же
+        /// самую, из памяти сцены, а не выдуманную заново.</para>
+        ///
+        /// <para>Счётчик на актёра, а не общий: одна проблемная фигура не
+        /// должна съедать попытки у соседней.</para>
+        /// </summary>
+        private async Task RetryActorSoonAsync(JObject cmd, int epoch, string lane, int gen)
+        {
+            var id = (string)cmd["id"];
+            if (string.IsNullOrEmpty(id)) return;
+            _actorRetry.TryGetValue(id, out var tries);
+            if (tries >= ActorRetries)
+            {
+                LvnLog.Warn($"[lvn-actor] {id}: слои не доехали за {ActorRetries} попытки — "
+                          + "фигуры на экране не будет, ищите пропажу в тракте содержимого");
+                return;
+            }
+            _actorRetry[id] = tries + 1;
+            // ОТСТУПАЯ, А НЕ ПОДРЯД. Три попытки тремя кадрами — это не «дали
+            // доехать», а «спросили трижды за полсекунды»: холодная сеть столько
+            // не успевает, и запрет на неполную фигуру обернулся бы пустым
+            // местом. Кадр — четверть секунды — секунда.
+            if (tries == 0) await Task.Yield();
+            else await Task.Delay(tries == 1 ? 250 : 1000);
+            if (!_clock.MayTouch(epoch, lane, gen)) return;   // пришла команда новее — она главнее
+            ApplyStage(cmd);
         }
 
 
