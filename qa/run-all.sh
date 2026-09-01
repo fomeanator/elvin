@@ -83,6 +83,32 @@ fi
 #
 # LVN_REQUIRE_NODE: на машине с node стражам языка запрещено пропускаться
 # молча; без node они честно скипнутся сами.
+# СТРАЖИ ЧИТАЮТ ИСХОДНИКИ, А ИСХОДНИКИ ПРАВЯТ ПРЯМО СЕЙЧАС.
+#
+# Го-фаза идёт три с половиной минуты и всё это время читает .cs, .js и
+# манифесты. Правка, попавшая в середину чтения, даёт красный прогон, который
+# ничего не значит: страж увидел половину старого файла и половину нового.
+# 01.09 так сгорело четыре прогона подряд — и каждый раз лечилось «не трогай
+# репозиторий, пока идёт». Правило, которое надо помнить, — не механизм.
+#
+# Снимок рабочего дерева (только то, что видит git: отслеженное плюс новое,
+# кроме игнорируемого) стоит две секунды и тридцать шесть мегабайт. Стражи
+# ищут корень сами, вверх по дереву от своего файла, — в снимке они находят
+# снимок и читают согласованное состояние, что бы ни делали снаружи.
+GO_ROOT="$REPO_ROOT"
+if command -v go >/dev/null 2>&1 && command -v rsync >/dev/null 2>&1; then
+  GO_SNAP="$(mktemp -d)/repo"
+  if mkdir -p "$GO_SNAP" \
+     && (cd "$REPO_ROOT" && git ls-files -c -o --exclude-standard 2>/dev/null > "$GO_SNAP/../files.txt") \
+     && [ -s "$GO_SNAP/../files.txt" ] \
+     && rsync -a --files-from="$GO_SNAP/../files.txt" "$REPO_ROOT/" "$GO_SNAP" 2>/dev/null; then
+    GO_ROOT="$GO_SNAP"
+    log "go: снимок дерева ($(wc -l < "$GO_SNAP/../files.txt" | tr -d ' ') файлов) — правки во время прогона его не задевают"
+  else
+    log "go: снимок не вышел — читаем рабочее дерево как раньше"
+  fi
+fi
+
 if command -v go >/dev/null 2>&1; then
   for mod in tools/lvnconv server; do
     # -count=1 обязателен: стражи читают C#, JS и манифесты — файлы, которых
@@ -90,10 +116,10 @@ if command -v go >/dev/null 2>&1; then
     # отвечает «ok (cached)»: страж молчит ровно тогда, когда должен кричать.
     log "go test $mod"
     if command -v node >/dev/null 2>&1; then
-      (cd "$REPO_ROOT/$mod" && LVN_REQUIRE_NODE=1 go test -count=1 ./... >/dev/null 2>&1) \
+      (cd "$GO_ROOT/$mod" && LVN_REQUIRE_NODE=1 go test -count=1 ./... >/dev/null 2>&1) \
         || { log "FAIL: go test $mod — подробности: (cd $mod && go test ./...)"; fail=1; }
     else
-      (cd "$REPO_ROOT/$mod" && go test -count=1 ./... >/dev/null 2>&1) \
+      (cd "$GO_ROOT/$mod" && go test -count=1 ./... >/dev/null 2>&1) \
         || { log "FAIL: go test $mod — подробности: (cd $mod && go test ./...)"; fail=1; }
     fi
   done
