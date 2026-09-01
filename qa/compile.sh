@@ -3,57 +3,69 @@
 #
 # qa/run-all.sh требует лицензию Unity, а она одна: пока открыт редактор,
 # batchmode не стартует и возвращает «нет результатов» — не ошибку, а тишину,
-# которую легко принять за успех. Правки при этом копятся непроверенными.
+# которую легко принять за успех. Правки при этом копятся непроверенными: 01.09
+# так накопилось три подряд.
 #
-# Здесь собираются те же пять сборок тем же Roslyn'ом, каким собирает сама
-# Unity, но против её управляемых DLL напрямую. Тесты НЕ гоняются — это не
-# замена прогону. Зато ловится то, ради чего прогона ждут чаще всего:
-# опечатка, разъехавшаяся подпись, потерянный using, тип, которого нет.
+# Тесты здесь НЕ гоняются. Это не замена прогону — это способ поймать то, ради
+# чего прогона ждут чаще всего: опечатку, разъехавшуюся подпись, потерянный
+# using, недоделанного тестового двойника.
 #
-# ГРАБЛЯ, СТОИВШАЯ ЧАСА: Roslyn из MonoBleedingEdge — версии 3.7, и целевую
-# типизацию условного выражения (C# 9) он не знает. Он «находил» ошибку там,
-# где редактор собирает молча. Берём тот же компилятор, что и Unity:
-# DotNetSdkRoslyn через её же netcore.
+# КАК ЭТО РАБОТАЕТ. Unity оставляет свои собственные командные строки
+# компилятора в Library/Bee/artifacts/*.dag/<сборка>.rsp — со всеми ссылками,
+# всеми -define и нужными фасадами. Мы берём ИХ, меняем только список
+# исходников на сегодняшний и выход. Это единственный способ не переизобретать
+# набор ссылок: попытка собрать его руками упирается то в netstandard против
+# mscorlib (nunit собран под 4.8), то в UnityEditor.dll против его же
+# CoreModule — по полчаса на каждую.
+#
+# Следствие: rsp должен существовать, то есть редактор хотя бы раз собирал
+# проект. Если сборки в списке нет — её пропускаем и говорим об этом вслух.
 set -e
+REPO=${0:A:h:h}
 UNITY_VERSION=${UNITY_VERSION:-6000.4.5f1}
 U=/Applications/Unity/Hub/Editor/$UNITY_VERSION/Unity.app/Contents
 DOTNET=$U/Resources/Scripting/NetCoreRuntime/dotnet
 CSC=$U/Resources/Scripting/DotNetSdkRoslyn/csc.dll
-REF=$U/Resources/Scripting/Managed/UnityEngine
-NS=$U/Resources/Scripting/NetStandard/ref/2.1.0
-REPO=${0:A:h:h}
-LIB=$REPO/unity/TestHost/Library
-OUT=${1:-$REPO/qa/reports/compile}
+HOST=$REPO/unity/TestHost
+OUT=$REPO/qa/reports/compile
 mkdir -p $OUT
 
-[[ -x $DOTNET ]] || { echo "нет Unity $UNITY_VERSION — задайте UNITY_VERSION"; exit 2 }
+[[ -x $DOTNET ]] || { print "нет Unity $UNITY_VERSION — задайте UNITY_VERSION"; exit 2 }
 
-refs=(-nostdlib -noconfig)
-for d in $NS/*.dll; do refs+=(-r:$d); done
-for d in $REF/*.dll; do refs+=(-r:$d); done
-refs+=(-r:$LIB/ScriptAssemblies/UnityEngine.UI.dll)
-refs+=(-r:$(ls $LIB/PackageCache/com.unity.nuget.newtonsoft-json@*/Runtime/Newtonsoft.Json.dll | head -1))
-for d in $LIB/PackageCache/com.unity.cloud.ktx@*/Runtime/Plugins/*.dll(N); do refs+=(-r:$d); done
+DAG=(${(f)"$(ls -d $HOST/Library/Bee/artifacts/*.dag 2>/dev/null)"})
+[[ ${#DAG} -gt 0 ]] || { print "нет Library/Bee/artifacts/*.dag — редактор ни разу не собирал проект"; exit 2 }
+DAG=${DAG[1]}
 
-common=(-nologo -target:library -langversion:9.0 -unsafe \
-        -nowarn:0169,0414,0649,0067,1701,1702,CS8632 \
-        -define:UNITY_2021_1_OR_NEWER -define:UNITY_EDITOR -define:UNITY_STANDALONE_OSX)
+# Какие исходники принадлежат сборке: те же корни, что у её asmdef.
+typeset -A ROOTS
+ROOTS[Lvn.Engine]=$REPO/unity/Packages/com.lvn.engine/Runtime
+ROOTS[Lvn.Engine.Content]=$REPO/unity/Packages/com.lvn.engine/Runtime/Content
+ROOTS[Lvn.Engine.UI]=$REPO/unity/Packages/com.lvn.engine/Runtime/UI
+ROOTS[Lvn.Engine.Services]=$REPO/unity/Packages/com.lvn.engine.services/Runtime
+ROOTS[Lvn.Engine.Shell]=$REPO/unity/Packages/com.lvn.engine.shell/Runtime
+ROOTS[Lvn.Engine.Editor]=$REPO/unity/Packages/com.lvn.engine/Editor
+ROOTS[Lvn.Engine.Tests]=$REPO/unity/Packages/com.lvn.engine/Tests/Editor
+ROOTS[Lvn.Engine.Tests.Runtime]=$REPO/unity/Packages/com.lvn.engine/Tests/Runtime
 
-build () {  # имя  выход-имя  ссылки…  ‹--› файлы
-  local name=$1; shift
-  local files=(${(f)"$(find $@ -name '*.cs')"})
+ORDER=(Lvn.Engine Lvn.Engine.Content Lvn.Engine.UI Lvn.Engine.Services
+       Lvn.Engine.Shell Lvn.Engine.Editor Lvn.Engine.Tests Lvn.Engine.Tests.Runtime)
+
+fail=0
+for name in $ORDER; do
+  rsp=$DAG/$name.rsp
+  [[ -f $rsp ]] || { print "== $name — пропуск: нет $name.rsp"; continue }
+  root=$ROOTS[$name]
+  # Вложенные сборки со своим asmdef исключаем из родителя.
+  local -a files
+  if [[ $name == Lvn.Engine ]]; then
+    files=(${(f)"$(find $root -name '*.cs' -not -path '*/UI/*' -not -path '*/Content/*')"})
+  else
+    files=(${(f)"$(find $root -name '*.cs')"})
+  fi
+  # Из rsp берём ВСЁ, кроме списка исходников и путей вывода.
+  local -a opts
+  opts=(${(f)"$(grep -v '^\"' $rsp | grep -v '^-out:' | grep -v '^-refout:')"})
   print "== $name (${#files} файлов)"
-  $DOTNET $CSC $common $refs $extra -out:$OUT/$name.dll $files
-}
-
-extra=()
-build Lvn.Engine $REPO/unity/Packages/com.lvn.engine/Runtime -not -path '*/UI/*' -not -path '*/Content/*'
-extra=(-r:$OUT/Lvn.Engine.dll)
-build Lvn.Engine.Content $REPO/unity/Packages/com.lvn.engine/Runtime/Content
-extra+=(-r:$OUT/Lvn.Engine.Content.dll)
-build Lvn.Engine.UI $REPO/unity/Packages/com.lvn.engine/Runtime/UI
-extra+=(-r:$OUT/Lvn.Engine.UI.dll)
-build Lvn.Engine.Services $REPO/unity/Packages/com.lvn.engine.services/Runtime
-extra+=(-r:$OUT/Lvn.Engine.Services.dll)
-build Lvn.Engine.Shell $REPO/unity/Packages/com.lvn.engine.shell/Runtime
-print "СОБРАЛОСЬ ВСЁ. Это НЕ прогон: тесты не гонялись."
+  ( cd $HOST && $DOTNET $CSC -nologo $opts -out:$OUT/$name.dll $files ) || fail=1
+done
+[[ $fail == 0 ]] && print "СОБРАЛОСЬ ВСЁ. Это НЕ прогон: тесты не гонялись." || { print "СБОРКА УПАЛА"; exit 1 }
