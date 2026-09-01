@@ -23,6 +23,7 @@ import (
 //   - Inventory.ContainsKey — «есть вещь» по ключу, тогда как инвентарь считает
 //     штуки и потраченная вещь остаётся ключом с нулём.
 func TestHomesAreNotBypassed(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 	type probe struct {
 		re   *regexp.Regexp
@@ -53,6 +54,7 @@ func TestHomesAreNotBypassed(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return err
 			}
+			scanned++
 			b, err := os.ReadFile(path)
 			if err != nil {
 				return err
@@ -88,6 +90,8 @@ func TestHomesAreNotBypassed(t *testing.T) {
 			t.Fatalf("обход %s: %v", pkg, err)
 		}
 	}
+	atLeast(t, scanned, 60, "просмотренных файлов")
+
 	if len(found) > 0 {
 		t.Fatalf("дом обошли стороной:\n  %s", strings.Join(found, "\n  "))
 	}

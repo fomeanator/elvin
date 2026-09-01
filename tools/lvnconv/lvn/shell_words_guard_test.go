@@ -43,6 +43,7 @@ func hasCyrillic(s string) bool {
 }
 
 func TestShellSaysNothingInAHardcodedLanguage(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 	dir := filepath.Join(root, shellDir)
 	if _, err := os.Stat(dir); err != nil {
@@ -54,6 +55,7 @@ func TestShellSaysNothingInAHardcodedLanguage(t *testing.T) {
 		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 			return nil
 		}
+		scanned++
 		raw, err := os.ReadFile(path)
 		if err != nil {
 			return nil
@@ -82,6 +84,8 @@ func TestShellSaysNothingInAHardcodedLanguage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("walk %s: %v", dir, err)
 	}
+
+	atLeast(t, scanned, 60, "просмотренных файлов")
 
 	if len(strays) > 0 {
 		t.Fatalf("подписи на экране зашиты одним языком (%d):\n  %s\n\n"+

@@ -24,6 +24,7 @@ import (
 // формы; требовать хоть чего-нибудь — значит закрыть единственный настоящий
 // случай, «catch {} и ни слова».
 func TestSilentCatchIsSigned(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 
 	empty := regexp.MustCompile(`catch\s*(\([^)]*\)\s*)?\{\s*\}`)
@@ -38,6 +39,7 @@ func TestSilentCatchIsSigned(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return err
 			}
+			scanned++
 			b, err := os.ReadFile(path)
 			if err != nil {
 				return err
@@ -64,6 +66,8 @@ func TestSilentCatchIsSigned(t *testing.T) {
 			t.Fatalf("обход %s: %v", pkg, err)
 		}
 	}
+
+	atLeast(t, scanned, 60, "просмотренных файлов")
 
 	if len(found) > 0 {
 		t.Fatalf("молчание об ошибке без подписи: %s\n"+

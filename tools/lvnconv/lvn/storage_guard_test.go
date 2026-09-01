@@ -36,6 +36,7 @@ var storageRoots = []string{
 }
 
 func TestDeviceStorageHasOneHome(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 
 	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(keepHome))); err != nil {
@@ -52,6 +53,7 @@ func TestDeviceStorageHasOneHome(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return nil
 			}
+			scanned++
 			if strings.Contains(filepath.ToSlash(path), "/Tests/") {
 				return nil // тестам можно: они чистят за собой напрямую
 			}
@@ -78,6 +80,8 @@ func TestDeviceStorageHasOneHome(t *testing.T) {
 			t.Fatalf("walk %s: %v", dir, err)
 		}
 	}
+
+	atLeast(t, scanned, 60, "просмотренных файлов")
 
 	if len(strays) > 0 {
 		t.Fatalf("хранилище мимо записной книжки (%d):\n  %s\n\n"+

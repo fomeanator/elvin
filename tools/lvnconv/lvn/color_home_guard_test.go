@@ -15,6 +15,7 @@ import (
 // невидима в коде и видна автору: hex без решётки один эффект красил, другой
 // молча пропускал. Страж не даёт разбору расселиться снова.
 func TestColorParsingLivesInOneHome(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 	home := filepath.Join("Runtime", "UI", "UiColor.cs")
 	var strays []string
@@ -23,6 +24,7 @@ func TestColorParsingLivesInOneHome(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return err
 			}
+			scanned++
 			if strings.HasSuffix(path, home) {
 				return nil
 			}
@@ -41,6 +43,8 @@ func TestColorParsingLivesInOneHome(t *testing.T) {
 	if err != nil {
 		t.Fatalf("обход пакетов: %v", err)
 	}
+	atLeast(t, scanned, 60, "просмотренных файлов")
+
 	if len(strays) > 0 {
 		t.Fatalf("цвет разбирают мимо UiColor:\n  %s\n\nЗовите UiColor.Parse/TryParse/FromCmd:"+
 			" иначе соседние поля одной команды начнут понимать разное написание.",

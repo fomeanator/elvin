@@ -16,6 +16,7 @@ import (
 // главу». И проценты, понятные дереву `ui` с первого дня, мимо дома не
 // понимались вовсе.
 func TestCommandNumbersGoThroughLvnNum(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 	bad := []string{"(float)cmd[", "(double)cmd[", "(float)cmd?["}
 	var strays []string
@@ -28,6 +29,7 @@ func TestCommandNumbersGoThroughLvnNum(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return err
 			}
+			scanned++
 			b, err := os.ReadFile(path)
 			if err != nil {
 				return err
@@ -51,6 +53,8 @@ func TestCommandNumbersGoThroughLvnNum(t *testing.T) {
 			t.Fatalf("обход %s: %v", pkg, err)
 		}
 	}
+	atLeast(t, scanned, 60, "просмотренных файлов")
+
 	if len(strays) > 0 {
 		t.Fatalf("число из команды берут приведением:\n  %s\n\nЗовите LvnNum.Parse(cmd[key], умолчание):"+
 			" приведение бросает на проценте и на опечатке и роняет команду целиком.",

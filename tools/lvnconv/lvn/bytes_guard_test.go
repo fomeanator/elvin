@@ -22,6 +22,7 @@ import (
 // с подписью единицы. В логах это норма: там читает разработчик, и ему нужны
 // круглые мегабайты, а не «0,4».
 func TestByteSizeHasOneHome(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 
 	allowed := map[string]string{
@@ -42,6 +43,7 @@ func TestByteSizeHasOneHome(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return err
 			}
+			scanned++
 			base := filepath.Base(path)
 			if _, ok := allowed[base]; ok {
 				return nil
@@ -71,6 +73,8 @@ func TestByteSizeHasOneHome(t *testing.T) {
 	}
 
 	sort.Strings(found)
+	atLeast(t, scanned, 60, "просмотренных файлов")
+
 	if len(found) > 0 {
 		t.Fatalf("размер переводят в подпись мимо дома: %s\n"+
 			"возьмите LvnBytes.Short/Approx — там записано, почему мелкое с десятыми, "+

@@ -168,6 +168,7 @@ func lookup12(b []byte, off int, want uint32) bool {
 // Поэтому: в рантайме прямых присвоений `style.unityFont` нет. Дом — один, и
 // он умеет откатиться к прежнему пути сам, если обёртка не удалась.
 func TestFontIsSetThroughItsHome(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 	re := regexp.MustCompile(`\.style\.unityFont\s*=`)
 
@@ -181,6 +182,7 @@ func TestFontIsSetThroughItsHome(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return err
 			}
+			scanned++
 			// Сам дом — единственное законное место: там и живёт откат к
 			// прежнему пути.
 			if filepath.Base(path) == "LvnFonts.cs" {
@@ -201,6 +203,8 @@ func TestFontIsSetThroughItsHome(t *testing.T) {
 			t.Fatalf("обход %s: %v", pkg, err)
 		}
 	}
+
+	atLeast(t, scanned, 60, "просмотренных файлов")
 
 	if len(found) > 0 {
 		sort.Strings(found)
