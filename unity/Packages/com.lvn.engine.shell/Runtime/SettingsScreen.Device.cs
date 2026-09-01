@@ -69,7 +69,7 @@ namespace Lvn.UI.Screens
                 if (total <= 0) return;
                 // Через дом полосы: она доезжает до новой доли, а не прыгает
                 // ступеньками раз в треть секунды.
-                Lvn.UI.LvnStyler.BarSet(track, (float)got / total);
+                Lvn.UI.LvnStyler.BarAdvance(track, (float)got / total);
             }
 
             async Task RefreshAsync()
