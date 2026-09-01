@@ -217,6 +217,30 @@ func (s *NetService) handlePut(w http.ResponseWriter, r *http.Request, code, key
 // таймеру между «партнёр нажал» и «у меня поехало» всегда стоит интервал, и
 // игра ощущается вялой независимо от скорости сети.
 func (s *NetService) handleGet(w http.ResponseWriter, r *http.Request, code, key string) {
+	s.longPoll(w, r, code, func(room *netRoom, seat *netSeat) (any, bool) {
+		return room.viewLocked(key, seat)
+	})
+}
+
+// longPoll — ДОЛГИЙ ОПРОС: механизм ожидания без того, чего ждут.
+//
+// Игрок спрашивает «есть ли новое?» и держит запрос открытым, пока новое не
+// появится или не выйдет срок. Механизм один на все такие вопросы: взять замок,
+// найти место по токену, отметить комнату живой, собрать ответ, ЗАПОМНИТЬ КАНАЛ
+// ПЕРЕМЕН ДО СНЯТИЯ ЗАМКА, отпустить и ждать одного из трёх — перемены, срока,
+// ухода игрока.
+//
+// Канал перемен берётся под замком не для красоты: возьми его после — и между
+// снятием замка и подпиской успеет пройти уведомление, которого мы уже не
+// услышим. Запрос повиснет до срока с устаревшим ответом. Строка стояла в двух
+// телах, и это ровно то место, где копии расходятся молча.
+//
+// Что отдавать и когда считать готовым — дело вызывающего: ящик отдаёт своё
+// содержимое и открыт ли он, перекличка — список мест и набралось ли нужное
+// число. `build` зовётся ПОД ЗАМКОМ, потому и читает комнату напрямую.
+func (s *NetService) longPoll(w http.ResponseWriter, r *http.Request, code string,
+	build func(room *netRoom, seat *netSeat) (any, bool)) {
+
 	wait := qtyParam(r, "wait", 0, int(netMaxWait/time.Second))
 	deadline := time.Now().Add(time.Duration(wait) * time.Second)
 
@@ -229,11 +253,11 @@ func (s *NetService) handleGet(w http.ResponseWriter, r *http.Request, code, key
 			return
 		}
 		room.touchLocked()
-		resp, open := room.viewLocked(key, seat)
+		resp, ready := build(room, seat)
 		ch := room.change
 		s.mu.Unlock()
 
-		if open || wait <= 0 || !time.Now().Before(deadline) {
+		if ready || wait <= 0 || !time.Now().Before(deadline) {
 			writeJSON(w, http.StatusOK, resp)
 			return
 		}
@@ -321,39 +345,14 @@ func (s *NetService) handleRoom(w http.ResponseWriter, r *http.Request) {
 // GET /v1/net/rooms/{code} — кто за столом. Нужно, чтобы показать «ждём
 // второго» до начала партии.
 func (s *NetService) handleWho(w http.ResponseWriter, r *http.Request, code string) {
-	wait := qtyParam(r, "wait", 0, int(netMaxWait/time.Second))
 	need := qtyParam(r, "need", 0, netMaxSeats)
-	deadline := time.Now().Add(time.Duration(wait) * time.Second)
-	for {
-		s.mu.Lock()
-		room, seat, ok := s.seatLocked(code, r)
-		if !ok {
-			s.mu.Unlock()
-			http.Error(w, "unknown seat", http.StatusUnauthorized)
-			return
-		}
-		room.touchLocked()
+	s.longPoll(w, r, code, func(room *netRoom, seat *netSeat) (any, bool) {
 		resp := map[string]any{
 			"code": code, "seat": seat.id,
 			"seats": len(room.seats), "order": append([]string{}, room.order...),
 		}
-		enough := need <= 0 || len(room.seats) >= need
-		ch := room.change
-		s.mu.Unlock()
-
-		if enough || wait <= 0 || !time.Now().Before(deadline) {
-			writeJSON(w, http.StatusOK, resp)
-			return
-		}
-		select {
-		case <-ch:
-		case <-time.After(time.Until(deadline)):
-			writeJSON(w, http.StatusOK, resp)
-			return
-		case <-r.Context().Done():
-			return
-		}
-	}
+		return resp, need <= 0 || len(room.seats) >= need
+	})
 }
 
 // seatLocked находит комнату и место по токену. Токен берём из заголовка, а не
