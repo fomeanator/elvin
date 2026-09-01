@@ -127,6 +127,7 @@ func TestSpaceScaleDoesNotSpreadFurther(t *testing.T) {
 	//                    Только вниз.
 
 	root := repoRoot(t)
+	scanned := 0
 	scale := map[int]bool{8: true, 12: true, 18: true, 26: true, 40: true, 60: true}
 	re := regexp.MustCompile(`style\.(?:padding|margin)\w*\s*=\s*(\d+)`)
 
@@ -140,6 +141,7 @@ func TestSpaceScaleDoesNotSpreadFurther(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return err
 			}
+			scanned++
 			b, err := os.ReadFile(path)
 			if err != nil {
 				return err
@@ -162,6 +164,7 @@ func TestSpaceScaleDoesNotSpreadFurther(t *testing.T) {
 			t.Fatalf("обход %s: %v", pkg, err)
 		}
 	}
+	atLeast(t, scanned, 150, "просмотренных файлов")
 	if off > budget {
 		t.Fatalf("отступов мимо шкалы стало %d при пороге %d.\n\n"+
 			"Возьмите ступень (8/12/18/26/40/60) или добавьте ступень в тему осознанно:"+
