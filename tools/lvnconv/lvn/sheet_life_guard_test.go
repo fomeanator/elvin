@@ -115,3 +115,48 @@ func TestNobodyCastsShowToBool(t *testing.T) {
 			strings.Join(strays, "\n  "))
 	}
 }
+
+// КАРТИНКУ ИЗ БАЙТОВ ДЕЛАЕТ ДОМ.
+//
+// Обряд короткий: завести пустую текстуру и попросить её разобрать байты. Шага
+// два, а мест было четыре — и одно из них на неудаче текстуру не уничтожало.
+// Битый или неподдерживаемый файл оставлял пустую текстуру в памяти при каждой
+// попытке: ошибки нет, лог молчит, память растёт ровно у тех, у кого контент
+// побился, — то есть у самых невезучих игроков.
+//
+// Сторожим не «есть ли Destroy рядом», а сам вызов: `LoadImage` вне дома
+// означает, что обряд снова расписали руками, а забыть уборку в нём проще, чем
+// вспомнить.
+func TestOnlyOneHomeDecodesImages(t *testing.T) {
+	root := repoRoot(t)
+	home := filepath.Join("Runtime", "Content", "AssetMemory.cs")
+	seen := 0
+	var strays []string
+	err := filepath.Walk(filepath.Join(root, "unity", "Packages"),
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+				return err
+			}
+			seen++
+			if strings.HasSuffix(path, home) || strings.Contains(path, "/Tests/") {
+				return nil
+			}
+			body := stripComments(string(mustRead(t, path)))
+			if strings.Contains(body, ".LoadImage(") {
+				strays = append(strays, filepath.Base(path))
+			}
+			return nil
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sawSources(t, seen, 300, "файлов .cs")
+	sort.Strings(strays)
+	if len(strays) > 0 {
+		t.Errorf("картинку из байтов делают мимо дома: %s\n\n"+
+			"Берите AssetMemory.Decode(bytes): он возвращает null и убирает за "+
+			"собой, а расписанный руками обряд забывает уборку — битый файл "+
+			"течёт пустой текстурой при каждой попытке.",
+			strings.Join(strays, ", "))
+	}
+}

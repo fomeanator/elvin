@@ -52,8 +52,10 @@ namespace Lvn.UI
             catch { return null; }
             if (ct.IsCancellationRequested) return null;
 
-            var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-            if (!tex.LoadImage(bytes)) return null;
+            // Через дом: здесь текстуру на неудаче НЕ уничтожали, и битый файл
+            // тёк пустой текстурой при каждой попытке.
+            var tex = Lvn.Content.AssetMemory.Decode(bytes);
+            if (tex == null) return null;
             // Cap oversized textures ON MOBILE only (bundled content can still
             // ship 4k–8k Spine atlases; a phone shows them at ~1080p, so 2560 is
             // ~lossless and drops memory 4–15×). Desktop/editor keeps the
