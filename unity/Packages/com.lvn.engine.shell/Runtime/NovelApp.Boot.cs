@@ -622,29 +622,11 @@ namespace Lvn.UI.Screens
             catch { /* best-effort; never blocks the live update */ }
             _shell?.ApplyLiveUpdate(manifest);
             _storySheet?.SetManifest(manifest); // the in-story wardrobe follows live edits too
-            // Дома учатся заново тем же списком, что и при старте: слова автора
-            // (валюты, «Глава», подписи движка, имена актёров) меняются вместе с
-            // контентом, и без этой строки они оставались от прошлой выкладки.
-            TeachHousesFrom(manifest);
-            _globalUi = manifest.ui;
-            _manifest = manifest; // cross-chapter routing follows the live manifest
-            ApplyMenuStaging(manifest);
-            _assets.Set3DSetCatalog(manifest.sets3d);
-            if (Stage != null)
-            {
-                Stage.Catalog = new SpriteCatalog(manifest.sprites);
-                Stage.NameInput = manifest.ui?.name_input;   // оформление формы ввода — авторское
-                // Re-theme live — rebuilt fresh from the NEW manifest: engine
-                // defaults → global ui → the playing title's ui override (matched
-                // by id in the new manifest, so per-title edits take effect). Safe
-                // mid-line: VnStage.ApplyTheme restores the visible line/choices.
-                var theme = VnThemeBuilder.From(manifest.ui, new VnTheme());
-                LvnTitle liveTitle = null;
-                if (_currentTitle != null && manifest.titles != null)
-                    liveTitle = manifest.titles.Find(t => t != null && t.id == _currentTitle.id);
-                if (liveTitle?.ui != null) theme = VnThemeBuilder.From(liveTitle.ui, theme);
-                Stage.ApplyTheme(theme);
-            }
+            // Содержимое манифеста применяет тот же дом, что и на старте
+            // (NovelApp.Manifest): два списка одного факта расходились при
+            // следующем добавленном поле. Смена темы безопасна посреди реплики —
+            // VnStage.ApplyTheme восстанавливает видимую строку и выборы.
+            ApplyManifest(manifest);
 
             // ОБНОВЛЕНИЕ МЕНЯЕТ ФАЙЛЫ ПОД ТЕМИ ЖЕ ИМЕНАМИ. Сцена помнит надетый
             // облик по СПИСКУ СЛОЁВ — и после обновления сочла бы его прежним,
