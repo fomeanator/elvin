@@ -144,7 +144,7 @@ namespace Lvn.UI
             if (veil != null)
             {
                 // Reveal the fully built scene with a short fade instead of a pop.
-                for (float a = veilWarmAlpha; a < 1f && _player == player && _startGen == gen && StageCurrent(epoch); a += Time.unscaledDeltaTime / 0.15f)
+                for (float a = veilWarmAlpha; a < 1f && RunCurrent(player, gen) && StageCurrent(epoch); a += Time.unscaledDeltaTime / 0.15f)
                 {
                     veil.alpha = a;
                     await Task.Yield();
@@ -152,9 +152,9 @@ namespace Lvn.UI
                 // Only finish the reveal if we're STILL the current restore — a
                 // newer one may have re-veiled this same canvas to warm-alpha, and
                 // slamming it to 1 here would flash its half-built stage.
-                if (_player == player && _startGen == gen && StageCurrent(epoch)) veil.alpha = 1f;
+                if (RunCurrent(player, gen) && StageCurrent(epoch)) veil.alpha = 1f;
             }
-            if (_player == player && _startGen == gen && StageCurrent(epoch))
+            if (RunCurrent(player, gen) && StageCurrent(epoch))
                 player.ContinueFrom(at); // resume → renders the saved beat
         }
 

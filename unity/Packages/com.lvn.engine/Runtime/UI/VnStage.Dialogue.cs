@@ -90,7 +90,7 @@ namespace Lvn.UI
             float h = 0f;
             // Высота берётся у ВИДИМОГО окна, даже когда чтение уже кончилось:
             // окно остаётся на экране, и нижний этаж обязан его обходить.
-            bool boxUp = _dialogue != null && _dialogue.style.display == DisplayStyle.Flex;
+            bool boxUp = DialogueOnScreen;
             if (boxUp) h = _dialogue.resolvedStyle.height;
             else if (choice && _choices != null) h = _choices.resolvedStyle.height;
             _uiLayer.SetStage(say, choice, boxUp || choice ? h : 0f);
@@ -207,7 +207,7 @@ namespace Lvn.UI
                 int outMs = Mathf.RoundToInt(DialogueFadeSeconds() * 1000f);
                 _dialogue.DropOut(outMs, done: () =>
                 {
-                    if (gen != _dialogueSwapGeneration || _dialogue == null) return;
+                    if (!BoxMine(gen)) return;
                     _dialogue.style.display = DisplayStyle.None;
                     AfterBeatPause(gen, () => PresentSay(gen, who, text, style));
                 });
@@ -224,7 +224,7 @@ namespace Lvn.UI
 
         private void PresentSay(int gen, string who, string text, string style)
         {
-            if (gen != _dialogueSwapGeneration || _dialogue == null) return;
+            if (!BoxMine(gen)) return;
             _pendingSay = null; // доехала штатно
             _dialogueSurfaceFresh = false;
             _awaitingTap = false;
@@ -260,7 +260,7 @@ namespace Lvn.UI
         /// its real entrance after the dialogue card has already arrived.</summary>
         private void UnlockSayWhenChoreographyReady(int gen)
         {
-            if (gen != _dialogueSwapGeneration || !_sayUp || _dialogue == null) return;
+            if (!BoxMine(gen) || !_sayUp) return;
             if (_curChoices != null && _curChoices.Count > 0) return;
             float left = _clock.Remaining(LvnStageClock.ActorVisibilityBarrier);
             if (left > 0.001f)

@@ -31,7 +31,7 @@ namespace Lvn.UI
         {
             if (_choices == null || Theme == null || Theme.ChoiceYPercent < 0f || Theme.Nvl) return;
             float clampY = -1f;
-            if (_dialogue != null && _dialogue.style.display == DisplayStyle.Flex)
+            if (DialogueOnScreen)
             {
                 var box = _dialogue.Q("vn-box");
                 var host = _choices.parent;
@@ -145,7 +145,7 @@ namespace Lvn.UI
         }
         private void FinishChoiceCommit(int gen, int index, string pickedText)
         {
-            if (gen != _dialogueSwapGeneration) return;
+            if (!SwapCurrent(gen)) return;
             StopWaitingForPlayer(cancelTimer: false);   // выбор сделан — таймер уже не его дело
             _choiceCommitInFlight = false;
             _sayUp = false;
@@ -188,7 +188,7 @@ namespace Lvn.UI
                 int outMs = Mathf.RoundToInt(DialogueFadeSeconds() * 1000f);
                 _dialogue.DropOut(outMs, done: () =>
                 {
-                    if (gen != _dialogueSwapGeneration || _dialogue == null) return;
+                    if (!BoxMine(gen)) return;
                     _dialogue.style.display = DisplayStyle.None;
                     AfterBeatPause(gen, () =>
                     {
@@ -199,7 +199,7 @@ namespace Lvn.UI
                 });
                 return;
             }
-            if (_dialogue != null && _dialogue.style.display == DisplayStyle.Flex &&
+            if (DialogueOnScreen &&
                 kind != LvnAppearKind.None)
             {
                 int gen = ++_dialogueSwapGeneration;
@@ -213,7 +213,7 @@ namespace Lvn.UI
         }
         private void PresentChoiceBeat(int gen, IReadOnlyList<LvnOption> options, LvnAppearKind kind)
         {
-            if (gen != _dialogueSwapGeneration || _choices == null) return;
+            if (!SwapCurrent(gen) || _choices == null) return;
             _choices.Present(options);
             _choices.SetEnabled(false);
             // Present() makes the list visible before UI Toolkit has completed
@@ -238,7 +238,7 @@ namespace Lvn.UI
         }
         private void EnableChoiceWhenChoreographyReady(int gen)
         {
-            if (gen != _dialogueSwapGeneration || _choices == null
+            if (!SwapCurrent(gen) || _choices == null
                 || _curChoices == null || _curChoices.Count == 0) return;
             float left = _clock.Remaining(LvnStageClock.ActorVisibilityBarrier);
             if (left > 0.001f)
