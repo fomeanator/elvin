@@ -69,8 +69,8 @@ namespace Lvn.UI
                 else LvnPrefs.AutoAdvance = false;
             });
             _modeBadge.style.height = 44;
+            LvnAir.PadX(_modeBadge, LvnTokens.Space2);
             _modeBadge.style.marginRight = LvnTokens.Space1;
-            _modeBadge.style.paddingLeft = LvnTokens.Space2; _modeBadge.style.paddingRight = LvnTokens.Space2;
             _modeBadge.style.fontSize = LvnTokens.TextXs;
             _modeBadge.style.unityFontStyleAndWeight = FontStyle.Bold;
             _modeBadge.style.color = _theme.MenuTextColor;
@@ -254,8 +254,8 @@ namespace Lvn.UI
             var p = LvnChrome.Sheet(new VisualElement());
             p.style.top = Length.Percent(12); p.style.bottom = Length.Percent(12);
             p.style.backgroundColor = _theme.MenuBgColor;
-            p.style.paddingLeft = LvnTokens.Space3; p.style.paddingRight = LvnTokens.Space3;
-            p.style.paddingTop = LvnTokens.Space2; p.style.paddingBottom = LvnTokens.Space2;
+            LvnAir.PadX(p, LvnTokens.Space3);
+            LvnAir.PadY(p, LvnTokens.Space2);
             LvnChrome.Round(p, _theme.MenuCornerRadius + 2f);
             _scrim.Add(p);
 
@@ -282,7 +282,7 @@ namespace Lvn.UI
             sheet.style.top = Length.Percent(10);
             sheet.style.width = 310;
             sheet.style.backgroundColor = _theme.MenuBgColor;
-            sheet.style.paddingTop = LvnTokens.Space1; sheet.style.paddingBottom = LvnTokens.Space1;
+            LvnAir.PadY(sheet, LvnTokens.Space1);
             LvnChrome.Round(sheet, _theme.MenuCornerRadius);
             sheet.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             _scrim.Add(sheet);

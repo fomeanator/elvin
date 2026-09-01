@@ -97,8 +97,7 @@ namespace Lvn.UI.Screens
             card.style.backgroundColor = LvnTokens.Faint;
             LvnChrome.Edge(card); // тонкий бордер токеном — карточка, не пятно
             LvnChrome.Round(card, LvnTokens.Radius);
-            card.style.paddingTop = LvnTokens.Space2; card.style.paddingBottom = LvnTokens.Space2;
-            card.style.paddingLeft = LvnTokens.Space2; card.style.paddingRight = LvnTokens.Space2;
+            LvnAir.Pad(card, LvnTokens.Space2);
             card.style.marginBottom = LvnTokens.Space2;
             return card;
         }
@@ -229,6 +228,8 @@ namespace Lvn.UI.Screens
             var x = new Label("×");
             x.style.color = LvnTokens.TextDim;
             x.style.fontSize = LvnTokens.TextXs;
+            // НАРОЧНО порознь: у крестика воздух слева и справа РАЗНЫЙ —
+            // палец метит в центр знака, а не в центр кнопки.
             x.style.paddingLeft = LvnTokens.Space2; x.style.paddingRight = 4;
             x.style.flexShrink = 0;
             var entry = e;

@@ -100,10 +100,9 @@ namespace Lvn.UI.Screens
             _card.style.width = Length.Percent(80f);
             _card.style.backgroundColor = UiColor.Named(_cfg.panel_color, LvnTokens.PanelBg);
             LvnChrome.Round(_card, _radius + 4f);
-            _card.style.paddingTop = LvnTokens.Space4;
+            LvnAir.PadX(_card, LvnTokens.Space4);
             _card.style.paddingBottom = LvnTokens.Space3;
-            _card.style.paddingLeft = LvnTokens.Space4;
-            _card.style.paddingRight = LvnTokens.Space4;
+            _card.style.paddingTop = LvnTokens.Space4;
             Add(_card);
 
             _title = new Label { name = "popup-title" };
@@ -239,11 +238,9 @@ namespace Lvn.UI.Screens
             b.style.fontSize = LvnTokens.TextSm;
             b.style.flexGrow = count > 1 ? 1 : 0;
             b.style.minWidth = 120;
+            LvnAir.PadX(b, LvnTokens.Space3);
+            LvnAir.PadY(b, LvnTokens.Space2);
             b.style.marginLeft = index > 0 ? 8 : 0;
-            b.style.paddingTop = LvnTokens.Space2;
-            b.style.paddingBottom = LvnTokens.Space2;
-            b.style.paddingLeft = LvnTokens.Space3;
-            b.style.paddingRight = LvnTokens.Space3;
             b.style.color = spec.Primary ? _primaryText : _btnText;
             b.style.backgroundColor = spec.Primary ? _primaryColor : _btnColor;
             b.style.unityTextAlign = TextAnchor.MiddleCenter;

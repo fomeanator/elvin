@@ -28,8 +28,7 @@ namespace Lvn.UI.Screens
             var b = new Button(onTap) { text = "" };
             b.style.alignItems = Align.Center;
             b.style.justifyContent = Justify.Center;
-            b.style.paddingLeft = 0; b.style.paddingRight = 0;
-            b.style.paddingTop = 0; b.style.paddingBottom = 0;
+            LvnAir.Pad(b, 0);
             b.Add(LvnIcons.Make(icon, size, color));
             return b;
         }
@@ -71,8 +70,8 @@ namespace Lvn.UI.Screens
         {
             var chip = ScreenUi.Row();
             chip.style.backgroundColor = LvnTokens.Veil(0.28f);
-            chip.style.paddingLeft = LvnTokens.Space2; chip.style.paddingRight = LvnTokens.Space2;
-            chip.style.paddingTop = 4; chip.style.paddingBottom = 4;
+            LvnAir.PadX(chip, LvnTokens.Space2);
+            LvnAir.PadY(chip, 4);
             LvnChrome.Round(chip, LvnTokens.RadiusSm);
             return chip;
         }
@@ -101,8 +100,8 @@ namespace Lvn.UI.Screens
             var col = new VisualElement();
             ScreenUi.Stretch(col);
             col.style.flexDirection = FlexDirection.Column;
-            col.style.paddingTop = LvnTokens.Space4; col.style.paddingBottom = LvnTokens.Space4;
-            col.style.paddingLeft = 30; col.style.paddingRight = 30;
+            LvnAir.PadX(col, 30);
+            LvnAir.PadY(col, LvnTokens.Space4);
             return col;
         }
 

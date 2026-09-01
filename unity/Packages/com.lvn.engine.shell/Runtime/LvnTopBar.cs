@@ -128,7 +128,7 @@ namespace Lvn.UI.Screens
             LvnChrome.Divider(_row);
             _row.style.height = RowH;
             ScreenUi.Row(_row);
-            _row.style.paddingLeft = LvnTokens.Space2; _row.style.paddingRight = LvnTokens.Space2;
+            LvnAir.PadX(_row, LvnTokens.Space2);
             Add(_row);
 
             _row.Add(Logo());
@@ -162,7 +162,7 @@ namespace Lvn.UI.Screens
             _miniProgress.style.top = 8;
             _miniProgress.style.left = 12;
             _miniProgress.style.height = 42;
-            _miniProgress.style.paddingLeft = LvnTokens.Space2; _miniProgress.style.paddingRight = LvnTokens.Space2;
+            LvnAir.PadX(_miniProgress, LvnTokens.Space2);
             _miniProgress.style.justifyContent = Justify.Center;
             var pbg = LvnTokens.PanelBg;
             _miniProgress.style.backgroundColor = UiColor.WithAlpha(pbg, 0.72f);
@@ -189,8 +189,8 @@ namespace Lvn.UI.Screens
             LvnChrome.Divider(_gameRow);
             ScreenUi.Row(_gameRow);
             _gameRow.style.justifyContent = Justify.SpaceAround;
-            _gameRow.style.paddingTop = LvnTokens.Space2; _gameRow.style.paddingBottom = LvnTokens.Space2;
-            _gameRow.style.paddingLeft = LvnTokens.Space1; _gameRow.style.paddingRight = LvnTokens.Space1;
+            LvnAir.PadX(_gameRow, LvnTokens.Space1);
+            LvnAir.PadY(_gameRow, LvnTokens.Space2);
             _gameRow.style.display = DisplayStyle.None;
             _gameRow.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             // Подписи игровой панели — через словарь: зашитые по-русски, они делали
@@ -211,8 +211,8 @@ namespace Lvn.UI.Screens
         {
             var b = new VisualElement();
             b.style.alignItems = Align.Center;
-            b.style.paddingTop = LvnTokens.Space1; b.style.paddingBottom = LvnTokens.Space1;
-            b.style.paddingLeft = LvnTokens.Space2; b.style.paddingRight = LvnTokens.Space2;
+            LvnAir.PadX(b, LvnTokens.Space2);
+            LvnAir.PadY(b, LvnTokens.Space1);
             LvnChrome.Round(b, LvnTokens.RadiusSm);
             var ic = LvnIcons.Make(icon, 28f, LvnTokens.Accent);
             ic.pickingMode = PickingMode.Ignore;

@@ -45,8 +45,7 @@ namespace Lvn.UI.Screens
             _card.style.top = Length.Percent(38f); // title block at 36-40% (visual standard)
             _card.style.alignItems = Align.Center;
             _card.style.justifyContent = Justify.Center;
-            _card.style.paddingTop = LvnTokens.Space5;
-            _card.style.paddingBottom = LvnTokens.Space5;
+            LvnAir.PadY(_card, LvnTokens.Space5);
             Add(_card);
 
             _chapter = new Label();

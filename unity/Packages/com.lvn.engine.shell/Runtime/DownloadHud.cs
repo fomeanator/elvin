@@ -194,8 +194,9 @@ namespace Lvn.UI.Screens
             var close = new Label("×");
             close.style.color = LvnTokens.TextDim;
             close.style.fontSize = LvnTokens.TextSm;
-            close.style.paddingTop = LvnTokens.Space1; close.style.paddingBottom = LvnTokens.Space1;
-            close.style.paddingLeft = LvnTokens.Space2; close.style.paddingRight = LvnTokens.Space1;
+            LvnAir.PadY(close, LvnTokens.Space1);
+            close.style.paddingLeft = LvnTokens.Space2;
+            close.style.paddingRight = LvnTokens.Space1;
             close.RegisterCallback<ClickEvent>(e => { e.StopPropagation(); SetExpanded(false); });
             head.Add(close);
 
@@ -244,8 +245,9 @@ namespace Lvn.UI.Screens
             info.style.backgroundColor = LvnTokens.Faint;
             LvnChrome.Edge(info);
             LvnChrome.Round(info, LvnTokens.Radius);
-            info.style.paddingTop = LvnTokens.Space2; info.style.paddingBottom = LvnTokens.Space1;
-            info.style.paddingLeft = LvnTokens.Space2; info.style.paddingRight = LvnTokens.Space2;
+            LvnAir.PadX(info, LvnTokens.Space2);
+            info.style.paddingBottom = LvnTokens.Space1;
+            info.style.paddingTop = LvnTokens.Space2;
             info.style.flexDirection = FlexDirection.Row;
             info.style.flexWrap = Wrap.Wrap;
             _full.Add(info);

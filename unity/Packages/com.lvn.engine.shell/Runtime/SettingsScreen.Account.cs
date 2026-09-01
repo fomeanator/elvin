@@ -77,7 +77,7 @@ namespace Lvn.UI.Screens
             var row = new VisualElement();
             row.style.flexDirection = FlexDirection.Row;
             row.style.justifyContent = Justify.Center;
-            row.style.marginTop = LvnTokens.Space1; row.style.marginBottom = LvnTokens.Space1;
+            LvnAir.MarginY(row, LvnTokens.Space1);
             if (hasTerms) row.Add(LinkLabel(LvnWords.Pick("account.terms", _cfg.terms_text, "Terms of Use"), _cfg.terms_url));
             if (hasTerms && hasPrivacy)
             {
@@ -113,7 +113,7 @@ namespace Lvn.UI.Screens
                     lbl.style.fontSize = LvnTokens.TextSm;
                     el = lbl;
                 }
-                el.style.marginLeft = LvnTokens.Space2; el.style.marginRight = LvnTokens.Space2;
+                LvnAir.MarginX(el, LvnTokens.Space2);
                 var url = s.url;
                 el.RegisterCallback<ClickEvent>(_ => LvnWebView.Open(url));
                 row.Add(el);

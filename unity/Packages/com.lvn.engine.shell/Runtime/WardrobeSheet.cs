@@ -216,8 +216,8 @@ namespace Lvn.UI.Screens
             peekLabel.style.marginLeft = LvnTokens.Space1;
             peekLabel.style.color = LvnTokens.Text;
             peek.Add(peekLabel);
-            peek.style.paddingLeft = LvnTokens.Space2; peek.style.paddingRight = LvnTokens.Space2;
-            peek.style.paddingTop = LvnTokens.Space1; peek.style.paddingBottom = LvnTokens.Space1;
+            LvnAir.PadX(peek, LvnTokens.Space2);
+            LvnAir.PadY(peek, LvnTokens.Space1);
             SkinButton(peek, false);
 
             // Character pills — ONLY the always-open wardrobe shows them, and
@@ -289,8 +289,8 @@ namespace Lvn.UI.Screens
             {
                 b.style.alignItems = Align.Center;
                 b.style.justifyContent = Justify.Center;
-                b.style.paddingLeft = LvnTokens.Space3; b.style.paddingRight = LvnTokens.Space3;
-                b.style.paddingTop = LvnTokens.Space2; b.style.paddingBottom = LvnTokens.Space2;
+                LvnAir.PadX(b, LvnTokens.Space3);
+                LvnAir.PadY(b, LvnTokens.Space2);
                 SkinButton(b, false);
             }
             carousel.Add(prev);
@@ -301,8 +301,8 @@ namespace Lvn.UI.Screens
             _itemName.style.fontSize = LvnTokens.TextBase;
             _itemName.style.unityTextAlign = TextAnchor.MiddleCenter;
             _itemName.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
-            _itemName.style.marginLeft = LvnTokens.Space2; _itemName.style.marginRight = LvnTokens.Space2;
-            _itemName.style.paddingTop = LvnTokens.Space2; _itemName.style.paddingBottom = LvnTokens.Space2;
+            LvnAir.PadY(_itemName, LvnTokens.Space2);
+            LvnAir.MarginX(_itemName, LvnTokens.Space2);
             LvnChrome.Round(_itemName, _radius);
             carousel.Add(_itemName);
             carousel.Add(next);
@@ -321,9 +321,8 @@ namespace Lvn.UI.Screens
             _cancel.style.fontSize = LvnTokens.TextBase;
             _cancel.style.flexGrow = 1;
             _cancel.style.flexBasis = 0;
+            LvnAir.PadY(_cancel, LvnTokens.Space2);
             _cancel.style.marginRight = LvnTokens.Space2;
-            _cancel.style.paddingTop = LvnTokens.Space2;
-            _cancel.style.paddingBottom = LvnTokens.Space2;
             SkinButton(_cancel, false);
             actions.Add(_cancel);
 
@@ -331,8 +330,7 @@ namespace Lvn.UI.Screens
             _confirm.style.fontSize = LvnTokens.TextBase;
             _confirm.style.flexGrow = 1;
             _confirm.style.flexBasis = 0;
-            _confirm.style.paddingTop = LvnTokens.Space2;
-            _confirm.style.paddingBottom = LvnTokens.Space2;
+            LvnAir.PadY(_confirm, LvnTokens.Space2);
             SkinButton(_confirm, true);
             // Цена стоит НА кнопке, поэтому подпись у кнопки составная: слово,
             // число и значок валюты. Собственный text у Button остаётся пустым —
@@ -475,8 +473,8 @@ namespace Lvn.UI.Screens
                 var b = new Button(() => SelectTab(axis)) { text = "" };
                 b.style.height = 56;
                 ScreenUi.Row(b);
-                b.style.marginLeft = LvnTokens.Space1; b.style.marginRight = LvnTokens.Space1;
-                b.style.paddingLeft = LvnTokens.Space3; b.style.paddingRight = LvnTokens.Space3;
+                LvnAir.PadX(b, LvnTokens.Space3);
+                LvnAir.MarginX(b, LvnTokens.Space1);
                 LvnChrome.Round(b, LvnTokens.RadiusLg);
                 Smooth(b, LvnMotion.Normal, "background-color", "border-top-color",
                     "border-right-color", "border-bottom-color", "border-left-color");
@@ -525,8 +523,8 @@ namespace Lvn.UI.Screens
                 var all = new Button(() => SelectTab(AllTab)) { text = "" };
                 all.style.height = 56;
                 ScreenUi.Row(all);
-                all.style.marginLeft = LvnTokens.Space1; all.style.marginRight = LvnTokens.Space1;
-                all.style.paddingLeft = LvnTokens.Space3; all.style.paddingRight = LvnTokens.Space3;
+                LvnAir.PadX(all, LvnTokens.Space3);
+                LvnAir.MarginX(all, LvnTokens.Space1);
                 LvnChrome.Round(all, LvnTokens.RadiusLg);
                 Smooth(all, LvnMotion.Normal, "background-color", "border-top-color",
                     "border-right-color", "border-bottom-color", "border-left-color");

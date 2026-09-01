@@ -226,8 +226,8 @@ namespace Lvn.UI.Screens
             badge.style.position = Position.Absolute;
             badge.style.top = 6; badge.style.right = 6;
             badge.style.backgroundColor = new Color(0f, 0f, 0f, 0.62f);
-            badge.style.paddingLeft = LvnTokens.Space1; badge.style.paddingRight = LvnTokens.Space1;
-            badge.style.paddingTop = 3; badge.style.paddingBottom = 3;
+            LvnAir.PadX(badge, LvnTokens.Space1);
+            LvnAir.PadY(badge, 3);
             LvnChrome.Round(badge, LvnTokens.RadiusSm);
             return badge;
         }
@@ -297,8 +297,7 @@ namespace Lvn.UI.Screens
             plate.style.position = Position.Absolute;
             plate.style.left = 0; plate.style.right = 0; plate.style.bottom = 0;
             plate.style.backgroundColor = new Color(0.16f, 0.16f, 0.19f, 0.85f);
-            plate.style.paddingTop = LvnTokens.Space1; plate.style.paddingBottom = LvnTokens.Space1;
-            plate.style.paddingLeft = LvnTokens.Space1; plate.style.paddingRight = LvnTokens.Space1;
+            LvnAir.Pad(plate, LvnTokens.Space1);
             card.Add(plate);
 
             var name = Lvn.UI.LvnRedress.Bind(new Label { pickingMode = PickingMode.Ignore },

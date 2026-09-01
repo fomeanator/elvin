@@ -264,8 +264,7 @@ namespace Lvn.UI
                     // хотя выделения в игре нет вовсе.
                     b.RemoveFromClassList(Button.ussClassName);
                     b.focusable = false;
-                    b.style.marginLeft = 0; b.style.marginRight = 0;
-                    b.style.marginTop = 0; b.style.marginBottom = 0;
+                    LvnAir.Margin(b, 0);
                     // НАРОЧНО три стороны, а не ClearBorder: НИЖНЯЯ кромка
                     // здесь не рамка, а объём кнопки (ButtonLift) — погасив её
                     // заодно, кнопка становится плоской.

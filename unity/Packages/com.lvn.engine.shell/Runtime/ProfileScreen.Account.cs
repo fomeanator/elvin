@@ -19,9 +19,10 @@ namespace Lvn.UI.Screens
         {
             var row = ScreenUi.Row(spread: true);
             LvnChrome.Card(row, LvnTokens.SurfaceSoft);
-            row.style.marginTop = LvnTokens.Space1; row.style.marginBottom = LvnTokens.Space2;
-            row.style.paddingTop = LvnTokens.Space2; row.style.paddingBottom = LvnTokens.Space2;
-            row.style.paddingLeft = LvnTokens.Space3; row.style.paddingRight = LvnTokens.Space3;
+            LvnAir.PadX(row, LvnTokens.Space3);
+            LvnAir.PadY(row, LvnTokens.Space2);
+            row.style.marginBottom = LvnTokens.Space2;
+            row.style.marginTop = LvnTokens.Space1;
             var col = new VisualElement();
             col.style.flexGrow = 1;
             var lbl = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("settings.title", "Settings"));
@@ -49,9 +50,9 @@ namespace Lvn.UI.Screens
         {
             var row = ScreenUi.Row(spread: true);
             LvnChrome.Card(row);
+            LvnAir.PadX(row, LvnTokens.Space3);
+            LvnAir.PadY(row, LvnTokens.Space2);
             row.style.marginBottom = LvnTokens.Space2;
-            row.style.paddingTop = LvnTokens.Space2; row.style.paddingBottom = LvnTokens.Space2;
-            row.style.paddingLeft = LvnTokens.Space3; row.style.paddingRight = LvnTokens.Space3;
 
             var col = new VisualElement();
             col.style.flexGrow = 1;
@@ -79,8 +80,8 @@ namespace Lvn.UI.Screens
                 ? LvnWords.Of("account.delete_sure", "Really delete?")
                 : LvnWords.Of("account.delete_do", "Delete"));
             btn.style.fontSize = LvnTokens.TextXs;
-            btn.style.paddingTop = LvnTokens.Space2; btn.style.paddingBottom = LvnTokens.Space2;
-            btn.style.paddingLeft = LvnTokens.Space3; btn.style.paddingRight = LvnTokens.Space3;
+            LvnAir.PadX(btn, LvnTokens.Space3);
+            LvnAir.PadY(btn, LvnTokens.Space2);
             LvnStyler.Plate(btn, LvnTokens.Faint, danger, LvnTokens.RadiusSm);
 
             btn.clicked += () =>
@@ -141,10 +142,8 @@ namespace Lvn.UI.Screens
 
             var copy = Lvn.UI.LvnRedress.Bind(new Button(), () => LvnWords.Of("settings.copy", "Copy"));
             copy.style.fontSize = LvnTokens.TextXs;
-            copy.style.paddingTop = LvnTokens.Space2;
-            copy.style.paddingBottom = LvnTokens.Space2;
-            copy.style.paddingLeft = LvnTokens.Space3;
-            copy.style.paddingRight = LvnTokens.Space3;
+            LvnAir.PadX(copy, LvnTokens.Space3);
+            LvnAir.PadY(copy, LvnTokens.Space2);
             LvnStyler.Primary(copy, LvnTokens.RadiusSm);
             copy.clicked += () =>
             {

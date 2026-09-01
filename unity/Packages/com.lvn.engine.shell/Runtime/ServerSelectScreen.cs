@@ -132,10 +132,8 @@ namespace Lvn.UI.Screens
 
             var panel = Lvn.UI.LvnChrome.Sheet(new VisualElement());
             panel.style.top = Length.Percent(18f);
-            panel.style.paddingTop = LvnTokens.Space3;
-            panel.style.paddingBottom = LvnTokens.Space3;
-            panel.style.paddingLeft = 22;
-            panel.style.paddingRight = 22;
+            LvnAir.PadX(panel, 22);
+            LvnAir.PadY(panel, LvnTokens.Space3);
             panel.style.backgroundColor = new Color(0f, 0f, 0f, 0.72f);
             LvnChrome.Round(panel, LvnTokens.Radius);
             root.Add(panel);
@@ -162,8 +160,7 @@ namespace Lvn.UI.Screens
                 btn.style.flexGrow = 1;
                 btn.style.unityTextAlign = TextAnchor.MiddleLeft;
                 btn.style.fontSize = LvnTokens.TextMicro;
-                btn.style.paddingTop = LvnTokens.Space1;
-                btn.style.paddingBottom = LvnTokens.Space1;
+                LvnAir.PadY(btn, LvnTokens.Space1);
                 btn.style.paddingLeft = LvnTokens.Space2;
                 btn.style.backgroundColor = new Color(1f, 1f, 1f, 0.08f);
                 btn.style.color = new Color(0.9f, 0.9f, 0.9f);
@@ -192,10 +189,7 @@ namespace Lvn.UI.Screens
             {
                 input.style.backgroundColor = new Color(0.11f, 0.11f, 0.13f);
                 input.style.color = new Color(0.9f, 0.9f, 0.9f);
-                input.style.paddingTop = LvnTokens.Space2;
-                input.style.paddingBottom = LvnTokens.Space2;
-                input.style.paddingLeft = LvnTokens.Space2;
-                input.style.paddingRight = LvnTokens.Space2;
+                LvnAir.Pad(input, LvnTokens.Space2);
             }
             field.RegisterCallback<KeyDownEvent>(e =>
             {
@@ -206,8 +200,7 @@ namespace Lvn.UI.Screens
             var connect = Lvn.UI.LvnRedress.Bind(new Button(() => Confirm(field.value)), () => LvnWords.Of("server.connect", "Connect"));
             connect.style.marginTop = LvnTokens.Space2;
             connect.style.fontSize = LvnTokens.TextXs;
-            connect.style.paddingTop = LvnTokens.Space2;
-            connect.style.paddingBottom = LvnTokens.Space2;
+            LvnAir.PadY(connect, LvnTokens.Space2);
             connect.style.backgroundColor = new Color(0.78f, 0.63f, 0.31f);
             connect.style.color = new Color(0.08f, 0.08f, 0.10f);
             panel.Add(connect);

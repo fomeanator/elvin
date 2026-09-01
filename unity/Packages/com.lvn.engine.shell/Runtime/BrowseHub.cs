@@ -254,7 +254,8 @@ namespace Lvn.UI.Screens
             // в узкой строке возврата мелким кеглем, и экран открывался
             // безымянным: картинка, абзац и кнопка.
             var dCap = new VisualElement { pickingMode = PickingMode.Ignore };
-            dCap.style.paddingLeft = LvnTokens.Space3; dCap.style.paddingRight = LvnTokens.Space3; dCap.style.paddingBottom = LvnTokens.Space3;
+            LvnAir.PadX(dCap, LvnTokens.Space3);
+            dCap.style.paddingBottom = LvnTokens.Space3;
             _detailBigTitle = Lvn.UI.LvnRedress.Bind(new Label(), () => _detailTarget == null ? string.Empty
                 : _theme.Heading(LvnWords.Name("title", _detailTarget.id, _detailTarget.name)));
             _detailBigTitle.style.color = _titleColor; _detailBigTitle.style.fontSize = LvnTokens.TextDisplay;
@@ -276,8 +277,7 @@ namespace Lvn.UI.Screens
             var dBody = new VisualElement();
             dBody.style.flexGrow = 1;
             dBody.style.backgroundColor = _card;
-            dBody.style.paddingLeft = LvnTokens.Space3; dBody.style.paddingRight = LvnTokens.Space3;
-            dBody.style.paddingTop = LvnTokens.Space3; dBody.style.paddingBottom = LvnTokens.Space3;
+            LvnAir.Pad(dBody, LvnTokens.Space3);
             LvnChrome.Round(dBody, _radius);
             Edge(dBody, 0.7f);
             _detailDesc = new Label(string.Empty);
@@ -626,8 +626,8 @@ namespace Lvn.UI.Screens
         {
             var b = new Button(onClick) { text = text };
             b.style.fontSize = LvnTokens.TextLg;
+            LvnAir.PadY(b, LvnTokens.Space2);
             b.style.marginTop = LvnTokens.Space2;
-            b.style.paddingTop = LvnTokens.Space2; b.style.paddingBottom = LvnTokens.Space2;
             b.style.color = _accentText;
             b.style.backgroundColor = _accent;
             LvnChrome.ClearBorder(b); LvnChrome.Round(b, _radius);

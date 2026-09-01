@@ -66,10 +66,7 @@ namespace Lvn.UI.Screens
             // tap the scrim (not the sheet) to close
 
             var sheet = Sheet();   // положение и вид — общие; поля свои
-            sheet.style.paddingTop = LvnTokens.Space3;
-            sheet.style.paddingBottom = LvnTokens.Space3;
-            sheet.style.paddingLeft = LvnTokens.Space3;
-            sheet.style.paddingRight = LvnTokens.Space3;
+            LvnAir.Pad(sheet, LvnTokens.Space3);
 
             // ── Header: back + title ────────────────────────────────────────
             var header = ScreenUi.Row();
@@ -92,8 +89,7 @@ namespace Lvn.UI.Screens
             tabs.style.backgroundColor = LvnTokens.Surface;
             LvnChrome.Edge(tabs);
             LvnChrome.Round(tabs, LvnTokens.Radius);
-            tabs.style.paddingLeft = 4; tabs.style.paddingRight = 4;
-            tabs.style.paddingTop = 4; tabs.style.paddingBottom = 4;
+            LvnAir.Pad(tabs, 4);
             sheet.Add(tabs);
 
             _tabWeek = Pill(LvnWords.Of("board.week", "This week"), () => SetPeriod(true));
@@ -158,9 +154,9 @@ namespace Lvn.UI.Screens
         {
             var b = new Button(onClick) { text = text };
             b.style.fontSize = LvnTokens.TextSm;
-            b.style.paddingTop = LvnTokens.Space2; b.style.paddingBottom = LvnTokens.Space2;
-            b.style.paddingLeft = LvnTokens.Space4; b.style.paddingRight = LvnTokens.Space4;
-            b.style.marginLeft = 0; b.style.marginRight = 0;
+            LvnAir.PadX(b, LvnTokens.Space4);
+            LvnAir.PadY(b, LvnTokens.Space2);
+            LvnAir.MarginX(b, 0);
             LvnChrome.ClearBorder(b);
             LvnChrome.Round(b, LvnTokens.RadiusSm);
             return b;
@@ -187,7 +183,7 @@ namespace Lvn.UI.Screens
 
             var col = new VisualElement();
             col.style.alignItems = Align.Center;
-            col.style.marginLeft = LvnTokens.Space1; col.style.marginRight = LvnTokens.Space1;
+            LvnAir.MarginX(col, LvnTokens.Space1);
             col.style.width = first ? 138 : 112;
             if (!first) col.style.marginBottom = LvnTokens.Space2; // sink the flanks below the winner
 
@@ -261,9 +257,10 @@ namespace Lvn.UI.Screens
         private VisualElement Row(Entry e)
         {
             var row = ScreenUi.Row();
+            LvnAir.PadY(row, LvnTokens.Space2);
             row.style.marginBottom = LvnTokens.Space1;
-            row.style.paddingTop = LvnTokens.Space2; row.style.paddingBottom = LvnTokens.Space2;
-            row.style.paddingLeft = LvnTokens.Space2; row.style.paddingRight = LvnTokens.Space3;
+            row.style.paddingLeft = LvnTokens.Space2;
+            row.style.paddingRight = LvnTokens.Space3;
             row.style.backgroundColor = e.IsYou
                 ? UiColor.WithAlpha(LvnTokens.Accent, 0.18f)
                 : LvnTokens.Surface;
@@ -307,9 +304,9 @@ namespace Lvn.UI.Screens
                 you.style.backgroundColor = LvnTokens.Accent;
                 you.style.unityFontStyleAndWeight = FontStyle.Bold;
                 you.style.unityTextAlign = TextAnchor.MiddleCenter;
+                LvnAir.PadX(you, LvnTokens.Space2);
+                LvnAir.PadY(you, 2);
                 you.style.marginLeft = LvnTokens.Space2;
-                you.style.paddingLeft = LvnTokens.Space2; you.style.paddingRight = LvnTokens.Space2;
-                you.style.paddingTop = 2; you.style.paddingBottom = 2;
                 LvnChrome.Round(you, LvnTokens.RadiusSm);
                 nameCol.Add(you);
             }

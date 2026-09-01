@@ -60,10 +60,9 @@ namespace Lvn.UI.Screens
             // ── bottom panel: title, subtitle, (nickname), start, status ──
             var panel = Lvn.UI.LvnChrome.Sheet(new VisualElement());
             panel.style.bottom = Length.Percent(7f);
-            panel.style.paddingTop = LvnTokens.Space4;
+            LvnAir.PadX(panel, LvnTokens.Space4);
             panel.style.paddingBottom = 22;
-            panel.style.paddingLeft = LvnTokens.Space4;
-            panel.style.paddingRight = LvnTokens.Space4;
+            panel.style.paddingTop = LvnTokens.Space4;
             panel.style.backgroundColor = UiColor.Named(_cfg.panel_color, LvnTokens.Veil(0.65f));
             LvnChrome.Round(panel, LvnTokens.Radius);
             Add(panel);
@@ -111,9 +110,8 @@ namespace Lvn.UI.Screens
 
             var start = Lvn.UI.LvnRedress.Bind(new Button(Confirm), () => LvnWords.Pick("auth.start", _cfg.start_text, "Start"));
             start.style.fontSize = LvnTokens.TextBase;
+            LvnAir.PadY(start, LvnTokens.Space3);
             start.style.marginTop = 22;
-            start.style.paddingTop = LvnTokens.Space3;
-            start.style.paddingBottom = LvnTokens.Space3;
             start.style.color = UiColor.Named(_cfg.button_text_color, LvnTokens.OnAccent);
             start.style.backgroundColor = UiColor.Named(_cfg.button_color, LvnTokens.Accent);
             LvnChrome.Round(start, LvnTokens.RadiusSm);
@@ -233,9 +231,9 @@ namespace Lvn.UI.Screens
             if (!allowed || !Lvn.Services.LvnPlatformAuth.Has(provider)) return;
             var b = new Button { text = label };
             b.style.fontSize = LvnTokens.TextSm;
-            b.style.marginLeft = LvnTokens.Space1; b.style.marginRight = LvnTokens.Space1;
-            b.style.paddingTop = LvnTokens.Space2; b.style.paddingBottom = LvnTokens.Space2;
-            b.style.paddingLeft = LvnTokens.Space3; b.style.paddingRight = LvnTokens.Space3;
+            LvnAir.PadX(b, LvnTokens.Space3);
+            LvnAir.PadY(b, LvnTokens.Space2);
+            LvnAir.MarginX(b, LvnTokens.Space1);
             // РОЛЬ, А НЕ ЦВЕТ. Плашка была белой по жёсткому числу (10% белого),
             // и в тёмно-бирюзовой теме, где все приглушённые плашки подкрашены,
             // эти три кнопки оставались единственными белыми. Тихая плашка —

@@ -328,8 +328,8 @@ namespace Lvn.UI
                 _hintCard.style.maxWidth = Length.Percent(82);
                 _hintCard.style.flexDirection = FlexDirection.Row;
                 _hintCard.style.alignItems = Align.Center;
-                _hintCard.style.paddingLeft = LvnTokens.Space3; _hintCard.style.paddingRight = LvnTokens.Space3;
-                _hintCard.style.paddingTop = LvnTokens.Space2; _hintCard.style.paddingBottom = LvnTokens.Space2;
+                LvnAir.PadX(_hintCard, LvnTokens.Space3);
+                LvnAir.PadY(_hintCard, LvnTokens.Space2);
                 _hintCard.style.overflow = Overflow.Hidden;
 
                 // The icon is deliberately part of the toast instead of a

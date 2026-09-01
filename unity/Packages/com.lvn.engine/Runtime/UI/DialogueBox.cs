@@ -141,10 +141,9 @@ namespace Lvn.UI
                 // NVL: stretch from a top inset to the bottom as a tall reading surface.
                 style.left = 0; style.right = 0; style.bottom = 0;
                 style.top = Length.Percent(Mathf.Clamp01(_theme.NvlTop) * 100f);
-                style.paddingLeft = _theme.EdgePadding;
-                style.paddingRight = _theme.EdgePadding;
+                LvnAir.PadX(this, _theme.EdgePadding);
                 style.paddingTop = _theme.EdgePadding;
-                style.paddingBottom = _theme.BottomPadding;
+                style.paddingBottom = _theme.BottomPadding;   // НАРОЧНО порознь: снизу воздуха больше
                 _box.style.flexGrow = 1;
             }
             else
@@ -163,8 +162,7 @@ namespace Lvn.UI
                     style.bottom = Length.Percent(Mathf.Max(0f, _theme.BottomLiftPercent));
                     style.paddingBottom = _theme.BottomPadding;
                 }
-                style.paddingLeft = _theme.EdgePadding;
-                style.paddingRight = _theme.EdgePadding;
+                LvnAir.PadX(this, _theme.EdgePadding);
                 // alignItems places the box across the screen width.
                 style.alignItems = stretch ? Align.Stretch
                     : align == "center" ? Align.Center
@@ -199,10 +197,8 @@ namespace Lvn.UI
             _plate.style.alignSelf = Align.FlexStart;
             _plate.style.flexShrink = 0; // never squeezed out of the column when space is tight
             _plate.style.backgroundColor = _theme.PanelColor;
-            _plate.style.paddingLeft = _theme.NamePaddingX;
-            _plate.style.paddingRight = _theme.NamePaddingX;
-            _plate.style.paddingTop = _theme.NamePaddingY;
-            _plate.style.paddingBottom = _theme.NamePaddingY;
+            LvnAir.PadX(_plate, _theme.NamePaddingX);
+            LvnAir.PadY(_plate, _theme.NamePaddingY);
             _plate.style.marginBottom = -2;
             LvnChrome.RoundTop(_plate, _theme.PanelCornerRadius * 0.6f);
             UiStyle.ApplyBackground(_plate, _theme.PlateSprite, _theme.PanelSlice);
@@ -233,10 +229,8 @@ namespace Lvn.UI
             _panelShell.style.overflow = Overflow.Visible;
             _panelShell.style.flexShrink = 0;
             _panel = new VisualElement { name = "vn-panel" };
-            _panel.style.paddingLeft = _theme.PanelPaddingX;
-            _panel.style.paddingRight = _theme.PanelPaddingX;
-            _panel.style.paddingTop = _theme.PanelPaddingY;
-            _panel.style.paddingBottom = _theme.PanelPaddingY;
+            LvnAir.PadX(_panel, _theme.PanelPaddingX);
+            LvnAir.PadY(_panel, _theme.PanelPaddingY);
             _panel.style.minHeight = _theme.PanelMinHeight;
             // The speaker pointer deliberately rises above the top border.
             // Keep it outside the panel's content clip.
@@ -346,8 +340,7 @@ namespace Lvn.UI
                     break;
                 case DialogueSpeakerSide.Center:
                     _plate.style.alignSelf = Align.Center;
-                    _plate.style.marginLeft = 0;
-                    _plate.style.marginRight = 0;
+                    LvnAir.MarginX(_plate, 0);
                     // A centred staged actor still owns a spatial dialogue card.
                     // Keep the ornament on the opposite/right edge of the plate
                     // instead of silently dropping it.

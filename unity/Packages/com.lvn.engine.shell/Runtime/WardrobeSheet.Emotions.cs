@@ -200,7 +200,7 @@ namespace Lvn.UI.Screens
                 chip.style.height = 44;
                 chip.style.marginBottom = LvnTokens.Space1;
                 chip.style.flexShrink = 0;
-                chip.style.paddingLeft = LvnTokens.Space3; chip.style.paddingRight = LvnTokens.Space3;
+                LvnAir.PadX(chip, LvnTokens.Space3);
                 chip.style.fontSize = LvnTokens.TextXs;
                 LvnChrome.Round(chip, LvnTokens.RadiusLg);
                 Smooth(chip, LvnMotion.Normal, "background-color", "color");

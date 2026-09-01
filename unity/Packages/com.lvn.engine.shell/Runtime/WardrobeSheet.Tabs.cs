@@ -94,9 +94,8 @@ namespace Lvn.UI.Screens
                 RefreshConfirm(); // кнопка предложит купить этот цвет
             }) { text = "" };
             b.style.width = 54; b.style.height = 54;
-            b.style.marginLeft = 5; b.style.marginRight = 5;
-            b.style.paddingLeft = 0; b.style.paddingRight = 0;
-            b.style.paddingTop = 0; b.style.paddingBottom = 0;
+            LvnAir.Pad(b, 0);
+            LvnAir.MarginX(b, 5);
             b.style.alignItems = Align.Center;
             b.style.justifyContent = Justify.Center;
             LvnChrome.Round(b, Lvn.UI.LvnTokens.RadiusLg);
@@ -165,8 +164,9 @@ namespace Lvn.UI.Screens
             bool icons = step < 2;
             foreach (var c in _tabs.Children())
             {
-                c.style.paddingLeft = side; c.style.paddingRight = side + 2f;
-                c.style.marginLeft = gap; c.style.marginRight = gap;
+                LvnAir.MarginX(c, gap);
+                c.style.paddingLeft = side;
+                c.style.paddingRight = side + 2f;
                 var lbl = c.Q<Label>("ax-label");
                 if (lbl != null) lbl.style.fontSize = font;
                 foreach (var n in new[] { "ax-ic-off", "ax-ic-on" })

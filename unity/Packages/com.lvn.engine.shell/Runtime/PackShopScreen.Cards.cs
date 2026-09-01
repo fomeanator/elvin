@@ -40,9 +40,8 @@ namespace Lvn.UI.Screens
             if (st == null) return null;
 
             var card = new VisualElement();
+            LvnAir.Pad(card, LvnTokens.Space3);
             card.style.marginBottom = LvnTokens.Space2;
-            card.style.paddingLeft = LvnTokens.Space3; card.style.paddingRight = LvnTokens.Space3;
-            card.style.paddingTop = LvnTokens.Space3; card.style.paddingBottom = LvnTokens.Space3;
             LvnStyler.Card(card);
 
             // ЧИСЛО БЕЗ ВАЛЮТЫ НЕ ГОВОРИТ НИЧЕГО: «получите 5» — пять чего? В
@@ -160,10 +159,7 @@ namespace Lvn.UI.Screens
 
             // Текстовый этаж: количество/название, бонус и состав набора.
             var body = new VisualElement();
-            body.style.paddingTop = LvnTokens.Space2;
-            body.style.paddingBottom = LvnTokens.Space2;
-            body.style.paddingLeft = LvnTokens.Space2;
-            body.style.paddingRight = LvnTokens.Space2;
+            LvnAir.Pad(body, LvnTokens.Space2);
             body.style.alignItems = wide ? Align.FlexStart : Align.Center;
             card.Add(body);
 
@@ -198,9 +194,10 @@ namespace Lvn.UI.Screens
                     var chip = ScreenUi.Row();
                     chip.style.backgroundColor = LvnTokens.Faint;
                     LvnChrome.Round(chip, LvnTokens.RadiusSm);
-                    chip.style.paddingTop = 5; chip.style.paddingBottom = 5;
-                    chip.style.paddingLeft = LvnTokens.Space2; chip.style.paddingRight = LvnTokens.Space2;
-                    chip.style.marginRight = LvnTokens.Space1; chip.style.marginBottom = LvnTokens.Space1;
+                    LvnAir.PadX(chip, LvnTokens.Space2);
+                    LvnAir.PadY(chip, 5);
+                    chip.style.marginBottom = LvnTokens.Space1;
+                    chip.style.marginRight = LvnTokens.Space1;
                     // РЯД СОБИРАЕТ ЦЕННИК. Здесь он складывался руками —
                     // значок акцентным, сумма цветом текста, — и та же валюта
                     // в хабе и в гардеробе выглядела иначе. Заодно уходит
@@ -226,7 +223,7 @@ namespace Lvn.UI.Screens
             buy.style.fontSize = LvnTokens.TextSm;
             buy.style.marginTop = LvnTokens.Space2;
             buy.style.alignSelf = Align.Stretch;
-            buy.style.paddingTop = LvnTokens.Space2; buy.style.paddingBottom = LvnTokens.Space2;
+            LvnAir.PadY(buy, LvnTokens.Space2);
             buy.style.color = pack.Best ? LvnTokens.OnAccent : LvnTokens.Text;
             buy.style.backgroundColor = pack.Best
                 ? LvnTokens.Accent
@@ -253,8 +250,8 @@ namespace Lvn.UI.Screens
                 ribbon.style.letterSpacing = 1.5f;
                 ribbon.style.color = gold ? LvnTokens.Bg : LvnTokens.OnAccent;
                 ribbon.style.backgroundColor = gold ? LvnTokens.Gold : LvnTokens.Accent;
-                ribbon.style.paddingTop = 3; ribbon.style.paddingBottom = 3;
-                ribbon.style.paddingLeft = LvnTokens.Space2; ribbon.style.paddingRight = LvnTokens.Space2;
+                LvnAir.PadX(ribbon, LvnTokens.Space2);
+                LvnAir.PadY(ribbon, 3);
                 LvnChrome.Round(ribbon, LvnTokens.RadiusXs);
                 card.Add(ribbon);
             }

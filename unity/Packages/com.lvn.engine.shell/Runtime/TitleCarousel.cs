@@ -268,7 +268,7 @@ namespace Lvn.UI.Screens
             {
                 var dot = new VisualElement();
                 dot.style.width = 10; dot.style.height = 10;
-                dot.style.marginLeft = 5; dot.style.marginRight = 5;
+                LvnAir.MarginX(dot, 5);
                 LvnChrome.Round(dot, LvnTokens.RadiusXs);   // точка — круг из квадрата 10×10
                 dot.style.backgroundColor = i == _index ? _dotActiveColor : _dotColor;
                 _dots.Add(dot);
@@ -327,8 +327,9 @@ namespace Lvn.UI.Screens
             card.Add(cover);
             LvnPicture.Photo(cover, t?.cover_url, _assets);
             var caption = new VisualElement();
-            caption.style.paddingLeft = LvnTokens.Space3; caption.style.paddingRight = LvnTokens.Space3;
-            caption.style.paddingTop = LvnTokens.Space2; caption.style.paddingBottom = LvnTokens.Space3;
+            LvnAir.PadX(caption, LvnTokens.Space3);
+            caption.style.paddingBottom = LvnTokens.Space3;
+            caption.style.paddingTop = LvnTokens.Space2;
             caption.style.backgroundColor = new Color(0f, 0f, 0f, 0.45f);
             caption.pickingMode = PickingMode.Ignore;
             card.Add(caption);
@@ -400,8 +401,8 @@ namespace Lvn.UI.Screens
             panel.style.top = Length.Percent(10f); panel.style.bottom = Length.Percent(10f);
             panel.style.backgroundColor = UiColor.Named(_cfg.card_bg_color, LvnTokens.Surface);
             LvnChrome.Round(panel, LvnTokens.Radius);
-            panel.style.paddingLeft = LvnTokens.Space3; panel.style.paddingRight = LvnTokens.Space3;
-            panel.style.paddingTop = LvnTokens.Space2; panel.style.paddingBottom = LvnTokens.Space2;
+            LvnAir.PadX(panel, LvnTokens.Space3);
+            LvnAir.PadY(panel, LvnTokens.Space2);
             panel.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             _picker.Add(panel);
 
