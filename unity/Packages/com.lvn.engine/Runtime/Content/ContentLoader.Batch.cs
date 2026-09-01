@@ -140,6 +140,11 @@ namespace Lvn.Content
 
         private async Task<byte[]> RunBatchQueuedAsync(List<PreloadItem> pending, CancellationToken ct)
         {
+            // ПАКЕТ ЖИВЫМ НЕ БЫВАЕТ. Молчание тут читалось бы как «на это
+            // смотрят»: пачка заняла бы бронь и не смогла уступить. Если
+            // звонящий ступень назвал (центр загрузок говорит «библиотека»),
+            // его слово сильнее — перебивать нельзя.
+            using var rung = LvnRungScope.AtLeast(LvnRung.CurrentChapter);
             await _batchGate.WaitAsync(ct);
             try
             {

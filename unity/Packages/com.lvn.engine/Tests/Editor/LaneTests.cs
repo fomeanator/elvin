@@ -216,5 +216,22 @@ namespace Lvn.Tests
             Assert.AreEqual(1, lane.Free,
                 "полоса расширилась на повторных возвратах: в канал полезет больше, чем решено");
         }
+
+        [Test]
+        public void Молчаливому_объявляют_за_него_а_сказавшего_не_перебивают()
+        {
+            // Пакетная закачка живой не бывает: молчание читалось бы как «на
+            // это смотрят», и пачка заняла бы бронь, не умея уступить. Но если
+            // ступень назвал звонящий — центр загрузок говорит «библиотека», —
+            // его слово сильнее.
+            using (LvnRungScope.AtLeast(LvnRung.CurrentChapter))
+                Assert.AreEqual(LvnRung.CurrentChapter, LvnRungScope.Current,
+                    "за молчаливого не объявили — пачка уйдёт в сеть как живая");
+
+            using (LvnRungScope.At(LvnRung.Library))
+            using (LvnRungScope.AtLeast(LvnRung.CurrentChapter))
+                Assert.AreEqual(LvnRung.Library, LvnRungScope.Current,
+                    "сказавшего перебили: центр загрузок просил библиотеку");
+        }
     }
 }

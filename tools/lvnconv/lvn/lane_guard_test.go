@@ -175,3 +175,37 @@ func TestYieldFlagIsTakenOnceAtBirth(t *testing.T) {
 			"регистрации отмены будут жить после каждого захода")
 	}
 }
+
+// СТУПЕНЬ ОБЪЯВЛЯЮТ ОКРУЖЕНИЮ, А НЕ ПОЛОСЕ, КОТОРАЯ ЕЁ НЕ СПРОСИТ.
+//
+// У полос расписания брони нет (keptForLive: 0) — ступень им не решает ничего.
+// Настоящий заход в сеть идёт глубже, через LvnLanes.Wire, а тот берёт ступень
+// у ОКРУЖЕНИЯ. Полдня в планировщике стояло `lane.EnterAsync(LvnRung..., ct)` с
+// комментарием «ступень объявлена вслух» — и сорок шесть картинок главы
+// садились в полосу сети как ЖИВЫЕ: занимали бронь, не попадали в список
+// фоновых, не могли уступить. Честно объявленные фоны при этом вытеснялись
+// самозванцем — приоритеты работали наизнанку.
+//
+// Ловушка коварна тем, что выглядит правильно: ступень ПЕРЕДАНА, имя роли на
+// месте, комментарий объясняет замысел. Не совпадает только адресат.
+func TestBackgroundDeclaresRungToTheAmbient(t *testing.T) {
+	root := repoRoot(t)
+	for _, f := range []string{
+		"unity/Packages/com.lvn.engine/Runtime/Content/AssetScheduler.cs",
+		"unity/Packages/com.lvn.engine/Runtime/Content/ContentLoader.Batch.cs",
+	} {
+		body := stripComments(string(mustRead(t, filepath.Join(root, f))))
+		if !strings.Contains(body, "LvnRungScope.At") {
+			t.Errorf("%s не объявляет ступень окружению — его закачки уйдут в "+
+				"полосу сети как ЖИВЫЕ, займут бронь и не смогут уступить",
+				filepath.Base(f))
+		}
+	}
+
+	sched := stripComments(string(mustRead(t, filepath.Join(root,
+		"unity/Packages/com.lvn.engine/Runtime/Content/AssetScheduler.cs"))))
+	if strings.Contains(sched, "EnterAsync(LvnRung.") {
+		t.Error("расписание снова передаёт ступень СВОЕЙ полосе: у неё брони " +
+			"нет, ступень там не решает ничего, а вид у строки — рабочий")
+	}
+}
