@@ -493,10 +493,11 @@ namespace Lvn.Content
         /// internal for tests.</summary>
         internal static IEnumerable<string> SourceCandidates(string path)
         {
-            int dot = path.LastIndexOf('.');
-            if (dot <= 0) yield break;
-            var ext = path.Substring(dot).ToLowerInvariant();
-            var stem = path.Substring(0, dot);
+            // Через дом: рукописный разбор не знал, что точка в имени ПАПКИ
+            // расширением не считается.
+            var (stem, extRaw) = Lvn.LvnUrl.SplitExtension(path);
+            if (extRaw.Length == 0) yield break;
+            var ext = extRaw.ToLowerInvariant();
             bool transcoded = ext == ".ktx2";
             bool downscaled = stem.EndsWith(DownloadPolicy.DisplayVariant, StringComparison.Ordinal);
             if (!transcoded && !downscaled) yield break;
