@@ -328,8 +328,13 @@ namespace Lvn.UI
         /// <summary>Действующая тема. Экраны читают отсюда.</summary>
         public static LvnTheme Current { get; private set; } = Midnight();
 
-        public static void Use(string name) => Current = ByName(name);
-        public static void Use(LvnTheme t) { if (t != null) Current = t; }
+        // ОДИН ВХОД — ОДНА ОТМЕТКА. Пока темы нет, экраны рассвета (вуаль,
+        // выбор сервера) красятся своими цветами; как только тема приехала, они
+        // обязаны следовать ей. Отметка ставится ЗДЕСЬ, в единственном месте,
+        // где тема становится текущей, — иначе это была бы ровно та ручная
+        // синхронизация, от которой мы избавляемся.
+        public static void Use(string name) { Current = ByName(name); LvnDawn.ThemeArrived = true; }
+        public static void Use(LvnTheme t) { if (t == null) return; Current = t; LvnDawn.ThemeArrived = true; }
 
         // Через UiColor.Parse, но НЕ через UiColor.Token: токены достаёт отсюда,
         // и обращение назад замкнуло бы круг.

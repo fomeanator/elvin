@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Lvn.Content;
 using UnityEngine;
+using Lvn.UI;
 using UnityEngine.UIElements;
 
 namespace Lvn.UI.Screens
@@ -41,7 +42,7 @@ namespace Lvn.UI.Screens
                 ScreenUi.Row(checkRow);
                 var check = new Toggle { value = manual };
                 var checkLabel = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("server.manual", "Choose the server manually"));
-                checkLabel.style.color = new Color(0.65f, 0.65f, 0.65f);
+                checkLabel.style.color = LvnDawn.InkDim;
                 checkLabel.style.fontSize = LvnTokens.TextMicro;
                 checkLabel.style.marginLeft = LvnTokens.Space1;
                 checkRow.Add(check);
@@ -143,7 +144,7 @@ namespace Lvn.UI.Screens
 
             var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("server.title", "Server"));
             title.style.fontSize = LvnTokens.TextSm;
-            title.style.color = new Color(0.96f, 0.93f, 0.85f);
+            title.style.color = LvnDawn.Ink;
             title.style.unityTextAlign = TextAnchor.MiddleCenter;
             title.style.marginBottom = LvnTokens.Space2;
             panel.Add(title);
@@ -154,7 +155,7 @@ namespace Lvn.UI.Screens
                 row.style.marginBottom = LvnTokens.Space1;
 
                 var dot = new Label("•");
-                dot.style.color = new Color(0.5f, 0.5f, 0.5f);
+                dot.style.color = LvnDawn.InkFaint;
                 dot.style.fontSize = LvnTokens.TextSm;
                 dot.style.marginRight = LvnTokens.Space1;
                 row.Add(dot);
@@ -166,19 +167,19 @@ namespace Lvn.UI.Screens
                 LvnAir.PadY(btn, LvnTokens.Space1);
                 btn.style.paddingLeft = LvnTokens.Space2;
                 btn.style.backgroundColor = LvnTokens.Faint;
-                btn.style.color = new Color(0.9f, 0.9f, 0.9f);
+                btn.style.color = LvnDawn.Ink;
                 row.Add(btn);
                 panel.Add(row);
 
                 Lvn.LvnAsync.Fire(ProbeAsync(c.Url, ct).ContinueWith(t =>
                 {
                     if (dot.panel == null) return; // screen already gone
-                    dot.style.color = t.Result.ok ? new Color(0.4f, 0.85f, 0.4f) : new Color(0.85f, 0.35f, 0.35f);
+                    dot.style.color = t.Result.ok ? LvnDawn.Ok : LvnDawn.Bad;
                 }, TaskScheduler.FromCurrentSynchronizationContext()), "ProbeServer");
             }
 
             var customLabel = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("server.custom", "Your own server (URL up to /api)"));
-            customLabel.style.color = new Color(0.80f, 0.72f, 0.56f);
+            customLabel.style.color = LvnDawn.InkDim;
             customLabel.style.fontSize = LvnTokens.TextMicro;
             customLabel.style.marginTop = LvnTokens.Space2;
             customLabel.style.marginBottom = LvnTokens.Space1;
@@ -190,8 +191,8 @@ namespace Lvn.UI.Screens
             var input = field.Q(TextField.textInputUssName);
             if (input != null)
             {
-                input.style.backgroundColor = new Color(0.11f, 0.11f, 0.13f);
-                input.style.color = new Color(0.9f, 0.9f, 0.9f);
+                input.style.backgroundColor = LvnDawn.Surface;
+                input.style.color = LvnDawn.Ink;
                 LvnAir.Pad(input, LvnTokens.Space2);
             }
             field.RegisterCallback<KeyDownEvent>(e =>
@@ -204,8 +205,8 @@ namespace Lvn.UI.Screens
             connect.style.marginTop = LvnTokens.Space2;
             connect.style.fontSize = LvnTokens.TextXs;
             LvnAir.PadY(connect, LvnTokens.Space2);
-            connect.style.backgroundColor = new Color(0.78f, 0.63f, 0.31f);
-            connect.style.color = new Color(0.08f, 0.08f, 0.10f);
+            connect.style.backgroundColor = LvnDawn.Accent;
+            connect.style.color = LvnDawn.OnAccent;
             panel.Add(connect);
 
             return await tcs.Task;

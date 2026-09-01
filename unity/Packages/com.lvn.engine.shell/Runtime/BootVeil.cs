@@ -59,11 +59,11 @@ namespace Lvn.UI.Screens
             if (cam != null)
             {
                 cam.clearFlags = CameraClearFlags.SolidColor;
-                cam.backgroundColor = new Color(0.063f, 0.063f, 0.082f); // #101015
+                cam.backgroundColor = LvnDawn.Ground;
             }
 
             (_go, _root) = LvnFloor.Open("LvnBootVeil", LvnFloor.BootVeil);
-            _root.style.backgroundColor = new Color(0.063f, 0.063f, 0.082f);
+            _root.style.backgroundColor = LvnDawn.Ground;
             _root.style.alignItems = Align.Center;
             _root.style.justifyContent = Justify.Center;
             // A UIDocument root defaults to PickingMode.Ignore — without this
@@ -72,7 +72,7 @@ namespace Lvn.UI.Screens
 
             _pct = new Label("0%");
             _pct.style.fontSize = LvnTokens.TextBase;
-            _pct.style.color = new Color(0.81f, 0.78f, 0.74f); // #cfc8bd
+            _pct.style.color = LvnDawn.Ink;
             _pct.style.unityFontStyleAndWeight = FontStyle.Bold;
             _root.Add(_pct);
 
@@ -80,18 +80,18 @@ namespace Lvn.UI.Screens
             var track = new VisualElement();
             track.style.width = 300; track.style.height = 3;
             track.style.marginTop = LvnTokens.Space2;
-            track.style.backgroundColor = new Color(1f, 1f, 1f, 0.10f);
+            track.style.backgroundColor = LvnDawn.Track;
             _fill = new VisualElement();
             _fill.style.height = Length.Percent(100);
             _fill.style.width = Length.Percent(0);
-            _fill.style.backgroundColor = new Color(0.83f, 0.87f, 0.91f); // сталь, в тон ELVIN
+            _fill.style.backgroundColor = LvnDawn.Brand;
             track.Add(_fill);
             _root.Add(track);
 
             _status = new Label("");
             _status.style.fontSize = LvnTokens.TextMicro;
             _status.style.marginTop = LvnTokens.Space2;
-            _status.style.color = new Color(0.60f, 0.58f, 0.54f); // #9a948a
+            _status.style.color = LvnDawn.InkDim;
             _root.Add(_status);
 
             // The engine brand: steel ELVIN + dimmed version, pinned to the bottom.
@@ -105,12 +105,12 @@ namespace Lvn.UI.Screens
             word.style.fontSize = LvnTokens.TextBase;
             word.style.unityFontStyleAndWeight = FontStyle.Bold;
             word.style.letterSpacing = 9;
-            word.style.color = new Color(0.83f, 0.87f, 0.91f); // полированная сталь
+            word.style.color = LvnDawn.Brand;
             word.style.textShadow = new TextShadow
             {
                 offset = new Vector2(0f, 2f),
                 blurRadius = 5f,
-                color = new Color(0f, 0f, 0f, 0.85f),
+                color = LvnDawn.TextShadow,
             };
             brand.Add(word);
 
@@ -118,7 +118,7 @@ namespace Lvn.UI.Screens
             ver.style.fontSize = LvnTokens.TextMicro;
             ver.style.marginTop = LvnTokens.Hair;
             ver.style.letterSpacing = 3;
-            ver.style.color = new Color(0.38f, 0.40f, 0.43f); // блёклый серый
+            ver.style.color = LvnDawn.InkFaint;
             brand.Add(ver);
             _root.Add(brand);
 
@@ -273,13 +273,13 @@ namespace Lvn.UI.Screens
                 _brandTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
                 _brandTitle.style.letterSpacing = 6;
                 _brandTitle.style.unityTextAlign = TextAnchor.MiddleCenter;
-                _brandTitle.style.color = new Color(0.91f, 0.89f, 0.86f);
+                _brandTitle.style.color = LvnDawn.Ink;
                 _brandTitle.style.opacity = 0f;
                 _brandTitle.style.textShadow = new TextShadow
                 {
                     offset = new Vector2(0f, 2f),
                     blurRadius = 6f,
-                    color = new Color(0f, 0f, 0f, 0.85f),
+                    color = LvnDawn.TextShadow,
                 };
                 _root.Insert(0, _brandTitle);
                 // ВЕСЬ ЭТОТ ФАЙЛ считает время реальным, а не часами интерфейса
