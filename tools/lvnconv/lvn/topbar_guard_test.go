@@ -61,3 +61,26 @@ func TestTopBarVisibilityHasOneAuthor(t *testing.T) {
 			count, budget, strings.Join(where, "\n  "))
 	}
 }
+
+// ЛЕНТА ГАРДЕРОБА ВИДНА ПО КАРТОЧКАМ, А НЕ ПО ДАННЫМ.
+//
+// Правило стояло двумя написаниями: вкладка «Моё» считала показанное, обычная
+// спрашивала длину списка ДО сборки. Ответы совпадали, но вопросы разные —
+// «сколько вышло» и «сколько было данных». Разошлись бы в первый же день,
+// когда сборка начнёт что-нибудь пропускать: лента показалась бы пустой
+// полосой. Решение живёт в AdoptStripCards и спрашивает после сборки.
+func TestWardrobeStripAsksAboutCards(t *testing.T) {
+	root := repoRoot(t)
+	path := filepath.Join(root, "unity", "Packages", "com.lvn.engine.shell", "Runtime", "WardrobeSheet.Strip.cs")
+	src := stripComments(string(mustRead(t, path)))
+	if !strings.Contains(src, "private void AdoptStripCards()") {
+		t.Fatal("дома AdoptStripCards нет — якорь стража промахнулся")
+	}
+	n := strings.Count(src, "_strip.style.display")
+	if n != 1 {
+		t.Errorf("решений о видимости ленты: %d (ожидалось одно, в AdoptStripCards).\n\n"+
+			"Спрашивать надо после сборки и про КАРТОЧКИ: «получилось ли что-нибудь», а не\n"+
+			"«было ли из чего». Иначе лента показывается пустой полосой там, где данные были,\n"+
+			"а карточек не вышло.", n)
+	}
+}

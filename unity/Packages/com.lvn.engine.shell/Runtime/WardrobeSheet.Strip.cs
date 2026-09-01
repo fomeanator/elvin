@@ -93,9 +93,7 @@ namespace Lvn.UI.Screens
                         return card;
                     },
                     update: (el, p) => RefreshCard(el, p.axis, p.item));
-                _stripCards.Clear();
-                foreach (var child in _strip.contentContainer.Children()) _stripCards.Add(child);
-                _strip.style.display = shown > 0 ? DisplayStyle.Flex : DisplayStyle.None;
+                AdoptStripCards();
                 // Подпись отдана основе (RefreshLabel ниже); своё слово витрина
                 // говорит, только когда основы нет и показывать нечего.
                 if (AllTabAxis == null)
@@ -108,7 +106,6 @@ namespace Lvn.UI.Screens
                 return;
             }
             var items = Items(_tab);
-            _strip.style.display = items.Count > 0 ? DisplayStyle.Flex : DisplayStyle.None;
             // ЛЕНТА СВЕРЯЕТСЯ, А НЕ ПЕРЕСОБИРАЕТСЯ (правило Монтажёра). Её
             // трогают на каждый чих: тап свотча, покупка, ответ кошелька, смена
             // персонажа. Пересборка стоила дорого не тактами, а видом: карточка
@@ -126,11 +123,31 @@ namespace Lvn.UI.Screens
                     return card;
                 },
                 update: (el, it) => RefreshCard(el, axis, it));
-            _stripCards.Clear();
-            foreach (var child in _strip.contentContainer.Children()) _stripCards.Add(child);
+            AdoptStripCards();
             RebuildSubRow(animate);
             RefreshArrows();
             StyleStrip();
+        }
+
+        /// <summary>
+        /// ПРИНЯТЬ КАРТОЧКИ ЛЕНТЫ — пересчитать список и решить, видна ли она.
+        ///
+        /// <para>Правило одно: лента видна, если в ней ЕСТЬ КАРТОЧКИ. Стояло
+        /// оно двумя написаниями — вкладка «Моё» считала показанное, обычная
+        /// вкладка спрашивала длину списка ДО сборки. Оба ответа сегодня
+        /// совпадают, но отвечают на разные вопросы: «сколько вышло» и
+        /// «сколько было данных». Разойдутся они в первый же день, когда
+        /// сборка начнёт что-нибудь пропускать, — и лента покажется пустой
+        /// полосой.</para>
+        ///
+        /// <para>Спрашивать после сборки и строго: не «было ли из чего», а
+        /// «получилось ли что-нибудь».</para>
+        /// </summary>
+        private void AdoptStripCards()
+        {
+            _stripCards.Clear();
+            foreach (var child in _strip.contentContainer.Children()) _stripCards.Add(child);
+            _strip.style.display = _stripCards.Count > 0 ? DisplayStyle.Flex : DisplayStyle.None;
         }
 
         /// <summary>
