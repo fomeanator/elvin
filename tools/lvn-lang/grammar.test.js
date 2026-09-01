@@ -1,6 +1,13 @@
-// Drift guard: grammar.js is GENERATED from grammar.json (npm run gen). If
-// someone edits either side by hand and forgets to regenerate, this fails —
-// the whole point of the single-source contract.
+// СГЕНЕРИРОВАННАЯ ГРАММАТИКА НЕ ОТСТАЁТ ОТ СВОЕЙ ПРАВДЫ.
+//
+// grammar.js делается из grammar.json (npm run gen). Правку одной стороны без
+// перегона не ловило ничто: узел `portal` жил в правде и не доезжал до
+// подсказок редактора — автор про целую команду просто не знал.
+//
+// Проверка живёт здесь, а гоняет её qa/run-all.sh («node: грамматика»).
+// Отдельная запись об этом нужна потому, что раньше в стражах движка стоял
+// комментарий «их не гоняет ни run-all, ни CI» — и он устарел, не заметив
+// этого: заметка о дыре пережила саму дыру и продолжала на неё указывать.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
