@@ -30,7 +30,10 @@ func TestByteSizeHasOneHome(t *testing.T) {
 	}
 
 	shiftRe := regexp.MustCompile(`>> 20|/ 1048576|/ \(1024 \* 1024\)`)
-	unitRe := regexp.MustCompile(`unit\.mb|unit\.gb|"MB"|"МБ"|"GB"|"ГБ"`)
+	// Единица бывает написана с пробелом внутри кавычек (« МБ») — так пишут
+	// чаще, чем вплотную. Первая версия искала только «"МБ"» и пропускала
+	// самый естественный вид записи (поймано мутацией).
+	unitRe := regexp.MustCompile(`unit\.mb|unit\.gb|"\s*(?:MB|МБ|GB|ГБ)\s*"`)
 	logRe := regexp.MustCompile(`Debug\.Log|LogWarning|LogError|Trace\(`)
 	var found []string
 

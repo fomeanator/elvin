@@ -503,12 +503,10 @@ namespace Lvn.UI.Screens
         private void ApplyDeepLink(string url)
         {
             if (string.IsNullOrEmpty(url) || _shell == null) return;
-            var q = url;
-            int qm = q.IndexOf('?');
-            if (qm < 0) return;
-            q = q.Substring(qm + 1);
-            int hash = q.IndexOf('#');
-            if (hash >= 0) q = q.Substring(0, hash);
+            // Где кончается путь и начинается запрос — знает дом адресов: он же
+            // отбрасывает якорь «#top», о котором здесь легко забыть.
+            var q = Lvn.Content.LvnUrl.Query(url);
+            if (string.IsNullOrEmpty(q)) return;
 
             string titleId = null, chapterId = null;
             foreach (var pair in q.Split('&'))
