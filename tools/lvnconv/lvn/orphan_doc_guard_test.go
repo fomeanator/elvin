@@ -25,12 +25,14 @@ func TestNoExplanationLostItsSubject(t *testing.T) {
 
 	root := repoRoot(t)
 	var found []string
+	scanned := 0
 	for _, dir := range []string{
 		"unity/Packages/com.lvn.engine/Runtime",
 		"unity/Packages/com.lvn.engine.shell/Runtime",
 		"unity/Packages/com.lvn.engine.services/Runtime",
 	} {
 		for _, f := range csFiles(t, filepath.Join(root, dir)) {
+			scanned++
 			lines := strings.Split(string(mustRead(t, f)), "\n")
 			for i, l := range lines {
 				if !strings.Contains(l, "</summary>") {
@@ -48,7 +50,7 @@ func TestNoExplanationLostItsSubject(t *testing.T) {
 			}
 		}
 	}
-	atLeast(t, len(found), budget, "объяснений, потерявших свой предмет")
+	sawSources(t, scanned, 300, "файлов")
 	if len(found) > budget {
 		t.Errorf("докблоки без члена (%d при пороге %d): %v\n"+
 			"Каждый из них теперь подписывает ЧУЖОЙ член и уверенно говорит не то.",

@@ -43,12 +43,14 @@ func TestSplitMemoriesUnderOneKey(t *testing.T) {
 		`(?:System\.Collections\.Generic\.)?(?:Dictionary|HashSet)<\s*([^,>]+?)\s*[,>]`)
 
 	var split []string
+	scanned := 0
 	for _, dir := range []string{
 		"unity/Packages/com.lvn.engine/Runtime",
 		"unity/Packages/com.lvn.engine.shell/Runtime",
 		"unity/Packages/com.lvn.engine.services/Runtime",
 	} {
 		for _, f := range csFiles(t, filepath.Join(root, dir)) {
+			scanned++
 			body := string(mustRead(t, f))
 			byKey := map[string]int{}
 			for _, m := range decl.FindAllStringSubmatch(body, -1) {
@@ -63,7 +65,7 @@ func TestSplitMemoriesUnderOneKey(t *testing.T) {
 			}
 		}
 	}
-	atLeast(t, len(split), budget, "файлов с тремя памятями под одним ключом")
+	sawSources(t, scanned, 300, "файлов")
 	if len(split) > budget {
 		t.Errorf("памятей под одним ключом стало больше (%d при пороге %d): %v\n"+
 			"Спросите, не одна ли это сущность: за 01.09 такое ломалось четырежды, "+
