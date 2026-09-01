@@ -57,12 +57,8 @@ namespace Lvn.UI
             var root = GetComponent<UIDocument>()?.rootVisualElement;
             if (root == null || _fx == null) return;
 
-            if (_choices != null)
-            {
-                _choices.OnSelected -= OnChoiceSelected;
-                _choices.VisibleChanged -= OnChoicesVisibleChanged;
-                _choices.RemoveFromHierarchy();
-            }
+            DropChrome();
+            if (_choices != null) _choices.RemoveFromHierarchy();
             if (_dialogue != null) _dialogue.RemoveFromHierarchy();
             // The shared window wears the theme too — drop it so the next use
             // rebuilds it with the fresh skin. NEVER while it's open: a live
@@ -73,12 +69,7 @@ namespace Lvn.UI
             if (_panelHost != null && !_panelHost.IsOpen)
             { _panelHost.RemoveFromHierarchy(); _panelHost = null; }
 
-            ResolveFont();
-            _dialogue = new DialogueBox(Theme);
-            _dialogue.RevealingChanged += OnDialogueRevealing; // луп клавиатуры
-            _dialogue.SetUserOpacity(LvnPrefs.DialogOpacity);
-            SetSayVisible(SayOnScreen); // a re-theme between lines must not reveal the empty frame
-            _choices = new ChoiceList(Theme);
+            MakeChrome();
             // Rebuilt chrome goes back into the safe-area container, before the
             // label layer — keeps z-order: dialogue, choices, labels (fx above).
             var chromeHost = (VisualElement)_chromeSafe ?? root;
@@ -86,11 +77,6 @@ namespace Lvn.UI
             if (labelIndex < 0) labelIndex = chromeHost.childCount;
             chromeHost.Insert(labelIndex, _dialogue);
             chromeHost.Insert(labelIndex + 1, _choices);
-            _choices.OnSelected += OnChoiceSelected;
-            _choices.VisibleChanged += OnChoicesVisibleChanged;
-            // RebuildChrome replaces the VisualElements themselves. Event
-            // subscriptions belong to those instances and must be wired again.
-            WireChoiceGeometrySync();
 
             // The quick menu is themeable too (manifest.ui.menu) — rebuild it with
             // the fresh theme, keeping it the topmost layer.

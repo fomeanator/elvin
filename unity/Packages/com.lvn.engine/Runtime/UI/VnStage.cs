@@ -299,12 +299,8 @@ namespace Lvn.UI
             HireHealer();   // недуги сцены — под наблюдение с первого кадра
 
             _particles = new ParticleField();
-            ResolveFont();
             _panelHost = null; // died with the previous panel root — recreate lazily
-            _dialogue = new DialogueBox(Theme);
-            _dialogue.RevealingChanged += OnDialogueRevealing; // луп клавиатуры
-            SetSayVisible(SayOnScreen); // the empty skinned frame must not sit on a bare stage
-            _choices = new ChoiceList(Theme);
+            MakeChrome();       // окно реплики и стопка выборов — собраны и привязаны
             _fx = new FxLayer();
 
             _labelLayer = new VisualElement { name = "vn-labels", pickingMode = PickingMode.Ignore };
@@ -349,12 +345,6 @@ namespace Lvn.UI
                         _tapBurst.Burst(_tapBurst.WorldToLocal(evt.position));
                 }, TrickleDown.TrickleDown);
             }
-            _choices.OnSelected += OnChoiceSelected;
-            _choices.VisibleChanged += OnChoicesVisibleChanged;
-            // Окно растёт вместе с текстом — стопка выборов сторонится его в
-            // реальном времени, а не по одному замеру на реплику.
-            WireChoiceGeometrySync();
-
             // Reactive tick: re-evaluate every live label's {expr} template against the
             // current variables so on-screen stats track changes (incl. background ones).
             root.schedule.Execute(RefreshLabels).Every(200);
@@ -367,7 +357,6 @@ namespace Lvn.UI
             root.schedule.Execute(SkipTick).Every(75);
 
             // Player comfort settings (dialogue window opacity now, live on change).
-            _dialogue.SetUserOpacity(LvnPrefs.DialogOpacity);
             LvnPrefs.Changed -= OnPrefsChanged;
             LvnPrefs.Changed += OnPrefsChanged;
             // Wardrobe equips re-apply the actor live if it's on screen.
