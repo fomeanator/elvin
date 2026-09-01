@@ -87,8 +87,7 @@ namespace Lvn.UI.Screens
             tabs.style.alignSelf = Align.Center;
             tabs.style.marginBottom = LvnTokens.Space3;
             tabs.style.backgroundColor = LvnTokens.Surface;
-            LvnChrome.Edge(tabs);
-            LvnChrome.Round(tabs, LvnTokens.Radius);
+            LvnChrome.Edged(tabs, LvnTokens.Radius);
             LvnAir.Pad(tabs, LvnTokens.Tight);
             sheet.Add(tabs);
 

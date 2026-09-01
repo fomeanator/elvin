@@ -166,8 +166,7 @@ namespace Lvn.UI.Screens
             _miniProgress.style.justifyContent = Justify.Center;
             var pbg = LvnTokens.PanelBg;
             _miniProgress.style.backgroundColor = UiColor.WithAlpha(pbg, 0.72f);
-            LvnChrome.Edge(_miniProgress);
-            LvnChrome.Round(_miniProgress, LvnTokens.Radius);
+            LvnChrome.Edged(_miniProgress, LvnTokens.Radius);
             _miniProgress.style.display = DisplayStyle.None;
             _miniProgress.pickingMode = PickingMode.Ignore;
             _miniProgressLabel = new Label("0%");

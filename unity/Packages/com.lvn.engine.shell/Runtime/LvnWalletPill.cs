@@ -72,8 +72,7 @@ namespace Lvn.UI.Screens
             style.paddingRight = _look.PadRight;
             LvnAir.PadY(this, _look.PadY);
             style.backgroundColor = _look.Background;
-            if (_look.Edge) LvnChrome.Edge(this);
-            LvnChrome.Round(this, _look.Radius);
+            if (_look.Edge) LvnChrome.Edged(this, _look.Radius);
 
             Add(BuildIcon(assets));
 

@@ -31,6 +31,7 @@ func TestNoHandHeldPairs(t *testing.T) {
 		{"LvnAir.PadX + PadY → LvnAir.Pad(el, x, y)", `LvnAir\.PadX\(`, `LvnAir\.PadY\(`},
 		{"LvnChrome.Round + Border → LvnChrome.Frame", `LvnChrome\.Round\(`, `LvnChrome\.Border\(`},
 		{"LvnChrome.Round + ClearBorder → LvnChrome.Frame", `LvnChrome\.Round\(`, `LvnChrome\.ClearBorder\(`},
+		{"LvnChrome.Round + Edge → LvnChrome.Edged", `LvnChrome\.Round\(`, `LvnChrome\.Edge\(`},
 	}
 
 	var loud []string

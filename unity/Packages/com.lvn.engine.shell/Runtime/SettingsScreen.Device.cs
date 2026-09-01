@@ -40,13 +40,9 @@ namespace Lvn.UI.Screens
             box.Add(status);
 
             // Полоса: «сколько уже у меня» видно глазом, а не арифметикой.
-            var track = Lvn.UI.LvnStyler.Track(new VisualElement(), 8f);
+            var track = Lvn.UI.LvnStyler.Bar(8f, 0f, tint: _accent);
             track.style.marginBottom = LvnTokens.Space2;
             track.style.display = DisplayStyle.None;
-            var fill = Lvn.UI.LvnStyler.Fill(new VisualElement(), 4f, _accent);
-            fill.style.height = 8;
-            fill.style.width = new Length(0, LengthUnit.Percent);
-            track.Add(fill);
             box.Add(track);
 
             var buttons = new VisualElement();
@@ -73,7 +69,7 @@ namespace Lvn.UI.Screens
                 if (total <= 0) return;
                 // Через дом полосы: она доезжает до новой доли, а не прыгает
                 // ступеньками раз в треть секунды.
-                ScreenUi.SetFill(fill, (float)got / total);
+                Lvn.UI.LvnStyler.BarSet(track, (float)got / total);
             }
 
             async Task RefreshAsync()
