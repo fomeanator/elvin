@@ -167,7 +167,7 @@ namespace Lvn.UI.Screens
             else b.style.backgroundImage = PosterFallbackImage(useAccent: true);
             // У витринного кадра есть тонкая рамка, но не тяжёлая неоновая
             // обводка: контраст должен остаться у одной кнопки «Играть».
-            LvnChrome.Border(b, new Color(_accent.r, _accent.g, _accent.b, 0.52f), 1f);
+            LvnChrome.Border(b, UiColor.WithAlpha(_accent, 0.52f), 1f);
 
             b.style.justifyContent = Justify.FlexEnd;
             b.style.paddingLeft = LvnTokens.Space4; b.style.paddingRight = LvnTokens.Space4; b.style.paddingBottom = LvnTokens.Space4;

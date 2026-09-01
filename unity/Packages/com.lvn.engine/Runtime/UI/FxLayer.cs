@@ -98,7 +98,7 @@ namespace Lvn.UI
 
         /// <summary>Fade to an opaque colour (default black). Common before a
         /// background swap.</summary>
-        public void Fade(Color to, float seconds) => FadeTo(new Color(to.r, to.g, to.b, 1f), seconds);
+        public void Fade(Color to, float seconds) => FadeTo(UiColor.WithAlpha(to, 1f), seconds);
 
         /// <summary>Clear the veil, revealing the scene.</summary>
         public void Clear(float seconds) => FadeTo(Color.clear, seconds);
@@ -114,7 +114,7 @@ namespace Lvn.UI
         {
             StopVeil();
             var layer = _back;
-            layer.style.backgroundColor = new Color(colour.r, colour.g, colour.b, 0.8f);
+            layer.style.backgroundColor = UiColor.WithAlpha(colour, 0.8f);
             layer.style.opacity = 1f;
             int ms = Mathf.Max(1, Mathf.RoundToInt(duration * 1000f));
             _veilAnim = experimental.animation
@@ -127,7 +127,7 @@ namespace Lvn.UI
         /// Animates to the target alpha then holds until <see cref="Clear"/>.</summary>
         public void Tint(Color colour, float alpha, float seconds)
         {
-            var target = new Color(colour.r, colour.g, colour.b, Mathf.Clamp01(alpha));
+            var target = UiColor.WithAlpha(colour, Mathf.Clamp01(alpha));
             FadeTo(target, seconds);
         }
 

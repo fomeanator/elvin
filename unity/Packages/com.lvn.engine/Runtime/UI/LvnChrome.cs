@@ -238,7 +238,7 @@ namespace Lvn.UI
         public static Color BorderTone(float strength)
         {
             var c = LvnTokens.Border;
-            return new Color(c.r, c.g, c.b, c.a * strength);
+            return UiColor.WithAlpha(c, c.a * strength);
         }
 
         public static void Edge(VisualElement el, float strength = 1f)

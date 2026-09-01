@@ -77,7 +77,7 @@ namespace Lvn.UI.Screens
             nav.style.borderTopColor = _theme.EdgeWidth > 0f ? _theme.EdgeColor : _border;
             // Панель непрозрачна: под ней проезжает лента, и полупрозрачный низ
             // превращается в кашу из букв.
-            nav.style.backgroundColor = new Color(_bg.r, _bg.g, _bg.b, 0.96f);
+            nav.style.backgroundColor = UiColor.WithAlpha(_bg, 0.96f);
             // Callbacks are read LAZILY at click time — the host wires them AFTER
             // this is built, so capturing the field value here would capture null.
             // Ряд идёт по НАБОРУ (LvnTabs.Shown), а не по руке: место, значок

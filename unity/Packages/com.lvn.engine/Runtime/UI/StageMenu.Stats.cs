@@ -177,7 +177,7 @@ namespace Lvn.UI
             if (input != null)
             {
                 var tint = _theme.MenuTextColor;
-                input.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.08f);
+                input.style.backgroundColor = UiColor.WithAlpha(tint, 0.08f);
                 input.style.color = _theme.MenuTextColor;
                 input.style.unityTextAlign = TextAnchor.MiddleCenter;
                 input.style.fontSize = LvnTokens.TextBase;
@@ -195,7 +195,7 @@ namespace Lvn.UI
             b.style.fontSize = LvnTokens.TextBase;
             b.style.color = _theme.MenuTextColor;
             var tint = _theme.MenuTextColor;
-            b.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.08f);
+            b.style.backgroundColor = UiColor.WithAlpha(tint, 0.08f);
             LvnChrome.ClearBorder(b);
             LvnChrome.Round(b, LvnTokens.RadiusXs);
             LvnFonts.Apply(b, _theme.Font);

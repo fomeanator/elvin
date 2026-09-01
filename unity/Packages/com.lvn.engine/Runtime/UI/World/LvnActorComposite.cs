@@ -80,8 +80,7 @@ namespace Lvn.UI.World
 
             var rigGroup = rig.GetComponent<CanvasGroup>();
             var firstColor = layers[0].color;
-            _proxy.color = new Color(firstColor.r, firstColor.g, firstColor.b,
-                rigGroup != null ? rigGroup.alpha : 1f);
+            _proxy.color = UiColor.WithAlpha(firstColor, rigGroup != null ? rigGroup.alpha : 1f);
 
             var written = 0;
             for (var i = 0; i < layers.Count; i++)

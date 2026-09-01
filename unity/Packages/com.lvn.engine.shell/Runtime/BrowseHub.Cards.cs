@@ -104,10 +104,10 @@ namespace Lvn.UI.Screens
             card.style.marginRight = LvnTokens.Space3;
             card.style.opacity = locked ? 0.5f : 1f;
             var plinth = LvnTokens.PanelBg;
-            card.style.backgroundColor = new Color(plinth.r, plinth.g, plinth.b, 0.93f);
+            card.style.backgroundColor = UiColor.WithAlpha(plinth, 0.93f);
             card.style.overflow = Overflow.Hidden;
             LvnChrome.Round(card, _radius + 2f);
-            LvnChrome.Border(card, new Color(_border.r, _border.g, _border.b, _border.a * 0.85f), 1f);
+            LvnChrome.Border(card, UiColor.WithAlpha(_border, _border.a * 0.85f), 1f);
 
             // Poster has only the top rounding; the caption below is visibly part
             // of the same physical card rather than loose text under an image.
@@ -147,7 +147,7 @@ namespace Lvn.UI.Screens
             caption.style.paddingTop = LvnTokens.Space2; caption.style.paddingBottom = LvnTokens.Space2;
             caption.style.paddingLeft = LvnTokens.Space2; caption.style.paddingRight = LvnTokens.Space2;
             caption.style.flexGrow = 1;
-            caption.style.backgroundColor = new Color(plinth.r, plinth.g, plinth.b, 0.98f);
+            caption.style.backgroundColor = UiColor.WithAlpha(plinth, 0.98f);
 
             var tid0 = t.id; var tname0 = t.name;
             var name = Lvn.UI.LvnRedress.Bind(new Label(),

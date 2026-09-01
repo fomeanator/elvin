@@ -153,7 +153,7 @@ namespace Lvn.UI.Screens
             _capsule.style.marginTop = 5;
             var bg = LvnTokens.PanelBg;
             // Просто полупрозрачный тон — блюр-стекло снято (Илья, 26.08).
-            _capsule.style.backgroundColor = new Color(bg.r, bg.g, bg.b, 0.94f);
+            _capsule.style.backgroundColor = UiColor.WithAlpha(bg, 0.94f);
             LvnChrome.Edge(_capsule);
             _capsule.style.overflow = Overflow.Hidden;
             _capsule.style.alignItems = Align.Center;

@@ -194,7 +194,7 @@ namespace Lvn.UI
 
         /// <summary>Цвет кромки: акцент нужной прозрачности.</summary>
         public Color EdgeColor =>
-            new Color(Accent.r, Accent.g, Accent.b, EdgeAlpha);
+            UiColor.WithAlpha(Accent, EdgeAlpha);
 
         // ── готовые темы ────────────────────────────────────────────────────
 
