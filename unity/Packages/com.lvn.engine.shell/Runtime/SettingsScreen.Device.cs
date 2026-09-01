@@ -33,9 +33,7 @@ namespace Lvn.UI.Screens
             var box = new VisualElement();
 
             var status = new Label("…");
-            status.style.color = _dim;
-            status.style.fontSize = LvnTokens.TextSm;
-            status.style.whiteSpace = WhiteSpace.Normal;
+            ScreenUi.Quiet(status, LvnTokens.TextSm, _dim);
             status.style.marginBottom = LvnTokens.Space1;
             box.Add(status);
 

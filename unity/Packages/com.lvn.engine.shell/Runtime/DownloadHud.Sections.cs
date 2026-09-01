@@ -177,9 +177,7 @@ namespace Lvn.UI.Screens
         {
             var l = Lvn.UI.LvnRedress.Bind(new Label(), text);
             l.pickingMode = PickingMode.Ignore;
-            l.style.color = LvnTokens.TextDim;
-            l.style.fontSize = LvnTokens.TextXs;
-            l.style.whiteSpace = WhiteSpace.Normal;
+            ScreenUi.Quiet(l, LvnTokens.TextXs);
             return l;
         }
 

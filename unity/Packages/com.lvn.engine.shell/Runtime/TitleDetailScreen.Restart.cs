@@ -112,9 +112,7 @@ namespace Lvn.UI.Screens
                 LvnWords.Of("restart.explain",
                 "\"Everything\" starts over from chapter one and clears every stat. "
                 + "\"From a chapter\" picks where to resume."));
-            msg.style.color = LvnTokens.TextDim;
-            msg.style.fontSize = LvnTokens.TextSm;
-            msg.style.whiteSpace = WhiteSpace.Normal;
+            ScreenUi.Quiet(msg, LvnTokens.TextSm);
             msg.style.marginBottom = LvnTokens.Space1;
             panel.Add(msg);
 

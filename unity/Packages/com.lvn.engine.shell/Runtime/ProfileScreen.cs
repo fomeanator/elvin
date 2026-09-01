@@ -203,9 +203,7 @@ namespace Lvn.UI.Screens
             LvnAir.Pad(card, LvnTokens.Space3);
             card.style.marginBottom = LvnTokens.Space2;
             var lbl = new Label(text);
-            lbl.style.color = LvnTokens.TextDim;
-            lbl.style.fontSize = LvnTokens.TextSm;
-            lbl.style.whiteSpace = WhiteSpace.Normal;
+            ScreenUi.Quiet(lbl, LvnTokens.TextSm);
             card.Add(lbl);
             return card;
         }
