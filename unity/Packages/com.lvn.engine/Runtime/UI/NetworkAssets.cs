@@ -60,65 +60,73 @@ namespace Lvn.UI
         public Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct)
             => _sprites.GetAsync(url, () => LoadSpriteCoreAsync(url, ct));
 
-        private async Task<Sprite> LoadSpriteCoreAsync(string url, CancellationToken ct)
+        /// <summary>ОДИН ПУТЬ ЗА ФАЙЛОМ — сборка запроса и разбор ответа
+        /// остаются за видом содержимого, всё остальное общее.
+        ///
+        /// <para>Звук и картинка тянулись двумя телами по девятнадцать строк,
+        /// совпадавшими построчно: адрес, запрос, ожидание, проверка ответа,
+        /// глушение сбоя. Признак был виден невооружённым глазом — комментарий
+        /// про «ждёт дом» стоял в обоих ДОСЛОВНО. Урок записали дважды; значит
+        /// следующий запишут один раз, и вторая копия начнёт отставать.</para>
+        ///
+        /// <para>Что тут вправе отличаться — ровно две вещи: чем запрос
+        /// строится и чем из ответа берут содержимое. Они и остались
+        /// доводами.</para>
+        ///
+        /// <para>Сбой глушится НАМЕРЕННО: отсутствующий файл для показа — не
+        /// исключение, а «нечего рисовать». Кто должен об этом узнать, узнаёт
+        /// из отметки о непригодном ассете, а не из падения кадра.</para>
+        /// </summary>
+        private async Task<T> FetchAsync<T>(string url,
+                                            System.Func<string, UnityWebRequest> build,
+                                            System.Func<UnityWebRequest, T> take,
+                                            CancellationToken ct) where T : class
         {
             var fullUrl = FullUrl(url);
             if (fullUrl == null) return null;
-
             try
             {
-                using var request = UnityWebRequestTexture.GetTexture(fullUrl);
+                using var request = build(fullUrl);
                 var op = request.SendWebRequest();
                 // Ждёт дом: он же обрывает запрос по молчанию — здесь висели до
                 // срока UnityWebRequest, а он про весь ответ, не про застой.
                 if (!await Lvn.LvnNetWait.AwaitAsync(request, op, ct))
                     ct.ThrowIfCancellationRequested();
-
                 if (request.result != UnityWebRequest.Result.Success) return null;
-
-                var tex = DownloadHandlerTexture.GetContent(request);
-                if (tex == null) return null;
-
-                // Cap oversized textures ON MOBILE only (content ships 4k–8k Spine
-                // atlases; a phone shows them at ~1080p, so 2560 is ~lossless and
-                // drops memory 4–15×). Desktop/editor keeps the original so quality
-                // is pristine and frame-packed atlases never risk resample skew.
-                // Потолок размера — только на телефоне: настольная машина держит
-                // исходное качество, а телефон показывает всё равно ~1080p.
-                return Lvn.Content.AssetMemory.MakeSprite(tex, Application.isMobilePlatform);
+                return take(request);
             }
             catch
             {
                 return null;
             }
         }
+
+        private Task<AudioClip> LoadAudioCoreAsync(string url, CancellationToken ct)
+            => FetchAsync(url,
+                          u => UnityWebRequestMultimedia.GetAudioClip(u, AudioType.UNKNOWN),
+                          DownloadHandlerAudioClip.GetContent,
+                          ct);
+
+        private Task<Sprite> LoadSpriteCoreAsync(string url, CancellationToken ct)
+            => FetchAsync(url,
+                          UnityWebRequestTexture.GetTexture,
+                          r =>
+                          {
+                              var tex = DownloadHandlerTexture.GetContent(r);
+                              if (tex == null) return null;
+                              // Потолок размера — только на телефоне: контент
+                              // везёт атласы 4k–8k, телефон показывает их всё
+                              // равно ~1080p, и 2560 там ~без потерь, а памяти
+                              // экономит вчетверо-впятнадцатеро. Настольная
+                              // машина держит исходник: там качество важнее, и
+                              // покадровые атласы не рискуют перевыборкой.
+                              return Lvn.Content.AssetMemory.MakeSprite(tex, Application.isMobilePlatform);
+                          },
+                          ct);
 
         public Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct)
             => _audio.GetAsync(url, () => LoadAudioCoreAsync(url, ct));
 
-        private async Task<AudioClip> LoadAudioCoreAsync(string url, CancellationToken ct)
-        {
-            var fullUrl = FullUrl(url);
-            if (fullUrl == null) return null;
-
-            try
-            {
-                using var request = UnityWebRequestMultimedia.GetAudioClip(fullUrl, AudioType.UNKNOWN);
-                var op = request.SendWebRequest();
-                // Ждёт дом: он же обрывает запрос по молчанию — здесь висели до
-                // срока UnityWebRequest, а он про весь ответ, не про застой.
-                if (!await Lvn.LvnNetWait.AwaitAsync(request, op, ct))
-                    ct.ThrowIfCancellationRequested();
-
-                if (request.result != UnityWebRequest.Result.Success) return null;
-
-                return DownloadHandlerAudioClip.GetContent(request);
-            }
-            catch
-            {
-                return null;
-            }
-        }
 
         // more; huge atlases otherwise stall on decode/upload and blow memory.
         // Выгрузка — в общем доме (AssetMemory): у поставщиков разные кэши, но
