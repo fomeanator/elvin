@@ -65,14 +65,10 @@ namespace Lvn.UI.World
         public static LvnFxStack Ensure(Camera cam) =>
             cam.GetComponent<LvnFxStack>() ?? cam.gameObject.AddComponent<LvnFxStack>();
 
-        /// <summary>
-        /// Hard scene-boundary reset.  The stack is attached to the camera, not
-        /// to the WorldStage canvas, so the same component can outlive a chapter
-        /// (or even a whole VnStage).  Without this reset a sticky style such as
-        /// halftone/posterize/sketch silently colours the next story although it
-        /// contains no <c>fx</c> command at all.
-        /// </summary>
-        /// <summary>Сбросить всё немедленно. Первым делом проверяет себя: стек
+        /// <summary>Сбросить всё немедленно. Стек живёт на КАМЕРЕ, а не на
+        /// полотне сцены, и переживает и главу, и весь VnStage: без сброса
+        /// липкий стиль (полутон, постеризация, набросок) молча красит
+        /// следующую историю, в которой команды <c>fx</c> нет вовсе. Первым делом проверяет себя: стек
         /// живёт на камере, и его могли уничтожить вместе с ней — а зовут его
         /// из уборки сцены, которой нельзя рваться.</summary>
         public void ResetImmediate()
