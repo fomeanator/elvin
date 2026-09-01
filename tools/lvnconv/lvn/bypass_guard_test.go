@@ -64,6 +64,18 @@ func TestHomesAreNotBypassed(t *testing.T) {
 		{regexp.MustCompile(`"/content"`), "приставка контента вписана строкой",
 			"LvnAssetPath.ContentPrefix — это соглашение ЯЗЫКА, и сменить его наполовину нельзя",
 			regexp.MustCompile(`LvnAssetPath\.cs`)},
+		// Цена входа и область кросс-новелльных статов — деньги и прогресс.
+		// Оба правила уже расходились по местам: ценник на карточке показывал
+		// выдуманную «1», пока списывал гейт экономики совсем другое; ключ
+		// области — единственная связь между новеллами, и вписанный строкой он
+		// разошёлся бы молча.
+		{regexp.MustCompile(`economy\.chapter_cost|economy\.chapter_currency|free_chapters`),
+			"цена входа считается мимо дома",
+			"LvnEntryPrice.OfChapter/OfTitle — показывающий и списывающий обязаны спрашивать одно место",
+			regexp.MustCompile(`LvnEntryPrice\.cs|LvnManifest\.cs`)},
+		{regexp.MustCompile(`"__global"`), "область общих статов вписана строкой",
+			"LvnGlobalStats.ScopeId — это единственная связь между новеллами",
+			regexp.MustCompile(`LvnGlobalStats\.cs`)},
 		{regexp.MustCompile(`AddComponent<UIDocument>\(\)`), "свой слой мимо общей панели",
 			"LvnFloor.Open(имя, этаж) — он ставит документ, общие настройки и этаж разом",
 			regexp.MustCompile(`LvnPanel\.Shared|LvnFloor\.cs`)},
