@@ -313,7 +313,7 @@ namespace Lvn.UI
             Bronze = Hex("#c8895f"),
             Ok = Hex("#5cc47f"),
             Warn = Hex("#e8b45c"),
-            Bad = Hex("#e05a6a"),
+            Bad = Hex("#d13c3c"), // не розовее акцента: беда обязана читаться бедой
             Faint = new Color(1f, 1f, 1f, 0.07f),
             Track = new Color(1f, 1f, 1f, 0.12f),
             Scrim = new Color(0.05f, 0.03f, 0.06f, 0.80f),

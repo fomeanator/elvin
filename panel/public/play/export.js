@@ -291,7 +291,7 @@ function applyStage(cmd) {
     case "actor": case "obj": {
       if (!cmd.id) break;
       let node = $id("actors").querySelector('[data-id="' + cmd.id + '"]');
-      if (cmd.show === false) { node && node.remove(); break; }
+      if (!flag(cmd.show, true)) { node && node.remove(); break; }
       const entity = !cmd.sprite_url && !cmd.body_url ? CATALOG[cmd.id] : null;
       if (entity && entity.layers) {
         if (!node || node.tagName !== "DIV") { node && node.remove();
@@ -326,7 +326,7 @@ function applyStage(cmd) {
     }
     case "text": {
       if (!cmd.id) break;
-      if (cmd.hide) { const e = hudLabels.get(cmd.id); e && e.el.remove(); hudLabels.delete(cmd.id); break; }
+      if (flag(cmd.hide, false)) { const e = hudLabels.get(cmd.id); e && e.el.remove(); hudLabels.delete(cmd.id); break; }
       let entry = hudLabels.get(cmd.id);
       if (!entry) { const el = document.createElement("div"); el.className = "hud-label"; $id("hud").appendChild(el); entry = { el, template: "" }; hudLabels.set(cmd.id, entry); }
       if (cmd.text) entry.template = cmd.text;
