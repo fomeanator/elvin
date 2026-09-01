@@ -131,9 +131,6 @@ namespace Lvn.UI
 
 
 
-        /// <summary>A tiny neutral beat between one card going dark and the next
-        /// appearing. It is short enough not to feel like latency, but gives the
-        /// dissolve a punctuation mark instead of making two panels overlap.</summary>
         /// <summary>
         /// СМЕНА КАРТОЧКИ: старая уходит своим ходом, и только ПОСЛЕ такта
         /// тишины приходит новая.
@@ -157,6 +154,9 @@ namespace Lvn.UI
             });
         }
 
+        /// <summary>Такт тишины между уходом одной карточки и приходом
+        /// следующей. Он короток настолько, чтобы не читаться как задержка, но
+        /// ставит растворению знак препинания вместо наложения двух окон.</summary>
         private void AfterBeatPause(int generation, Action next)
         {
             if (generation != _dialogueSwapGeneration || next == null) return;
