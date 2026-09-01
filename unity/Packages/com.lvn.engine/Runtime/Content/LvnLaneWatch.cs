@@ -81,19 +81,32 @@ namespace Lvn.Content
         /// <summary>Сколько живых входов и сколько худшее их ожидание — два
         /// числа, которые едут в отчёт главы. Первое ловит «объявлено не тому»,
         /// второе — «бронь не работает».</summary>
-        public static (int liveEntries, int worstLiveWaitMs, int backgroundEntries, int yields) Take()
+        /// <param name="lane">Пусто — считать по всем полосам (так снимает
+        /// глава). Имя — только по ней.
+        ///
+        /// <para>Отбор по полосе появился из красного теста: счёт общий, а
+        /// работа асинхронная, и хвост соседнего испытания долетал уже после
+        /// того, как это очистило счётчик. Тест мерил СВОЮ полосу, а получал
+        /// чужие входы — и краснел не о том. Спрашивать про одну полосу дом
+        /// умел с рождения: ключ у него и так пара «полоса + ступень».</para>
+        /// </param>
+        public static (int liveEntries, int worstLiveWaitMs, int backgroundEntries, int yields) Take(string lane = null)
         {
             lock (_lock)
             {
                 int live = 0, worst = 0, back = 0, yields = 0;
+                var keep = new List<(string, LvnRung)>();
                 foreach (var kv in _tally)
                 {
+                    if (lane != null && kv.Key.Item1 != lane) { keep.Add(kv.Key); continue; }
                     var t = kv.Value;
                     yields += t.Yields;
                     if (t.Rung == LvnRung.Live) { live += t.Entries; if (t.WorstMs > worst) worst = t.WorstMs; }
                     else back += t.Entries;
                 }
-                _tally.Clear();
+                if (lane == null) _tally.Clear();
+                else foreach (var kv in new List<(string, LvnRung)>(_tally.Keys))
+                    if (kv.Item1 == lane) _tally.Remove(kv);
                 return (live, worst, back, yields);
             }
         }

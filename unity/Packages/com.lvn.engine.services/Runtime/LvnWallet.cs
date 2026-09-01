@@ -194,38 +194,66 @@ namespace Lvn.Services
 
         /// <summary>Server-side earn; offline it lands in the local mirror and
         /// the replay queue (still true — the earning is honest and durable).</summary>
-        public static async Task<bool> EarnAsync(string currency, long amount, string reason)
-        {
-            EnsureLoaded();
-            await FlushAsync(); // FIFO holds even mid-chapter: queued ops go first
-            // op_id is born WITH the operation and rides every retry/replay of
-            // it — the server applies exactly once even when a response is lost.
-            var payload = new JObject { ["op"] = "earn", ["currency"] = currency, ["amount"] = amount, ["reason"] = reason,
-                ["op_id"] = Lvn.LvnMark.Once() };
-            var (code, body) = await LvnBackend.PostAsync("/v1/wallet/earn", payload.ToString());
-            if (LvnBackend.Ok(code)) return Apply(body);
-            if (code != 0) return false; // the server SAW it and refused — not an offline case
-            Enqueue(payload);    // the durable replay record FIRST (kill-safe) —
-            ApplyLocal(payload); // the mirror is just a view derived from it
-            return true;
-        }
+        public static Task<bool> EarnAsync(string currency, long amount, string reason)
+            => RunOpAsync("/v1/wallet/earn", "earn", currency, amount, reason, offlineNeedsBalance: false);
 
         /// <summary>Spend; false when refused (insufficient funds). Offline the
         /// PERSISTED local balance gates the spend, the op queues for replay —
         /// the wardrobe keeps working on a plane. Optional sku is granted into
         /// the inventory atomically.</summary>
-        public static async Task<bool> SpendAsync(string currency, long amount, string reason, string sku = null)
+        public static Task<bool> SpendAsync(string currency, long amount, string reason, string sku = null)
+            => RunOpAsync("/v1/wallet/spend", "spend", currency, amount, reason, offlineNeedsBalance: true,
+                          extra: p => { if (!string.IsNullOrEmpty(sku)) p["sku"] = sku; });
+
+        /// <summary>ОДНА ОПЕРАЦИЯ КОШЕЛЬКА — порядок и три исхода, общие для всех.
+        ///
+        /// <para>Начисление и трата держали это тело каждое своей копией:
+        /// девять строк из одиннадцати совпадали. В коде про деньги такая копия
+        /// опаснее прочих — заведут третью операцию (перевод, возврат),
+        /// скопируют ближайшую, и полугодовая правка про повторы уедет только в
+        /// одну из трёх.</para>
+        ///
+        /// <para><b>Порядок.</b> Сначала очередь: накопленное офлайн обязано
+        /// лечь ДО того, как сервер судит новую операцию, — иначе трата
+        /// упрётся в баланс, который ещё не доехал. Очередь строго по времени,
+        /// и середина главы её не откладывает.</para>
+        ///
+        /// <para><b>Метка операции рождается ВМЕСТЕ с ней</b> и едет с каждым
+        /// повтором: сервер применяет ровно один раз, даже когда ответ потерян
+        /// по дороге.</para>
+        ///
+        /// <para><b>Три исхода.</b> Сервер ответил согласием — его слово и
+        /// берём. Сервер ответил отказом (нехватка, запрет) — это НЕ офлайн,
+        /// и спорить не о чем. Сервера не слышно — пишем в очередь, а
+        /// зеркало баланса правим следом: запись долговечна, зеркало из неё
+        /// выводится, и порядок здесь не украшение — так переживается
+        /// выключение питания между двумя строками.</para>
+        ///
+        /// <para><b>Чем операции вправе отличаться</b> — ровно двумя вещами.
+        /// Первая: нужен ли офлайн запас (тратить можно только то, что есть;
+        /// зарабатывать — всегда). Вторая: что дописать в тело операции, вроде
+        /// покупаемого предмета.</para>
+        /// </summary>
+        /// <para><b>Адрес приходит доводом ЦЕЛИКОМ, а не склеивается тут из
+        /// кусков.</b> Склеенный я и написал сначала — и страж «клиент зовёт
+        /// адрес, которого сервер не отдаёт» покраснел: он читает исходники и
+        /// видит только литералы. Путь, собранный из частей, для него исчезает,
+        /// и сверка клиента с сервером перестаёт работать молча. Лишнее слово в
+        /// вызове — цена того, что адрес остаётся видимым.</para>
+        private static async Task<bool> RunOpAsync(string endpoint, string op, string currency,
+                                                   long amount, string reason, bool offlineNeedsBalance,
+                                                   System.Action<JObject> extra = null)
         {
             EnsureLoaded();
-            await FlushAsync(); // offline earnings must land before this spend is judged
-            var payload = new JObject { ["op"] = "spend", ["currency"] = currency, ["amount"] = amount, ["reason"] = reason,
-                ["op_id"] = Lvn.LvnMark.Once() };
-            if (!string.IsNullOrEmpty(sku)) payload["sku"] = sku;
-            var (code, body) = await LvnBackend.PostAsync("/v1/wallet/spend", payload.ToString());
+            await FlushAsync();
+            var payload = new JObject { ["op"] = op, ["currency"] = currency, ["amount"] = amount,
+                ["reason"] = reason, ["op_id"] = Lvn.LvnMark.Once() };
+            extra?.Invoke(payload);
+            var (code, body) = await LvnBackend.PostAsync(endpoint, payload.ToString());
             if (LvnBackend.Ok(code)) return Apply(body);
-            if (code != 0) return false; // 409 insufficient etc. — the server's word stands
-            if (!CanApplyLocal(payload)) return false; // offline overdraft — honest no
-            Enqueue(payload);    // durable first, view second (see EarnAsync)
+            if (code != 0) return false;
+            if (offlineNeedsBalance && !CanApplyLocal(payload)) return false;
+            Enqueue(payload);
             ApplyLocal(payload);
             return true;
         }
