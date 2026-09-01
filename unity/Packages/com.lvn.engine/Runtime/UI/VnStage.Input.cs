@@ -209,12 +209,12 @@ namespace Lvn.UI
             // выглядит и что делает.
             ok.style.height = Theme != null ? Theme.ChoiceMinHeight : 96f;
             ok.style.fontSize = Theme != null ? Theme.ChoiceFontSize : 28;
-            ok.style.color = UiColor.Named(NameInput?.button_text_color,
-                Theme != null ? Theme.ChoiceTextColor : LvnTokens.Text);
-            ok.style.backgroundColor = UiColor.Named(NameInput?.button_color,
-                Theme != null ? Theme.ChoiceColor : LvnTokens.Surface);
-            LvnChrome.ClearBorder(ok);
-            LvnChrome.Round(ok, Mathf.Max(8f, r * 0.4f));
+            LvnStyler.Plate(ok,
+                UiColor.Named(NameInput?.button_color,
+                    Theme != null ? Theme.ChoiceColor : LvnTokens.Surface),
+                UiColor.Named(NameInput?.button_text_color,
+                    Theme != null ? Theme.ChoiceTextColor : LvnTokens.Text),
+                Mathf.Max(8f, r * 0.4f));
             LvnChrome.Border(ok, Theme != null ? Theme.SpeakerColor : LvnTokens.Accent, 2f);
             LvnFonts.Apply(ok, Theme?.Font);
             LvnMotion.Tappable(ok);

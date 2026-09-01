@@ -630,9 +630,7 @@ namespace Lvn.UI.Screens
             b.style.fontSize = LvnTokens.TextLg;
             LvnAir.PadY(b, LvnTokens.Space2);
             b.style.marginTop = LvnTokens.Space2;
-            b.style.color = _accentText;
-            b.style.backgroundColor = _accent;
-            LvnChrome.ClearBorder(b); LvnChrome.Round(b, _radius);
+            LvnStyler.Plate(b, _accent, _accentText, _radius);
             return b;
         }
 

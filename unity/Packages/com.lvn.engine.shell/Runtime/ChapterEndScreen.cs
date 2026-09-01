@@ -74,12 +74,11 @@ namespace Lvn.UI.Screens
             b.style.minHeight = 120;
             b.style.fontSize = LvnTokens.TextLg;
             b.style.unityFontStyleAndWeight = FontStyle.Bold;
-            b.style.color = UiColor.Named(_cfg.button_text_color, LvnTokens.Text);
-            b.style.backgroundColor = primary
-                ? UiColor.Named(_cfg.button_color, LvnTokens.Accent)
-                : UiColor.Named(_cfg.button_secondary_color, LvnTokens.Faint);
-            LvnChrome.ClearBorder(b);
-            LvnChrome.Round(b, _cfg.button_radius ?? LvnTokens.RadiusLg);
+            LvnStyler.Plate(b,
+                primary ? UiColor.Named(_cfg.button_color, LvnTokens.Accent)
+                        : UiColor.Named(_cfg.button_secondary_color, LvnTokens.Faint),
+                UiColor.Named(_cfg.button_text_color, LvnTokens.Text),
+                _cfg.button_radius ?? LvnTokens.RadiusLg);
             return b;
         }
 

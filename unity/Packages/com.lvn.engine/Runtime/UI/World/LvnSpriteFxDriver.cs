@@ -171,7 +171,11 @@ namespace Lvn.UI.World
             }
         }
 
-        /// <summary>Finish the service fade and immediately return transition-
+        /// <summary>НЕ ПОДКЛЮЧЁН: служебное затухание сегодня снимает сам драйвер по концу
+        /// перехода. Явный выход нужен тому, кто прервёт переход снаружи, — такого
+        /// места пока нет.
+        ///
+        /// Прежнее описание:Finish the service fade and immediately return transition-
         /// only images to UI/Default. Explicit story sfx remain skinned and keep
         /// their own driver; an idle actor pays no per-frame transition cost.</summary>
         public static void ReleaseFade(GameObject actorGo)

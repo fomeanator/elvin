@@ -36,7 +36,11 @@ namespace Lvn.Content
         public static Task<JObject> LoadAsync(ILvnStateStore store, CancellationToken ct = default)
             => store == null ? Task.FromResult<JObject>(null) : store.LoadVarsAsync(ScopeId, ct);
 
-        /// <summary>Сохранить статы как есть.</summary>
+        /// <summary>НЕ ПОДКЛЮЧЁН: запись идёт через инкремент (Add/Inc), который сохраняет
+        /// сам. Прямая запись нужна переносу и починке блоба — ими пока занимается
+        /// админка на сервере, а не клиент.
+        ///
+        /// Прежнее описание:Сохранить статы как есть.</summary>
         public static Task SaveAsync(ILvnStateStore store, JObject stats, CancellationToken ct = default)
             => store == null || stats == null ? Task.CompletedTask
              : store.SaveVarsAsync(ScopeId, stats, ct);
