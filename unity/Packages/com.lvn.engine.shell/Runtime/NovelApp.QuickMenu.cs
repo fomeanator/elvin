@@ -257,6 +257,22 @@ namespace Lvn.UI.Screens
             var menuTrack = ResolveMenuTrackUrl(manifest);
             if (!string.IsNullOrEmpty(menuTrack)) LvnAsync.Fire(StartMenuMusicAsync(menuTrack), "MenuMusic");
 
+            WireBrowse(manifest);
+
+        }
+
+        /// <summary>
+        /// ПОДКЛЮЧИТЬ ВИТРИНУ: замки читают глобальные статы игрока, «Играть»
+        /// берёт цену входа, закрытая карточка объясняет себя попапом, иконки
+        /// шапки ведут в свои экраны.
+        ///
+        /// <para>Витрина умеет рисовать карточки и ждать выбор; ЧТО стоит за
+        /// каждым тапом — знает хост. Сорок строк этого знания стояли внутри
+        /// подключения быстрого меню, к которому витрина отношения не имеет:
+        /// имя метода обещало одно, а делал он три работы сразу.</para>
+        /// </summary>
+        private void WireBrowse(LvnManifest manifest)
+        {
             // Hub browse flow (ui.browse.layout = "hub"): unlock conditions read the
             // player's global stat flags; Play charges the title's entry cost; a
             // locked card explains itself with a popup.
@@ -299,7 +315,6 @@ namespace Lvn.UI.Screens
                 // Tapping a card opens the rich detail page seeded with this title.
                 _shell.Hub.OnOpenDetail = t => OpenDetailWithStatsAsync(t);
             }
-
         }
 
         private Task OpenGalleryForRealAsync()
