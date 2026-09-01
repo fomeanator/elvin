@@ -25,19 +25,23 @@ namespace Lvn.UI
 
             if (BoolOr(cmd["hide"], false))
             {
-                if (_labelEls.TryGetValue(id, out var old)) { old.RemoveFromHierarchy(); _labelEls.Remove(id); }
-                _labelTmpl.Remove(id);
+                if (_labels.TryGetValue(id, out var old))
+                {
+                    old.El?.RemoveFromHierarchy();
+                    _labels.Remove(id);   // надпись и её шаблон уходят вместе
+                }
                 return;
             }
 
-            bool fresh = !_labelEls.TryGetValue(id, out var el);
+            bool fresh = !_labels.TryGetValue(id, out var slot);
+            Label el = slot?.El;
             if (fresh)
             {
                 el = new Label { name = "lbl-" + id, pickingMode = PickingMode.Ignore };
                 el.style.position = Position.Absolute;
                 el.style.whiteSpace = WhiteSpace.Normal;
                 _labelLayer.Add(el);
-                _labelEls[id] = el;
+                _labels[id] = slot = new HudLabel { El = el };
             }
 
             // A repeat `text <id>` MERGES into the live label — omitted fields keep
@@ -94,7 +98,7 @@ namespace Lvn.UI
                 var tmpl = (string)cmd["text"] ?? "";
                 if (tmpl.Length != 0 && _strings != null && _strings.TryGetValue(tmpl, out var trTmpl))
                     tmpl = trTmpl; // localization catalog, keyed by the source template
-                _labelTmpl[id] = tmpl;
+                slot.Tmpl = tmpl;
                 el.text = TextInterpolation.Apply(tmpl, _player?.Vars); // immediate paint; tick keeps it live
             }
         }
@@ -102,14 +106,15 @@ namespace Lvn.UI
         // Re-evaluate every live label's template against the current variables.
         private void RefreshLabels()
         {
-            if (_labelTmpl.Count == 0) return;
+            if (_labels.Count == 0) return;
             var vars = _player?.Vars;
-            foreach (var kv in _labelTmpl)
-                if (_labelEls.TryGetValue(kv.Key, out var el))
-                {
-                    var t = TextInterpolation.Apply(kv.Value, vars);
-                    if (el.text != t) el.text = t;
-                }
+            foreach (var kv in _labels)
+            {
+                var lbl = kv.Value;
+                if (lbl.El == null || lbl.Tmpl == null) continue;
+                var t = TextInterpolation.Apply(lbl.Tmpl, vars);
+                if (lbl.El.text != t) lbl.El.text = t;
+            }
         }
 
 
