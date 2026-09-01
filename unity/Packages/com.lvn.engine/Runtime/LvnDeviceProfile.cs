@@ -88,7 +88,31 @@ namespace Lvn
         private const int MidScreenPx = 1400;
         private const int MidRamMb = 3072;
 
-        public static string RecommendedArtQuality()
+        /// <summary>СОВЕТ, СНЯТЫЙ ОДИН РАЗ И С ГЛАВНОГО ПОТОКА.
+        ///
+        /// <para><c>Screen</c> и <c>SystemInfo</c> Unity отдаёт только главному
+        /// потоку — с рабочего они бросают исключение. Совет же спрашивают там,
+        /// где строят адреса ассетов, а адреса строит и фон.</para>
+        ///
+        /// <para>Сегодня это безопасно ТОЛЬКО ПО ПОРЯДКУ: первым спрашивает бут,
+        /// он главный поток, и дальше все читают уже посчитанное. Порядок —
+        /// плохая защита: он держится, пока никто не заведёт нового фонового
+        /// читателя, и падение будет выглядеть случайным.</para>
+        ///
+        /// <para>Поэтому снимок берётся сам, из точки, которую платформа
+        /// обещает выполнить на главном потоке до первой сцены. Читателю после
+        /// этого всё равно, откуда он спрашивает.</para></summary>
+        [UnityEngine.RuntimeInitializeOnLoadMethod(
+            UnityEngine.RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void PrimeAdvice() { _advice = Advise(); }
+
+        private static string _advice;
+
+        /// <summary>Что советует устройство. Первый вопрос с главного потока
+        /// запомнит ответ; заботиться об этом вызывающему не нужно.</summary>
+        public static string RecommendedArtQuality() => _advice ??= Advise();
+
+        private static string Advise()
         {
             if (ScreenPx >= HighScreenPx && RamMb >= HighRamMb) return "2k";
             if (ScreenPx >= MidScreenPx && RamMb >= MidRamMb) return "1440";
