@@ -81,9 +81,9 @@ namespace Lvn.Services
             // Threaded variant: exceptions on worker threads (asset decodes,
             // tasks) are exactly the ones a main-thread hook would miss.
             Application.logMessageReceivedThreaded += OnLog;
-            Enqueue("info", $"session start · {SystemInfo.deviceModel} · {SystemInfo.operatingSystem} " +
-                            $"· app {Application.version} · mem {SystemInfo.systemMemorySize}MB " +
-                            $"· gpu {SystemInfo.graphicsDeviceName}", null, persist: false);
+            Enqueue("info", $"session start · {Lvn.LvnDeviceProfile.Model} · {Lvn.LvnDeviceProfile.Os} " +
+                            $"· app {Application.version} · mem {Lvn.LvnDeviceProfile.RamMb}MB " +
+                            $"· gpu {Lvn.LvnDeviceProfile.Gpu}", null, persist: false);
         }
 
         private static void OnLog(string message, string stack, LogType type)
@@ -149,10 +149,10 @@ namespace Lvn.Services
             {
                 ["device"] = new JObject
                 {
-                    ["id"] = SystemInfo.deviceUniqueIdentifier,
+                    ["id"] = Lvn.LvnDeviceProfile.DeviceId,
                     ["session"] = _session,
-                    ["model"] = SystemInfo.deviceModel,
-                    ["os"] = SystemInfo.operatingSystem,
+                    ["model"] = Lvn.LvnDeviceProfile.Model,
+                    ["os"] = Lvn.LvnDeviceProfile.Os,
                     ["app"] = Application.version,
                 },
                 ["lines"] = lines,

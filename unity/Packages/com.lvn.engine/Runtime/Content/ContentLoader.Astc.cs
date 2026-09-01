@@ -46,7 +46,7 @@ namespace Lvn.Content
         // request. Standardized on 6x6 (see server/astc.go's astcBlockDim);
         // ARM's own guidance is that 5x5–6x6 is the sane default for game art.
         private static readonly bool AstcSupported =
-            AstcEnabled && SystemInfo.SupportsTextureFormat(TextureFormat.ASTC_6x6);
+            AstcEnabled && Lvn.LvnDeviceProfile.SupportsFormat(TextureFormat.ASTC_6x6);
 
         // Flips true the first time an ".astc" request fails (404, network
         // error, bad data) — after that, every later sprite in this session

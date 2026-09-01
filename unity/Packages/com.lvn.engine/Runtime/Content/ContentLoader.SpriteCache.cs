@@ -26,7 +26,7 @@ namespace Lvn.Content
         {
             if (_budgetTuned) return;
             _budgetTuned = true;
-            int mb = SystemInfo.systemMemorySize;
+            int mb = Lvn.LvnDeviceProfile.RamMb;
             if (mb <= 0) return; // тесты/неизвестное устройство — дефолт
             long b = ((long)mb << 20) / 6;
             long clamped = Math.Max(96L << 20, Math.Min(384L << 20, b));

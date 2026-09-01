@@ -757,3 +757,55 @@ func TestHitchCountIsTakenNotPeeked(t *testing.T) {
 			len(found), strings.Join(found, "\n  "))
 	}
 }
+
+// ЖЕЛЕЗО СПРАШИВАЮТ У ПАСПОРТА.
+//
+// «Кто это устройство» — модель, система, память, видеочип, номер — нужно
+// многим: кэш картинок считает бюджет, загрузчик спрашивает про формат текстур,
+// отчёты и жалобы называют устройство. Пока паспорт лежал в интерфейсном слое,
+// до него не дотягивался слой контента и читал железо напрямую; отчётам не
+// хватало пары полей (видеочипа и номера) — и они заодно брали напрямую всё
+// остальное. Два ответа на «на чём играет человек» не склеиваются в поддержке.
+//
+// Спрашивать SystemInfo напрямую вправе тот, кто задаёт вопрос ГРАФИЧЕСКОМУ
+// ТРАКТУ, а не устройству: ориентация UV, есть ли вообще рисующий бэкенд, имя
+// файла прогретых шейдеров.
+func TestHardwareIsAskedFromTheProfile(t *testing.T) {
+	root := repoRoot(t)
+	allowed := map[string]string{
+		"LvnDeviceProfile.cs": "сам паспорт",
+		"LvnGlass.cs":         "ориентация UV у рендера",
+		"Lvn3DBackdrop.cs":    "есть ли рисующий бэкенд (batchmode)",
+		"LvnPsoWarmup.cs":     "имя файла прогретых шейдеров",
+	}
+	direct := regexp.MustCompile(`\bSystemInfo\.`)
+
+	var found []string
+	scanned := 0
+	_ = filepath.Walk(filepath.Join(root, "unity/Packages"), func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+			return nil
+		}
+		p := filepath.ToSlash(path)
+		if strings.Contains(p, "/Tests/") {
+			return nil
+		}
+		if _, ok := allowed[filepath.Base(path)]; ok {
+			return nil
+		}
+		scanned++
+		for i, l := range strings.Split(stripComments(string(mustRead(t, path))), "\n") {
+			if direct.MatchString(l) {
+				found = append(found, fmt.Sprintf("%s:%d: %s", filepath.Base(path), i+1, strings.TrimSpace(l)))
+			}
+		}
+		return nil
+	})
+	atLeast(t, scanned, 100, "просмотренных файлов")
+	if len(found) > 0 {
+		t.Errorf("железо спрашивают мимо паспорта (%d):\n  %s\n\n"+
+			"Возьмите LvnDeviceProfile: у «на чём играет человек» должен быть один ответ, "+
+			"иначе логи, жалоба и сессия одного игрока не склеятся между собой.",
+			len(found), strings.Join(found, "\n  "))
+	}
+}
