@@ -511,6 +511,10 @@ func TestCorpusCoversTheCoreOps(t *testing.T) {
 			}
 		}
 	}
+	// Порог пустоты: переименуй кто-нибудь папку случаев — и «покрытых нет»
+	// читалось бы как «нечего проверять».
+	sawSources(t, len(covered), 20, "операций в корпусе")
+
 	core := []string{"say", "choice", "label", "goto", "if", "call", "return",
 		"set", "inc", "input", "wait", "bg", "actor", "fade"}
 	for _, op := range core {

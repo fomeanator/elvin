@@ -71,6 +71,7 @@ func PostProcessBundle(res *Result, xd XlsxData, contentDir string, tpl *Templat
 	buildWardrobes(res, xd, tpl)
 	renameProtagonistSpeaker(res, xd, tpl) // show the player-entered name, not the articy label
 	applySpeakerNames(res, tpl)            // template speaker_names: latin roster labels → display names
+	applyVarAliasesToBundle(res, tpl)      // спасение опечаток в именах переменных — см. applyNaming
 
 	bgidx := indexBackgrounds(contentDir, xd.Locations, tpl)
 	for i := range res.Scripts {
@@ -692,6 +693,23 @@ func applySpeakerNames(res *Result, tpl *Template) {
 	}
 	// Entity display names (cast cards, wardrobe headers) follow the same map.
 	applySpeakerNameOverridesToSprites(res.Sprites, tpl)
+}
+
+// applyVarAliasesToBundle — третий шаг приведения имён на ПАКЕТНОМ пути.
+//
+// Одиночный импорт звал все три (applyNaming), пакетный — первые два, каждый
+// своим местом, а этот не звал вовсе. Комментарий рядом при этом обещал, что
+// «пакетный получает то же именование через PostProcessBundle»: оговорка,
+// бывшая правдой ровно до того, как к обряду добавили третий шаг.
+func applyVarAliasesToBundle(res *Result, tpl *Template) {
+	if res == nil || len(tpl.resolve().VarAliases) == 0 {
+		return
+	}
+	for i := range res.Scripts {
+		editScript(&res.Scripts[i], func(ops []map[string]any) ([]map[string]any, bool) {
+			return ops, applyVarAliases(ops, tpl)
+		})
+	}
 }
 
 // displayNameFor resolves a speaker label through the names map, falling back
