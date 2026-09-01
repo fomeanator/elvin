@@ -65,15 +65,61 @@ namespace Lvn.Content
         /// </summary>
         public static bool Ktx2Only = true;
 
-        /// <summary>Видеокарта не тянет формат — единственная причина, по
-        /// которой растр остаётся законным для всего.</summary>
-        internal bool GpuCannotKtx2 { get { lock (_ktx2Lock) return _gpuWithoutKtx2; } }
+        /// <summary>
+        /// КОД ВЗЯТЬ НЕОТКУДА — и это не «удобнее не брать», а «нечем».
+        ///
+        /// <para>Строгое правило «арт истории только кодом» держится на том, что
+        /// код в принципе достижим. Три случая, когда он недостижим по
+        /// устройству, а не по лени:</para>
+        /// <list type="bullet">
+        ///   <item>видеокарта не рисует формат (проба на старте);</item>
+        ///   <item><b>в сборке нет пакета-декодера</b> — без
+        ///   <c>LVN_KTX2</c> расшифровывать нечем вовсе. Этого не хватало
+        ///   полдня: признак выставлялся ТОЛЬКО внутри той же условной сборки,
+        ///   и движок, собранный без пакета, не показывал арт истории ВООБЩЕ,
+        ///   советуя при этом проверить кодировщик на сервере;</item>
+        ///   <item>содержимое лежит локально (сид в установщике, каталог на
+        ///   диске) — в него кладут оригиналы, кодов там нет и не будет.</item>
+        /// </list>
+        ///
+        /// <para>Разница с костылём принципиальная и её стоит держать в голове:
+        /// костыль срабатывает, когда правило ВЫПОЛНИТЬ ТРУДНО, и потому прячет
+        /// поломку. Здесь правило выполнить НЕЧЕМ, и растр — объявленный путь.
+        /// </para>
+        /// </summary>
+        internal bool GpuCannotKtx2
+        {
+            get
+            {
+#if !LVN_KTX2
+                return true;   // декодера нет в сборке
+#else
+                if (_local) return true;   // локальная база: коды туда не кладут
+                lock (_ktx2Lock) return _gpuWithoutKtx2;
+#endif
+            }
+        }
 
         /// <summary>Видеокарта не рисует ktx2 — единственное честное «нельзя».
         /// Свойство устройства: узнаётся один раз и не меняется.</summary>
         private bool _gpuWithoutKtx2;
 
-        private readonly HashSet<string> _ktx2Cold = new HashSet<string>();
+        /// <summary>
+        /// ХОЛОДНЫЙ КОД И БИТЫЙ КОД — РАЗНЫЕ БЕДЫ, И СЧЁТ У НИХ РАЗНЫЙ.
+        ///
+        /// <para>«Сервер ещё не собрал» проходит само: файл ждут и просят
+        /// снова. «Файл на сервере битый» не проходит никогда — и его тоже
+        /// просили снова, потому что чужой успех очищал метки ВСЕМ. Каждый
+        /// показ битого арта качал его целиком, расшифровывал, выбрасывал — и
+        /// так до конца сессии.</para>
+        ///
+        /// <para>Поэтому не множество, а счёт промахов на адрес: три подряд —
+        /// файл считается битым до конца сессии, и его перестают просить.
+        /// Чужой успех сбрасывает счёт только тем, кто ещё не исчерпал своё, —
+        /// «сервер догнал» им поможет, «файл битый» им не оправдание.</para>
+        /// </summary>
+        private const int Ktx2Strikes = 3;
+        private readonly Dictionary<string, int> _ktx2Cold = new Dictionary<string, int>();
         private readonly object _ktx2Lock = new object();
 
         /// <summary>Сколько раз подождать код, который сервер ещё не собрал, и
@@ -89,7 +135,12 @@ namespace Lvn.Content
         {
             var ktx2Url = Ktx2UrlFor(url);
             if (ktx2Url == null) return;
-            lock (_ktx2Lock) _ktx2Cold.Remove(ktx2Url);
+            lock (_ktx2Lock)
+            {
+                // Исчерпавшего своё не будим: он битый, а не холодный.
+                if (_ktx2Cold.TryGetValue(ktx2Url, out var strikes) && strikes < Ktx2Strikes)
+                    _ktx2Cold.Remove(ktx2Url);
+            }
         }
 
         /// <summary>Пропустить ktx2 для этого адреса ИМЕННО СЕЙЧАС: он холодный,
@@ -97,19 +148,30 @@ namespace Lvn.Content
         /// живёт до первого попадания, а не до перезапуска.</summary>
         private bool Ktx2Skipped(string ktx2Url)
         {
-            lock (_ktx2Lock) return _gpuWithoutKtx2 || _ktx2Cold.Contains(ktx2Url);
+            lock (_ktx2Lock) return _gpuWithoutKtx2 || _ktx2Cold.ContainsKey(ktx2Url);
         }
 
         private void NoteKtx2Miss(string ktx2Url)
         {
-            lock (_ktx2Lock) _ktx2Cold.Add(ktx2Url);
+            lock (_ktx2Lock)
+            {
+                _ktx2Cold.TryGetValue(ktx2Url, out var strikes);
+                _ktx2Cold[ktx2Url] = strikes + 1;
+            }
         }
 
         /// <summary>Код доехал — значит сервер их кодирует, и холодные адреса
         /// стоит спросить заново: очередь кодирования движется.</summary>
         private void NoteKtx2Hit()
         {
-            lock (_ktx2Lock) _ktx2Cold.Clear();
+            lock (_ktx2Lock)
+            {
+                // Сервер догнал — будим тех, кто ещё не исчерпал своё.
+                List<string> woken = null;
+                foreach (var kv in _ktx2Cold)
+                    if (kv.Value < Ktx2Strikes) (woken ??= new List<string>()).Add(kv.Key);
+                if (woken != null) foreach (var k in woken) _ktx2Cold.Remove(k);
+            }
         }
 
 #if LVN_KTX2
