@@ -465,7 +465,7 @@ namespace Lvn.UI.Screens
                     // ТОТ ЖЕ ПРЕДЕЛ, что в меню сцены: это одна и та же запись
                     // автосейва, и «40 здесь, 46 там» игрок читает как разные
                     // сохранения.
-                    var prev = new Label("«" + Lvn.Content.LvnClip.Text(auto.Preview, Lvn.Content.LvnClip.PreviewMax) + "»");
+                    var prev = new Label("«" + Lvn.LvnClip.Text(auto.Preview, Lvn.LvnClip.PreviewMax) + "»");
                     prev.pickingMode = PickingMode.Ignore;
                     prev.style.fontSize = LvnTokens.TextMicro;
                     prev.style.marginTop = 2;

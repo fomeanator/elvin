@@ -19,7 +19,7 @@ namespace Lvn.UI.Screens
             var row = RowEx(LvnWords.Pick("account.uid", _cfg.uid_label, "Player ID"),
                 LvnWords.Of("account.uid_hint", "Quote it if you contact support"));
             var uid = LvnBackend.UserId;
-            var shortId = string.IsNullOrEmpty(uid) ? "—" : Lvn.Content.LvnClip.Id(uid);
+            var shortId = string.IsNullOrEmpty(uid) ? "—" : Lvn.LvnClip.Id(uid);
             var val = new Label(shortId);
             val.style.color = _dim;
             val.style.fontSize = LvnTokens.TextSm;
