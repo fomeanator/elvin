@@ -26,7 +26,7 @@ import (
 // Отсюда правило: обходишь дерево — объяви порог (atLeast). Бюджет ниже —
 // долг: столько стражей ещё живут без порога. Он только уменьшается.
 func TestGuardsCountWhatTheyScan(t *testing.T) {
-	const budget = 19 // 01.09: столько обходчиков ещё без порога; только вниз (было 39)
+	const budget = 15 // 01.09: столько обходчиков ещё без порога; только вниз (было 39)
 
 	dir := "."
 	entries, err := os.ReadDir(dir)
@@ -39,6 +39,23 @@ func TestGuardsCountWhatTheyScan(t *testing.T) {
 	// ровно тем способом, который ищет.
 	fn := regexp.MustCompile(`(?m)^func (Test[\pL\pN_]+)\(t \*testing\.T\) \{`)
 	floor := regexp.MustCompile(`atLeast\(|(?:len\(\w+\)|scanned|count)\s*<\s*\d+`)
+
+	// ПОРОГ БЫВАЕТ У ПОМОЩНИКА. Пять стражей оболочки берут каталог у
+	// shellRuntimeDir, и порог пустоты стоит там — один раз, а не пятью
+	// копиями. Считаем такой вызов защитой, но только пока помощник и вправду
+	// проверяет: пропадёт atLeast у него — вернутся в должники все пятеро.
+	helpers := map[string]bool{}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), "_test.go") {
+			continue
+		}
+		src := string(mustRead(t, filepath.Join(dir, e.Name())))
+		for _, m := range regexp.MustCompile(`(?s)func (\w+)\(t \*testing\.T\) string \{(.*?)\n\}`).FindAllStringSubmatch(src, -1) {
+			if strings.Contains(m[2], "atLeast(") {
+				helpers[m[1]] = true
+			}
+		}
+	}
 
 	var without []string
 	total := 0
@@ -58,7 +75,13 @@ func TestGuardsCountWhatTheyScan(t *testing.T) {
 				continue
 			}
 			total++
-			if !floor.MatchString(body) {
+			guarded := floor.MatchString(body)
+			for h := range helpers {
+				if strings.Contains(body, h+"(t)") {
+					guarded = true
+				}
+			}
+			if !guarded {
 				without = append(without, fmt.Sprintf("%s [%s]", src[loc[2]:loc[3]], e.Name()))
 			}
 		}
