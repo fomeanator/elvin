@@ -96,8 +96,8 @@ namespace Lvn.UI
             LvnChrome.ClearBorder(b);
             LvnChrome.Round(b, LvnTokens.RadiusSm);
             b.style.backgroundColor = active
-                ? new Color(tint.r, tint.g, tint.b, 0.28f)
-                : new Color(tint.r, tint.g, tint.b, 0.10f);
+                ? UiColor.WithAlpha(tint, 0.28f)
+                : UiColor.WithAlpha(tint, 0.10f);
             b.style.color = tint;
         }
 
@@ -126,7 +126,7 @@ namespace Lvn.UI
         {
             var card = new VisualElement();
             var tint = _theme.MenuTextColor;
-            card.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.06f);
+            card.style.backgroundColor = UiColor.WithAlpha(tint, 0.06f);
             LvnChrome.Round(card, LvnTokens.RadiusSm);
             card.style.paddingLeft = LvnTokens.Space3; card.style.paddingRight = LvnTokens.Space3;
             card.style.paddingTop = LvnTokens.Space2; card.style.paddingBottom = LvnTokens.Space2;
@@ -177,7 +177,7 @@ namespace Lvn.UI
             card.Add(Text(label, 24, FontStyle.Normal));
 
             var tint = _theme.MenuTextColor;
-            var offBg = new Color(tint.r, tint.g, tint.b, 0.18f);
+            var offBg = UiColor.WithAlpha(tint, 0.18f);
             var track = new VisualElement();
             track.style.width = 64; track.style.height = 36;
             LvnChrome.Round(track, LvnTokens.Radius);

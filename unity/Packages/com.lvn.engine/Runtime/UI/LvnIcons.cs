@@ -193,7 +193,7 @@ namespace Lvn.UI
                     p.BeginPath();
                     Build(p, icon, o, s);
                     p.lineWidth = w * 2.8f;
-                    p.strokeColor = new Color(color.r, color.g, color.b, color.a * 0.22f * glow);
+                    p.strokeColor = UiColor.WithAlpha(color, color.a * 0.22f * glow);
                     p.Stroke();
                 }
 

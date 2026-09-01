@@ -504,7 +504,7 @@ namespace Lvn.UI.Screens
                 row.style.paddingLeft = LvnTokens.Space2;
                 row.style.color = UiColor.Named(_cfg.title_color, LvnTokens.Text);
                 var bg = _playBg;
-                row.style.backgroundColor = new Color(bg.r, bg.g, bg.b, unlocked ? bg.a : bg.a * 0.35f);
+                row.style.backgroundColor = UiColor.WithAlpha(bg, unlocked ? bg.a : bg.a * 0.35f);
                 LvnChrome.Round(row, LvnTokens.RadiusSm);
                 row.SetEnabled(unlocked);
                 scroll.Add(row);

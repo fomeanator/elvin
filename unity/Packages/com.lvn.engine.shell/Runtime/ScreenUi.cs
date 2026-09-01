@@ -31,12 +31,12 @@ namespace Lvn.UI.Screens
         {
             if (el == null) return;
             var bg = LvnTokens.PanelBg;
-            el.style.backgroundColor = new Color(bg.r, bg.g, bg.b, opacity);
+            el.style.backgroundColor = UiColor.WithAlpha(bg, opacity);
             LvnChrome.Round(el, LvnTokens.Radius);
             var edge = LvnTokens.Accent;
-            LvnChrome.Border(el, new Color(edge.r, edge.g, edge.b, 0.30f), 1f);
+            LvnChrome.Border(el, UiColor.WithAlpha(edge, 0.30f), 1f);
             el.style.borderTopWidth = 2f;
-            el.style.borderTopColor = new Color(edge.r, edge.g, edge.b, 0.72f);
+            el.style.borderTopColor = UiColor.WithAlpha(edge, 0.72f);
         }
 
         /// <summary>

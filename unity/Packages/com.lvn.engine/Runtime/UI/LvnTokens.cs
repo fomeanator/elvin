@@ -31,7 +31,7 @@ namespace Lvn.UI
         /// 0.88 — дважды, и каждый раз заново.</summary>
         public static Color SurfaceSoft
         {
-            get { var c = Surface; return new Color(c.r, c.g, c.b, 0.88f); }
+            get { var c = Surface; return UiColor.WithAlpha(c, 0.88f); }
         }
         public static Color Border    => LvnTheme.Current.Border;
         public static Color Text      => LvnTheme.Current.Text;
@@ -58,7 +58,7 @@ namespace Lvn.UI
         public static Color Veil(float alpha)
         {
             var s = LvnTheme.Current.Scrim;
-            return new Color(s.r, s.g, s.b, Mathf.Clamp01(alpha));
+            return UiColor.WithAlpha(s, Mathf.Clamp01(alpha));
         }
 
         /// <summary>
@@ -75,7 +75,7 @@ namespace Lvn.UI
         public static Color Panel(float alpha)
         {
             var p = LvnTheme.Current.PanelBg;
-            return new Color(p.r, p.g, p.b, Mathf.Clamp01(alpha));
+            return UiColor.WithAlpha(p, Mathf.Clamp01(alpha));
         }
 
         // Скругления. Были const; стали свойствами — константа не может

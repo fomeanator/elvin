@@ -109,7 +109,7 @@ namespace Lvn.UI
             row.style.height = 56;
             row.style.marginBottom = LvnTokens.Space1;
             var tint = _theme.MenuTextColor;
-            row.style.backgroundColor = new Color(tint.r, tint.g, tint.b, 0.06f);
+            row.style.backgroundColor = UiColor.WithAlpha(tint, 0.06f);
             row.style.unityTextAlign = TextAnchor.MiddleLeft;
             row.style.paddingLeft = LvnTokens.Space2;
             row.style.flexDirection = FlexDirection.Row;

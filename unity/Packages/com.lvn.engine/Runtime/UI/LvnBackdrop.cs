@@ -71,7 +71,7 @@ namespace Lvn.UI
                 Layer(root, Vignette(), false, 1f, Color.white);
         }
 
-        private static Color Tint(Color c, float a) => new Color(c.r, c.g, c.b, a);
+        private static Color Tint(Color c, float a) => UiColor.WithAlpha(c, a);
 
         /// <summary>
         /// Медленное дыхание слоя.

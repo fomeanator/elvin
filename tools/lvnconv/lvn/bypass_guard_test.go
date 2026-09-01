@@ -88,6 +88,14 @@ func TestHomesAreNotBypassed(t *testing.T) {
 		{regexp.MustCompile(`"(Глава|Эпизод|Дело) `), "слово «глава» вписано в подпись",
 			"LvnCaptions.Chapter(глава) — слово выбирает игра полем ui.chapter_word",
 			regexp.MustCompile(`LvnCaptions\.cs|LvnWords`)},
+		// «Тот же цвет, другая прозрачность» — правило дома цвета, и написанное
+		// руками оно ломается тихо: скопировали строку, поправили цвет и забыли
+		// про альфу — плашка стала непрозрачной, а заметно это только глазами.
+		// (Без обратных ссылок: RE2 их не умеет. Разные имена внутри одного
+		// вызова — сами по себе ошибка, ловить её тоже полезно.)
+		{regexp.MustCompile(`new Color\(\w+\.r,\s*\w+\.g,\s*\w+\.b,`), "прозрачность цвета набрана руками",
+			"UiColor.WithAlpha(цвет, доля) — тот же цвет с другой прозрачностью",
+			regexp.MustCompile(`UiColor\.cs`)},
 		{regexp.MustCompile(`AddComponent<UIDocument>\(\)`), "свой слой мимо общей панели",
 			"LvnFloor.Open(имя, этаж) — он ставит документ, общие настройки и этаж разом",
 			regexp.MustCompile(`LvnPanel\.Shared|LvnFloor\.cs`)},

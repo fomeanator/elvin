@@ -124,7 +124,7 @@ namespace Lvn.UI.Screens
 
             _row = new VisualElement();
             var bg = LvnTokens.PanelBg;
-            _row.style.backgroundColor = new Color(bg.r, bg.g, bg.b, 0.62f);
+            _row.style.backgroundColor = UiColor.WithAlpha(bg, 0.62f);
             _row.style.borderBottomWidth = 1f;
             _row.style.borderBottomColor = LvnTokens.Border;
             _row.style.height = RowH;
@@ -166,7 +166,7 @@ namespace Lvn.UI.Screens
             _miniProgress.style.paddingLeft = LvnTokens.Space2; _miniProgress.style.paddingRight = LvnTokens.Space2;
             _miniProgress.style.justifyContent = Justify.Center;
             var pbg = LvnTokens.PanelBg;
-            _miniProgress.style.backgroundColor = new Color(pbg.r, pbg.g, pbg.b, 0.72f);
+            _miniProgress.style.backgroundColor = UiColor.WithAlpha(pbg, 0.72f);
             LvnChrome.Edge(_miniProgress);
             LvnChrome.Round(_miniProgress, LvnTokens.Radius);
             _miniProgress.style.display = DisplayStyle.None;
@@ -186,7 +186,7 @@ namespace Lvn.UI.Screens
             var gbg = LvnTokens.PanelBg;
             _gameRow.style.position = Position.Absolute;
             _gameRow.style.left = 0; _gameRow.style.right = 0; _gameRow.style.top = 0;
-            _gameRow.style.backgroundColor = new Color(gbg.r, gbg.g, gbg.b, 0.9f);
+            _gameRow.style.backgroundColor = UiColor.WithAlpha(gbg, 0.9f);
             _gameRow.style.borderBottomWidth = 1f;
             _gameRow.style.borderBottomColor = LvnTokens.Border;
             ScreenUi.Row(_gameRow);
@@ -385,7 +385,7 @@ namespace Lvn.UI.Screens
                 Edge = true,
                 // Над сценой у каждой валюты свой пузырёк, в меню — общий
                 // ряд на приглушённой подложке бара.
-                Background = compact ? new Color(bg.r, bg.g, bg.b, 0.72f) : LvnTokens.Faint,
+                Background = compact ? UiColor.WithAlpha(bg, 0.72f) : LvnTokens.Faint,
             }, onTap: () => OnCurrency?.Invoke(captured));
         }
 
