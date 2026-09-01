@@ -77,13 +77,7 @@ namespace Lvn.UI
             {
                 var path = ThumbPath(titleId, slot);
                 if (!System.IO.File.Exists(path)) return null;
-                var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-                if (!tex.LoadImage(System.IO.File.ReadAllBytes(path)))
-                {
-                    UnityEngine.Object.Destroy(tex);
-                    return null;
-                }
-                return tex;
+                return Lvn.Content.AssetMemory.Decode(System.IO.File.ReadAllBytes(path));
             }
             catch { return null; }
         }

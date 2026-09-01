@@ -214,12 +214,8 @@ namespace Lvn.Content
                     var bytes = await DownloadAssetBytes(url, ct);
                     if (bytes == null || bytes.Length == 0) return null;
                     sw.Restart();
-                    tex = new Texture2D(2, 2, TextureFormat.RGBA32, mipChain: false);
-                    if (!tex.LoadImage(bytes))
-                    {
-                        UnityEngine.Object.Destroy(tex);
-                        return null;
-                    }
+                    tex = AssetMemory.Decode(bytes);
+                    if (tex == null) return null;
                 }
                 long decodeMs = sw.ElapsedMilliseconds;
                 // No platform pays full price for oversized art: phones must not
