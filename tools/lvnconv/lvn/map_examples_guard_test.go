@@ -25,7 +25,12 @@ func TestMapExamplesNameRealMembers(t *testing.T) {
 
 	// Члены по классам: имя класса берём из КОДА (файл держит несколько), а
 	// принадлежность — по ближайшему объявлению выше.
-	classRe := regexp.MustCompile(`(?:public|internal|private|protected)\s+(?:sealed\s+|static\s+|partial\s+|abstract\s+)*class\s+(\w+)`)
+	// СТРУКТУРА — ТОЖЕ ДОМ. Считать домом только `class` значило бы не видеть
+	// `Placement` (расстановка фигуры — структура), и карта, называющая её
+	// члены, объявлялась бы врущей. Хуже: имя `Placement` в движке ЗАНЯТО
+	// дважды — второй раз рекламным местом в сервисах, — и страж находил
+	// чужого однофамильца, у которого нужного члена, конечно, нет.
+	classRe := regexp.MustCompile(`(?:public|internal|private|protected)\s+(?:sealed\s+|static\s+|partial\s+|abstract\s+|readonly\s+|ref\s+)*(?:class|struct|record)\s+(\w+)`)
 	member := regexp.MustCompile(`(?:public|internal|private|protected)\s+(?:static\s+|readonly\s+|const\s+|async\s+|override\s+|virtual\s+|sealed\s+|event\s+)*[\w<>\[\],.?]+\s+(\w+)\s*(?:<[^>]*>)?\s*[\(\{;=]`)
 	tupleMember := regexp.MustCompile(`(?:public|internal|private|protected)\s+(?:static\s+)?\([^)]*\)\s+(\w+)\s*[\(\{]`)
 	members := map[string]map[string]bool{}
