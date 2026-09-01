@@ -398,14 +398,19 @@ namespace Lvn.UI.Screens
             _tapCatcher.style.height = 48 + units;
         }
 
-        /// <summary>Вход бара: строка выезжает СВЕРХУ (вызов оболочки при
-        /// показе меню) — в паре с нижней навигацией хаба.</summary>
         /// <summary>Состояние бара для лога: видно ли его вообще и не застрял
         /// ли он за верхней кромкой (вход анимирует translate).</summary>
         public string DebugState =>
             $"display={_row.resolvedStyle.display} translate={_row.resolvedStyle.translate} "
             + $"opacity={_row.resolvedStyle.opacity:0.00} inGame={_inGame} silent={_silent} "
             + $"rect=({_row.worldBound.y:0} {_row.worldBound.width:0}x{_row.worldBound.height:0})";
+
+        /// <summary>Зарядить вход: бар уведён за верхнюю кромку ещё до показа
+        /// меню — иначе он успевает мелькнуть на месте.</summary>
+        public void ArmEntrance()
+        {
+            _row.style.translate = new Translate(0f, Length.Percent(-120f));
+        }
 
         /// <summary>
         /// ВЕРХНИЙ БАР ВЪЕЗЖАЕТ СВЕРХУ — зеркало нижней навигации, той же
@@ -415,16 +420,9 @@ namespace Lvn.UI.Screens
         /// <para>26.08 въезд отсюда убрали по двум причинам: он играл на каждый
         /// показ хаба, и при обрыве анимации бар оставался за кромкой. Первая
         /// ушла — точка вызова теперь только старт и возврат из главы; от
-        /// второй стоит страховка ниже: чем бы анимация ни кончилась, через её
-        /// срок бар возвращается на место принудительно.</para>
+        /// второй стоит страховка: чем бы анимация ни кончилась, через её срок
+        /// бар возвращается на место принудительно.</para>
         /// </summary>
-        /// <summary>Зарядить вход: бар уведён за верхнюю кромку ещё до показа
-        /// меню — иначе он успевает мелькнуть на месте.</summary>
-        public void ArmEntrance()
-        {
-            _row.style.translate = new Translate(0f, Length.Percent(-120f));
-        }
-
         public void PlayEntrance()
         {
             _row.style.opacity = 1f;

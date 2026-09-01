@@ -22,8 +22,6 @@ namespace Lvn.UI.Screens
         private static string CurNumKey(string titleId) => Lvn.LvnKeep.Scoped("lvn_chapter_num_", titleId);
         private static string ReachedKey(string titleId) => Lvn.LvnKeep.Scoped("lvn_reached_", titleId);
 
-        /// <summary>Record that the player is (now) in this chapter. Bumps
-        /// Reached when this is the furthest chapter so far.</summary>
         /// <summary>
         /// ПРОГРЕСС СДВИНУЛСЯ — знать об этом обязан не только тот, кто его
         /// сдвинул.
