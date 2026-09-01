@@ -87,6 +87,11 @@ namespace Lvn.Content
 
         public async Task<Pass> EnterAsync(LvnRung rung, CancellationToken ct)
         {
+            // ЗАМЕР — ЕДИНСТВЕННЫЙ СПОСОБ УВИДЕТЬ «ОБЪЯВЛЕНО НЕ ТОМУ».
+            // Строку с неправильным адресатом не отличить от правильной ни
+            // чтением, ни тестом дома; зато сорок шесть ЖИВЫХ входов за главу
+            // при десяти актёрах на экране видно с первого взгляда.
+            var waited = System.Diagnostics.Stopwatch.StartNew();
             bool live = rung == LvnRung.Live;
             if (!live)
             {
@@ -103,6 +108,7 @@ namespace Lvn.Content
                 var seat = new Seat { Background = true };
                 seat.Token = seat.Yield.Token;
                 lock (_seats) _seats.Add(seat);
+                LvnLaneWatch.Entered(Name, rung, waited.ElapsedMilliseconds);
                 return new Pass(this, seat);
             }
 
@@ -112,6 +118,7 @@ namespace Lvn.Content
             // фоновую очередь ради одного кадра.
             if (_all.CurrentCount == 0) AskOneToYield();
             await _all.WaitAsync(ct).ConfigureAwait(false);
+            LvnLaneWatch.Entered(Name, rung, waited.ElapsedMilliseconds);
             return new Pass(this, new Seat());
         }
 
@@ -123,6 +130,7 @@ namespace Lvn.Content
                     if (!s.Asked) { victim = s; break; }
             if (victim == null) return;
             victim.Asked = true;
+            LvnLaneWatch.Yielded(Name, LvnRung.Spare);   // кто именно уступил, знает его заход
             // НАРОЧНО голый Cancel, а не дом отмены. Дом гасит И ОТПУСКАЕТ —
             // здесь отпускать рано: на этот признак подписан связанный источник
             // у захода, который сейчас и должен его услышать. Отпустив источник
