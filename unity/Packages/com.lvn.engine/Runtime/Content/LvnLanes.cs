@@ -117,7 +117,9 @@ namespace Lvn.Content
                     if (!s.Asked) { victim = s; break; }
             if (victim == null) return;
             victim.Asked = true;
-            try { victim.Yield.Cancel(); } catch { /* уже ушёл — не беда */ }
+            // Через дом отмены: Cancel в одиночку оставляет регистрации жить, а
+            // на этот признак подписан связанный источник у каждого захода.
+            Lvn.LvnCancel.Retire(victim.Yield);
         }
 
         /// <summary>
@@ -146,7 +148,7 @@ namespace Lvn.Content
             }
             _all.Release();
             if (!seat.Background) return;
-            seat.Yield.Dispose();
+            Lvn.LvnCancel.Retire(seat.Yield);   // повторный вызов безвреден: дом это умеет
             _background.Release();
         }
 
