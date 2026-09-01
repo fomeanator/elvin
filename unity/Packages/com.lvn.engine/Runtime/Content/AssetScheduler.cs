@@ -27,10 +27,12 @@ namespace Lvn.Content
     /// </summary>
     public sealed class AssetScheduler
     {
-        // Per-tier concurrency caps under ContentLoader's global 12 (HTTP/2
-        // multiplexed). Mini is wide so a chapter's small files all download in
-        // one parallel burst; large is capped low so a couple of big files can't
-        // monopolise the connection and stall that burst.
+        // Ширины полос расписания — под общей полосой сети (LvnLanes.Wire).
+        // Здесь делят НЕ по срочности, а по размеру: мелочь едет во всю ширину
+        // одной пачкой, крупное — узко, иначе пара фонов занимает соединение и
+        // пачка ждёт за ними. Броней у этих полос нет: живое по ним не ходит
+        // вовсе — расписание главы целиком фоновое, и бронь ему достаётся
+        // ниже, в полосе сети.
         private const int MiniParallel = 12;  // мельче MiniBytes — во всю ширину
         private const int NormalParallel = 6; // мельче LargeBytes
         private const int LargeParallel = 2;  // от LargeBytes и крупнее
@@ -53,9 +55,9 @@ namespace Lvn.Content
 
         private readonly ContentLoader _loader;
 
-        private readonly SemaphoreSlim _miniSlots = new(MiniParallel, MiniParallel);
-        private readonly SemaphoreSlim _normalSlots = new(NormalParallel, NormalParallel);
-        private readonly SemaphoreSlim _largeSlots = new(LargeParallel, LargeParallel);
+        private readonly LvnLane _miniSlots = new LvnLane("мелочь главы", MiniParallel, 0);
+        private readonly LvnLane _normalSlots = new LvnLane("средние главы", NormalParallel, 0);
+        private readonly LvnLane _largeSlots = new LvnLane("крупное главы", LargeParallel, 0);
 
         private readonly object _lock = new();
         private CancellationTokenSource _cts;
@@ -213,12 +215,17 @@ namespace Lvn.Content
         // широкая параллельность (сеть+запись диска) на слабом устройстве
         // отбирала кадры у сцены («начинает лагать на 30%» — живой репорт).
         // Спешить некуда: у стрима фора чтения в десятки секунд.
-        private readonly SemaphoreSlim _deferredSlots = new(2, 2);
+        private readonly LvnLane _deferredSlots = new LvnLane("хвост главы", 2, 0);
 
         private async Task WarmOne(Item item, bool isRequired, CancellationToken ct)
         {
-            var slot = isRequired ? SlotFor(item.Tier, item.Size) : _deferredSlots;
-            await slot.WaitAsync(ct);
+            var lane = isRequired ? SlotFor(item.Tier, item.Size) : _deferredSlots;
+            using var pass = await lane.EnterAsync(LvnRung.CurrentChapter, ct);
+            // СТУПЕНЬ ОБЪЯВЛЕНА ВСЛУХ. Расписание главы — фон по определению:
+            // игрок на эти файлы ещё не смотрит. Без объявления загрузчик
+            // считал бы их живыми (умолчание безопасно, но здесь неверно) и
+            // сорок шесть картинок главы занимали бы бронь, оставленную актёру
+            // в кадре.
             try
             {
                 await Warm(item, ct);
@@ -232,7 +239,6 @@ namespace Lvn.Content
             }
             finally
             {
-                slot.Release();
                 MarkDone(item, isRequired);
             }
         }
@@ -273,7 +279,7 @@ namespace Lvn.Content
             }
         }
 
-        private SemaphoreSlim SlotFor(string tier, long size)
+        private LvnLane SlotFor(string tier, long size)
         {
             var t = tier;
             if (string.IsNullOrEmpty(t))

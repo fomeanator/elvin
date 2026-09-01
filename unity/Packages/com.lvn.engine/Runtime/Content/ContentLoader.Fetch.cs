@@ -18,14 +18,6 @@ namespace Lvn.Content
     /// </summary>
     public sealed partial class ContentLoader
     {
-        // Caps simultaneous in-flight downloads. HTTP/2 MULTIPLEXES many
-        // concurrent requests over a SINGLE TLS connection — so a wider cap
-        // doesn't open more sockets, it fills more h2 streams. 12 lets a burst of
-        // small files (UI/script/actors) all fly at once without the
-        // request-per-file round-trip tax a 6-cap (the HTTP/1.1 socket limit)
-        // imposed.
-        private static readonly SemaphoreSlim _downloadSlots = new(12, 12);
-
         private void NoteFetchFailure(UnityWebRequest req)
         {
             try { AssetFailed?.Invoke(req.url, req.responseCode); }
@@ -292,30 +284,27 @@ namespace Lvn.Content
                                              Action<UnityWebRequest> prepare = null)
         {
             ThrowIfOffline();
-            await _downloadSlots.WaitAsync(ct);
-            try
-            {
-                var full = ResolveUrl(url);
-                using var req = UnityWebRequest.Get(full);
-                prepare?.Invoke(req);
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.timeout = 0; // the stall guard below owns the deadline
+            // Ширина полосы и бронь для живого — не здесь: LvnLanes.Wire.
+            using var pass = await LvnLanes.Wire.EnterAsync(ct);
+            var full = ResolveUrl(url);
+            using var req = UnityWebRequest.Get(full);
+            prepare?.Invoke(req);
+            req.downloadHandler = new DownloadHandlerBuffer();
+            req.timeout = 0; // the stall guard below owns the deadline
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
-                req.certificateHandler = new AcceptAllCertificates();
+            req.certificateHandler = new AcceptAllCertificates();
 #endif
-                var op = req.SendWebRequest();
-                if (!await LvnNetWait.AwaitAsync(req, op, ct, StallTimeoutSeconds, onProgress))
-                    throw new OperationCanceledException(ct);
-                if (LvnNetWait.Failed(req))
-                {
-                    NoteFetchFailure(req);
-                    throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
-                }
-                if (req.responseCode is < 200 or >= 300)
-                    throw new LvnFetchException((int)req.responseCode, "http_" + req.responseCode, $"GET {full}");
-                return new Fetched(req.downloadHandler.data ?? Array.Empty<byte>(), req.responseCode);
+            var op = req.SendWebRequest();
+            if (!await LvnNetWait.AwaitAsync(req, op, ct, StallTimeoutSeconds, onProgress))
+                throw new OperationCanceledException(ct);
+            if (LvnNetWait.Failed(req))
+            {
+                NoteFetchFailure(req);
+                throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
             }
-            finally { _downloadSlots.Release(); }
+            if (req.responseCode is < 200 or >= 300)
+                throw new LvnFetchException((int)req.responseCode, "http_" + req.responseCode, $"GET {full}");
+            return new Fetched(req.downloadHandler.data ?? Array.Empty<byte>(), req.responseCode);
         }
 
         private Task<byte[]> FetchToMemoryPrefetch(string url, CancellationToken ct)

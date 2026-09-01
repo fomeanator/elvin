@@ -132,6 +132,9 @@ namespace Lvn.UI
         internal async Task WarmUpcomingSpineAsync(int lookAhead)
         {
             if (_player == null || Catalog == null || Assets == null) return;
+            // Скелеты ДЕРЖАТ первую реплику (иначе она видимо подвисает) —
+            // первый кадр, не фон.
+            using var rung = Lvn.Content.LvnRungScope.At(Lvn.Content.LvnRung.FirstFrame);
             foreach (var c in _player.PeekForward(lookAhead))
             {
                 if ((string)c["op"] != "actor") continue;
