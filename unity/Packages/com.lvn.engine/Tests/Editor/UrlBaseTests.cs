@@ -72,6 +72,11 @@ namespace Lvn.Tests
             // Запрос и якорь отбрасывает Bare — иначе «cover.png?v=3» дало бы
             // расширение «.png?v=3».
             Assert.AreEqual("png", LvnUrl.Extension("cover.png?v=3"));
+            // Якорь БЕЗ запроса — тот случай, на котором половины дома
+            // разошлись: Query якорь отбрасывал, Bare оставлял.
+            Assert.AreEqual("png", LvnUrl.Extension("cover.png#top"));
+            Assert.AreEqual("a/b/c", LvnUrl.Bare("a/b/c#top"));
+            Assert.AreEqual("a/b/c", LvnUrl.Bare("a/b/c?v=1#top"));
             var (stem, ext) = LvnUrl.SplitExtension("cover.png#top");
             Assert.AreEqual("cover", stem);
             Assert.AreEqual(".png", ext);

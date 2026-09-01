@@ -38,12 +38,25 @@ namespace Lvn
         /// </summary>
         public static string Base(string url) => (url ?? "").TrimEnd('/');
 
-        /// <summary>Адрес без строки запроса. Пустое остаётся пустым.</summary>
+        /// <summary>АДРЕС БЕЗ ХВОСТА — без строки запроса И БЕЗ ЯКОРЯ. Пустое
+        /// остаётся пустым.
+        ///
+        /// <para>Про якорь тут забыли, и забыли АСИММЕТРИЧНО: вторая половина
+        /// того же факта (<see cref="Query"/>) якорь отбрасывает, и её докблок
+        /// прямо говорит, что помнить об этом обязан дом, а не каждый
+        /// читающий. Половина помнила, половина нет.</para>
+        ///
+        /// <para>Цена видна на адресе с якорем и БЕЗ запроса: расширением
+        /// такого адреса становилось «png#top», а ключом сравнения файлов —
+        /// путь вместе с якорем, то есть два имени у одного файла.</para>
+        /// </summary>
         public static string Bare(string url)
         {
             if (string.IsNullOrEmpty(url)) return "";
             int q = url.IndexOf('?');
-            return q >= 0 ? url.Substring(0, q) : url;
+            int hash = url.IndexOf('#');
+            int cut = q < 0 ? hash : (hash < 0 ? q : (q < hash ? q : hash));
+            return cut >= 0 ? url.Substring(0, cut) : url;
         }
 
         /// <summary>
