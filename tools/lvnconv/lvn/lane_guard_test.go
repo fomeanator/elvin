@@ -129,3 +129,22 @@ func TestYieldingIsNotCancelling(t *testing.T) {
 		t.Error("уступить просят не одного и не самого давнего")
 	}
 }
+
+// ВТОРОЙ ВОЗВРАТ МЕСТА — НЕ ВОЗВРАТ.
+//
+// Место в полосе — структура, и отдать её дважды легко: `using var` плюс явный
+// `Dispose()`, копия структуры, повторный выход по ошибке. Без защиты второй
+// возврат ШИРИТ полосу: у неё появляется место сверх объявленной ширины, и так
+// с каждым повтором.
+//
+// Это та же беда, что утечка места, только вывернутая наизнанку, и заметить её
+// труднее: ничего не зависает — просто в канал лезет больше, чем решено.
+func TestLeavingASeatTwiceIsNotLeavingItTwice(t *testing.T) {
+	root := repoRoot(t)
+	body := stripComments(string(mustRead(t, filepath.Join(root,
+		"unity/Packages/com.lvn.engine/Runtime/Content/LvnLanes.cs"))))
+	if !strings.Contains(body, "if (seat.Left) return;") {
+		t.Error("полоса снова принимает повторный возврат места как возврат — " +
+			"каждый повтор расширяет её сверх объявленной ширины")
+	}
+}
