@@ -238,6 +238,141 @@ namespace Lvn.UI.Screens
             Mark("shell built");
             WireQuickMenu(manifest);
 
+            WireShellScreens(manifest);
+
+            // The FULL library warms in the background from here on: every
+            // chapter of every title lands on disk while the player browses or
+            // reads — the next chapter's loading screen is then near-instant,
+            // and nothing EVER trickles in on camera. Yields to an active
+            // chapter gate so it never steals that bandwidth.
+            LvnAsync.Fire(WarmLibraryAsync(manifest, destroyCancellationToken), "WarmLibrary");
+            // The veil OWNS the whole app boot — one continuous surface from
+            // the first frame to the first interactive screen. The shell's own
+            // boot splash is suppressed (bootSplash: false): a second loading
+            // screen under the veil would flash a second bar at the hand-off.
+            // The veil walks 60→100% with the real boot-prefetch progress and
+            // cross-fades into the menu.
+            LvnAsync.Fire(DriveBootVeilAsync(prefetch, bootClock), "DriveBootVeil");
+            // Диплинк В КОНТЕНТ: ссылка вида …?title=cold открывает новеллу
+            // сразу, минуя хаб. Шов RequestPlay заведён ровно для этого и до
+            // сих пор пустовал. Ссылку, нажатую при уже запущенной игре, ловим
+            // тем же обработчиком.
+            ApplyDeepLink(Lvn.Services.LvnAttribution.LaunchUrl);
+            Lvn.Services.LvnAttribution.LinkOpened -= ApplyDeepLink;
+            _leash.Hold(() => Lvn.Services.LvnAttribution.LinkOpened += ApplyDeepLink,
+                        () => Lvn.Services.LvnAttribution.LinkOpened -= ApplyDeepLink);
+
+            var run = _shell.RunAsync(
+                bootReady: () => prefetch.IsCompleted,
+                chapterReady: BeginChapterLoading,
+                chapterProgress: ch => ChapterLoadProgress,
+                playChapter: PlayChapterAsync,
+                askName: AskName,
+                ct: destroyCancellationToken,
+                bootSplash: false);
+            await run;
+        }
+
+        // Walks the boot veil's last stretch (60→100%) with the real boot
+        // prefetch, then cross-fades the veil into the first interactive screen.
+        // Catch-all by design: this is fire-and-forget, and an exception here
+        // would otherwise leave an opaque veil over the app forever.
+        private async Task DriveBootVeilAsync(Task prefetch, System.Diagnostics.Stopwatch bootClock)
+        {
+            try
+            {
+                var l = _assets?.Loader;
+                var ct = destroyCancellationToken;
+                while (!prefetch.IsCompleted && !ct.IsCancellationRequested)
+                {
+                    float p = l != null && l.BatchTotal > 0
+                        ? Mathf.Clamp01((float)l.BatchDone / l.BatchTotal) : 0f;
+                    BootVeil.Progress(60 + Mathf.RoundToInt(p * 40f),
+                        LvnNetworkStatus.IsOffline ? LvnOfflineText.Reconnecting : LvnWords.Of("boot.loading", "loading…"));
+                    await Task.Yield();
+                }
+                if (ct.IsCancellationRequested) return;
+                BootVeil.Status("");
+                // ПЕРВЫЙ ВХОД НЕ ПОКАЗЫВАЕТ ЗАГРУЗКУ ВООБЩЕ. Впереди воронка —
+                // вуаль не гаснет в меню, а превращается в имя продукта фейдом
+                // и живёт, пока под ней качается и одевается первая сцена;
+                // гасит её RevealFromLoadingAsync одним кроссфейдом в игру.
+                if (_shell != null && _shell.HasPendingIntro)
+                {
+                    BootVeil.Brand(Application.productName);
+                    Debug.Log($"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms первый вход: брендовая вуаль до одетой сцены");
+                }
+                else
+                {
+                    // ВУАЛЬ ДЕРЖИТСЯ, ПОКА ПОЛОТНО НЕ ВСТАЛО (Илья 26.08: «при
+                    // первом запуске бг чёрный»). Канвас меню — крупный кадр,
+                    // его декод занимает полсекунды, и вуаль, снятая раньше,
+                    // открывала пустую сцену: под ней чёрный. Ждём факт —
+                    // но не дольше секунды с небольшим, иначе сорванная
+                    // загрузка держала бы игрока в заставке.
+                    var wait = System.Diagnostics.Stopwatch.StartNew();
+                    while (Stage != null && !Stage.HasBackdrop && wait.ElapsedMilliseconds < LvnMenuStage.VeilWaitMs)
+                        await System.Threading.Tasks.Task.Yield();
+                    // ЗАСТАВКА ДОСТАИВАЕТ СВОЁ. Успели за полсекунды — тем
+                    // лучше, но мелькнувшее и тут же исчезнувшее имя читается
+                    // как сбой, а не как вступление.
+                    while (BootVeil.BrandHolding && !destroyCancellationToken.IsCancellationRequested)
+                        await System.Threading.Tasks.Task.Yield();
+                    if (destroyCancellationToken.IsCancellationRequested) return;
+                    if (Stage != null && !Stage.HasBackdrop)
+                        Debug.LogWarning($"[lvn-boot] полотно не встало за {wait.ElapsedMilliseconds}ms — снимаем вуаль без него");
+                    await BootVeil.FadeOutAsync(LvnMenuStage.VeilFadeSeconds);
+                }
+                Debug.Log($"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms veil handed off — app boot done");
+                // Первый ЭКРАН, а не первый кадр: между запуском и этим местом
+                // человек смотрит на загрузку и может уйти. Без этой ступени
+                // воронка первой сессии начинается сразу с «начал главу», и
+                // потери на загрузке выглядят так, будто игра никому не нужна.
+                // Длительность здесь же: «долго грузилось» — самая частая
+                // причина уйти, не начав.
+                Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.FirstScreen,
+                    ("boot_ms", bootClock.ElapsedMilliseconds),
+                    ("offline", LvnNetworkStatus.IsOffline));
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+                BootVeil.Hide();
+            }
+        }
+
+        private void OnApplicationQuit() => OnApplicationPause(true);
+
+
+        private void OnApplicationPause(bool paused)
+        {
+            if (paused && _state != null && Stage?.Player != null && _currentTitle != null)
+                LvnAsync.Fire(SaveScopedVarsAsync(_currentTitle.id, VarsToJObject(Stage.Player.Vars)), "SaveScopedVars");
+            if (paused) SyncProgressVault();
+            // Position too, not just stats — so a suspended app resumes on the same
+            // line (the autosave slot; SaveToSlot is synchronous PlayerPrefs).
+            if (paused) Stage?.AutosaveNow();
+        }
+
+        // Server content changed: refresh the version index, re-apply the manifest
+        // (carousel rebuilds), and hot-reload the open chapter if its script moved.
+        private void OnContentChanged() => LvnAsync.Fire(OnContentChangedAsync(), "OnContentChanged");
+
+        /// <summary>
+        /// ПОДКЛЮЧИТЬ ЭКРАНЫ ОБОЛОЧКИ К ПРИЛОЖЕНИЮ.
+        ///
+        /// <para>Оболочка умеет рисовать, но не знает, что делать: куда ведёт
+        /// тап по валюте, откуда брать список треков меню, что показывать в
+        /// кружке загрузок, сколько ещё не скачано. Всё это — работа хоста, и
+        /// она здесь.</para>
+        ///
+        /// <para>Фаза вынута из запуска: сто тридцать строк подключения стояли
+        /// посреди него, между постройкой оболочки и прогревом библиотеки, и
+        /// читались как продолжение запуска, хотя это отдельная работа — и
+        /// единственная, которую хост-встройщик захочет переписать под себя.</para>
+        /// </summary>
+        private void WireShellScreens(LvnManifest manifest)
+        {
             // Чистка витрины по данным (TR-25/32).
             var browseCfg = manifest.ui?.browse;
             if (_shell.Detail != null)
@@ -370,124 +505,7 @@ namespace Lvn.UI.Screens
                     };
                 }
             }
-
-            // The FULL library warms in the background from here on: every
-            // chapter of every title lands on disk while the player browses or
-            // reads — the next chapter's loading screen is then near-instant,
-            // and nothing EVER trickles in on camera. Yields to an active
-            // chapter gate so it never steals that bandwidth.
-            LvnAsync.Fire(WarmLibraryAsync(manifest, destroyCancellationToken), "WarmLibrary");
-            // The veil OWNS the whole app boot — one continuous surface from
-            // the first frame to the first interactive screen. The shell's own
-            // boot splash is suppressed (bootSplash: false): a second loading
-            // screen under the veil would flash a second bar at the hand-off.
-            // The veil walks 60→100% with the real boot-prefetch progress and
-            // cross-fades into the menu.
-            LvnAsync.Fire(DriveBootVeilAsync(prefetch, bootClock), "DriveBootVeil");
-            // Диплинк В КОНТЕНТ: ссылка вида …?title=cold открывает новеллу
-            // сразу, минуя хаб. Шов RequestPlay заведён ровно для этого и до
-            // сих пор пустовал. Ссылку, нажатую при уже запущенной игре, ловим
-            // тем же обработчиком.
-            ApplyDeepLink(Lvn.Services.LvnAttribution.LaunchUrl);
-            Lvn.Services.LvnAttribution.LinkOpened -= ApplyDeepLink;
-            _leash.Hold(() => Lvn.Services.LvnAttribution.LinkOpened += ApplyDeepLink,
-                        () => Lvn.Services.LvnAttribution.LinkOpened -= ApplyDeepLink);
-
-            var run = _shell.RunAsync(
-                bootReady: () => prefetch.IsCompleted,
-                chapterReady: BeginChapterLoading,
-                chapterProgress: ch => ChapterLoadProgress,
-                playChapter: PlayChapterAsync,
-                askName: AskName,
-                ct: destroyCancellationToken,
-                bootSplash: false);
-            await run;
         }
-
-        // Walks the boot veil's last stretch (60→100%) with the real boot
-        // prefetch, then cross-fades the veil into the first interactive screen.
-        // Catch-all by design: this is fire-and-forget, and an exception here
-        // would otherwise leave an opaque veil over the app forever.
-        private async Task DriveBootVeilAsync(Task prefetch, System.Diagnostics.Stopwatch bootClock)
-        {
-            try
-            {
-                var l = _assets?.Loader;
-                var ct = destroyCancellationToken;
-                while (!prefetch.IsCompleted && !ct.IsCancellationRequested)
-                {
-                    float p = l != null && l.BatchTotal > 0
-                        ? Mathf.Clamp01((float)l.BatchDone / l.BatchTotal) : 0f;
-                    BootVeil.Progress(60 + Mathf.RoundToInt(p * 40f),
-                        LvnNetworkStatus.IsOffline ? LvnOfflineText.Reconnecting : LvnWords.Of("boot.loading", "loading…"));
-                    await Task.Yield();
-                }
-                if (ct.IsCancellationRequested) return;
-                BootVeil.Status("");
-                // ПЕРВЫЙ ВХОД НЕ ПОКАЗЫВАЕТ ЗАГРУЗКУ ВООБЩЕ. Впереди воронка —
-                // вуаль не гаснет в меню, а превращается в имя продукта фейдом
-                // и живёт, пока под ней качается и одевается первая сцена;
-                // гасит её RevealFromLoadingAsync одним кроссфейдом в игру.
-                if (_shell != null && _shell.HasPendingIntro)
-                {
-                    BootVeil.Brand(Application.productName);
-                    Debug.Log($"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms первый вход: брендовая вуаль до одетой сцены");
-                }
-                else
-                {
-                    // ВУАЛЬ ДЕРЖИТСЯ, ПОКА ПОЛОТНО НЕ ВСТАЛО (Илья 26.08: «при
-                    // первом запуске бг чёрный»). Канвас меню — крупный кадр,
-                    // его декод занимает полсекунды, и вуаль, снятая раньше,
-                    // открывала пустую сцену: под ней чёрный. Ждём факт —
-                    // но не дольше секунды с небольшим, иначе сорванная
-                    // загрузка держала бы игрока в заставке.
-                    var wait = System.Diagnostics.Stopwatch.StartNew();
-                    while (Stage != null && !Stage.HasBackdrop && wait.ElapsedMilliseconds < LvnMenuStage.VeilWaitMs)
-                        await System.Threading.Tasks.Task.Yield();
-                    // ЗАСТАВКА ДОСТАИВАЕТ СВОЁ. Успели за полсекунды — тем
-                    // лучше, но мелькнувшее и тут же исчезнувшее имя читается
-                    // как сбой, а не как вступление.
-                    while (BootVeil.BrandHolding && !destroyCancellationToken.IsCancellationRequested)
-                        await System.Threading.Tasks.Task.Yield();
-                    if (destroyCancellationToken.IsCancellationRequested) return;
-                    if (Stage != null && !Stage.HasBackdrop)
-                        Debug.LogWarning($"[lvn-boot] полотно не встало за {wait.ElapsedMilliseconds}ms — снимаем вуаль без него");
-                    await BootVeil.FadeOutAsync(LvnMenuStage.VeilFadeSeconds);
-                }
-                Debug.Log($"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms veil handed off — app boot done");
-                // Первый ЭКРАН, а не первый кадр: между запуском и этим местом
-                // человек смотрит на загрузку и может уйти. Без этой ступени
-                // воронка первой сессии начинается сразу с «начал главу», и
-                // потери на загрузке выглядят так, будто игра никому не нужна.
-                // Длительность здесь же: «долго грузилось» — самая частая
-                // причина уйти, не начав.
-                Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.FirstScreen,
-                    ("boot_ms", bootClock.ElapsedMilliseconds),
-                    ("offline", LvnNetworkStatus.IsOffline));
-            }
-            catch (Exception ex)
-            {
-                Debug.LogException(ex);
-                BootVeil.Hide();
-            }
-        }
-
-        private void OnApplicationQuit() => OnApplicationPause(true);
-
-
-        private void OnApplicationPause(bool paused)
-        {
-            if (paused && _state != null && Stage?.Player != null && _currentTitle != null)
-                LvnAsync.Fire(SaveScopedVarsAsync(_currentTitle.id, VarsToJObject(Stage.Player.Vars)), "SaveScopedVars");
-            if (paused) SyncProgressVault();
-            // Position too, not just stats — so a suspended app resumes on the same
-            // line (the autosave slot; SaveToSlot is synchronous PlayerPrefs).
-            if (paused) Stage?.AutosaveNow();
-        }
-
-        // Server content changed: refresh the version index, re-apply the manifest
-        // (carousel rebuilds), and hot-reload the open chapter if its script moved.
-        private void OnContentChanged() => LvnAsync.Fire(OnContentChangedAsync(), "OnContentChanged");
 
         /// <summary>
         /// ПРОГРЕСС ИГРОКА ВОЗВРАЩАЕТСЯ ДО ПЕРВОГО КАДРА ВИТРИНЫ.
