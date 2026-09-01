@@ -30,9 +30,9 @@ namespace Lvn.UI.Screens
             panel.style.top = Length.Percent(14f);
             panel.style.maxHeight = Length.Percent(72f);
             panel.style.backgroundColor = LvnTokens.PanelBg;
-            LvnAir.PadX(panel, 22);
+            LvnAir.PadX(panel, LvnTokens.Space4);
             panel.style.paddingBottom = LvnTokens.Space3;
-            panel.style.paddingTop = 22;
+            panel.style.paddingTop = LvnTokens.Space4;
             LvnChrome.Round(panel, LvnTokens.Radius);
             root.Add(panel);
 

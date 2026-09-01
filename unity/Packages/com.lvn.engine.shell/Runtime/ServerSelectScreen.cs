@@ -137,7 +137,7 @@ namespace Lvn.UI.Screens
 
             var panel = Lvn.UI.LvnChrome.Sheet(new VisualElement());
             panel.style.top = Length.Percent(18f);
-            LvnAir.PadX(panel, 22);
+            LvnAir.PadX(panel, LvnTokens.Space4);
             LvnAir.PadY(panel, LvnTokens.Space3);
             panel.style.backgroundColor = LvnTokens.Scrim;
             LvnChrome.Round(panel, LvnTokens.Radius);

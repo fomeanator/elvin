@@ -115,6 +115,7 @@ namespace Lvn.UI
                 // и знает всех, включая те, что заведут после этой строки.
                 Safe("метки", LvnMark.ForgetAll);
 
+                Safe("последний кадр", VnStage.ForgetLastSceneBg);
                 Safe("имя", () => LvnPlayerName.Set(""));
                 Safe("флаги вступления", () =>
                 {

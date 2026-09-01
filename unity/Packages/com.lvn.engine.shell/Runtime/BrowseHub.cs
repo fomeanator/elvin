@@ -141,7 +141,7 @@ namespace Lvn.UI.Screens
             // Standard mobile-game top bar: player avatar + name/level on the left,
             // currency balances (with a "+" to buy) and settings on the right.
             var topBar = ScreenUi.Row(spread: true);
-            topBar.style.marginBottom = 22;
+            topBar.style.marginBottom = LvnTokens.Space4;
 
             var profile = ScreenUi.Row();
             _profileBlock = profile;

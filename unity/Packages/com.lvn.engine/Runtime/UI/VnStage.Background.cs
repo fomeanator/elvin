@@ -334,6 +334,13 @@ namespace Lvn.UI
         /// scene the player last saw. Empty when nothing has been staged yet.</summary>
         public static string LastSceneBgUrl => LvnKeep.Get(LastBgKey, "");
 
+        /// <summary>Забыть последний кадр. Это СЛЕД ИГРОКА, а не настройка и не
+        /// кэш: по нему видно, какую сцену какой новеллы он смотрел последней.
+        /// Стирается вместе с остальным личным — иначе игрок, попросивший себя
+        /// забыть, откроет гардероб и увидит фон сцены, где был до
+        /// удаления.</summary>
+        public static void ForgetLastSceneBg() => LvnKeep.Drop(LastBgKey);
+
         /// <summary>True once the CURRENT scene has an applied background — the
         /// host holds its opaque chapter loader until this flips, so the fade
         /// always reveals a dressed stage, never a black frame.</summary>

@@ -69,7 +69,7 @@ namespace Lvn.UI.Screens
                                         ? (Color?)null : UiColor.Named(_cfg.panel_color, LvnTokens.PanelBg));
             LvnAir.PadX(sheet, LvnTokens.Space3);
             sheet.style.paddingBottom = LvnTokens.Space3;
-            sheet.style.paddingTop = 22;
+            sheet.style.paddingTop = LvnTokens.Space4;
 
             _titleLabel = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("settings.title", _cfg.title, "Settings"));
             var title = _titleLabel;
