@@ -125,7 +125,7 @@ namespace Lvn.Tests
             // уйти на другую страницу и вернуться». Вкладки осей собирает
             // BuildFor — он зовётся при смене персонажа, а не при смене языка.
             var sheet = new WardrobeSheet(null, new NoAssets());
-            sheet.SetManifest(new LvnManifest
+            sheet.SetContent(new LvnManifest
             {
                 sprites = new Dictionary<string, LvnSpriteEntity>
                 {

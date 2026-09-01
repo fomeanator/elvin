@@ -248,6 +248,13 @@ namespace Lvn.UI.Screens
             TeachHousesFrom(manifest);
             ApplyMenuStaging(manifest);
             _assets.Set3DSetCatalog(manifest.sets3d);
+            // СЮЖЕТНЫЙ ГАРДЕРОБ живёт манифестом наравне с экранами оболочки,
+            // но в её набор не входит: создаёт его приложение и показывает
+            // поверх сцены, а не в витрине. Пометка у него общая
+            // (ILvnContentAware) — здесь стоит ЕДИНСТВЕННОЕ вручение, а не
+            // строка-напоминание в обработчике обновления, где её однажды и
+            // забыли.
+            (_storySheet as ILvnContentAware)?.SetContent(manifest);
             if (Stage == null) return;
             Stage.Catalog = new SpriteCatalog(manifest.sprites);
             Stage.NameInput = manifest.ui?.name_input;   // оформление формы ввода — авторское
