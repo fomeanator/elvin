@@ -214,21 +214,17 @@ namespace Lvn.Services
             while (!op.isDone) await Task.Yield();
             bool reached = req.result == UnityWebRequest.Result.Success || req.responseCode != 0;
             // СВЯЗЬ — ФАКТ, А НЕ МНЕНИЕ, и знает его тот, кто только что ходил
-            // на сервер. Загрузчик контента и хранилище состояния давно
-            // отмечают им общий признак «мы офлайн»; продуктовые службы ходят
-            // на ТОТ ЖЕ адрес и молчали — их отказ не переводил приложение в
-            // офлайн, а их удача не будила циклы, спящие до возвращения сети.
-            // Дом признака живёт в другой сборке, поэтому здесь шов.
-            Reachability?.Invoke(reached, "services " + method + " " + path);
+            // на сервер. Продуктовые службы ходят на ТОТ ЖЕ адрес, что и
+            // контент, значит их ответ говорит о связи ровно то же. Раньше
+            // здесь стоял ШОВ — делегат, который ставила оболочка, потому что
+            // дом признака жил в чужой сборке; не поставлен — службы молчали.
+            // Дом переехал в ядро, и шов вместе с кварталом ушёл.
+            var why = "services " + method + " " + path;
+            if (reached) Lvn.LvnNetworkStatus.MarkOnline(why);
+            else Lvn.LvnNetworkStatus.MarkOffline(why);
             if (!reached) return (0, null);
             return (req.responseCode, req.downloadHandler.text);
         }
-
-        /// <summary>Шов «сервер отвечает / не дошли»: ставит оболочка, потому
-        /// что дом признака связи (<c>LvnNetworkStatus</c>) живёт в сборке
-        /// контента, а служб он не видит. Не поставлен — службы просто молчат
-        /// о связи, как молчали раньше.</summary>
-        public static Action<bool, string> Reachability;
 
         [Serializable] private class MeResp { public string user_id; public string[] providers; }
 

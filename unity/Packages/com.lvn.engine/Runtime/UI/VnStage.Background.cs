@@ -62,7 +62,7 @@ namespace Lvn.UI
         {
             var wake = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             Action<bool> onChange = online => { if (online) wake.TrySetResult(true); };
-            Lvn.Content.LvnNetworkStatus.Changed += onChange;
+            Lvn.LvnNetworkStatus.Changed += onChange;
             try
             {
                 await Task.WhenAny(
@@ -70,7 +70,7 @@ namespace Lvn.UI
                     wake.Task);
             }
             catch (OperationCanceledException) { }   // фон не загрузился — сцена остаётся с прежним, игра идёт
-            finally { Lvn.Content.LvnNetworkStatus.Changed -= onChange; }
+            finally { Lvn.LvnNetworkStatus.Changed -= onChange; }
         }
 
         // Monotonic backdrop generation: a retrying older bg must never paint

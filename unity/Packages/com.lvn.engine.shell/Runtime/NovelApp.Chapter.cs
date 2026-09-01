@@ -253,7 +253,7 @@ namespace Lvn.UI.Screens
                                     // week's chapters.
                                     while (_assets.LivePressure > 0 && !ct.IsCancellationRequested)
                                         await Task.Delay(150, ct);
-                                    if (Lvn.Content.LvnNetworkStatus.IsOffline)
+                                    if (Lvn.LvnNetworkStatus.IsOffline)
                                     { await Task.Delay(3000, ct); continue; }
                                     if (_assets.Loader.IsAssetCached(url)) { skipped++; continue; }
                                     try { await _assets.Loader.DownloadAssetBytes(url, ct); warmed++; }
