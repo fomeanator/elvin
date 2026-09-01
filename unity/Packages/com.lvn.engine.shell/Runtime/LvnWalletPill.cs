@@ -146,9 +146,9 @@ namespace Lvn.UI.Screens
             plus.style.marginLeft = LvnTokens.Space1;
             plus.style.paddingLeft = LvnTokens.Space2; plus.style.paddingRight = LvnTokens.Space2;
             plus.style.paddingTop = 1; plus.style.paddingBottom = 1;
-            plus.style.color = LvnTokens.OnAccent;
-            plus.style.backgroundColor = LvnTokens.Accent;
-            LvnChrome.Round(plus, Mathf.Max(8f, _look.Radius - 4f));
+            // «Плюс» — главное действие пилюли: акцент и текст на акценте.
+            // Роль называет это одним словом и переживёт смену темы.
+            LvnStyler.Primary(plus, Mathf.Max(8f, _look.Radius - 4f));
             return plus;
         }
 

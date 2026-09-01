@@ -236,9 +236,11 @@ namespace Lvn.UI.Screens
             b.style.marginLeft = LvnTokens.Space1; b.style.marginRight = LvnTokens.Space1;
             b.style.paddingTop = LvnTokens.Space2; b.style.paddingBottom = LvnTokens.Space2;
             b.style.paddingLeft = LvnTokens.Space3; b.style.paddingRight = LvnTokens.Space3;
-            b.style.color = textColor;
-            b.style.backgroundColor = new Color(1f, 1f, 1f, 0.10f);
-            LvnChrome.Round(b, LvnTokens.RadiusSm);
+            // РОЛЬ, А НЕ ЦВЕТ. Плашка была белой по жёсткому числу (10% белого),
+            // и в тёмно-бирюзовой теме, где все приглушённые плашки подкрашены,
+            // эти три кнопки оставались единственными белыми. Тихая плашка —
+            // роль второстепенного действия, и цвет ей выбирает тема.
+            LvnStyler.Plate(b, LvnTokens.Faint, textColor, LvnTokens.RadiusSm);
             // Через дом занятости: вход ждёт СЕТЬ, и сорванное ожидание
             // оставляло кнопку выключенной навсегда, а подпись — «Connecting…».
             Lvn.UI.LvnBusy.OnClick(b, async () =>
