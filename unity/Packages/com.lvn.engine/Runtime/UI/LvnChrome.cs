@@ -120,6 +120,34 @@ namespace Lvn.UI
         public static void Round(VisualElement el) => Round(el, LvnTokens.Radius);
 
         /// <summary>
+        /// СКРУГЛИТЬ ТОЛЬКО ВЕРХ (или только низ).
+        ///
+        /// <para>Половинчатое скругление — не украшение, а следствие: картинка,
+        /// вросшая в шапку карточки, обязана повторить скругление карточки
+        /// СВОИМИ верхними углами, иначе её прямые углы вылезают за скруглённые
+        /// углы карточки. То же снизу — для плашки, приросшей к нижнему краю.</para>
+        ///
+        /// <para>Правило стояло четырьмя написаниями: приватным помощником в
+        /// окне диалога (видимым только ему) и тремя парами строк по месту — в
+        /// витрине паков, на карточке хаба и в разметке слоя, где выписаны все
+        /// четыре угла вместо <see cref="Round(VisualElement,float)"/>.</para>
+        /// </summary>
+        public static void RoundTop(VisualElement el, float r)
+        {
+            if (el == null) return;
+            el.style.borderTopLeftRadius = r;
+            el.style.borderTopRightRadius = r;
+        }
+
+        /// <summary>Скруглить только низ — см. <see cref="RoundTop"/>.</summary>
+        public static void RoundBottom(VisualElement el, float r)
+        {
+            if (el == null) return;
+            el.style.borderBottomLeftRadius = r;
+            el.style.borderBottomRightRadius = r;
+        }
+
+        /// <summary>
         /// ВО ВЕСЬ РОДИТЕЛЬ — абсолютная позиция и нули со всех четырёх сторон.
         ///
         /// <para>Самая частая пятистрочка интерфейса: фон, вуаль, скрим,

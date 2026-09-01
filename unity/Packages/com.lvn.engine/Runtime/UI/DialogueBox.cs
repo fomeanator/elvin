@@ -204,7 +204,7 @@ namespace Lvn.UI
             _plate.style.paddingTop = _theme.NamePaddingY;
             _plate.style.paddingBottom = _theme.NamePaddingY;
             _plate.style.marginBottom = -2;
-            SetCorner(_plate, _theme.PanelCornerRadius * 0.6f, top: true, bottom: false);
+            LvnChrome.RoundTop(_plate, _theme.PanelCornerRadius * 0.6f);
             UiStyle.ApplyBackground(_plate, _theme.PlateSprite, _theme.PanelSlice);
             if (_theme.PlateSprite == null && LvnChrome.Bubble(_plate))
             {
@@ -246,7 +246,7 @@ namespace Lvn.UI
                 _panelShell.style.flexGrow = 1;
                 _panel.style.flexGrow = 1; // fill the tall NVL region
             }
-            SetCorner(_panel, _theme.PanelCornerRadius, top: true, bottom: true);
+            LvnChrome.Round(_panel, _theme.PanelCornerRadius);
             UiStyle.ApplyBackground(_panel, _theme.PanelSprite, _theme.PanelSlice);
             // Рамка темы — только если новелла не принесла свою: авторский
             // спрайт сильнее оформления оболочки, иначе тема затирала бы
@@ -529,19 +529,6 @@ namespace Lvn.UI
         private float _wordActiveAlpha;
 
 
-        private static void SetCorner(VisualElement el, float r, bool top, bool bottom)
-        {
-            if (top)
-            {
-                el.style.borderTopLeftRadius = r;
-                el.style.borderTopRightRadius = r;
-            }
-            if (bottom)
-            {
-                el.style.borderBottomLeftRadius = r;
-                el.style.borderBottomRightRadius = r;
-            }
-        }
 
     }
 }

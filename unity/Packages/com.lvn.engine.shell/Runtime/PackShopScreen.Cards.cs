@@ -138,8 +138,7 @@ namespace Lvn.UI.Screens
             art.style.alignItems = Align.Center;
             art.style.justifyContent = Justify.Center;
             art.style.backgroundColor = UiColor.WithAlpha(pack.Tint, 0.88f);
-            art.style.borderTopLeftRadius = LvnTokens.Radius;
-            art.style.borderTopRightRadius = LvnTokens.Radius;
+            LvnChrome.RoundTop(art, LvnTokens.Radius);
             art.style.overflow = Overflow.Hidden;
             LvnPicture.Fit(art);
             var halo = new VisualElement { pickingMode = PickingMode.Ignore };
