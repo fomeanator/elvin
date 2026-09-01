@@ -94,6 +94,56 @@ var reDialogue = regexp.MustCompile(`(?s)^([^:=\n]+?)(?:\s*\[([^\]]+)\])?\s*:\s*
 // "Ёжик"` не срабатывает, ключ HUD не совпадает сам с собой. Нормализация в
 // одной точке — на входе компилятора — избавляет от этого весь тракт: дальше
 // по конвейеру формы уже не смешиваются.
+// matchPair — парная закрывающая скобка к открывающей на позиции open, или -1.
+//
+// ЧТО ПРОПУСКАТЬ — И ЕСТЬ ВСЯ РАБОТА. Скобку внутри строки и внутри
+// кавычек-ёлочек считать нельзя: первая принадлежит тексту, вторые обрамляют
+// произвольную реплику, где автор пишет что угодно. Сама пара скобок —
+// единственное, чем отличались две прежние копии, фигурная и круглая:
+// тридцать одна строка, из них тридцать общих.
+//
+// Копия здесь тихая вдвойне. Разойдись правила пропуска — и один вид скобок
+// начнёт считать содержимое реплики, а разбор молча закончится не там:
+// команда станет репликой или проглотит следующую строку. Ошибки не будет
+// нигде, просто новелла пойдёт не так.
+func matchPair(rs []rune, open int, opener, closer rune) int {
+	var inStr rune
+	chev, depth := 0, 0
+	for i := open; i < len(rs); i++ {
+		c := rs[i]
+		if inStr != 0 {
+			if c == inStr {
+				inStr = 0
+			}
+			continue
+		}
+		switch {
+		case c == '\u00ab':
+			chev++
+		case c == '\u00bb':
+			if chev > 0 {
+				chev--
+			}
+		case chev > 0:
+			// внутри ёлочек — реплика автора, скобки там не наши
+		case c == '"' || c == '\'':
+			inStr = c
+		case c == opener:
+			depth++
+		case c == closer:
+			depth--
+			if depth == 0 {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+func matchBrace(rs []rune, open int) int { return matchPair(rs, open, '{', '}') }
+
+func matchParen(rs []rune, open int) int { return matchPair(rs, open, '(', ')') }
+
 func Convert(src string) (*Doc, error) { return convertWith(norm.NFC.String(src), nil) }
 
 // nestCtx — то, что вложенная компиляция обязана унаследовать от объемлющего
@@ -1021,42 +1071,6 @@ func firstBlockBrace(rs []rune) int {
 	return -1
 }
 
-// matchBrace returns the index of the '}' matching the '{' at open (depth-counted,
-// ignoring braces inside strings/«…»), or -1.
-func matchBrace(rs []rune, open int) int {
-	var inStr rune
-	chev, depth := 0, 0
-	for i := open; i < len(rs); i++ {
-		c := rs[i]
-		if inStr != 0 {
-			if c == inStr {
-				inStr = 0
-			}
-			continue
-		}
-		switch {
-		case c == '«':
-			chev++
-		case c == '»':
-			if chev > 0 {
-				chev--
-			}
-		case chev > 0:
-			// inside chevrons
-		case c == '"' || c == '\'':
-			inStr = c
-		case c == '{':
-			depth++
-		case c == '}':
-			depth--
-			if depth == 0 {
-				return i
-			}
-		}
-	}
-	return -1
-}
-
 // stripLineComment removes a trailing // comment that is not inside a string,
 // «…» or a URL (://). Used only for inline-block detection/splitting.
 func stripLineComment(s string) string {
@@ -1723,42 +1737,6 @@ func scanIdents(rs []rune) []identTok {
 		i = j - 1
 	}
 	return out
-}
-
-// matchParen returns the index of the ')' closing the '(' at open, string- and
-// «…»-aware (the brace-matching twin of matchBrace).
-func matchParen(rs []rune, open int) int {
-	var inStr rune
-	chev, depth := 0, 0
-	for i := open; i < len(rs); i++ {
-		c := rs[i]
-		if inStr != 0 {
-			if c == inStr {
-				inStr = 0
-			}
-			continue
-		}
-		switch {
-		case c == '«':
-			chev++
-		case c == '»':
-			if chev > 0 {
-				chev--
-			}
-		case chev > 0:
-			// inside chevrons
-		case c == '"' || c == '\'':
-			inStr = c
-		case c == '(':
-			depth++
-		case c == ')':
-			depth--
-			if depth == 0 {
-				return i
-			}
-		}
-	}
-	return -1
 }
 
 // expandLoops rewrites block iteration into the flat primitives the line parser

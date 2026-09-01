@@ -119,7 +119,7 @@ func (s *AnalyticsService) handleSlides(w http.ResponseWriter, r *http.Request) 
 	}
 	rep.Starts, rep.Finishes, rep.Abandons = ch.Starts, ch.Finishes, ch.Abandons
 
-	script := s.loadChapterScript(title, chapter)
+	script := s.chapters.loadDoc(title, chapter)
 
 	// ── слайды ──────────────────────────────────────────────────────────────
 	type slideHit struct {
