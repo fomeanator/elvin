@@ -74,20 +74,26 @@ namespace Lvn.Tests
         }
 
         [Test]
-        public async Task Чужой_срыв_читается_как_промах_а_не_как_свой_сбой()
+        public async Task Чужой_срыв_не_отнимает_у_второго_его_попытку()
         {
-            // Отмена принадлежит ТОМУ, кто начал: игрок вышел из его экрана, а
-            // не из нашего. Для второго просящего это обычный промах.
+            // Общая задача несёт признак отмены ТОГО, кто пришёл первым.
+            // Прогрев начал качать с токеном главы, игрок вышел — и живой
+            // второй просящий получал пустоту за компанию. Раньше этого не
+            // случалось только потому, что дедупа не было вовсе: каждый качал
+            // своё (теряя текстуру проигравшего, но получая её).
             var once = new LvnOnce<Box>();
             var ворота = new TaskCompletionSource<Box>();
             var первый = once.GetAsync("a", () => ворота.Task);
-            var второй = once.GetAsync("a", () => Task.FromResult(new Box()));
+            await Task.Yield();
+            var второй = once.GetAsync("a", () => Task.FromResult(new Box { Name = "своя" }));
 
             ворота.SetException(new System.OperationCanceledException());
             try { await первый; } catch { /* свой срыв — свой */ }
 
-            Assert.IsNull(await второй, "чужой срыв прилетел вторым исключением вместо промаха");
-            Assert.IsFalse(once.Has("a"));
+            var итог = await второй;
+            Assert.IsNotNull(итог, "чужой срыв отнял у второго его собственную попытку");
+            Assert.AreEqual("своя", итог.Name);
+            Assert.IsTrue(once.Has("a"), "удавшаяся своя попытка не запомнилась");
         }
 
         [Test]
