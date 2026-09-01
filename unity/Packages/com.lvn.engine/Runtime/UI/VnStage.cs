@@ -276,7 +276,7 @@ namespace Lvn.UI
             _panelHost = null; // died with the previous panel root — recreate lazily
             _dialogue = new DialogueBox(Theme);
             _dialogue.RevealingChanged += OnDialogueRevealing; // луп клавиатуры
-            SetSayVisible(_sayUp); // the empty skinned frame must not sit on a bare stage
+            SetSayVisible(SayOnScreen); // the empty skinned frame must not sit on a bare stage
             _choices = new ChoiceList(Theme);
             _fx = new FxLayer();
 
