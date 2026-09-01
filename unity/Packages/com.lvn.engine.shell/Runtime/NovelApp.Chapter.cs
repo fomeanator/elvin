@@ -261,6 +261,12 @@ namespace Lvn.UI.Screens
                     foreach (var t in manifest.titles)
                         if (t != null && !LvnIntro.Is(t)) order.Add(t);
                 }
+                // СТУПЕНЬ ОБЪЯВЛЕНА ВСЛУХ, И ЭТО ВТОРОЙ ЭТАЖ ЗАЩИТЫ. Гейт
+                // выше («ждать, пока живое не отпустит») — политика: библиотека
+                // вообще не качается под игрой. Ступень — пол под политикой:
+                // даже проскочив гейт, эти файлы не займут места, оставленные
+                // в полосе живому. Политику можно смягчить, пол останется.
+                using (Lvn.Content.LvnRungScope.At(Lvn.Content.LvnRung.Library))
                 if (order.Count > 0)
                     foreach (var t in order)
                     {
@@ -298,6 +304,7 @@ namespace Lvn.UI.Screens
                 // две двери из семи и не видел, как вводная ждёт свой СКРИПТ.
                 // Гейт починен; порядок назван лестницей; полоса у каста своя —
                 // последняя.
+                using (Lvn.Content.LvnRungScope.At(Lvn.Content.LvnRung.Spare))
                 foreach (var part in Lvn.Content.LvnParts.OfCast(manifest))
                 {
                     if (ct.IsCancellationRequested) return;

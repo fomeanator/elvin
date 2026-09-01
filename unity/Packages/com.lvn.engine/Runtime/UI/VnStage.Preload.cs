@@ -140,6 +140,9 @@ namespace Lvn.UI
         internal async Task WarmUpcoming3DAsync(int lookAhead)
         {
             if (_player == null || Assets == null) return;
+            // Первый набор 3D ДЕРЖИТ вводную реплику — значит это первый кадр,
+            // а не фон: игрок ждёт именно его.
+            using var rung = Lvn.Content.LvnRungScope.At(Lvn.Content.LvnRung.FirstFrame);
             foreach (var c in _player.PeekForward(lookAhead))
             {
                 if ((string)c["op"] != "bg3d") continue;
@@ -160,6 +163,9 @@ namespace Lvn.UI
         internal async Task WarmUpcomingArtAsync(int lookAhead, int maxSprites = 12)
         {
             if (_player == null || Assets == null) return;
+            // СТУПЕНЬ ОБЪЯВЛЯЕТ САМ ПРОГРЕВ, а не тот, кто его позвал:
+            // «увидят ли это сейчас» — свойство работы, и знает его она.
+            using var rung = Lvn.Content.LvnRungScope.At(Lvn.Content.LvnRung.CurrentChapter);
             var urls = new List<string>();
             var seen = new HashSet<string>();
             void Take(string u)

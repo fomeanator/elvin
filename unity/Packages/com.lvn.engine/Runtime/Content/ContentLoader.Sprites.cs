@@ -121,30 +121,19 @@ namespace Lvn.Content
             catch (OperationCanceledException) { throw; }
             catch { return (null, 0); }
 
-            // Bound concurrent native decodes: a burst (boot warm, chapter warm)
-            // otherwise completes many textures in the same frame and their GPU
-            // uploads stack into one visible hitch. Three in flight keeps the
-            // pipeline busy while spreading uploads across frames.
-            // The wait is timed separately: in a burst the queue dominates, and a
-            // perf log that folds it into "decode" reads as a decoder regression.
+            // Ширина полосы распаковки и бронь для живого — не здесь:
+            // LvnLanes.Decoder. Ожидание меряется ОТДЕЛЬНО от работы: в пачке
+            // очередь длиннее самой распаковки, и лог, сложивший их в одно
+            // число, читается как регресс декодера.
             var queueSw = System.Diagnostics.Stopwatch.StartNew();
-            await _textureDecodes.WaitAsync(ct);
+            using var pass = await LvnLanes.Decoder.EnterAsync(ct);
             long queueMs = queueSw.ElapsedMilliseconds;
-            try
-            {
-                using var req = UnityWebRequestTexture.GetTexture(reqUrl, nonReadable: true);
-                await AwaitRequest(req, req.SendWebRequest(), ct);
-                if (req.result != UnityWebRequest.Result.Success) return (null, queueMs);
-                try { return (DownloadHandlerTexture.GetContent(req), queueMs); }
-                catch { return (null, queueMs); }
-            }
-            finally { _textureDecodes.Release(); }
+            using var req = UnityWebRequestTexture.GetTexture(reqUrl, nonReadable: true);
+            await AwaitRequest(req, req.SendWebRequest(), ct);
+            if (req.result != UnityWebRequest.Result.Success) return (null, queueMs);
+            try { return (DownloadHandlerTexture.GetContent(req), queueMs); }
+            catch { return (null, queueMs); }
         }
-
-        // See DecodeTextureOffThreadAsync: bounds concurrent UWR texture decodes
-        // so completion (and the GPU upload inside GetContent) spreads over
-        // frames instead of landing as one burst.
-        private static readonly SemaphoreSlim _textureDecodes = new(3, 3);
 
         private async Task<Sprite> DecodeSpriteAsync(string url, CancellationToken ct)
         {
