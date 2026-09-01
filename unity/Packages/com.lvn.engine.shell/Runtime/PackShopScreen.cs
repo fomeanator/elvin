@@ -119,7 +119,7 @@ namespace Lvn.UI.Screens
             if (modal)
             {
                 var close = new Button(Cancel) { text = "×" };
-                close.style.width = 52; close.style.height = 52;
+                close.style.width = LvnTokens.Touch; close.style.height = LvnTokens.Touch;
                 close.style.fontSize = LvnTokens.TextLg;
                 LvnStyler.Plate(close, LvnTokens.Faint, LvnTokens.TextDim, 26f);
                 top.Add(close);

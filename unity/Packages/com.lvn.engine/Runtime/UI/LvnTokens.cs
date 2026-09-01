@@ -130,6 +130,15 @@ namespace Lvn.UI
         /// ними виден в сумме, а не поодиночке.</summary>
         public static float Tight => LvnTheme.Current.Tight;
 
+        /// <summary>Обычная цель под палец (48). Правило среды, а не вкус:
+        /// палец закрывает то, во что целится, и промах ощущается как
+        /// поломка. Ставилось числом в четырёх написаниях.</summary>
+        public static float Touch => LvnTheme.Current.Touch;
+
+        /// <summary>Крупная цель (56): главное действие экрана, ряд
+        /// меню — то, во что целятся не глядя.</summary>
+        public static float TouchLg => LvnTheme.Current.TouchLg;
+
         public static float Space1 => LvnTheme.Current.Space1;
         public static float Space2 => LvnTheme.Current.Space2;
         public static float Space3 => LvnTheme.Current.Space3;

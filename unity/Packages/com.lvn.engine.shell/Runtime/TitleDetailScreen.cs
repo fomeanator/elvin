@@ -223,7 +223,7 @@ namespace Lvn.UI.Screens
             var back = new Button(Back) { text = "‹" };
             _backBtn = back;
             back.style.position = Position.Absolute; back.style.left = 20; back.style.top = 16;
-            back.style.fontSize = LvnTokens.TextLg; back.style.width = 56; back.style.height = 56;
+            back.style.fontSize = LvnTokens.TextLg; back.style.width = LvnTokens.TouchLg; back.style.height = LvnTokens.TouchLg;
             LvnAir.PadY(back, 0);
             back.style.unityTextAlign = TextAnchor.MiddleCenter;
             LvnStyler.Plate(back, LvnTokens.Veil(0.45f), LvnTokens.Text, LvnTokens.RadiusLg);

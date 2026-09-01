@@ -55,7 +55,7 @@ namespace Lvn.UI
 
             var btn = new Button { text = Caption(LvnLocale.Chosen) };
             btn.style.minWidth = 150;
-            btn.style.height = 48;
+            btn.style.height = LvnTokens.Touch;
             btn.style.fontSize = LvnTokens.TextSm;
             LvnAir.PadX(btn, LvnTokens.Space3);
             LvnStyler.Primary(btn, 14f);

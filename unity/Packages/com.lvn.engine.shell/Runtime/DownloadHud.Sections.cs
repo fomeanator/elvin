@@ -68,7 +68,7 @@ namespace Lvn.UI.Screens
                 if (offer != null)
                 {
                     var chBtn = new Button { text = offer.Value.label };
-                    chBtn.style.height = 48;
+                    chBtn.style.height = LvnTokens.Touch;
                     chBtn.style.fontSize = LvnTokens.TextXs;
                     chBtn.style.marginTop = LvnTokens.Space1;
                     LvnStyler.Plate(chBtn, LvnTokens.Faint, LvnTokens.Accent, 14f);
@@ -80,7 +80,7 @@ namespace Lvn.UI.Screens
                 var btn = new Button { text =
                     (partial ? LvnWords.Of("dl.resume", "Finish downloading") : LvnWords.Of("dl.get_all", "Download all"))
                     + " " + Lvn.Content.LvnBytes.Approx(missing.Item1) };
-                btn.style.height = 52;
+                btn.style.height = LvnTokens.Touch;
                 btn.style.fontSize = LvnTokens.TextSm;
                 btn.style.marginTop = LvnTokens.Space1;
                 LvnStyler.Primary(btn, 14f);

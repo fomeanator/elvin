@@ -113,7 +113,7 @@ namespace Lvn.UI.Screens
             // спроситься заново (правило Переодевания).
             var back = Lvn.UI.LvnRedress.Bind(new Button(onBack),
                 () => LvnWords.Pick("hub.back", _cfg.back_text, "‹"));
-            back.style.fontSize = LvnTokens.TextXl; back.style.minWidth = 52;
+            back.style.fontSize = LvnTokens.TextXl; back.style.minWidth = LvnTokens.Touch;
             LvnStyler.Plate(back, LvnTokens.Faint, _titleColor, _radius);
             bar.Add(back);
             title = Heading("", 30);

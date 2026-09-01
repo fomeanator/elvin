@@ -68,7 +68,7 @@ namespace Lvn.UI
                 if (_stage.Skipping) _stage.StopSkip();
                 else LvnPrefs.AutoAdvance = false;
             });
-            _modeBadge.style.height = 44;
+            _modeBadge.style.height = LvnTokens.Touch;
             LvnAir.PadX(_modeBadge, LvnTokens.Space2);
             _modeBadge.style.marginRight = LvnTokens.Space1;
             _modeBadge.style.fontSize = LvnTokens.TextXs;
@@ -110,7 +110,7 @@ namespace Lvn.UI
         private VisualElement Fab(string glyph, Action onClick)
         {
             var b = new Button(onClick) { text = glyph };
-            b.style.width = 44; b.style.height = 44;
+            b.style.width = LvnTokens.Touch; b.style.height = LvnTokens.Touch;
             b.style.marginLeft = LvnTokens.Space1;
             b.style.fontSize = LvnTokens.TextSm;
             LvnStyler.Plate(b, _theme.MenuFabColor, _theme.MenuTextColor, LvnTokens.RadiusLg);

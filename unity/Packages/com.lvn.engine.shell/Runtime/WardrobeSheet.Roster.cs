@@ -43,7 +43,7 @@ namespace Lvn.UI.Screens
                     // что (снимок Ильи 28.08).
                     var b = new Button(() => SwitchTo(pid));
                     Lvn.UI.LvnRedress.Bind(b, () => Lvn.Content.LvnWords.Name("actor", pid, name));
-                    b.style.height = 40;
+                    b.style.height = LvnTokens.Touch;
                     LvnAir.PadX(b, LvnTokens.Space2);
                     LvnAir.MarginX(b, 0);
                     b.style.marginBottom = LvnTokens.Space1;
