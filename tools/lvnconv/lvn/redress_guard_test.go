@@ -34,7 +34,10 @@ func TestDictionaryLabelsRememberTheirSource(t *testing.T) {
 	}
 
 	// new Label(LvnWords.…) — источник есть и тут же теряется.
-	bare := regexp.MustCompile(`new Label\(\s*LvnWords\.(Of|Pick|Name)\(`)
+	// Полное имя пишут и здесь: соседний страж (redress_creation) уже знал про
+	// `Lvn.Content.LvnWords`, а этот — нет. Одна мысль, записанная дважды и
+	// по-разному, — и одна из записей неполная.
+	bare := regexp.MustCompile(`new ` + typeName("Label") + `\(\s*` + typeName("LvnWords") + `\.(Of|Pick|Name)\(`)
 	var found []string
 
 	for _, pkg := range []string{"com.lvn.engine", "com.lvn.engine.shell", "com.lvn.engine.services"} {

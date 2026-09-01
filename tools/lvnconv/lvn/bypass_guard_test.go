@@ -230,7 +230,7 @@ var bypassProbes = []probe{
 	// собирается никогда, и на нехватку памяти отзывается хвост
 	// мёртвых. Живой случай: экран выбора сервера заводил загрузчик на
 	// КАЖДУЮ пробу адреса ради одного healthz.
-	{regexp.MustCompile(`new ContentLoader\(`), "загрузчик заведён без конца жизни",
+	{regexp.MustCompile(`new ` + typeName("ContentLoader") + `\(`), "загрузчик заведён без конца жизни",
 		"using var loader = new ContentLoader(...) — или НАРОЧНО, если он живёт столько же, сколько игра",
 		regexp.MustCompile(`using var|: this\(|НАРОЧНО`)},
 	// Гашение источника отмены: Cancel без Dispose оставляет живым
@@ -308,10 +308,25 @@ var bypassProbes = []probe{
 	// про альфу — плашка стала непрозрачной, а заметно это только глазами.
 	// (Без обратных ссылок: RE2 их не умеет. Разные имена внутри одного
 	// вызова — сами по себе ошибка, ловить её тоже полезно.)
-	{regexp.MustCompile(`new Color\(\w+\.r,\s*\w+\.g,\s*\w+\.b,`), "прозрачность цвета набрана руками",
+	{regexp.MustCompile(`new ` + typeName("Color") + `\(\w+\.r,\s*\w+\.g,\s*\w+\.b,`), "прозрачность цвета набрана руками",
 		"UiColor.WithAlpha(цвет, доля) — тот же цвет с другой прозрачностью",
 		regexp.MustCompile(`UiColor\.cs`)},
 	{regexp.MustCompile(`AddComponent<UIDocument>\(\)`), "свой слой мимо общей панели",
 		"LvnFloor.Open(имя, этаж) — он ставит документ, общие настройки и этаж разом",
 		regexp.MustCompile(`LvnPanel\.Shared|LvnFloor\.cs`)},
+}
+
+// ИМЯ ТИПА ПИШУТ И ПОЛНЫМ.
+//
+// `new ContentLoader(...)` и `new Lvn.Content.ContentLoader(...)` — одно и то
+// же, но шаблон, привязанный к тому, что стоит ПЕРЕД именем (`new `,
+// `public static `), видит только короткую форму. Так страж швов пропустил
+// `System.Action` — пятый за сутки случай, когда образец закрывает лишь
+// написание, о котором вспомнил его автор.
+//
+// Шаблоны, НЕ привязанные к предшествующему тексту, лечить не надо:
+// `Debug\.Log\(` ловит и `UnityEngine.Debug.Log(` — полное имя просто
+// содержит короткое.
+func typeName(name string) string {
+	return `(?:[\w.]+\.)?` + regexp.QuoteMeta(name)
 }
