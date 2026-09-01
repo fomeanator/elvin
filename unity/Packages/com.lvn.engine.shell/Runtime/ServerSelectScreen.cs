@@ -137,10 +137,8 @@ namespace Lvn.UI.Screens
 
             var panel = Lvn.UI.LvnChrome.Sheet(new VisualElement());
             panel.style.top = Length.Percent(18f);
-            LvnAir.PadX(panel, LvnTokens.Space4);
-            LvnAir.PadY(panel, LvnTokens.Space3);
-            panel.style.backgroundColor = LvnTokens.Scrim;
-            LvnChrome.Round(panel, LvnTokens.Radius);
+            // Отличие от прочих панелей — прямо здесь: воздуха сверху меньше.
+            LvnStyler.Panel(panel, LvnTokens.Scrim, padY: LvnTokens.Space3);
             root.Add(panel);
 
             var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("server.title", "Server"));
