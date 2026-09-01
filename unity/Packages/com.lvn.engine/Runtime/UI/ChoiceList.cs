@@ -31,10 +31,8 @@ namespace Lvn.UI
             style.paddingBottom = _theme.BottomPadding;
 
             // Horizontal placement of the button stack across the screen.
-            string al = string.IsNullOrEmpty(_theme.ChoiceAlign) ? "center" : _theme.ChoiceAlign;
-            style.alignItems = al == "left" ? Align.FlexStart
-                : al == "right" ? Align.FlexEnd
-                : Align.Center;
+            // Умолчание выборов — середина: стопка кнопок держит центр экрана.
+            style.alignItems = LvnAnchor.Across(_theme.ChoiceAlign, Align.Center);
 
             // Vertical placement: a free ChoiceYPercent puts the top of the stack at
             // that screen % (e.g. 70 = lower third); otherwise ChoiceVAlign docks it
