@@ -121,5 +121,33 @@ namespace Lvn.Tests
             Assert.Greater(preview.Length, LvnClip.PreviewMax / 2,
                 "и не быть куцым: обрезок должен оставаться узнаваемой репликой");
         }
-    }
+    
+        [Test]
+        public void Жёсткий_предел_не_рвёт_пару()
+        {
+            // Эмодзи — ДВЕ единицы UTF-16. Предел ровно между ними обязан
+            // отступить, а не оставить половину: половина суррогата не текст.
+            const string s = "abcd\U0001F600";           // 4 + 2 = 6 единиц
+            var cut = LvnClip.Head(s, 5);
+            Assert.AreEqual("abcd", cut, "предел пришёлся на середину пары — надо отступить");
+            Assert.IsFalse(char.IsHighSurrogate(cut[cut.Length - 1]), "хвост остался половиной пары");
+        }
+
+        [Test]
+        public void Жёсткий_предел_не_приписывает_многоточия()
+        {
+            Assert.AreEqual("абв", LvnClip.Head("абвгд", 3),
+                "это провод, а не подпись: многоточие здесь было бы данными, которых игрок не писал");
+        }
+
+        [Test]
+        public void Первая_буква_а_не_первая_единица()
+        {
+            Assert.AreEqual("\U0001F600", LvnClip.FirstLetter("\U0001F600Аня"),
+                "Substring(0,1) вернул бы половину эмодзи — в кружке аватара это «□»");
+            Assert.AreEqual("А", LvnClip.FirstLetter("Аня"));
+            Assert.AreEqual("?", LvnClip.FirstLetter(""), "пустое имя — знак вопроса, а не падение");
+            Assert.AreEqual("?", LvnClip.FirstLetter(null));
+        }
+}
 }

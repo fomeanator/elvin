@@ -50,6 +50,39 @@ namespace Lvn.Content
             return head.Length == 0 ? Ellipsis : head + Ellipsis;
         }
 
+        /// <summary>
+        /// ЖЁСТКИЙ ПРЕДЕЛ БЕЗ МНОГОТОЧИЯ — для провода, а не для глаза.
+        ///
+        /// <para>У сети свои потолки: строка комнаты режется по 200. Многоточие
+        /// там не нужно (это данные, а не подпись), а вот пару рвать нельзя и
+        /// здесь: половина суррогата — уже не UTF-16, и принимающая сторона
+        /// получает строку, которую нельзя разобрать. Хвостовые пробелы и
+        /// знаки тоже не трогаем: в данных они могут значить.</para>
+        /// </summary>
+        public static string Head(string s, int max)
+        {
+            if (string.IsNullOrEmpty(s) || max <= 0) return s ?? "";
+            if (s.Length <= max) return s;
+            int cut = max;
+            if (char.IsHighSurrogate(s[cut - 1])) cut--;
+            return s.Substring(0, SafeBoundary(s, cut));
+        }
+
+        /// <summary>
+        /// ПЕРВАЯ БУКВА ИМЕНИ — для кружка-аватара.
+        ///
+        /// <para><c>name.Substring(0, 1)</c> берёт первую единицу UTF-16, а не
+        /// первую БУКВУ. Имя, начинающееся с эмодзи или редкого письма, даёт в
+        /// кружке «□» — знак, которого в имени не было. Имена пишет игрок, так
+        /// что случай не выдуманный.</para>
+        /// </summary>
+        public static string FirstLetter(string s, string fallback = "?")
+        {
+            if (string.IsNullOrEmpty(s)) return fallback;
+            var e = StringInfo.GetTextElementEnumerator(s);
+            return e.MoveNext() ? (string)e.Current : fallback;
+        }
+
         /// <summary>Сколько символов превью сохранения помещается в строку
         /// списка. Число здесь, а не у каждого экрана: превью одной и той же
         /// записи, обрезанное по-разному, читается как разные сохранения.</summary>
