@@ -100,10 +100,12 @@ namespace Lvn.UI.Screens
                 to.el.style.translate = new Translate(dir * w, 0f);
                 Hub?.SetActiveTab(target);
 
-                var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 var fromEl = from.el;
                 float canvasFrom = _tabCanvasX, canvasTo = target * w * 0.067f; // втрое медленнее — глубина
-                to.el.experimental.animation.Start(0f, 1f, LvnMotion.Ms(338), (e, p) => // 260 + 30% — «чуть медленнее» (26.08)
+                // 338 = 260 + 30% — «чуть медленнее» (26.08). Ожидание конца
+                // движения — у дома движения: оборванная анимация не должна
+                // оставить флаг «занято» поднятым навсегда.
+                await Lvn.UI.LvnMotion.PlayAsync(to.el, 338, (e, p) =>
                 {
                     float k = Lvn.UI.LvnMotion.Settle(p);
                     e.style.translate = new Translate(Mathf.Lerp(dir * w, 0f, k), 0f);
@@ -115,9 +117,7 @@ namespace Lvn.UI.Screens
                         _canvasTint.style.backgroundColor = Color.Lerp(
                             TabTints[Mathf.Clamp(_tab, 0, LvnTabs.PageCount - 1)],
                             TabTints[Mathf.Clamp(target, 0, LvnTabs.PageCount - 1)], k);
-                    if (p >= 1f) tcs.TrySetResult(true);
                 });
-                await tcs.Task;
                 _tabCanvasX = canvasTo;
 
                 if (from.scr != null) from.scr.HideAsTab();

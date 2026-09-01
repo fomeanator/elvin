@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -273,6 +274,49 @@ namespace Lvn.UI
             el.experimental.animation
               .Start(0f, 1f, Ms(ms), (e, p) => put(p * p * p))
               .OnCompleted(() => put(1f));
+        }
+
+        /// <summary>
+        /// СЫГРАТЬ ДВИЖЕНИЕ И ДОЖДАТЬСЯ ЕГО КОНЦА.
+        ///
+        /// <para>Приём стоял дважды слово в слово — у перехода между вкладками и
+        /// у пролёта промежуточного экрана: завести обещание, разрешить его на
+        /// последнем кадре, ждать. И оба раза БЕЗ ПРЕДОХРАНИТЕЛЯ.</para>
+        ///
+        /// <para>Движение обрывается: поверхность вынули из дерева, документ
+        /// пересобрали, сменили тему. Последнего кадра тогда не будет никогда —
+        /// а ждущий останется ждать. У вкладок это хуже всего: там на время
+        /// перехода поднят флаг «занято», и снимается он ПОСЛЕ ожидания.
+        /// Оборванная анимация оставила бы флаг поднятым навсегда, и вкладки
+        /// перестали бы переключаться до перезапуска.</para>
+        ///
+        /// <para>Поэтому ожидание всегда завершается: своим последним кадром,
+        /// событием конца или предохранителем по часам. Довести поверхность до
+        /// места — дело вызывающего, он и так делает это после ожидания.</para>
+        /// </summary>
+        public static Task PlayAsync(VisualElement el, int ms, Action<VisualElement, float> tick)
+        {
+            var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            if (el == null) { tcs.TrySetResult(true); return tcs.Task; }
+            int span = Ms(ms);
+            el.experimental.animation
+              .Start(0f, 1f, span, (e, p) =>
+              {
+                  tick?.Invoke(e, p);
+                  if (p >= 1f) tcs.TrySetResult(true);
+              })
+              .OnCompleted(() => tcs.TrySetResult(true));
+            Lvn.LvnAsync.Fire(ReleaseLaterAsync(tcs, span), "MotionFailsafe");
+            return tcs.Task;
+        }
+
+        /// <summary>Предохранитель ожидания: втрое дольше самого движения плюс
+        /// запас. Считает РЕАЛЬНОЕ время — оборванная анимация обычно значит и
+        /// вставшие кадры, а кадровый таймер встал бы вместе с ними.</summary>
+        private static async Task ReleaseLaterAsync(TaskCompletionSource<bool> tcs, int span)
+        {
+            await Task.Delay(span * 3 + 250);
+            tcs.TrySetResult(false);
         }
 
         /// <summary>ТОЛЬКО ПРОЯВЛЕНИЕ, без сдвига и пружины (Илья 26.08:
