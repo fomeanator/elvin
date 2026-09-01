@@ -162,7 +162,6 @@
     "corner_radius": "float",
     "dock_top_percent": "float",
     "edge_padding": "float",
-    "fade_width": "float",
     "font": "string",
     "glass": "float",
     "initial_characters": "int",
