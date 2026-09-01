@@ -119,7 +119,6 @@ namespace Lvn.Content
         // task. Lets two callers (a preload + a later regular download) await the
         // same fetch instead of re-issuing it. Tasks self-evict on completion so
         // the dictionary doesn't leak.
-        private readonly Dictionary<string, Task> _inflight = new();
 
         // Batch counters used by a network-progress HUD. A "batch" is the
         // contiguous run of fetches between idle moments — once every queued task
@@ -198,7 +197,8 @@ namespace Lvn.Content
         /// занято способом «сходи и принеси». Тип и глагол с одним именем
         /// компилятор не пускает, и правильно — читателю они тоже мешали бы.</para>
         ///
-        /// <para>Памятей было три, и все под одним замком (<c>_inflight</c>):
+        /// <para>Памятей было четыре, и все под одним замком, названным именем
+        /// одной из них (<c>_inflight</c>):
         /// сколько байт ждём, сколько получили, какая попытка. Замок, названный
         /// именем ОДНОЙ из них, и есть признак — их три, а факт один.</para>
         ///
@@ -212,39 +212,58 @@ namespace Lvn.Content
         /// <para>«Ноль» и «записи нет» здесь теперь одно и то же для байтов
         /// (сумма от этого не меняется) и РАЗНОЕ для попытки: ноль означает
         /// «эта закачка ещё не начинала считать повторы».</para>
+        ///
+        /// <para><b>Четвёртая память переехала сюда 01.09.</b> Сама задача жила
+        /// в отдельном словаре, и замок носил ЕГО имя — <c>lock (_underway)</c>
+        /// вокруг полей, которые к нему не относятся. Замок, названный именем
+        /// одной из охраняемых памятей, и есть признак: их было четыре, а факт
+        /// один — «вот эта загрузка идёт вот так».</para>
         /// </summary>
         private sealed class Underway
         {
             public long Received;
             public long Expected;
             public int  Attempt;   // 0 — повторов ещё не считали
+            public Task Work;      // идёт прямо сейчас; null — уже нет
+            public bool Bundle;    // это не файл, а весь пакет главы
         }
 
-        private readonly Dictionary<string, Underway> _fetch = new();
+        /// <summary>Все идущие и недавние загрузки. ОН ЖЕ ЗАМОК: караулить
+        /// память её собственным именем честнее, чем именем соседа.</summary>
+        private readonly Dictionary<string, Underway> _underway = new();
 
         /// <summary>Запись о загрузке по адресу; заводится по первому
-        /// обращению. ЗВАТЬ ТОЛЬКО ПОД <c>lock (_inflight)</c> — тем же, что
-        /// держал прежние три словаря.</summary>
+        /// обращению. ЗВАТЬ ТОЛЬКО ПОД <c>lock (_underway)</c>.</summary>
         private Underway Progress(string url)
         {
-            if (!_fetch.TryGetValue(url, out var f)) _fetch[url] = f = new Underway();
+            if (!_underway.TryGetValue(url, out var f)) _underway[url] = f = new Underway();
             return f;
+        }
+
+        /// <summary>Работа кончилась. Запись остаётся, пока ей есть что
+        /// сказать (байты нужны итогам пакета), и уходит, когда сказать нечего.
+        /// ЗВАТЬ ТОЛЬКО ПОД <c>lock (_underway)</c>.</summary>
+        private void WorkDone(string url)
+        {
+            if (!_underway.TryGetValue(url, out var f)) return;
+            f.Work = null;
+            if (f.Received == 0 && f.Expected == 0 && f.Attempt == 0) _underway.Remove(url);
         }
 
         /// <summary>Сколько байт числится за адресом сейчас (0, если о нём
         /// ещё ничего не знают).</summary>
         private long ExpectedOf(string url)
-            => _fetch.TryGetValue(url, out var f) ? f.Expected : 0L;
+            => _underway.TryGetValue(url, out var f) ? f.Expected : 0L;
 
         // Label of the file currently being fetched (alias or short name).
         public string CurrentFileLabel { get; private set; }
         public long BatchBytesExpected
         {
-            get { lock (_inflight) { long s = 0; foreach (var f in _fetch.Values) s += f.Expected; return s; } }
+            get { lock (_underway) { long s = 0; foreach (var f in _underway.Values) s += f.Expected; return s; } }
         }
         public long BatchBytesReceived
         {
-            get { lock (_inflight) { long s = 0; foreach (var f in _fetch.Values) s += f.Received; return s; } }
+            get { lock (_underway) { long s = 0; foreach (var f in _underway.Values) s += f.Received; return s; } }
         }
 
         /// <summary>Единый снимок сетевой активности для глобального индикатора
@@ -255,18 +274,26 @@ namespace Lvn.Content
         /// окно.</summary>
         public (int inflight, int batchTotal, int batchDone, long received, long expected, string label) Transfers()
         {
-            lock (_inflight)
+            lock (_underway)
             {
                 int n = 0;
                 string firstUrl = null;
-                foreach (var k in _inflight.Keys)
-                {
-                    if (k == "__preload_batch__") continue;
-                    n++;
-                    firstUrl ??= k;
-                }
                 long rec = 0, exp = 0;
-                foreach (var f in _fetch.Values) { rec += f.Received; exp += f.Expected; }
+                foreach (var kv in _underway)
+                {
+                    var f = kv.Value;
+                    rec += f.Received;
+                    exp += f.Expected;
+                    // ПАКЕТ — НЕ ФАЙЛ. Он и раньше исключался, но по точному
+                    // равенству с «__preload_batch__», а настоящий ключ несёт
+                    // ещё и отпечаток списка — условие не срабатывало НИ РАЗУ.
+                    // Пакет считался файлом в полёте и мог стать именем на
+                    // карточке индикатора: игрок видел служебный ключ вместо
+                    // названия. Признак теперь у записи, а не у формы ключа.
+                    if (f.Bundle || f.Work == null) continue;
+                    n++;
+                    firstUrl ??= kv.Key;
+                }
                 // Имя для полной карточки индикатора: алиас текущего файла
                 // батча, иначе короткое имя первого файла в полёте.
                 string label = CurrentFileLabel;

@@ -71,15 +71,18 @@ namespace Lvn.Content
             // нечем.
             string batchKey = "__preload_batch__" + BatchKey(pending);
             Task<byte[]> batchTask;
-            lock (_inflight)
+            lock (_underway)
             {
-                if (_inflight.TryGetValue(batchKey, out var same)) return same;
+                if (_underway.TryGetValue(batchKey, out var same) && same.Work is Task<byte[]> running)
+                    return running;
                 batchTask = RunBatchQueuedAsync(pending, ct);
-                _inflight[batchKey] = batchTask;
+                var rec = Progress(batchKey);
+                rec.Work = batchTask;
+                rec.Bundle = true;   // это весь пакет, а не файл в полёте
             }
             _ = batchTask.ContinueWith(_ =>
             {
-                lock (_inflight) _inflight.Remove(batchKey);
+                lock (_underway) _underway.Remove(batchKey);
             }, TaskScheduler.Default);
             return batchTask;
         }
@@ -96,7 +99,7 @@ namespace Lvn.Content
         /// <para>Обнуление стояло дважды — в конце пакета и в конце одиночной
         /// загрузки, — и это ровно то место, где поле теряют.</para>
         ///
-        /// <para>Звать ТОЛЬКО под <c>lock (_inflight)</c>: те же поля читает
+        /// <para>Звать ТОЛЬКО под <c>lock (_underway)</c>: те же поля читает
         /// полоса загрузки из другого потока.</para>
         /// </summary>
         private void ClearBatchTally()
@@ -104,8 +107,18 @@ namespace Lvn.Content
             BatchTotal     = 0;
             BatchDone      = 0;
             LastStartedUrl = null;
-            // Итоги пакета сброшены — записи о загрузках уходят целиком.
-            _fetch.Clear();
+            // Итоги пакета сброшены — записям о загрузках сказать больше
+            // нечего. Но ИДУЩУЮ работу сброс итогов не отменяет: раньше здесь
+            // стоял Clear целиком, и с переездом задачи в запись он снёс бы
+            // пакет главы — а с ним и защиту от повторного скачивания той же
+            // главы вторым запросом.
+            var idle = new List<string>();
+            foreach (var kv in _underway)
+            {
+                kv.Value.Received = 0; kv.Value.Expected = 0; kv.Value.Attempt = 0;
+                if (kv.Value.Work == null) idle.Add(kv.Key);
+            }
+            foreach (var k in idle) _underway.Remove(k);
         }
 
         // Пакеты идут ПО ОЧЕРЕДИ: канал один, и два пакета, тянущие его
@@ -130,7 +143,7 @@ namespace Lvn.Content
             await _batchGate.WaitAsync(ct);
             try
             {
-                lock (_inflight)
+                lock (_underway)
                 {
                     // Чистый старт: словари байтов копят и одиночные фетчи
                     // (фоновый стриминг), и их мусор въезжал в прогресс батча —
@@ -138,7 +151,7 @@ namespace Lvn.Content
                     // ЧИСТЫЙ СТАРТ ПО БАЙТАМ, но не по повторам: счётчик
                     // попыток принадлежит идущей закачке, и обнулить его здесь
                     // значило бы подарить ей лишний повтор.
-                    foreach (var f in _fetch.Values) { f.Received = 0; f.Expected = 0; }
+                    foreach (var f in _underway.Values) { f.Received = 0; f.Expected = 0; }
                     BatchTotal     = pending.Count;
                     BatchDone      = 0;
                     LastStartedUrl = pending[0].Url;
@@ -147,7 +160,7 @@ namespace Lvn.Content
             }
             finally
             {
-                lock (_inflight) ClearBatchTally();
+                lock (_underway) ClearBatchTally();
                 _batchGate.Release();
             }
         }
@@ -168,7 +181,7 @@ namespace Lvn.Content
                 var asset = pending[i];
                 var path  = CachePath(_assetCacheDir, asset.Url, ".bin");
 
-                if (File.Exists(path)) { lock (_inflight) BatchDone++; continue; }
+                if (File.Exists(path)) { lock (_underway) BatchDone++; continue; }
 
                 CurrentFileLabel = AliasOf(asset.Url);
                 LastStartedUrl   = asset.Url;
@@ -179,7 +192,7 @@ namespace Lvn.Content
                 {
                     try
                     {
-                        lock (_inflight) Progress(asset.Url).Attempt = attempt;
+                        lock (_underway) Progress(asset.Url).Attempt = attempt;
 
                         // Reuse warm prefetch if it was for this URL and didn't fault.
                         Task<byte[]> fetchTask;
@@ -207,9 +220,9 @@ namespace Lvn.Content
                                 // Нет записи — значит про этот адрес ещё ничего не
                                 // знают: ноль честнее, чем «неизвестно».
                                 long exp = 0, rec = 0;
-                                lock (_inflight)
+                                lock (_underway)
                                 {
-                                    if (_fetch.TryGetValue(asset.Url, out var f))
+                                    if (_underway.TryGetValue(asset.Url, out var f))
                                     { exp = f.Expected; rec = f.Received; }
                                 }
                                 if (exp > 0 && (float)rec / exp >= 0.9f)
@@ -269,7 +282,7 @@ namespace Lvn.Content
                     ? Task.Run(() => AtomicWriteAllBytes(capPath, capBody), CancellationToken.None)
                     : Task.CompletedTask;
 
-                lock (_inflight) BatchDone++;
+                lock (_underway) BatchDone++;
             }
 
             await diskTask;
@@ -305,10 +318,11 @@ namespace Lvn.Content
                 return;
             }
             List<Task> tasks;
-            lock (_inflight)
+            lock (_underway)
             {
-                tasks = urls.Where(u => _inflight.ContainsKey(u))
-                            .Select(u => _inflight[u]).ToList();
+                tasks = new List<Task>();
+                foreach (var u in urls)
+                    if (_underway.TryGetValue(u, out var f) && f.Work != null) tasks.Add(f.Work);
             }
             if (tasks.Count == 0) return;
             try { await Task.WhenAll(tasks).WithCancellation(ct); }
