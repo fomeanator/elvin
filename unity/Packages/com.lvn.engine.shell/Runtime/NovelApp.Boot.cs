@@ -326,7 +326,7 @@ namespace Lvn.UI.Screens
                     _shell.TopBar.OnGameExit = () => Stage?.RequestExit();
                     // Воронка: в интро навбар полностью нем (чистое кино).
                     _shell.OnChapterSessionStart += () => _shell.TopBar.SetSilent(
-                        string.Equals(_currentTitle?.type, "intro", StringComparison.OrdinalIgnoreCase));
+                        Lvn.UI.Screens.LvnIntro.Is(_currentTitle));
                     _shell.TopBar.OnGameHistory = () => Stage?.OpenQuickMenu("history");
                     _shell.TopBar.OnGameWardrobe = () =>
                     { if (Stage != null) LvnAsync.Fire(OpenWardrobeFromMenuAsync(Stage), "OpenWardrobeFromMenu"); };

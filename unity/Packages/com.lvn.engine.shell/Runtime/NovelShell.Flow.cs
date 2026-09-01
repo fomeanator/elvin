@@ -176,10 +176,10 @@ namespace Lvn.UI.Screens
                         catch (Exception ex) { Debug.LogWarning($"[shell] chapter play failed: {ex.Message}"); }
                         EndChapterSession();   // один дом завершения: хром, режим, полоса, хост
                     }
-                    // Вводная считается пройденной, когда доиграна до конца: бросил
-                    // на середине — при следующем запуске снова попадёт в неё, а не
-                    // на витрину, которую ещё не заслужил.
-                    if (intro != null && IsTitleFinished(intro)) Lvn.UI.LvnPrefs.IntroDone = true;
+                    // Свидетель того, что вводная пройдена, ОДИН, и он у дома
+                    // вводной (финал её последней главы). Здесь стоял второй, по
+                    // своему правилу «новелла пройдена» — то самое, которое на
+                    // живом устройстве промахивалось и дало «пролог по кругу».
 
                 }   // конец витка: дальше — уборка, что бы ни случилось
                 finally
@@ -195,28 +195,8 @@ namespace Lvn.UI.Screens
         /// брендовую вуаль вместо полос — см. NovelApp.DriveBootVeilAsync.</summary>
         public bool HasPendingIntro => PendingIntroTitle() != null;
 
-        private LvnTitle PendingIntroTitle()
-        {
-            if (Lvn.UI.LvnPrefs.IntroDone)
-            {
-                Debug.Log("[lvn-intro] ворота: IntroDone=true (метка устройства) — витрина");
-                return null;
-            }
-            if (_manifest?.titles == null) return null;
-            foreach (var t in _manifest.titles)
-                if (t != null && string.Equals(t.type, "intro", StringComparison.OrdinalIgnoreCase))
-                {
-                    bool done = IsTitleFinished(t);
-                    // Диагностический след: «почему не стартанула воронка» иначе
-                    // выясняется раскопками PlayerPrefs на чужом устройстве.
-                    Debug.Log($"[lvn-intro] ворота: '{t.id}' reached={LvnProgress.Reached(t)} "
-                        + $"current={(LvnProgress.Current(t)?.id ?? "-")} → "
-                        + (done ? "пройдена, витрина" : "играем воронку"));
-                    return done ? null : t;
-                }
-            Debug.Log("[lvn-intro] ворота: intro-тайтла в манифесте нет — витрина");
-            return null;
-        }
+        /// <summary>Ворота вводной — у её дома (<see cref="LvnIntro.Pending"/>).</summary>
+        private LvnTitle PendingIntroTitle() => LvnIntro.Pending(_manifest);
 
         /// <summary>Новелла пройдена? Ответ у прогресса — правило одно на всех
         /// (см. <see cref="LvnProgress.Finished"/>).</summary>

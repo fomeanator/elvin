@@ -236,7 +236,7 @@ namespace Lvn.UI.Screens
             foreach (var t in m.titles)
             {
                 if (t == null) continue;
-                bool intro = string.Equals(t.type, "intro", StringComparison.OrdinalIgnoreCase);
+                bool intro = Lvn.UI.Screens.LvnIntro.Is(t);
                 var current = LvnProgress.Current(t);
                 foreach (var part in LvnParts.OfTitleArt(t)) Add(live, part.Url);
                 foreach (var ch in t.ChaptersOf())
