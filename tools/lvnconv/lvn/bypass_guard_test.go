@@ -76,6 +76,18 @@ func TestHomesAreNotBypassed(t *testing.T) {
 		{regexp.MustCompile(`"__global"`), "область общих статов вписана строкой",
 			"LvnGlobalStats.ScopeId — это единственная связь между новеллами",
 			regexp.MustCompile(`LvnGlobalStats\.cs`)},
+		// Рост в метрах: доля экрана считается делением на высоту сцены, и это
+		// правило уже спорило с долями, которые называет ставящий. Пока метры
+		// читают у дома, спор решён один раз; прочитанные по месту, они снова
+		// станут третьим мнением.
+		{regexp.MustCompile(`\["meters"\]|\["height_m"\]`), "рост в метрах прочитан на месте",
+			"LvnScale.MetersIn(команда) — и LvnScale.Fraction для доли кадра",
+			regexp.MustCompile(`LvnScale\.cs`)},
+		// Слово «глава» авторское: игра вправе звать её эпизодом или делом.
+		// Литерал в подписи отменяет этот выбор молча.
+		{regexp.MustCompile(`"(Глава|Эпизод|Дело) `), "слово «глава» вписано в подпись",
+			"LvnCaptions.Chapter(глава) — слово выбирает игра полем ui.chapter_word",
+			regexp.MustCompile(`LvnCaptions\.cs|LvnWords`)},
 		{regexp.MustCompile(`AddComponent<UIDocument>\(\)`), "свой слой мимо общей панели",
 			"LvnFloor.Open(имя, этаж) — он ставит документ, общие настройки и этаж разом",
 			regexp.MustCompile(`LvnPanel\.Shared|LvnFloor\.cs`)},
