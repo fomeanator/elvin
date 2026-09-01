@@ -170,7 +170,8 @@ namespace Lvn.UI.Screens
             LvnChrome.Border(b, UiColor.WithAlpha(_accent, 0.52f), 1f);
 
             b.style.justifyContent = Justify.FlexEnd;
-            b.style.paddingLeft = LvnTokens.Space4; b.style.paddingRight = LvnTokens.Space4; b.style.paddingBottom = LvnTokens.Space4;
+            LvnAir.PadX(b, LvnTokens.Space4);
+            b.style.paddingBottom = LvnTokens.Space4;
 
             bool res0 = resume;
             var eyebrow = ScreenUi.Eyebrow(() =>
@@ -193,8 +194,9 @@ namespace Lvn.UI.Screens
                 lock0 ? LvnWords.Pick("hub.locked", _cfg.locked_text, "Locked")
                       : res1 ? LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue")
                              : LvnWords.Pick("hub.play", _cfg.play_text, "Play"));
-            play.style.fontSize = LvnTokens.TextLg; play.style.paddingLeft = LvnTokens.Space4; play.style.paddingRight = LvnTokens.Space4;
-            play.style.paddingTop = LvnTokens.Space2; play.style.paddingBottom = LvnTokens.Space2;
+            play.style.fontSize = LvnTokens.TextLg;
+            LvnAir.PadX(play, LvnTokens.Space4);
+            LvnAir.PadY(play, LvnTokens.Space2);
             play.style.color = _accentText; play.style.backgroundColor = _accent;
             LvnChrome.ClearBorder(play); LvnChrome.Round(play, LvnTokens.RadiusSm);
             actions.Add(play);

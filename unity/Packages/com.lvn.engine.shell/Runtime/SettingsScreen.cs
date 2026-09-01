@@ -67,8 +67,9 @@ namespace Lvn.UI.Screens
             var sheet = Sheet(sideInset: 6f, topInset: 8f,
                               tint: string.IsNullOrEmpty(_cfg.panel_color)
                                         ? (Color?)null : UiColor.Named(_cfg.panel_color, LvnTokens.PanelBg));
-            sheet.style.paddingTop = 22; sheet.style.paddingBottom = LvnTokens.Space3;
-            sheet.style.paddingLeft = LvnTokens.Space3; sheet.style.paddingRight = LvnTokens.Space3;
+            LvnAir.PadX(sheet, LvnTokens.Space3);
+            sheet.style.paddingBottom = LvnTokens.Space3;
+            sheet.style.paddingTop = 22;
 
             _titleLabel = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("settings.title", _cfg.title, "Settings"));
             var title = _titleLabel;
@@ -92,8 +93,8 @@ namespace Lvn.UI.Screens
                 () => LvnWords.Pick("common.close", _cfg.close_text, "Close"));
             var close = _closeButton;
             close.style.fontSize = LvnTokens.TextBase;
+            LvnAir.PadY(close, LvnTokens.Space2);
             close.style.marginTop = LvnTokens.Space2;
-            close.style.paddingTop = LvnTokens.Space2; close.style.paddingBottom = LvnTokens.Space2;
             LvnStyler.Plate(close, LvnTokens.Faint, _text, _radius);
             sheet.Add(close);
         }
@@ -438,9 +439,8 @@ namespace Lvn.UI.Screens
         private VisualElement WideRow(string label, string hint, VisualElement control)
         {
             var row = new VisualElement();
+            LvnAir.PadY(row, LvnTokens.Space2);
             row.style.marginBottom = LvnTokens.Space1;
-            row.style.paddingTop = LvnTokens.Space2;
-            row.style.paddingBottom = LvnTokens.Space2;
             var lbl = new Label(label);
             lbl.style.color = _text;
             lbl.style.fontSize = LvnTokens.TextBase;
@@ -473,8 +473,8 @@ namespace Lvn.UI.Screens
             // одной букве (снимок Ильи 28.08). Минимальная ширина держит текст
             // читаемым, а кнопке остаётся переехать на следующую строку.
             row.style.flexWrap = Wrap.Wrap;
+            LvnAir.PadY(row, LvnTokens.Space2);
             row.style.marginBottom = LvnTokens.Space1;
-            row.style.paddingTop = LvnTokens.Space2; row.style.paddingBottom = LvnTokens.Space2;
             var col = new VisualElement();
             col.style.flexGrow = 1;
             col.style.flexShrink = 1;
@@ -510,8 +510,8 @@ namespace Lvn.UI.Screens
         private void StyleValueButton(Button b, bool active)
         {
             b.style.fontSize = LvnTokens.TextSm;
-            b.style.paddingTop = LvnTokens.Space1; b.style.paddingBottom = LvnTokens.Space1;
-            b.style.paddingLeft = LvnTokens.Space3; b.style.paddingRight = LvnTokens.Space3;
+            LvnAir.PadX(b, LvnTokens.Space3);
+            LvnAir.PadY(b, LvnTokens.Space1);
             // Роль — «один из вариантов», но палитру приносит новелла
             // (accent_color/text_color в манифесте), поэтому не Choice, а Plate.
             LvnStyler.Plate(b,

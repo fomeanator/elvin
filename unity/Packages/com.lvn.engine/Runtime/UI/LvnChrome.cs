@@ -218,10 +218,8 @@ namespace Lvn.UI
             if (input == null) return;
             input.style.backgroundColor = bg;
             input.style.color = text;
-            input.style.paddingTop = LvnTokens.Space2;
-            input.style.paddingBottom = LvnTokens.Space2;
-            input.style.paddingLeft = LvnTokens.Space3;
-            input.style.paddingRight = LvnTokens.Space3;
+            LvnAir.PadX(input, LvnTokens.Space3);
+            LvnAir.PadY(input, LvnTokens.Space2);
         }
 
         /// <summary>

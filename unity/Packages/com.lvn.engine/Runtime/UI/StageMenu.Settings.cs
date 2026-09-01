@@ -57,7 +57,7 @@ namespace Lvn.UI
             btn.style.minWidth = 150;
             btn.style.height = 48;
             btn.style.fontSize = LvnTokens.TextSm;
-            btn.style.paddingLeft = LvnTokens.Space3; btn.style.paddingRight = LvnTokens.Space3;
+            LvnAir.PadX(btn, LvnTokens.Space3);
             LvnStyler.Primary(btn, 14f);
             LvnFonts.Apply(btn, _theme.Font);
             btn.clicked += () =>
@@ -91,8 +91,8 @@ namespace Lvn.UI
             var tint = _theme.MenuTextColor;
             b.style.fontSize = LvnTokens.TextSm;
             b.style.whiteSpace = WhiteSpace.Normal;   // крупный кегль и широкая гарнитура переносятся
-            b.style.paddingLeft = LvnTokens.Space2; b.style.paddingRight = LvnTokens.Space2;
-            b.style.paddingTop = LvnTokens.Space1; b.style.paddingBottom = LvnTokens.Space1;
+            LvnAir.PadX(b, LvnTokens.Space2);
+            LvnAir.PadY(b, LvnTokens.Space1);
             LvnChrome.ClearBorder(b);
             LvnChrome.Round(b, LvnTokens.RadiusSm);
             b.style.backgroundColor = active
@@ -128,8 +128,8 @@ namespace Lvn.UI
             var tint = _theme.MenuTextColor;
             card.style.backgroundColor = UiColor.WithAlpha(tint, 0.06f);
             LvnChrome.Round(card, LvnTokens.RadiusSm);
-            card.style.paddingLeft = LvnTokens.Space3; card.style.paddingRight = LvnTokens.Space3;
-            card.style.paddingTop = LvnTokens.Space2; card.style.paddingBottom = LvnTokens.Space2;
+            LvnAir.PadX(card, LvnTokens.Space3);
+            LvnAir.PadY(card, LvnTokens.Space2);
             card.style.marginBottom = LvnTokens.Space2;
             return card;
         }
@@ -182,7 +182,7 @@ namespace Lvn.UI
             LvnChrome.Round(track, LvnTokens.Radius);
             track.style.flexDirection = FlexDirection.Row;
             track.style.alignItems = Align.Center;
-            track.style.paddingLeft = 4; track.style.paddingRight = 4;
+            LvnAir.PadX(track, 4);
             var knob = new VisualElement();
             knob.style.width = 28; knob.style.height = 28;
             LvnChrome.Round(knob, LvnTokens.Radius);

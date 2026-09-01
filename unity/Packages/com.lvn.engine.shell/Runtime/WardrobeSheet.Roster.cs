@@ -44,8 +44,9 @@ namespace Lvn.UI.Screens
                     var b = new Button(() => SwitchTo(pid));
                     Lvn.UI.LvnRedress.Bind(b, () => Lvn.Content.LvnWords.Name("actor", pid, name));
                     b.style.height = 40;
-                    b.style.marginLeft = 0; b.style.marginRight = 0; b.style.marginBottom = LvnTokens.Space1;
-                    b.style.paddingLeft = LvnTokens.Space2; b.style.paddingRight = LvnTokens.Space2;
+                    LvnAir.PadX(b, LvnTokens.Space2);
+                    LvnAir.MarginX(b, 0);
+                    b.style.marginBottom = LvnTokens.Space1;
                     b.style.fontSize = LvnTokens.TextXs;
                     bool active = pid == _entity;
                     SkinButton(b, active);

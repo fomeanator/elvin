@@ -172,7 +172,7 @@ namespace Lvn.UI
             var f = new TextField { value = value };
             f.style.width = width;
             f.style.height = 56;
-            f.style.marginLeft = LvnTokens.Space1; f.style.marginRight = LvnTokens.Space1;
+            LvnAir.MarginX(f, LvnTokens.Space1);
             var input = f.Q("unity-text-input");
             if (input != null)
             {

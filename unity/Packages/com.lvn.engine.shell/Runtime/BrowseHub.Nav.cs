@@ -72,7 +72,7 @@ namespace Lvn.UI.Screens
             nav.style.flexDirection = FlexDirection.Row;
             nav.style.alignItems = Align.Stretch;
             nav.style.flexShrink = 0;
-            nav.style.paddingBottom = LvnTokens.Space1; nav.style.paddingTop = LvnTokens.Space1;
+            LvnAir.PadY(nav, LvnTokens.Space1);
             LvnChrome.EdgeOn(nav, LvnSide.Top,
                 _theme.EdgeWidth > 0f ? _theme.EdgeColor : _border,
                 _theme.EdgeWidth > 0f ? _theme.EdgeWidth : 1f);
@@ -155,7 +155,7 @@ namespace Lvn.UI.Screens
             tab.style.flexGrow = 1; tab.style.flexBasis = 0;
             tab.style.alignItems = Align.Center;
             tab.style.justifyContent = Justify.FlexStart;
-            tab.style.paddingTop = LvnTokens.Space1; tab.style.paddingBottom = LvnTokens.Space1;
+            LvnAir.PadY(tab, LvnTokens.Space1);
             const bool active = false; // подсветку ведёт SetActiveTab
 
             // Активную вкладку помечает ЧЕРТА СВЕРХУ, а не только цвет: черта

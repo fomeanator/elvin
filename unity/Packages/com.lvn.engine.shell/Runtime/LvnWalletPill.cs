@@ -70,8 +70,7 @@ namespace Lvn.UI.Screens
             if (_look.Height > 0f) style.height = _look.Height;
             style.paddingLeft = _look.PadLeft;
             style.paddingRight = _look.PadRight;
-            style.paddingTop = _look.PadY;
-            style.paddingBottom = _look.PadY;
+            LvnAir.PadY(this, _look.PadY);
             style.backgroundColor = _look.Background;
             if (_look.Edge) LvnChrome.Edge(this);
             LvnChrome.Round(this, _look.Radius);
@@ -143,9 +142,9 @@ namespace Lvn.UI.Screens
         {
             var plus = new Button(onPlus) { text = "+" };
             plus.style.fontSize = _look.FontSize;
+            LvnAir.PadX(plus, LvnTokens.Space2);
+            LvnAir.PadY(plus, 1);
             plus.style.marginLeft = LvnTokens.Space1;
-            plus.style.paddingLeft = LvnTokens.Space2; plus.style.paddingRight = LvnTokens.Space2;
-            plus.style.paddingTop = 1; plus.style.paddingBottom = 1;
             // «Плюс» — главное действие пилюли: акцент и текст на акценте.
             // Роль называет это одним словом и переживёт смену темы.
             LvnStyler.Primary(plus, Mathf.Max(8f, _look.Radius - 4f));

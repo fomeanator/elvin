@@ -16,6 +16,9 @@ namespace Lvn.Tests
     /// </summary>
     public class ChromeCornerTests
     {
+        // Undefined значит «ключевого слова нет, есть число», то есть
+        // значение ПОСТАВИЛИ; нетронутое поле помечено Null. Читается наоборот
+        // интуиции — см. LvnChrome и ChromeEdgeTests.
         private static bool Задан(StyleLength v) => v.keyword == StyleKeyword.Undefined;
 
         [Test]

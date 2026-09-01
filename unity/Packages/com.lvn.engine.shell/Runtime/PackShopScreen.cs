@@ -89,10 +89,9 @@ namespace Lvn.UI.Screens
                 sheet.style.left = 16; sheet.style.right = 16;
                 sheet.style.top = Length.Percent(12f);
                 sheet.style.bottom = Length.Percent(5f);
-                sheet.style.paddingTop = LvnTokens.Space3;
+                LvnAir.PadX(sheet, LvnTokens.Space3);
                 sheet.style.paddingBottom = LvnTokens.Space2;
-                sheet.style.paddingLeft = LvnTokens.Space3;
-                sheet.style.paddingRight = LvnTokens.Space3;
+                sheet.style.paddingTop = LvnTokens.Space3;
                 AdoptSheet(sheet); // общий вид листа: фон, окантовка, подъезд
             }
             else
@@ -317,10 +316,10 @@ namespace Lvn.UI.Screens
                 var pill = new Button(() => { _tab = idx; Rebuild(); });
                 Lvn.UI.LvnRedress.Bind(pill, () => idx < _tabIds.Count ? TabTitle(_tabIds[idx]) : string.Empty);
                 pill.style.fontSize = LvnTokens.TextSm;
-                pill.style.marginRight = LvnTokens.Space2;
+                LvnAir.PadX(pill, LvnTokens.Space3);
+                LvnAir.PadY(pill, LvnTokens.Space2);
                 pill.style.marginBottom = LvnTokens.Space1;
-                pill.style.paddingTop = LvnTokens.Space2; pill.style.paddingBottom = LvnTokens.Space2;
-                pill.style.paddingLeft = LvnTokens.Space3; pill.style.paddingRight = LvnTokens.Space3;
+                pill.style.marginRight = LvnTokens.Space2;
                 LvnChrome.Round(pill, LvnTokens.Radius);
                 LvnChrome.ClearBorder(pill);
                 StyleTab(pill, i == _tab);

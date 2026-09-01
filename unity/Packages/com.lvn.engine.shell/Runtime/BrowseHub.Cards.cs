@@ -143,8 +143,7 @@ namespace Lvn.UI.Screens
             // A solid caption field is the readability contract for a shelf:
             // title and chapter metadata must never compete with the moving scene.
             var caption = new VisualElement { pickingMode = PickingMode.Ignore };
-            caption.style.paddingTop = LvnTokens.Space2; caption.style.paddingBottom = LvnTokens.Space2;
-            caption.style.paddingLeft = LvnTokens.Space2; caption.style.paddingRight = LvnTokens.Space2;
+            LvnAir.Pad(caption, LvnTokens.Space2);
             caption.style.flexGrow = 1;
             caption.style.backgroundColor = UiColor.WithAlpha(plinth, 0.98f);
 
@@ -211,8 +210,8 @@ namespace Lvn.UI.Screens
             // text column (right)
             var col = new VisualElement();
             col.style.flexGrow = 1; col.style.justifyContent = Justify.Center;
-            col.style.paddingLeft = LvnTokens.Space3; col.style.paddingRight = LvnTokens.Space3;
-            col.style.paddingTop = LvnTokens.Space2; col.style.paddingBottom = LvnTokens.Space2;
+            LvnAir.PadX(col, LvnTokens.Space3);
+            LvnAir.PadY(col, LvnTokens.Space2);
 
             var top = new VisualElement();
             top.style.flexDirection = FlexDirection.Row; top.style.justifyContent = Justify.SpaceBetween;

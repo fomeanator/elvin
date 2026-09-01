@@ -106,10 +106,9 @@ namespace Lvn.UI.Screens
             card.style.backgroundColor = LvnTokens.PanelBg;
             LvnChrome.Round(card, LvnTokens.Radius);
             LvnChrome.Border(card, LvnTokens.Border, 1f);
-            card.style.paddingTop = LvnTokens.Space4;
+            LvnAir.PadX(card, LvnTokens.Space4);
             card.style.paddingBottom = 22;
-            card.style.paddingLeft = LvnTokens.Space4;
-            card.style.paddingRight = LvnTokens.Space4;
+            card.style.paddingTop = LvnTokens.Space4;
             Add(card);
             AdoptSheet(card); // единый враппер попапа: стекло, окантовка, подъезд
 
@@ -154,9 +153,8 @@ namespace Lvn.UI.Screens
                 : LvnWords.Of("daily.claim", "Claim"));
             _claim.style.fontSize = LvnTokens.TextBase;
             _claim.style.unityFontStyleAndWeight = FontStyle.Bold;
+            LvnAir.PadY(_claim, LvnTokens.Space3);
             _claim.style.marginTop = 22;
-            _claim.style.paddingTop = LvnTokens.Space3;
-            _claim.style.paddingBottom = LvnTokens.Space3;
             LvnStyler.Primary(_claim, LvnTokens.RadiusSm);
             card.Add(_claim);
 
@@ -207,16 +205,10 @@ namespace Lvn.UI.Screens
             var cell = new VisualElement();
             cell.style.width = premium ? 172 : 148;
             cell.style.height = state == State.Today ? 176 : 160;
-            cell.style.marginLeft = LvnTokens.Space1;
-            cell.style.marginRight = LvnTokens.Space1;
-            cell.style.marginTop = LvnTokens.Space1;
-            cell.style.marginBottom = LvnTokens.Space1;
+            LvnAir.Margin(cell, LvnTokens.Space1);
             cell.style.alignItems = Align.Center;
             cell.style.justifyContent = Justify.Center;
-            cell.style.paddingTop = LvnTokens.Space2;
-            cell.style.paddingBottom = LvnTokens.Space2;
-            cell.style.paddingLeft = LvnTokens.Space2;
-            cell.style.paddingRight = LvnTokens.Space2;
+            LvnAir.Pad(cell, LvnTokens.Space2);
             LvnChrome.Round(cell, LvnTokens.RadiusSm);
 
             // Fills & borders per state.
@@ -293,10 +285,8 @@ namespace Lvn.UI.Screens
                 badge.style.fontSize = LvnTokens.TextXs;
                 badge.style.color = LvnTokens.OnAccent;
                 badge.style.backgroundColor = LvnTokens.Accent;
-                badge.style.paddingLeft = LvnTokens.Space1;
-                badge.style.paddingRight = LvnTokens.Space1;
-                badge.style.paddingTop = 2;
-                badge.style.paddingBottom = 2;
+                LvnAir.PadX(badge, LvnTokens.Space1);
+                LvnAir.PadY(badge, 2);
                 LvnChrome.Round(badge, LvnTokens.RadiusXs);
                 cell.Add(badge);
             }

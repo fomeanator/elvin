@@ -86,10 +86,9 @@ namespace Lvn.UI.Screens
             sheet.style.left = 10; sheet.style.right = 10;
             sheet.style.top = Length.Percent(39f);   // лицо героини остаётся в чистой зоне
             sheet.style.bottom = 132;                // дырка нижнего меню
-            sheet.style.paddingTop = LvnTokens.Space3;
+            LvnAir.PadX(sheet, LvnTokens.Space3);
             sheet.style.paddingBottom = LvnTokens.Space2;
-            sheet.style.paddingLeft = LvnTokens.Space3;
-            sheet.style.paddingRight = LvnTokens.Space3;
+            sheet.style.paddingTop = LvnTokens.Space3;
             SceneSheet(sheet, 0.92f);
         }
 

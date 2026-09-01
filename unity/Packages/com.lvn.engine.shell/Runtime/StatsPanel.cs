@@ -30,8 +30,9 @@ namespace Lvn.UI.Screens
             panel.style.top = Length.Percent(14f);
             panel.style.maxHeight = Length.Percent(72f);
             panel.style.backgroundColor = LvnTokens.PanelBg;
-            panel.style.paddingTop = 22; panel.style.paddingBottom = LvnTokens.Space3;
-            panel.style.paddingLeft = 22; panel.style.paddingRight = 22;
+            LvnAir.PadX(panel, 22);
+            panel.style.paddingBottom = LvnTokens.Space3;
+            panel.style.paddingTop = 22;
             LvnChrome.Round(panel, LvnTokens.Radius);
             root.Add(panel);
 
@@ -47,7 +48,7 @@ namespace Lvn.UI.Screens
             var close = Lvn.UI.LvnRedress.Bind(new Button(Hide), () => LvnWords.Of("common.close", "Close"));
             close.style.marginTop = LvnTokens.Space3;
             close.style.fontSize = LvnTokens.TextSm;
-            close.style.paddingTop = LvnTokens.Space2; close.style.paddingBottom = LvnTokens.Space2;
+            LvnAir.PadY(close, LvnTokens.Space2);
             close.style.color = LvnTokens.Text;
             close.style.backgroundColor = LvnTokens.Faint;
             LvnChrome.Round(close, LvnTokens.RadiusSm);

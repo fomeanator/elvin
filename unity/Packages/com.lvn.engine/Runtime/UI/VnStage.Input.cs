@@ -129,10 +129,8 @@ namespace Lvn.UI
             // Запасной цвет — из токенов, а не числами: без темы сцены поле
             // всё равно обязано быть цвета действующей палитры.
             panel.style.backgroundColor = Theme != null ? Theme.PanelColor : LvnTokens.Panel(0.94f);
-            panel.style.paddingLeft = Theme != null ? Theme.PanelPaddingX : 22f;
-            panel.style.paddingRight = Theme != null ? Theme.PanelPaddingX : 22f;
-            panel.style.paddingTop = Theme != null ? Theme.PanelPaddingY : 18f;
-            panel.style.paddingBottom = Theme != null ? Theme.PanelPaddingY : 18f;
+            LvnAir.PadX(panel, Theme != null ? Theme.PanelPaddingX : 22f);
+            LvnAir.PadY(panel, Theme != null ? Theme.PanelPaddingY : 18f);
             panel.style.overflow = Overflow.Visible;   // рамка выступает наружу
             float r = Theme != null ? Theme.PanelCornerRadius : 12f;
             LvnChrome.Round(panel, r);

@@ -15,7 +15,13 @@ namespace Lvn.Tests
     /// </summary>
     public class ChromeEdgeTests
     {
-        private static bool Пусто(StyleLength v) => v.keyword == StyleKeyword.Undefined;
+        // Толщина кромки — StyleFloat, скругление — StyleLength: у UITK это
+        // разные типы, и общего помощника на оба не бывает.
+        // У UITK ключевое слово читается наоборот, чем кажется: значение,
+        // которое ПОСТАВИЛИ, помечено Undefined («ключевого слова нет, есть
+        // число»), а нетронутое — Null. Перепутать легко, и тогда тест
+        // проверяет ровно противоположное тому, что написано в его имени.
+        private static bool Пусто(StyleFloat v) => v.keyword == StyleKeyword.Null;
 
         [Test]
         public void Кромка_ставит_толщину_и_цвет_одной_стороне()

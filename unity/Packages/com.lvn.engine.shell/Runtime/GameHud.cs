@@ -72,7 +72,7 @@ namespace Lvn.UI.Screens
                 style.height = _baseHeight + insets.x;
             });
             ScreenUi.Row(this, spread: true);
-            style.paddingLeft = LvnTokens.Space4; style.paddingRight = LvnTokens.Space4;
+            LvnAir.PadX(this, LvnTokens.Space4);
             style.backgroundColor = UiColor.Named(_cfg.bg_color, LvnTokens.Veil(0.53f));
             pickingMode = PickingMode.Ignore;
 

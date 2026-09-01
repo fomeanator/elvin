@@ -147,10 +147,9 @@ namespace Lvn.UI.Screens
 
             var body = new VisualElement();
             body.style.flexShrink = 0;
-            body.style.paddingLeft = 30;
-            body.style.paddingRight = 30;
-            body.style.paddingTop = LvnTokens.Space3;
+            LvnAir.PadX(body, 30);
             body.style.paddingBottom = 34;
+            body.style.paddingTop = LvnTokens.Space3;
             _scroll.Add(body);
 
             body.Add(BuildTitleBlock());
@@ -227,7 +226,7 @@ namespace Lvn.UI.Screens
             _backBtn = back;
             back.style.position = Position.Absolute; back.style.left = 20; back.style.top = 16;
             back.style.fontSize = LvnTokens.TextLg; back.style.width = 56; back.style.height = 56;
-            back.style.paddingTop = 0; back.style.paddingBottom = 0;
+            LvnAir.PadY(back, 0);
             back.style.unityTextAlign = TextAnchor.MiddleCenter;
             back.style.color = LvnTokens.Text;
             back.style.backgroundColor = new Color(0f, 0f, 0f, 0.45f);
@@ -256,12 +255,10 @@ namespace Lvn.UI.Screens
         private VisualElement Chip(string text)
         {
             var chip = new VisualElement();
-            chip.style.marginRight = LvnTokens.Space2;
+            LvnAir.PadX(chip, LvnTokens.Space2);
+            LvnAir.PadY(chip, LvnTokens.Space1);
             chip.style.marginBottom = LvnTokens.Space2;
-            chip.style.paddingLeft = LvnTokens.Space2;
-            chip.style.paddingRight = LvnTokens.Space2;
-            chip.style.paddingTop = LvnTokens.Space1;
-            chip.style.paddingBottom = LvnTokens.Space1;
+            chip.style.marginRight = LvnTokens.Space2;
             chip.style.backgroundColor = LvnTokens.SurfaceHi;
             LvnChrome.Border(chip, LvnTokens.Border, 1f);
             LvnChrome.Round(chip, LvnTokens.RadiusPill); // pill
@@ -325,9 +322,8 @@ namespace Lvn.UI.Screens
             bool locked = state == LvnChapterMark.Locked;
 
             var row = LvnStyler.ListRow(new VisualElement());
+            LvnAir.PadX(row, LvnTokens.Space3);
             row.style.marginTop = LvnTokens.Space2;
-            row.style.paddingLeft = LvnTokens.Space3;
-            row.style.paddingRight = LvnTokens.Space3;
 
             var numBadge = new Label(no.ToString());
             numBadge.style.width = 48;
@@ -394,8 +390,7 @@ namespace Lvn.UI.Screens
         {
             bar.Clear();
             bar.style.flexDirection = FlexDirection.Column; // restart row stacks over the play row
-            bar.style.paddingLeft = 30;
-            bar.style.paddingRight = 30;
+            LvnAir.PadX(bar, 30);
             bar.style.paddingTop = LvnTokens.Space3;
             bar.style.paddingBottom = LvnTokens.Space3; // + safe inset via ApplySafeArea
             LvnChrome.Divider(bar, LvnSide.Top);
@@ -408,8 +403,7 @@ namespace Lvn.UI.Screens
                 var restart = Lvn.UI.LvnRedress.Bind(new Button(ShowRestartMenu), () => LvnWords.Of("title.restart", "Start over"));
                 restart.style.marginBottom = LvnTokens.Space2;
                 restart.style.fontSize = LvnTokens.TextSm;
-                restart.style.paddingTop = LvnTokens.Space2;
-                restart.style.paddingBottom = LvnTokens.Space2;
+                LvnAir.PadY(restart, LvnTokens.Space2);
                 LvnStyler.Quiet(restart, LvnTokens.RadiusSm);
                 bar.Add(restart);
             }
@@ -421,8 +415,7 @@ namespace Lvn.UI.Screens
             play.style.flexGrow = 1;
             play.style.flexShrink = 1;
             play.style.fontSize = LvnTokens.TextBase;
-            play.style.paddingTop = LvnTokens.Space3;
-            play.style.paddingBottom = LvnTokens.Space3;
+            LvnAir.PadY(play, LvnTokens.Space3);
             play.style.marginRight = LvnTokens.Space2;
             play.style.unityFontStyleAndWeight = FontStyle.Bold;
             LvnStyler.Primary(play, LvnTokens.RadiusSm);
@@ -437,10 +430,8 @@ namespace Lvn.UI.Screens
 
             var cost = new VisualElement();
             cost.style.flexShrink = 0;
-            cost.style.paddingLeft = LvnTokens.Space3;
-            cost.style.paddingRight = LvnTokens.Space3;
-            cost.style.paddingTop = LvnTokens.Space2;
-            cost.style.paddingBottom = LvnTokens.Space2;
+            LvnAir.PadX(cost, LvnTokens.Space3);
+            LvnAir.PadY(cost, LvnTokens.Space2);
             cost.style.backgroundColor = LvnTokens.SurfaceHi;
             LvnChrome.Round(cost, LvnTokens.RadiusSm);
 

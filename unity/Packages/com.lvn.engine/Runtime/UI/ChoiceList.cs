@@ -27,8 +27,7 @@ namespace Lvn.UI
         {
             _theme = theme ?? new VnTheme();
             LvnChrome.Stretch(this);
-            style.paddingLeft = _theme.EdgePadding;
-            style.paddingRight = _theme.EdgePadding;
+            LvnAir.PadX(this, _theme.EdgePadding);
             style.paddingBottom = _theme.BottomPadding;
 
             // Horizontal placement of the button stack across the screen.
@@ -186,11 +185,9 @@ namespace Lvn.UI
             ApplyChoiceWidth(btn);
             btn.style.minHeight = _theme.ChoiceMinHeight; // thumb-sized (market norm ~6.5% H)
             btn.style.justifyContent = Justify.Center;
+            LvnAir.PadX(btn, _theme.ChoicePaddingX);
+            LvnAir.PadY(btn, _theme.ChoicePaddingY);
             btn.style.marginBottom = _theme.ChoiceSpacing;
-            btn.style.paddingTop = _theme.ChoicePaddingY;
-            btn.style.paddingBottom = _theme.ChoicePaddingY;
-            btn.style.paddingLeft = _theme.ChoicePaddingX;
-            btn.style.paddingRight = _theme.ChoicePaddingX;
             // Кромка темы — до радиуса: у технической темы вариант выбора без
             // светящегося контура выпадает из экрана, на котором контур есть у
             // всего остального.
@@ -240,8 +237,7 @@ namespace Lvn.UI
                     var chip = new Label($"{(eff.Delta > 0 ? "+" : "")}{eff.Delta} {eff.Label}") { name = EffectName };
                     chip.style.color = _theme.ChoiceCostColor;
                     chip.style.fontSize = Mathf.RoundToInt(ChoiceSize * EffectSizeRatio);
-                    chip.style.marginLeft = LvnTokens.Space1;
-                    chip.style.marginRight = LvnTokens.Space1;
+                    LvnAir.MarginX(chip, LvnTokens.Space1);
                     chip.style.opacity = 0.85f;
                     LvnFonts.Apply(chip, _theme.Font);
                     effRow.Add(chip);

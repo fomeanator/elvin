@@ -106,8 +106,7 @@ namespace Lvn.UI
             if (el == null) return null;
             el.style.width = size;
             el.style.height = size;
-            el.style.paddingTop = 0; el.style.paddingBottom = 0;
-            el.style.paddingLeft = 0; el.style.paddingRight = 0;
+            LvnAir.Pad(el, 0);
             el.style.alignItems = Align.Center;
             el.style.justifyContent = Justify.Center;
             return Plate(el, LvnTokens.Faint, LvnTokens.Text,
@@ -170,8 +169,7 @@ namespace Lvn.UI
             el.style.alignItems = Align.Center;
             el.style.backgroundColor = LvnTokens.Surface;
             LvnChrome.Round(el, LvnTokens.RadiusSm);
-            el.style.paddingTop = LvnTokens.Space2;
-            el.style.paddingBottom = LvnTokens.Space2;
+            LvnAir.PadY(el, LvnTokens.Space2);
             return el;
         }
 
