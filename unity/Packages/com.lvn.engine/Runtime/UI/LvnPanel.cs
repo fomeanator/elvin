@@ -54,7 +54,7 @@ namespace Lvn.UI
                     _shared.match = CurrentMatch;
                     // Above the world-stage canvas (sortingOrder 0); documents
                     // inside the panel layer by their own sortingOrder.
-                    _shared.sortingOrder = 10;
+                    _shared.sortingOrder = LvnFloor.Stage;
                     // Mobile atlas budget: 4096² RGBA is 64 MB — halve the
                     // ceiling. (Textures over maxSubTextureSize — the default
                     // 64px — never enter the atlas, so story art stays out.)

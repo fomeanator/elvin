@@ -1029,3 +1029,45 @@ func TestIntroIsKnownByItsHome(t *testing.T) {
 			len(found), strings.Join(found, "\n  "))
 	}
 }
+
+// ЭТАЖИ ПРИЛОЖЕНИЯ НАЗЫВАЮТСЯ ИМЕНАМИ.
+//
+// Порядок слоёв был написан шестью числами в шести файлах, и каждое объясняло
+// соседей ПО ПАМЯТИ: «выше вуали (100)», «выше оболочки (30)», «ниже панели
+// (10)». Комментарий — не связь: подвинь один этаж, и остальные останутся
+// рассказывать про прежний. Ошибка не ловится ни компилятором, ни тестом без
+// экрана — она выглядит как «панель под меню» и находится глазами, у того, кому
+// показывают.
+func TestLayerOrderComesFromItsHome(t *testing.T) {
+	root := repoRoot(t)
+	raw := regexp.MustCompile(`sortingOrder\s*[=:]\s*\d`)
+
+	var found []string
+	scanned := 0
+	_ = filepath.Walk(filepath.Join(root, "unity/Packages"), func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+			return nil
+		}
+		base := filepath.Base(path)
+		p := filepath.ToSlash(path)
+		// Сам дом; и WorldStage, где число — ЗНАЧЕНИЕ ПО УМОЛЧАНИЮ параметра,
+		// а этаж ему передаёт зовущий.
+		if strings.Contains(p, "/Tests/") || base == "LvnFloor.cs" || base == "WorldStage.cs" {
+			return nil
+		}
+		scanned++
+		for i, l := range strings.Split(stripComments(string(mustRead(t, path))), "\n") {
+			if raw.MatchString(l) {
+				found = append(found, fmt.Sprintf("%s:%d: %s", base, i+1, strings.TrimSpace(l)))
+			}
+		}
+		return nil
+	})
+	atLeast(t, scanned, 100, "просмотренных файлов")
+	if len(found) > 0 {
+		t.Errorf("этаж слоя вписан числом (%d):\n  %s\n\n"+
+			"Возьмите LvnFloor: пока этажи стоят числами по файлам, порядок держится "+
+			"на комментариях, которые объясняют друг друга по памяти.",
+			len(found), strings.Join(found, "\n  "))
+	}
+}

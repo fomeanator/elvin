@@ -30,12 +30,8 @@ namespace Lvn.UI.Screens
             GameObject go = null;
             try
             {
-                go = new GameObject("LvnServerSelect");
-                var doc = go.AddComponent<UIDocument>();
-                doc.panelSettings = LvnPanel.Shared;
-                doc.sortingOrder = 110; // above the boot veil (100)
-                var root = doc.rootVisualElement;
-                root.style.flexGrow = 1;
+                VisualElement root;
+                (go, root) = LvnFloor.Open("LvnServerSelect", LvnFloor.ServerSelect);
                 root.pickingMode = PickingMode.Position;
 
                 var checkRow = new VisualElement();
