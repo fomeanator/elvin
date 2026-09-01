@@ -24,7 +24,9 @@ namespace Lvn.Tests.Editor
             var p = Pose();
             Assert.AreEqual("actor", (string)p["op"]);
             Assert.AreEqual("hero", (string)p["id"]);
-            Assert.IsTrue((bool)p["show"]);
+            // Проверяем СМЫСЛ, а не тип: «показана» — вопрос к словарю (Lvn.LvnBool),
+            // и приведение сломалось бы молча, начни производитель писать слово.
+            Assert.IsTrue(Lvn.LvnBool.Of(p["show"], false));
             Assert.AreEqual("center", (string)p["position"]);
             Assert.AreEqual(0.91f, (float)p["height"], 0.0001f);
         }
