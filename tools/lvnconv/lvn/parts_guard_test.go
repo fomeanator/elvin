@@ -891,3 +891,89 @@ func TestArtVariantLadderMatchesServer(t *testing.T) {
 			"как «арт не качается».", len(only), strings.Join(only, "\n  "))
 	}
 }
+
+// КАЖДЫЙ АДРЕС, КОТОРЫЙ ЗОВЁТ КЛИЕНТ, СЕРВЕР ОТДАЁТ.
+//
+// Адреса — такой же договор между сторонами, как ступени арта, и ломается он
+// так же молча: переименовали маршрут на сервере (или опечатались в клиенте) —
+// и на живом устройстве приходит 404. В логе это выглядит «сеть отвалилась», а
+// не «мы зовём то, чего нет»; ищется такое долго и обычно уже в проде.
+//
+// Компилятор здесь бессилен: с обеих сторон это строки, и они друг о друге не
+// знают. Сверить их — единственный способ.
+func TestEveryClientPathIsServed(t *testing.T) {
+	root := repoRoot(t)
+
+	pathRe := regexp.MustCompile(`"(/v1/[a-z0-9/_-]*)"`)
+	client := map[string]string{} // адрес → где зовут
+	scanned := 0
+	_ = filepath.Walk(filepath.Join(root, "unity/Packages"), func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+			return nil
+		}
+		if strings.Contains(filepath.ToSlash(path), "/Tests/") {
+			return nil
+		}
+		scanned++
+		src := stripComments(string(mustRead(t, path)))
+		for i, l := range strings.Split(src, "\n") {
+			for _, m := range pathRe.FindAllStringSubmatch(l, -1) {
+				if _, seen := client[m[1]]; !seen {
+					client[m[1]] = fmt.Sprintf("%s:%d", filepath.Base(path), i+1)
+				}
+			}
+		}
+		return nil
+	})
+	atLeast(t, scanned, 100, "просмотренных файлов")
+	atLeast(t, len(client), 15, "адресов у клиента")
+
+	routeRe := regexp.MustCompile(`HandleFunc\("([^"]+)"`)
+	var routes []string
+	entries, err := os.ReadDir(filepath.Join(root, "server"))
+	if err != nil {
+		t.Fatalf("нет сервера рядом: %v", err)
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") {
+			continue
+		}
+		src := string(mustRead(t, filepath.Join(root, "server", e.Name())))
+		for _, m := range routeRe.FindAllStringSubmatch(src, -1) {
+			routes = append(routes, m[1])
+		}
+	}
+	atLeast(t, len(routes), 30, "маршрутов у сервера")
+
+	served := func(p string) bool {
+		for _, r := range routes {
+			// КОРЕНЬ НЕ СЧИТАЕТСЯ. У сервера есть маршрут «/» — витрина и
+			// статика, — и под него подходит ЛЮБОЙ адрес. Пока он участвовал
+			// в сверке, страж был зелёным ни о чём: подмена адреса на
+			// «/v1/content/manifest-typo» проходила молча (проверено).
+			if r == "/" {
+				continue
+			}
+			// Маршрут с косой на конце — поддерево: «/v1/leaderboard/» отдаёт
+			// «/v1/leaderboard/<доска>».
+			if r == p || (strings.HasSuffix(r, "/") && strings.HasPrefix(p, r)) {
+				return true
+			}
+		}
+		return false
+	}
+
+	var missing []string
+	for p, where := range client {
+		if !served(p) {
+			missing = append(missing, fmt.Sprintf("%s (зовут в %s)", p, where))
+		}
+	}
+	if len(missing) > 0 {
+		sort.Strings(missing)
+		t.Errorf("клиент зовёт адреса, которых сервер не отдаёт (%d):\n  %s\n\n"+
+			"Это 404 на живом устройстве. В логе он выглядит как «сеть отвалилась», "+
+			"а не как разошедшийся договор, — и ищется соответственно долго.",
+			len(missing), strings.Join(missing, "\n  "))
+	}
+}
