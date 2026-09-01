@@ -34,6 +34,29 @@ namespace Lvn.UI.Screens
         }
 
         /// <summary>
+        /// ЗНАЧОК В ШАПКЕ — кнопка на тихой плашке: подарок, шестерёнка.
+        ///
+        /// <para>Оба писались одинаковыми четырьмя строками подряд, и размер в
+        /// них стоял числом 44 при токене цели касания 48 — вторая цель
+        /// касания, которую никто не объявлял. Теперь размер берётся у темы:
+        /// у неё на это есть слово, и оно же держит доступность.</para>
+        ///
+        /// <para>Аватар рядом НЕ отсюда и не должен быть: он крупнее, носит
+        /// акцентную рамку и открывает профиль — это другая роль, а не тот же
+        /// значок другого размера.</para>
+        /// </summary>
+        private Button TopIconButton(LvnIcon icon, Color color, System.Action onTap)
+        {
+            var b = IconButton(icon, 24f, color, onTap);
+            b.style.width = LvnTokens.Touch;
+            b.style.height = LvnTokens.Touch;
+            b.style.marginLeft = LvnTokens.Space2;
+            b.style.backgroundColor = LvnTokens.Faint;
+            LvnChrome.Frame(b, LvnTokens.RadiusSm);
+            return b;
+        }
+
+        /// <summary>
         /// ЦЕНА НА КАРТОЧКЕ — рядом ЦЕННИКА, а не своим.
         ///
         /// <para>Значок к сумме приставлял каждый экран сам, и одна валюта в
