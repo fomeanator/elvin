@@ -221,6 +221,8 @@ namespace Lvn.Content
                     long queueMs = offThread ? decodeQueueMs : 0;
                     // v= — sha исходника из индекса версий (8 знаков): сразу
                     // видно, КАКАЯ ревизия картинки играет в кадре.
+                    // НАРОЧНО по единицам ниже: версия — шестнадцатеричная,
+                    // и режется она для журнала, а не для глаза игрока.
                     var v = VersionFor(url);
                     LvnLog.Trace($"[lvn-perf] sprite decode {url}: queue={queueMs}ms decode={decodeMs - queueMs}ms{(offThread ? " (worker thread)" : "")} resize+upload={resizeMs}ms sprite={sw.ElapsedMilliseconds - decodeMs - resizeMs}ms ({tex.width}x{tex.height}) v={(string.IsNullOrEmpty(v) ? "-" : v.Substring(0, 8))}");
                 }

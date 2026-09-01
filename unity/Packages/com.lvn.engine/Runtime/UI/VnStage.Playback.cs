@@ -248,6 +248,8 @@ namespace Lvn.UI
             using (var sha = System.Security.Cryptography.SHA1.Create())
                 scriptHash = System.BitConverter.ToString(
                     sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(lvnJson ?? "")))
+                    // НАРОЧНО по единицам: шестнадцатеричная запись — ASCII,
+                    // пар в ней не бывает.
                     .Replace("-", "").Substring(0, 8).ToLowerInvariant();
             LvnPlayer.Log?.Invoke("════ PLAY scene=" + doc.Scene + " (" + (doc.Script?.Count ?? 0)
                 + " cmds, скрипт " + scriptHash + ") ════");

@@ -352,8 +352,10 @@ namespace Lvn.UI.Screens
             return av;
         }
 
+        // Первая БУКВА, а не первая единица UTF-16: имя с эмодзи в начале
+        // давало в кружке «□» — знак, которого в имени не было.
         private static string Initial(string name)
-            => string.IsNullOrEmpty(name) ? "?" : name.Substring(0, 1).ToUpperInvariant();
+            => Lvn.Content.LvnClip.FirstLetter(name).ToUpperInvariant();
 
         private static Color ColorFor(string name)
         {

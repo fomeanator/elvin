@@ -23,7 +23,10 @@ namespace Lvn.Content
         {
             if (string.IsNullOrWhiteSpace(raw)) return "";
             var s = Whitespace.Replace(raw.Trim(), " ");
-            if (maxLength > 0 && s.Length > maxLength) s = s.Substring(0, maxLength);
+            // Через дом обрезки: срез по ЧИСЛУ рвал суррогатную пару, а имя
+            // пишет игрок — эмодзи на границе давало половину символа, и она
+            // уходила и в показ, и на сервер.
+            if (maxLength > 0) s = LvnClip.Head(s, maxLength);
             return s;
         }
 

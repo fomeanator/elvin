@@ -196,8 +196,9 @@ namespace Lvn.Services
             return false;
         }
 
-        private static string Trim(string s) =>
-            string.IsNullOrEmpty(s) ? "" : (s.Length > 200 ? s.Substring(0, 200) : s);
+        // Через дом обрезки: здесь предел рвал суррогатную пару пополам, и
+        // по проводу уходила строка, которую принимающая сторона не разберёт.
+        private static string Trim(string s) => Lvn.Content.LvnClip.Head(s, 200);
 
         /// <summary>
         /// Свой запрос, а не общий <see cref="LvnBackend"/>: комната
