@@ -77,7 +77,7 @@ namespace Lvn.Content
         {
             if (urls == null || urls.Count == 0) return Array.Empty<string>();
             IsVerifying = true;
-            lock (_inflight)
+            lock (_underway)
             {
                 BatchTotal       = urls.Count;
                 BatchDone        = 0;
@@ -91,11 +91,11 @@ namespace Lvn.Content
                 catch (OperationCanceledException) { IsVerifying = false; throw; }
                 if (!File.Exists(CachePath(_assetCacheDir, url, ".bin")))
                     missing.Add(url);
-                lock (_inflight) BatchDone++;
+                lock (_underway) BatchDone++;
                 try { await Task.Yield(); }
                 catch (OperationCanceledException) { IsVerifying = false; throw; }
             }
-            lock (_inflight)
+            lock (_underway)
             {
                 BatchTotal       = 0;
                 BatchDone        = 0;
