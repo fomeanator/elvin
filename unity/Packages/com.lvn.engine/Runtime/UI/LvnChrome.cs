@@ -324,10 +324,12 @@ namespace Lvn.UI
             el.style.borderBottomWidth = width;
             el.style.borderLeftWidth = width;
             el.style.borderRightWidth = width;
-            el.style.borderTopColor = color;
-            el.style.borderBottomColor = color;
-            el.style.borderLeftColor = color;
-            el.style.borderRightColor = color;
+            // Цвет ставит РОЛЬ «перекрасить»: обводка — это толщина плюс цвет,
+            // и цветную половину незачем писать здесь второй раз. Заодно роль
+            // перестала быть мёртвой дверью: она ждала первого места, где
+            // толщину менять не надо, — а нашлась в месте, где надо и то и
+            // другое, и половина всё равно её.
+            Tint(el, color);
         }
 
         /// <summary>

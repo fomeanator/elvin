@@ -125,20 +125,49 @@ namespace Lvn.UI.World
             }
         }
 
+        /// <summary>РАЗДАТЬ ГАШЕНИЕ ВСЕМУ ПОДДЕРЕВУ.
+        ///
+        /// <para>Эффект, надетый на ЧАСТЬ актёра, владеет своим материалом, и
+        /// корневой драйвер её поддерево нарочно обходит стороной. Поэтому
+        /// служебное гашение раздаётся каждому такому владельцу — иначе одежда
+        /// и тело поедут разными путями и разойдутся в прозрачности.</para>
+        ///
+        /// <para>Обход и раздача границ с направлением — механизм; что ещё
+        /// сделать с каждым найденным, знает вызывающий.</para></summary>
+        private static void Spread(GameObject actorGo, float dir,
+                                   System.Action<LvnSpriteFxDriver> also = null)
+        {
+            var bounds = actorGo.transform as RectTransform;
+            foreach (var d in actorGo.GetComponentsInChildren<LvnSpriteFxDriver>(true))
+            {
+                d._fadeBoundsRoot = bounds;
+                d._fadeDir = dir;
+                also?.Invoke(d);
+            }
+        }
+
+        /// <summary>НАЙТИ ДРАЙВЕР НА ОБЪЕКТЕ, при нужде завести.
+        ///
+        /// <para>Три строки поиска-и-заведения стояли в обоих задатчиках
+        /// гашения, различаясь ТОЛЬКО условием, при котором компонент вообще
+        /// стоит вешать. Условие и осталось доводом: оно про смысл («нечего
+        /// гасить»), а поиск — про устройство.</para></summary>
+        private static LvnSpriteFxDriver Driver(GameObject actorGo, bool create)
+        {
+            var root = actorGo.GetComponent<LvnSpriteFxDriver>();
+            if (root == null && create) root = actorGo.AddComponent<LvnSpriteFxDriver>();
+            return root;
+        }
+
         /// <summary>Направление чистой боковой маски проявления (см. drift).
         /// Нулевое выбирает ближайший край автоматически.</summary>
         public static void SetFadeDir(GameObject actorGo, float dir)
         {
             if (actorGo == null) return;
-            var root = actorGo.GetComponent<LvnSpriteFxDriver>();
-            if (root == null && dir != 0f)
-                root = actorGo.AddComponent<LvnSpriteFxDriver>();
-            var bounds = actorGo.transform as RectTransform;
-            foreach (var d in actorGo.GetComponentsInChildren<LvnSpriteFxDriver>(true))
-            {
-                d._fadeDir = dir;
-                d._fadeBoundsRoot = bounds;
-            }
+            // Драйвер заводим, только если гасить есть чем: нулевое направление
+            // ничего не меняет, и вешать компонент ради него незачем.
+            Driver(actorGo, create: dir != 0f);
+            Spread(actorGo, dir);
         }
 
         /// <summary>
@@ -152,23 +181,12 @@ namespace Lvn.UI.World
         public static void SetFade(GameObject actorGo, float k)
         {
             if (actorGo == null) return;
-            var root = actorGo.GetComponent<LvnSpriteFxDriver>();
-            if (root == null)
-            {
-                if (k >= 0.999f) return;   // нечего гасить — и незачем заводить драйвер
-                root = actorGo.AddComponent<LvnSpriteFxDriver>();
-            }
-            var bounds = actorGo.transform as RectTransform;
-            float dir = root._fadeDir;
-            // A part-scoped sfx owns its Image material, so the root driver
-            // deliberately skips that subtree. Propagate the service fade to
-            // every such owner instead of leaving clothes/body on different paths.
-            foreach (var d in actorGo.GetComponentsInChildren<LvnSpriteFxDriver>(true))
-            {
-                d._fadeBoundsRoot = bounds;
-                d._fadeDir = dir;
-                d.ApplyCmd(new JObject { ["fade"] = k, ["dur"] = 0f });
-            }
+            // Нечего гасить — и незачем заводить драйвер: полная непрозрачность
+            // это отсутствие эффекта, а не эффект «показать целиком».
+            var root = Driver(actorGo, create: k < 0.999f);
+            if (root == null) return;
+            Spread(actorGo, root._fadeDir,
+                   d => d.ApplyCmd(new JObject { ["fade"] = k, ["dur"] = 0f }));
         }
 
         /// <summary>НЕ ПОДКЛЮЧЁН: служебное затухание сегодня снимает сам драйвер по концу

@@ -346,26 +346,42 @@ namespace Lvn.Content
             return CompareSizeFirst(a, b);
         }
 
-        // smallest file first (mini burst), then earliest eta, then path (stable).
+        // ЧЕМ СРАВНИВАТЬ — механизм; В КАКОМ ПОРЯДКЕ — политика. Два порядка
+        // ниже отличаются только тем, что важнее: мелочь вперёд (чтобы первый
+        // залп был коротким) или ближайшее по времени (чтобы очередь шла за
+        // читателем). Сами ключи и их защита от пустого мета одни на оба.
+        private static int BySize(KeyValuePair<string, LvnAssetMeta> a,
+                                  KeyValuePair<string, LvnAssetMeta> b)
+            => (a.Value?.size ?? 0).CompareTo(b.Value?.size ?? 0);
+
+        private static int ByEta(KeyValuePair<string, LvnAssetMeta> a,
+                                 KeyValuePair<string, LvnAssetMeta> b)
+            => (a.Value?.eta_ms ?? 0).CompareTo(b.Value?.eta_ms ?? 0);
+
+        // Путь — последний ключ ВСЕГДА: без него порядок равных зависел бы от
+        // того, как их сложил словарь, и очередь менялась бы от запуска к запуску.
+        private static int ByPath(KeyValuePair<string, LvnAssetMeta> a,
+                                  KeyValuePair<string, LvnAssetMeta> b)
+            => string.CompareOrdinal(a.Key, b.Key);
+
+        // Мелочь вперёд, затем ближайшее по времени.
         private static int CompareSizeFirst(KeyValuePair<string, LvnAssetMeta> a,
                                             KeyValuePair<string, LvnAssetMeta> b)
         {
-            long asz = a.Value?.size ?? 0, bsz = b.Value?.size ?? 0;
-            if (asz != bsz) return asz.CompareTo(bsz);
-            long ae = a.Value?.eta_ms ?? 0, be = b.Value?.eta_ms ?? 0;
-            if (ae != be) return ae.CompareTo(be);
-            return string.CompareOrdinal(a.Key, b.Key);
+            int r = BySize(a, b);
+            if (r != 0) return r;
+            r = ByEta(a, b);
+            return r != 0 ? r : ByPath(a, b);
         }
 
-        // earliest eta, then smallest file (quick wins), then path (stable).
+        // Ближайшее по времени, затем мелочь (быстрые победы).
         private static int ComparePriority(KeyValuePair<string, LvnAssetMeta> a,
                                            KeyValuePair<string, LvnAssetMeta> b)
         {
-            long ae = a.Value?.eta_ms ?? 0, be = b.Value?.eta_ms ?? 0;
-            if (ae != be) return ae.CompareTo(be);
-            long asz = a.Value?.size ?? 0, bsz = b.Value?.size ?? 0;
-            if (asz != bsz) return asz.CompareTo(bsz);
-            return string.CompareOrdinal(a.Key, b.Key);
+            int r = ByEta(a, b);
+            if (r != 0) return r;
+            r = BySize(a, b);
+            return r != 0 ? r : ByPath(a, b);
         }
 
     }
