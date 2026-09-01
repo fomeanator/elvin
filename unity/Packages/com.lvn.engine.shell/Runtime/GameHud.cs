@@ -10,13 +10,6 @@ using UnityEngine.UIElements;
 namespace Lvn.UI.Screens
 {
     /// <summary>
-    /// The in-game top HUD, themed from a <see cref="HudConfig"/> (manifest
-    /// <c>ui.hud</c>): a thin strip with chapter progress on the left (optional
-    /// icon + percent) and a row of currency pills (icon + amount) on the right.
-    /// Pills are created on demand. <see cref="SetProgress"/> uses the shared
-    /// <see cref="Percent"/> rule so every "%" in the UI matches the loading bar.
-    /// </summary>
-    /// <summary>
     /// ⚠ ПОЛОСА БОЛЬШЕ НЕ ЖИВЁТ В ИГРЕ (решение Ильи 26.08). Её работу —
     /// прогресс главы и балансы валют — взял единый навбар
     /// (<see cref="LvnTopBar"/>): в сцене они висят мини-бабликами по углам,

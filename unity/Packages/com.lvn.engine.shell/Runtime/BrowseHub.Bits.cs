@@ -33,8 +33,6 @@ namespace Lvn.UI.Screens
             return b;
         }
 
-        /// <summary>Метка на карточке: иконка, подпись или и то и другое.
-        /// Пустой текст — иконка одна, и метка сжимается до неё.</summary>
         /// <summary>
         /// ЧИП ЦЕНЫ — облик берёт Ценник, а не эта функция.
         ///
@@ -71,6 +69,8 @@ namespace Lvn.UI.Screens
             return LvnStyler.Chip(ScreenUi.Row(), LvnTokens.Veil(0.28f));
         }
 
+        /// <summary>Метка на карточке: иконка, подпись или и то и другое.
+        /// Пустой текст — иконка одна, и метка сжимается до неё.</summary>
         private VisualElement Chip(string text, Color color, LvnIcon icon = LvnIcon.None)
         {
             var chip = ChipShell();

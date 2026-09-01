@@ -38,14 +38,6 @@ namespace Lvn.UI
         private const float Grid = 24f;
 
         /// <summary>
-        /// Готовый элемент с иконкой.
-        /// </summary>
-        /// <param name="icon">что рисуем</param>
-        /// <param name="size">сторона в пикселях холста</param>
-        /// <param name="color">цвет линии</param>
-        /// <param name="stroke">толщина линии; 0 — пропорционально размеру</param>
-        /// <param name="glow">свечение под линией: 0 — нет, 1 — заметное</param>
-        /// <summary>
         /// Значок нужного размера и цвета.
         ///
         /// <para>СВЕЧЕНИЕ ПО УМОЛЧАНИЮ БЕРЁТСЯ У ТЕМЫ. Оно её примета:
@@ -60,6 +52,11 @@ namespace Lvn.UI
         /// намеренно — там значок сам по себе приглушён, и ореол вокруг
         /// тусклого читается как грязь.</para>
         /// </summary>
+        /// <param name="icon">что рисуем</param>
+        /// <param name="size">сторона в пикселях холста</param>
+        /// <param name="color">цвет линии</param>
+        /// <param name="stroke">толщина линии; 0 — пропорционально размеру</param>
+        /// <param name="glow">свечение под линией: 0 — нет, 1 — заметное</param>
         public static VisualElement Make(LvnIcon icon, float size, Color color,
                                          float stroke = 0f, float? glow = null)
         {
