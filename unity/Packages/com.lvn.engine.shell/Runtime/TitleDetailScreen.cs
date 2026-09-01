@@ -249,14 +249,13 @@ namespace Lvn.UI.Screens
 
         private VisualElement Chip(string text)
         {
-            var chip = new VisualElement();
-            LvnAir.PadX(chip, LvnTokens.Space2);
-            LvnAir.PadY(chip, LvnTokens.Space1);
+            // Отличия от прочих ярлыков — прямо здесь: пилюля вместо
+            // скругления, рамка и вертикальный отступ пошире.
+            var chip = LvnStyler.Chip(new VisualElement(), LvnTokens.SurfaceHi,
+                                      LvnTokens.RadiusPill, LvnTokens.Border,
+                                      padY: LvnTokens.Space1);
             chip.style.marginBottom = LvnTokens.Space2;
             chip.style.marginRight = LvnTokens.Space2;
-            chip.style.backgroundColor = LvnTokens.SurfaceHi;
-            LvnChrome.Border(chip, LvnTokens.Border, 1f);
-            LvnChrome.Round(chip, LvnTokens.RadiusPill); // pill
 
             var lbl = new Label(text);
             lbl.style.color = LvnTokens.TextDim;

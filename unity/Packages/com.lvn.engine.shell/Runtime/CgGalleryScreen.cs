@@ -97,10 +97,8 @@ namespace Lvn.UI.Screens
             _counter = new Label();
             _counter.style.color = LvnTokens.Gold;
             _counter.style.fontSize = LvnTokens.TextXs;
-            LvnAir.PadX(_counter, LvnTokens.Space2);
-            LvnAir.PadY(_counter, LvnTokens.Space1);
-            _counter.style.backgroundColor = LvnTokens.Veil(0.35f);
-            LvnChrome.Round(_counter, LvnTokens.Radius);
+            LvnStyler.Chip(_counter, LvnTokens.Veil(0.35f), LvnTokens.Radius,
+                           padY: LvnTokens.Space1);
             header.Add(_counter);
 
             // ── Grid of tiles ──────────────────────────────────────────────────

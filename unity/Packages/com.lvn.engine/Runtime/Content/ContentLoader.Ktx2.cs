@@ -79,6 +79,22 @@ namespace Lvn.Content
         /// <summary>Пропустить ktx2 для этого адреса ИМЕННО СЕЙЧАС: он холодный,
         /// сервер его кодирует. Следующий заход спросит снова — память о холоде
         /// живёт до первого попадания, а не до перезапуска.</summary>
+        /// <summary>Сколько раз подождать код, который сервер ещё не собрал, и
+        /// по сколько. Полторы секунды на попытку — примерно столько basisu
+        /// кодирует один крупный файл; пять попыток покрывают очередь из
+        /// нескольких, не превращая холодный старт в зависание.</summary>
+        private const int Ktx2Waits = 5;
+        private const int Ktx2WaitMs = 1500;
+
+        /// <summary>Забыть, что этот код был холодным: иначе повтор уйдёт в тот
+        /// же пропуск и ждать будет незачем.</summary>
+        private void ForgetKtx2Cold(string url)
+        {
+            var ktx2Url = Ktx2UrlFor(url);
+            if (ktx2Url == null) return;
+            lock (_ktx2Lock) _ktx2Cold.Remove(ktx2Url);
+        }
+
         private bool Ktx2Skipped(string ktx2Url)
         {
             lock (_ktx2Lock) return _gpuWithoutKtx2 || _ktx2Cold.Contains(ktx2Url);

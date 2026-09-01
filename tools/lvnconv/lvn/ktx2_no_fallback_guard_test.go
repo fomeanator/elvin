@@ -44,3 +44,40 @@ func TestKtx2HasNoGiveUpLatch(t *testing.T) {
 			"попадания — один промах снова запирает адрес до перезапуска")
 	}
 }
+
+// ХОЛОДНЫЙ КОД ЖДУТ, А НЕ ХОРОНЯТ.
+//
+// Растровой подстраховки у арта истории больше нет, и это верно. Но пока она
+// была, «кода ещё нет» стоило одного медленного показа; без неё тот же ответ
+// с первого промаха означает «картинки не будет НИКОГДА».
+//
+// Смоук-тест поймал это 01.09: обложка куклы не показалась ни разу за прогон,
+// хотя сервер собрал её код через пару секунд. Сервер кодирует и на прогреве,
+// и по первому запросу — холодный файл состояние временное и обычное, а на
+// свежем контенте холодны ВСЕ.
+func TestColdKtx2IsWaitedForNotBuried(t *testing.T) {
+	root := repoRoot(t)
+	body := stripComments(string(mustRead(t, filepath.Join(root,
+		"unity/Packages/com.lvn.engine/Runtime/Content/ContentLoader.Sprites.cs"))))
+	if !strings.Contains(body, "for (int wait = 0; wait < Ktx2Waits; wait++)") {
+		t.Fatal("холодный код больше не ждут — отказ с первого промаха теперь " +
+			"означает «картинки не будет никогда»: растра под ним нет")
+	}
+	if !strings.Contains(body, "ForgetKtx2Cold(url)") {
+		t.Error("повтор не снимает отметку «холодный» — он уйдёт в тот же " +
+			"пропуск, и ждать будет незачем")
+	}
+	i := strings.Index(body, "ForgetKtx2Cold(url)")
+	j := strings.Index(body, "TryDecodeKtx2Async(url, ct)")
+	for j >= 0 && j < i {
+		next := strings.Index(body[j+1:], "TryDecodeKtx2Async(url, ct)")
+		if next < 0 {
+			break
+		}
+		j = j + 1 + next
+	}
+	if i < 0 || j < i {
+		t.Error("забывчивость стоит ПОСЛЕ повторной попытки — попытка уйдёт " +
+			"в пропуск, а снятие отметки достанется следующему кругу")
+	}
+}

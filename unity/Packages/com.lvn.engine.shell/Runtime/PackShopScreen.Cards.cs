@@ -190,11 +190,7 @@ namespace Lvn.UI.Screens
                 chips.style.marginTop = LvnTokens.Space1;
                 foreach (var kv in pack.Grants)
                 {
-                    var chip = ScreenUi.Row();
-                    chip.style.backgroundColor = LvnTokens.Faint;
-                    LvnChrome.Round(chip, LvnTokens.RadiusSm);
-                    LvnAir.PadX(chip, LvnTokens.Space2);
-                    LvnAir.PadY(chip, LvnTokens.Tight);
+                    var chip = LvnStyler.Chip(ScreenUi.Row(), LvnTokens.Faint);
                     chip.style.marginBottom = LvnTokens.Space1;
                     chip.style.marginRight = LvnTokens.Space1;
                     // РЯД СОБИРАЕТ ЦЕННИК. Здесь он складывался руками —
