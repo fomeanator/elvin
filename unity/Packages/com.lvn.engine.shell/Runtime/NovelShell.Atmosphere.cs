@@ -61,7 +61,7 @@ namespace Lvn.UI.Screens
                 LvnChrome.Stretch(veil);
                 // «Реализм» (Илья): фото почти как есть — лишь лёгкая вуаль,
                 // чтобы текст поверх оставался читабельным.
-                veil.style.backgroundColor = new Color(t.Bg.r, t.Bg.g, t.Bg.b, 0.22f);
+                veil.style.backgroundColor = UiColor.WithAlpha(t.Bg, 0.22f);
                 _atmosphere.Add(veil);
                 _canvasTint = new VisualElement { pickingMode = PickingMode.Ignore };
                 LvnChrome.Stretch(_canvasTint);

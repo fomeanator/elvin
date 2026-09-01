@@ -225,11 +225,7 @@ namespace Lvn.UI.Screens
                 case State.Today:
                     cell.style.backgroundColor = LvnTokens.SurfaceHi;
                     LvnChrome.Edge(cell);
-                    cell.style.borderLeftWidth = 2;
-                    cell.style.borderRightWidth = 2;
-                    cell.style.borderTopWidth = 2;
-                    cell.style.borderBottomWidth = 2;
-                    LvnChrome.Tint(cell, LvnTokens.Accent);
+                    LvnChrome.Border(cell, LvnTokens.Accent, 2);
                     break;
                 case State.Claimed:
                     cell.style.backgroundColor = LvnTokens.Surface;
@@ -240,11 +236,7 @@ namespace Lvn.UI.Screens
                 default: // Future
                     cell.style.backgroundColor = LvnTokens.Surface;
                     LvnChrome.Edge(cell);
-                    cell.style.borderLeftWidth = 1;
-                    cell.style.borderRightWidth = 1;
-                    cell.style.borderTopWidth = 1;
-                    cell.style.borderBottomWidth = 1;
-                    LvnChrome.Tint(cell, LvnTokens.Border);
+                    LvnChrome.Border(cell, LvnTokens.Border, 1);
                     break;
             }
 

@@ -121,8 +121,7 @@ namespace Lvn.UI.Screens
             _panel.style.backgroundColor = UiColor.WithAlpha(bg, 0.94f);
             LvnChrome.Edge(_panel);
             LvnChrome.Round(_panel, LvnTokens.Radius);
-            _panel.style.borderTopWidth = 2.5f;
-            _panel.style.borderTopColor = LvnTokens.Accent;
+            LvnChrome.Lid(_panel);
             _panel.style.paddingTop = LvnTokens.Space2; _panel.style.paddingBottom = LvnTokens.Space2;
             _panel.style.paddingLeft = LvnTokens.Space3; _panel.style.paddingRight = LvnTokens.Space3;
             Add(_panel);

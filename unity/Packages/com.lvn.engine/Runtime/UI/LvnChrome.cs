@@ -241,6 +241,22 @@ namespace Lvn.UI
             return UiColor.WithAlpha(c, c.a * strength);
         }
 
+        /// <summary>
+        /// КРЫШКА: акцентная кромка СВЕРХУ и только сверху.
+        ///
+        /// <para>Даёт листу край, которого не хватало на тёмном полотне: без неё
+        /// всплывающая панель сливается с фоном, и непонятно, где она
+        /// начинается. Стояла двумя копиями — у листа накладного экрана и у
+        /// панели вкладки гардероба, — с одинаковой толщиной, набранной
+        /// числом.</para>
+        /// </summary>
+        public static void Lid(VisualElement el, float width = 2.5f)
+        {
+            if (el == null) return;
+            el.style.borderTopWidth = width;
+            el.style.borderTopColor = LvnTokens.Accent;
+        }
+
         public static void Edge(VisualElement el, float strength = 1f)
         {
             var t = LvnTheme.Current;
@@ -248,7 +264,7 @@ namespace Lvn.UI
             float w = t.EdgeWidth;
             el.style.borderTopWidth = w; el.style.borderBottomWidth = w;
             el.style.borderLeftWidth = w; el.style.borderRightWidth = w;
-            var c = new Color(t.Accent.r, t.Accent.g, t.Accent.b, t.EdgeAlpha * strength);
+            var c = UiColor.WithAlpha(t.Accent, t.EdgeAlpha * strength);
             el.style.borderTopColor = c; el.style.borderBottomColor = c;
             el.style.borderLeftColor = c; el.style.borderRightColor = c;
         }

@@ -31,7 +31,7 @@ namespace Lvn.UI.Screens
             _cfg = cfg ?? new ChapterEndConfig();
 
             ScreenUi.Stretch(this);
-            style.backgroundColor = UiColor.Named(_cfg.bg_color, new Color(LvnTokens.Bg.r, LvnTokens.Bg.g, LvnTokens.Bg.b, 0.92f));
+            style.backgroundColor = UiColor.Named(_cfg.bg_color, UiColor.WithAlpha(LvnTokens.Bg, 0.92f));
             style.alignItems = Align.Center;
             style.justifyContent = Justify.Center;
             style.display = DisplayStyle.None;

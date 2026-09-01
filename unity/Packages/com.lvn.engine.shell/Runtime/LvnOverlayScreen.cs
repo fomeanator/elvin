@@ -100,8 +100,7 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(sheet, fullscreen ? 0f : LvnTokens.RadiusLg);
             // Акцентная кромка сверху — «крышка» попапа: даёт листу край,
             // которого не хватало на тёмном полотне.
-            sheet.style.borderTopWidth = 2.5f;
-            sheet.style.borderTopColor = LvnTokens.Accent;
+            LvnChrome.Lid(sheet);
         }
 
         /// <summary>
