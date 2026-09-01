@@ -19,8 +19,14 @@ namespace Lvn.UI
     public sealed class DirectoryAssets : ILvnAssets
     {
         private readonly string _base;
-        private readonly Dictionary<string, Sprite> _spriteCache = new Dictionary<string, Sprite>();
-        private readonly Dictionary<string, AudioClip> _audioCache = new Dictionary<string, AudioClip>();
+        // «Готовое отдаём, начатое разделяем» — у дома (LvnOnce). ЗДЕСЬ БЫЛА
+        // ТОЛЬКО ПЕРВАЯ ПОЛОВИНА: кэш был, а защиты от гонки не было. Стояла
+        // перепроверка кэша после ожидания — она сужает окно, но не закрывает:
+        // оба захода проходят обе проверки, оба строят текстуру, один
+        // результат теряется навсегда вместе с видеопамятью. Сетевой поставщик
+        // эту гонку закрыл ещё летом; сюда правило не доехало.
+        private readonly Lvn.Content.LvnOnce<Sprite> _sprites = new Lvn.Content.LvnOnce<Sprite>();
+        private readonly Lvn.Content.LvnOnce<AudioClip> _audio = new Lvn.Content.LvnOnce<AudioClip>();
 
         /// <summary>Url prefix stripped before mapping to a file (default "/content").</summary>
         public string ContentPrefix = LvnAssetPath.ContentPrefix;
@@ -33,11 +39,11 @@ namespace Lvn.UI
             return rel == null ? null : Path.Combine(_base, rel);
         }
 
-        public async Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct)
-        {
-            if (string.IsNullOrEmpty(url)) return null;
-            if (_spriteCache.TryGetValue(url, out var hit)) return hit;
+        public Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct)
+            => _sprites.GetAsync(url, () => LoadSpriteCoreAsync(url, ct));
 
+        private async Task<Sprite> LoadSpriteCoreAsync(string url, CancellationToken ct)
+        {
             var path = PathFor(url);
             if (path == null || !File.Exists(path)) return null;
 
@@ -45,8 +51,6 @@ namespace Lvn.UI
             try { bytes = await Task.Run(() => File.ReadAllBytes(path), ct); }
             catch { return null; }
             if (ct.IsCancellationRequested) return null;
-
-            if (_spriteCache.TryGetValue(url, out hit)) return hit;
 
             var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
             if (!tex.LoadImage(bytes)) return null;
@@ -56,9 +60,7 @@ namespace Lvn.UI
             // original — see NetworkAssets, which mirrors this exact policy.
             // Потолок размера — только на телефоне: настольная машина держит
             // исходное качество, а телефон показывает всё равно ~1080p.
-            var sprite = Lvn.Content.AssetMemory.MakeSprite(tex, Application.isMobilePlatform);
-            _spriteCache[url] = sprite;
-            return sprite;
+            return Lvn.Content.AssetMemory.MakeSprite(tex, Application.isMobilePlatform);
         }
 
 
@@ -70,11 +72,11 @@ namespace Lvn.UI
             catch { return Task.FromResult<string>(null); }
         }
 
-        public async Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct)
-        {
-            if (string.IsNullOrEmpty(url)) return null;
-            if (_audioCache.TryGetValue(url, out var hit)) return hit;
+        public Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct)
+            => _audio.GetAsync(url, () => LoadAudioCoreAsync(url, ct));
 
+        private async Task<AudioClip> LoadAudioCoreAsync(string url, CancellationToken ct)
+        {
             var path = PathFor(url);
             if (path == null || !File.Exists(path)) return null;
 
@@ -86,19 +88,15 @@ namespace Lvn.UI
             if (!await Lvn.LvnNetWait.AwaitAsync(req, op, ct)) return null;
             if (Lvn.LvnNetWait.Failed(req)) return null;
 
-            if (_audioCache.TryGetValue(url, out hit)) return hit;
-
-            var clip = DownloadHandlerAudioClip.GetContent(req);
-            if (clip != null) _audioCache[url] = clip;
-            return clip;
+            return DownloadHandlerAudioClip.GetContent(req);
         }
 
         // Выгрузка — в общем доме (AssetMemory): у поставщиков разные кэши, но
         // одинаковые правила освобождения. Копия здесь и была тем местом, где
         // «почти одинаково» однажды становится «по-разному».
-        public void Unload(string url) => Lvn.Content.AssetMemory.Forget(url, _spriteCache, _audioCache);
+        public void Unload(string url) => Lvn.Content.AssetMemory.Forget(url, _sprites.Done, _audio.Done);
 
-        public void UnloadAll() => Lvn.Content.AssetMemory.ForgetAll(_spriteCache, _audioCache);
+        public void UnloadAll() => Lvn.Content.AssetMemory.ForgetAll(_sprites.Done, _audio.Done);
 
     }
 }
