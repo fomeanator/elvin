@@ -251,6 +251,10 @@ namespace Lvn.UI.Screens
                         if (ent == null) continue;
                         if (ent["worn"] is JObject worn)
                             foreach (var a in worn.Properties())
+                                // НАРОЧНО мимо костюмера: это политика СЛИЯНИЯ —
+                                // «серверное сильнее» или «локального ещё нет».
+                                // Примерка тут не при чём: она не должна ни
+                                // мешать восстановлению, ни считаться своим.
                                 if (authoritative || !LvnWardrobe.Equipped(prop.Name).ContainsKey(a.Name))
                                     LvnWardrobe.Equip(prop.Name, a.Name, (string)a.Value);
                         if (ent["seen"] is JObject seen)

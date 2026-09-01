@@ -78,7 +78,11 @@ func TestHomesAreNotBypassed(t *testing.T) {
 		// дефолт. Лесенку писали заново пять раз, и шестая копия дожила до
 		// 01.09 в полосе эмоций — НЕПОЛНОЙ, без надетого: выбранная игроком
 		// эмоция без активной примерки подсвечивалась дефолтной.
-		{regexp.MustCompile(`LvnWardrobe\.(Previewed|Equipped)\([^)]*\)\.TryGetValue`),
+		// Написаний у прямого чтения карты три: TryGetValue, ContainsKey и
+		// индексатор. След знал одно — и не увидел ContainsKey в сейфе
+		// прогресса. Третий раз за сутки: образец закрывает ровно то, что
+		// вспомнил его автор.
+		{directMapRead("LvnWardrobe", "Previewed", "Equipped"),
 			"лесенка одежды написана заново",
 			"LvnCostumer.Chosen/Committed/Wearing — или НАРОЧНО, если вопрос правда узкий",
 			regexp.MustCompile(`LvnCostumer\.cs|НАРОЧНО`)},
@@ -244,4 +248,19 @@ func TestHomesAreNotBypassed(t *testing.T) {
 	if len(found) > 0 {
 		t.Fatalf("дом обошли стороной:\n  %s", strings.Join(found, "\n  "))
 	}
+}
+
+// ПРЯМОЕ ЧТЕНИЕ ЧУЖОЙ КАРТЫ — все написания разом.
+//
+// Читать карту, которой владеет дом, можно четырьмя способами: TryGetValue,
+// ContainsKey, индексатором и обходом. След, знающий одно написание, закрывает
+// ровно то, о чём вспомнил его автор, — за сутки это повторилось четырежды
+// (позиционный этаж, «МБ» с пробелом, составное имя цвета, ContainsKey в сейфе
+// прогресса). Поэтому написания перечислены ЗДЕСЬ и один раз: у стражей та же
+// болезнь, что у кода, и лечится она так же — домом.
+func directMapRead(owner string, methods ...string) *regexp.Regexp {
+	alt := strings.Join(methods, "|")
+	return regexp.MustCompile(
+		regexp.QuoteMeta(owner) + `\.(` + alt + `)\([^)]*\)\s*(\.(TryGetValue|ContainsKey|Count|Keys|Values)|\[)` +
+			`|foreach\s*\([^)]*\bin\s+` + regexp.QuoteMeta(owner) + `\.(` + alt + `)\(`)
 }

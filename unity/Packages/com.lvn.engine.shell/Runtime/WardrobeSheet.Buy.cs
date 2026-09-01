@@ -90,6 +90,9 @@ namespace Lvn.UI.Screens
         private bool HasPendingLook()
         {
             if (_def?.wardrobe == null) return false;
+            // НАРОЧНО мимо костюмера: вопрос «есть ли НЕПОДТВЕРЖДЁННАЯ примерка».
+            // Лесенка ответила бы и про надетое — то есть «да» там, где игрок
+            // ничего не менял, и кнопка вечно предлагала бы подтвердить.
             foreach (var kv in LvnWardrobe.Previewed(_entity))
             {
                 if (!_def.wardrobe.ContainsKey(kv.Key)) continue;
@@ -176,6 +179,9 @@ namespace Lvn.UI.Screens
                 // CHOOSE: commit every previewed piece the player owns (or that
                 // is free). An unowned priced piece browsed on another tab was
                 // never bought — snap it back rather than silently charging.
+                // НАРОЧНО мимо костюмера: снимок ВСЕХ примерок целиком, а не
+                // ответ про одну ось. Лесенка тут не нужна — нужно ровно то,
+                // что игрок сейчас крутит и за что ещё не заплатил.
                 var previewed = new Dictionary<string, string>();
                 foreach (var kv in LvnWardrobe.Previewed(_entity)) previewed[kv.Key] = kv.Value;
                 LvnLog.Trace($"[lvn-wardrobe] sheet CHOOSE: previewed [{string.Join(", ", ToPairs(previewed))}], " +
