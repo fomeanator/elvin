@@ -95,7 +95,7 @@ namespace Lvn.Content
                     _background.Release();
                     throw;
                 }
-                var seat = new Seat();
+                var seat = new Seat { Background = true };
                 lock (_seats) _seats.Add(seat);
                 return new Pass(this, seat);
             }
@@ -106,7 +106,7 @@ namespace Lvn.Content
             // фоновую очередь ради одного кадра.
             if (_all.CurrentCount == 0) AskOneToYield();
             await _all.WaitAsync(ct).ConfigureAwait(false);
-            return new Pass(this, null);
+            return new Pass(this, new Seat());
         }
 
         private void AskOneToYield()
@@ -120,11 +120,32 @@ namespace Lvn.Content
             try { victim.Yield.Cancel(); } catch { /* уже ушёл — не беда */ }
         }
 
+        /// <summary>
+        /// МЕСТО ВОЗВРАЩАЮТ РОВНО ОДИН РАЗ, сколько бы раз ни попросили.
+        ///
+        /// <para>Место — структура, и отдать её дважды легко: <c>using var</c>
+        /// плюс явный <c>Dispose()</c>, копия структуры, повторный выход по
+        /// ошибке. Без защиты второй возврат ШИРИТ полосу: у неё появляется
+        /// место сверх объявленной ширины, и так — с каждым повтором. Это та же
+        /// беда, что утечка места, только вывернутая наизнанку, и заметить её
+        /// ещё труднее: ничего не зависает, просто в канал лезет больше, чем
+        /// решено.</para>
+        ///
+        /// <para>Поймано собственным тестом 01.09: <c>SemaphoreFullException</c>
+        /// на двойном возврате. Полоса имела право упасть — но правильнее не
+        /// падать, а не считать второй возврат возвратом.</para>
+        /// </summary>
         private void Leave(Seat seat)
         {
-            _all.Release();
             if (seat == null) return;
-            lock (_seats) _seats.Remove(seat);
+            lock (_seats)
+            {
+                if (seat.Left) return;
+                seat.Left = true;
+                if (seat.Background) _seats.Remove(seat);
+            }
+            _all.Release();
+            if (!seat.Background) return;
             seat.Yield.Dispose();
             _background.Release();
         }
@@ -133,7 +154,9 @@ namespace Lvn.Content
         internal sealed class Seat
         {
             public readonly CancellationTokenSource Yield = new CancellationTokenSource();
-            public bool Asked;
+            public bool Asked;       // место уже просили вернуть
+            public bool Background;  // фоновое: только у такого просят
+            public bool Left;        // уже вернули; второй возврат — не возврат
         }
 
         // Занятые фоном места, в порядке занятия: первый в списке — самый давний.
@@ -151,7 +174,7 @@ namespace Lvn.Content
             /// <summary>Срабатывает, когда место просят вернуть живому. Живое
             /// место не просят никогда — у него признак пустой.</summary>
             public CancellationToken Yield
-                => _seat != null ? _seat.Yield.Token : CancellationToken.None;
+                => _seat != null && _seat.Background ? _seat.Yield.Token : CancellationToken.None;
 
             /// <summary>Место уже попросили вернуть. Отличать от отмены
             /// вызывающего обязан тот, кто ловит: уступка означает «зайти

@@ -169,7 +169,7 @@ namespace Lvn.Tests
         public async Task Живого_уступить_не_просят()
         {
             var lane = new LvnLane("проба", width: 1, keptForLive: 0);
-            using var живое = await lane.EnterAsync(LvnRung.Live, CancellationToken.None);
+            var живое = await lane.EnterAsync(LvnRung.Live, CancellationToken.None);
             Assert.IsFalse(живое.Yield.CanBeCanceled,
                 "у живого места есть признак уступки — значит однажды его и попросят");
 
@@ -198,6 +198,23 @@ namespace Lvn.Tests
             старший.Dispose();
             (await живое2).Dispose();
             младший.Dispose();
+        }
+
+        [Test]
+        public async Task Место_возвращают_один_раз_сколько_бы_раз_ни_просили()
+        {
+            // Место — структура, и отдать её дважды легко: using var плюс явный
+            // Dispose, копия структуры, повторный выход по ошибке. Без защиты
+            // второй возврат ШИРИТ полосу — место сверх объявленной ширины, и
+            // так с каждым повтором. Поймано этим же набором: полоса падала с
+            // SemaphoreFullException, то есть имела право, но не должна.
+            var lane = new LvnLane("проба", width: 1, keptForLive: 0);
+            var место = await lane.EnterAsync(LvnRung.Live, CancellationToken.None);
+            место.Dispose();
+            место.Dispose();
+            место.Dispose();
+            Assert.AreEqual(1, lane.Free,
+                "полоса расширилась на повторных возвратах: в канал полезет больше, чем решено");
         }
     }
 }
