@@ -747,29 +747,18 @@ func renameProtagonistSpeaker(res *Result, xd XlsxData, tpl *Template) {
 }
 
 func renameSpeakerInScript(sf *ScriptFile, tpl *Template, _ string) {
-	ops, rewrap, ok := decodeScriptOps(sf.Data)
-	if !ok {
-		return
-	}
-	if applyProtagonistSpeakerRename(ops, tpl) {
-		if b, err := json.Marshal(rewrap(ops)); err == nil {
-			sf.Data = b
-		}
-	}
+	editScript(sf, func(ops []map[string]any) ([]map[string]any, bool) {
+		return ops, applyProtagonistSpeakerRename(ops, tpl)
+	})
 }
 
 // seedPlayerDefault prepends `set <playerVar>=<name> default=true` so the player
 // template always resolves; the name-input screen (run at novel start) overrides it.
 func seedPlayerDefault(sf *ScriptFile, playerVar, name string) {
-	ops, rewrap, ok := decodeScriptOps(sf.Data)
-	if !ok {
-		return
-	}
-	seed := map[string]any{"op": "set", "key": playerVar, "value": name, "default": true}
-	ops = append([]map[string]any{seed}, ops...)
-	if b, err := json.Marshal(rewrap(ops)); err == nil {
-		sf.Data = b
-	}
+	editScript(sf, func(ops []map[string]any) ([]map[string]any, bool) {
+		seed := map[string]any{"op": "set", "key": playerVar, "value": name, "default": true}
+		return append([]map[string]any{seed}, ops...), true
+	})
 }
 
 // axisTokenRe matches a catalog layer's axis placeholder, e.g. `{emotion}`/`{outfit}`.
@@ -1127,15 +1116,40 @@ func trimmedLocations(in map[string]string) map[string]string {
 
 // rewriteScriptOps parses a compiled script's ops, rewrites background urls and
 // inserts audio ops, then re-marshals it back into the same JSON shape it had.
-func rewriteScriptOps(sf *ScriptFile, bgidx map[string]string, tpl *Template) {
+// editScript — РАСПАКОВАТЬ КОМАНДЫ СКРИПТА, ДАТЬ ИХ ИЗМЕНИТЬ, УПАКОВАТЬ ОБРАТНО.
+//
+// Конверт стоял четырьмя копиями: переписывание фонов, посев имени игрока,
+// переименование говорящего и вычистка объявленных умолчаний. Одинаковых строк
+// в каждой паре — восемь из девяти.
+//
+// Копия тут опаснее, чем кажется. Скрипт бывает завёрнут по-разному (голый
+// список команд или документ с полями), и `decodeScriptOps` возвращает СПОСОБ
+// ЗАВЕРНУТЬ ОБРАТНО вместе с самими командами. Забудь кто-нибудь позвать
+// `rewrap` — и скрипт запишется голым списком: глава потеряет всё, что лежало
+// вокруг команд, а заметить это можно только по игре, которая перестала знать
+// про свои настройки.
+//
+// `edit` возвращает новые команды и было ли что менять: перезапись без перемен
+// не бесплатна — она переупаковывает JSON и меняет файл на диске, а значит и
+// его отпечаток в манифесте.
+func editScript(sf *ScriptFile, edit func([]map[string]any) ([]map[string]any, bool)) {
 	ops, rewrap, ok := decodeScriptOps(sf.Data)
 	if !ok {
 		return
 	}
-	ops = transformOps(ops, bgidx, tpl)
-	if b, err := json.Marshal(rewrap(ops)); err == nil {
+	next, changed := edit(ops)
+	if !changed {
+		return
+	}
+	if b, err := json.Marshal(rewrap(next)); err == nil {
 		sf.Data = b
 	}
+}
+
+func rewriteScriptOps(sf *ScriptFile, bgidx map[string]string, tpl *Template) {
+	editScript(sf, func(ops []map[string]any) ([]map[string]any, bool) {
+		return transformOps(ops, bgidx, tpl), true
+	})
 }
 
 // transformOps applies the per-op background rewrite and audio insertion.
