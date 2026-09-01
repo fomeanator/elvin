@@ -140,7 +140,7 @@ namespace Lvn.UI.Screens
         {
             await System.Threading.Tasks.Task.Delay(
                 (int)(MenuReturnFadeSeconds * MenuHeroineDelay * 1000f));
-            if (_chapterPlaying) return;   // успели уйти обратно в главу
+            if (InChapter) return;   // успели уйти обратно в главу
             // КАТСЦЕНА УЖЕ МОГЛА ЕЁ ПОСТАВИТЬ. Возвращение из главы ставит куклу
             // трижды: портал (по центру, перед всеми), эта отложенная
             // перестановка и витрина меню. Каждая двигала её заново — героиня
@@ -197,9 +197,9 @@ namespace Lvn.UI.Screens
 
         private void ShowMenuScene(bool withPortal)
         {
-            if (Stage == null || _chapterPlaying)
+            if (Stage == null || InChapter)
             {
-                LvnLog.Trace($"[lvn-menu] сцена меню ПРОПУЩЕНА: stage={(Stage != null)}, играется глава={_chapterPlaying}");
+                LvnLog.Trace($"[lvn-menu] сцена меню ПРОПУЩЕНА: stage={(Stage != null)}, играется глава={InChapter}");
                 return;
             }
             var canvas = _manifest?.ui?.browse?.canvas;
@@ -268,7 +268,7 @@ namespace Lvn.UI.Screens
         private float _menuPanFrom, _menuPanTo;
         private void PanMenuScene(int fromTab, int toTab)
         {
-            if (Stage == null || _chapterPlaying) return;
+            if (Stage == null || InChapter) return;
             var canvas = _manifest?.ui?.browse?.canvas;
             if (string.IsNullOrEmpty(canvas)) return;
             // Куда едет камера полотна — знает витрина (LvnMenuStage.PanFor;
@@ -349,7 +349,7 @@ namespace Lvn.UI.Screens
         {
             if (Stage == null) return;
             Stage.Healer.Watch("полотно витрины",
-                () => !_chapterPlaying
+                () => !InChapter
                       && !string.IsNullOrEmpty(_manifest?.ui?.browse?.canvas)
                       && !Stage.BackdropHasArt,
                 () =>
@@ -370,7 +370,7 @@ namespace Lvn.UI.Screens
         {
             if (!LvnLog.Verbose) return;
             await System.Threading.Tasks.Task.Delay(1500);
-            if (!_chapterPlaying) Stage?.DumpOpaqueGraphics();
+            if (!InChapter) Stage?.DumpOpaqueGraphics();
         }
 
         /// <summary>Витрина уходит с экрана — снимает свой слой. Не «прячет

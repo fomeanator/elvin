@@ -120,7 +120,7 @@ namespace Lvn.UI.Screens
         // «Идёт ли глава» знал каждый файл своей копией; теперь это ОДНА
         // правда Режиссёра, а здесь — окно в неё («назад» в игре принадлежит
         // сцене, не ленте).
-        private bool _inChapter => Lvn.UI.LvnScreenDirector.Current.InChapter;
+        private bool InChapter => Lvn.UI.LvnScreenDirector.Current.InChapter;
 
 
         /// <summary>Переезд вкладки (from, to) — хост панорамирует сцену меню.</summary>

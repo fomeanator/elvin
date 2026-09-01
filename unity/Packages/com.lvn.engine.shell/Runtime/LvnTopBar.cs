@@ -64,13 +64,13 @@ namespace Lvn.UI.Screens
         public void SyncTapZone()
         {
             bool free = TapZoneAvailable?.Invoke() ?? true;
-            bool on = _inGame && !_silent && !_gameBarShown && free;
+            bool on = InChapter && !_silent && !_gameBarShown && free;
             _tapCatcher.pickingMode = on ? PickingMode.Position : PickingMode.Ignore;
             // ДОКТРИНА СЛОЁВ (решение Ильи 26.08): модаль сцены (квик-меню,
             // история, статы) на время жизни подавляет немодальный декор
             // оболочки — баблики прячутся, развёрнутый игровой бар сворачивается.
             // Модали оболочки (магазин, попапы) — осознанно поверх всего.
-            bool modal = _inGame && !free;
+            bool modal = InChapter && !free;
             if (modal && _gameBarShown) ToggleGameBar(false);
             var vis = modal ? Visibility.Hidden : Visibility.Visible;
             _miniPills.style.visibility = vis;
@@ -85,8 +85,9 @@ namespace Lvn.UI.Screens
         private VisualElement _gameRow;   // выезжающий игровой бар (4 кнопки)
         private bool _gameBarShown;
         private readonly VisualElement _tapCatcher;
-        // Режим не хранится: одна правда у Режиссёра, бар лишь одевается по ней.
-        private bool _inGame => Lvn.UI.LvnScreenDirector.Current.InChapter;
+        // Окно в Режиссёра, а не память: имя у вопроса ОДНО на всю оболочку —
+        // искать «идёт ли глава» по трём синонимам было негде.
+        private bool InChapter => Lvn.UI.LvnScreenDirector.Current.InChapter;
         private float _safeTop;
 
         public LvnTopBar()
@@ -414,7 +415,7 @@ namespace Lvn.UI.Screens
         /// ли он за верхней кромкой (вход анимирует translate).</summary>
         public string DebugState =>
             $"display={_row.resolvedStyle.display} translate={_row.resolvedStyle.translate} "
-            + $"opacity={_row.resolvedStyle.opacity:0.00} inGame={_inGame} silent={_silent} "
+            + $"opacity={_row.resolvedStyle.opacity:0.00} inGame={InChapter} silent={_silent} "
             + $"rect=({_row.worldBound.y:0} {_row.worldBound.width:0}x{_row.worldBound.height:0})";
 
         /// <summary>Зарядить вход: бар уведён за верхнюю кромку ещё до показа
@@ -484,12 +485,12 @@ namespace Lvn.UI.Screens
         private void ApplyBarVisibility()
         {
             bool bar = _gameBarShown && !_silent;      // игровой бар развёрнут
-            bool mini = _inGame && !_silent && !bar;   // баблики — дубль бара, вместе не живут
-            Vis(_row, !_silent && (bar || !_inGame));
+            bool mini = InChapter && !_silent && !bar;   // баблики — дубль бара, вместе не живут
+            Vis(_row, !_silent && (bar || !InChapter));
             Vis(_gameRow, bar);
             Vis(_miniPills, mini);
             Vis(_miniProgress, mini);
-            Vis(_tapCatcher, _inGame && !_silent);
+            Vis(_tapCatcher, InChapter && !_silent);
         }
 
         private static void Vis(VisualElement el, bool on)
@@ -513,7 +514,7 @@ namespace Lvn.UI.Screens
         // главе вовсе, а подписчики оставались в режиме меню.
         private void ApplyChapterMode()
         {
-            bool inGame = _inGame;
+            bool inGame = InChapter;
             if (_silent)
             {
                 if (!inGame) _silent = false; // выход в меню снимает тишину

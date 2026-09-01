@@ -31,7 +31,7 @@ namespace Lvn.UI.Screens
                 _menuMusic.volume = Lvn.UI.LvnVolumes.Of(Lvn.UI.LvnVolumes.Music); // тумблер и ползунок ведут и меню
                 _leash.Hold(() => Lvn.UI.LvnPrefs.Changed += SyncMenuMusicVolume,
                             () => Lvn.UI.LvnPrefs.Changed -= SyncMenuMusicVolume);
-                if (!_chapterPlaying) _menuMusic.Play();
+                if (!InChapter) _menuMusic.Play();
             }
             catch (Exception ex) { Debug.LogWarning($"[novelapp] музыка меню: {ex.Message}"); }
         }
@@ -59,7 +59,7 @@ namespace Lvn.UI.Screens
                 bool was = _menuMusic.isPlaying;
                 _menuMusic.Stop();
                 _menuMusic.clip = clip;
-                if (was && !_chapterPlaying) _menuMusic.Play();
+                if (was && !InChapter) _menuMusic.Play();
             }
             catch (OperationCanceledException) { }   // приложение закрывают — не отказ
             catch (Exception ex) { Debug.LogWarning($"[novelapp] смена трека меню: {ex.Message}"); }
