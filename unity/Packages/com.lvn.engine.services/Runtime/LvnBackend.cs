@@ -210,8 +210,13 @@ namespace Lvn.Services
             req.downloadHandler = new DownloadHandlerBuffer();
             if (auth && SignedIn) req.SetRequestHeader("Authorization", "Bearer " + Token);
             req.timeout = Lvn.LvnNetPatience.RequestSeconds;
+            // ПО СОБЫТИЮ, А НЕ ОПРОСОМ. Запрос службы короткий, прогресса у
+            // него никто не показывает — каждый оборот «пока не готово —
+            // уступи кадр» это потраченный кадр. Дом ожидания жил в сборке
+            // контента, которой службы не видят; после переезда в ядро он им
+            // доступен, и своя копия цикла больше не нужна.
             var op = req.SendWebRequest();
-            while (!op.isDone) await Task.Yield();
+            await Lvn.LvnNetWait.CompletedAsync(req, op, default);
             bool reached = req.result == UnityWebRequest.Result.Success || req.responseCode != 0;
             // СВЯЗЬ — ФАКТ, А НЕ МНЕНИЕ, и знает его тот, кто только что ходил
             // на сервер. Продуктовые службы ходят на ТОТ ЖЕ адрес, что и

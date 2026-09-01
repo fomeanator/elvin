@@ -289,8 +289,11 @@ namespace Lvn.UI
             if (string.IsNullOrEmpty(path))
                 throw new InvalidOperationException("bundle is unavailable and has no cached copy");
 
+            // ПО СОБЫТИЮ, А НЕ ОПРОСОМ. Прогресса загрузки набора никто не
+            // показывает, значит каждый оборот «пока не готово — уступи кадр»
+            // это потраченный кадр на ровном месте.
             var create = AssetBundle.LoadFromFileAsync(path);
-            while (!create.isDone) await Task.Yield();
+            await Lvn.LvnNetWait.DoneAsync(create);
             var bundle = create.assetBundle;
             if (bundle == null) throw new InvalidOperationException("Unity rejected the AssetBundle");
             if (epoch != _setLoadEpoch)
@@ -300,7 +303,7 @@ namespace Lvn.UI
             }
 
             var request = bundle.LoadAssetAsync<GameObject>(address);
-            while (!request.isDone) await Task.Yield();
+            await Lvn.LvnNetWait.DoneAsync(request);
             var prefab = request.asset as GameObject;
             if (prefab == null || epoch != _setLoadEpoch)
             {

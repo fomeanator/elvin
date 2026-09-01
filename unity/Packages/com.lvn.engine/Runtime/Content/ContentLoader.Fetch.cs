@@ -345,8 +345,9 @@ namespace Lvn.Content
         private static async Task<byte[]> FetchLocalAsync(string url)
         {
             using var req = UnityEngine.Networking.UnityWebRequest.Get(url);
+            // Чтение из APK: прогресса не показывают, ждём по событию.
             var op = req.SendWebRequest();
-            while (!op.isDone) await Task.Yield();
+            await LvnNetWait.CompletedAsync(req, op, default);
             return req.result == UnityEngine.Networking.UnityWebRequest.Result.Success
                 ? req.downloadHandler.data : null;
         }
