@@ -23,13 +23,26 @@ namespace Lvn.UI.World
         /// Так строится КАЖДЫЙ внутренний узел актёра — переход, rig, композит:
         /// они не имеют своего места на сцене, место принадлежит слоту. Пивот
         /// внизу по центру, чтобы поворот и масштаб шли от ног, а не от пояса.</summary>
-        public static void Stretch(RectTransform rt)
+        public static void Stretch(RectTransform rt) => Fill(rt, new Vector2(0.5f, 0f));
+
+        /// <summary>РАСТЯНУТЬ НА ВЕСЬ РОДИТЕЛЬСКИЙ ПРЯМОУГОЛЬНИК — якоря по
+        /// углам, нулевые отступы.
+        ///
+        /// <para>Растягивали дважды: узлы актёра и полотно фона. Отличие было
+        /// РОВНО одно — пивот, и оно осмысленно: у фигуры он внизу по центру
+        /// (поворот и масштаб идут от ног, а не от пояса), у полотна в центре.
+        /// Поэтому пивот приходит доводом, а растяжка живёт здесь: забудь одну
+        /// из четырёх строк, и узел схлопнется в точку — на глаз это выглядит
+        /// как «актёр не появился», и искать будут в загрузке арта.</para>
+        /// </summary>
+        public static void Fill(RectTransform rt, Vector2 pivot)
         {
+            if (rt == null) return;
             rt.anchorMin = Vector2.zero;
             rt.anchorMax = Vector2.one;
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
-            rt.pivot = new Vector2(0.5f, 0f);
+            rt.pivot = pivot;
         }
 
         public static void Apply(RectTransform slot, Placement p, Vector2 size)

@@ -663,14 +663,11 @@ namespace Lvn.Editor
             readonly Dictionary<string, int> _seq = new Dictionary<string, int>();
             readonly HashSet<string> _taken = new HashSet<string>(StringComparer.Ordinal);
 
-            public SynthNamer(IEnumerable<string> lines)
-            {
-                foreach (string l in lines)
-                {
-                    string id = SourceLabelId(l);
-                    if (id != null) _taken.Add(id);
-                }
-            }
+            // Рождение — это первое впитывание, и ничем больше от него не
+            // отличается. Тело стояло копией; в Go-транскодере тот же
+            // конструктор уже зовёт своё `absorb`, а зеркало в C# осталось
+            // писаным — расхождение половин одного механизма на двух языках.
+            public SynthNamer(IEnumerable<string> lines) => Absorb(lines);
 
             /// <summary>A `:label` the AUTHOR wrote opens a new naming scope (a
             /// `__`-prefixed one is itself a lowering artifact).</summary>
