@@ -297,6 +297,28 @@ namespace Lvn.UI
         // to a specific beat. `show=false` (or empty text) dismisses it; a positive
         // `duration` auto-dismisses after that many seconds. Text interpolates
         // {vars} like dialogue. Lives on the HUD layer, ignores the pointer.
+        /// <summary>
+        /// ЗАБЫТЬ ПОДСКАЗКУ — таймер и все ссылки на её части разом.
+        ///
+        /// <para>Подсказка — не одно поле, а четыре: хозяин движения, карточка,
+        /// надпись и отсчёт автоухода. Разбирали их по месту, и слово в слово
+        /// одинаково — при сбросе сцены и при сносе документа; третье место
+        /// гасило только отсчёт. Пятая часть подсказки (значок, кнопка) попала
+        /// бы в одно место из двух, и осталась бы ссылка на элемент,
+        /// оторванный от дерева: он выглядит живым и молча не рисуется.</para>
+        ///
+        /// <para>Отсчёт гасится ПЕРВЫМ: он единственный переживает элементы и
+        /// способен разбудить уже забытое.</para>
+        /// </summary>
+        private void ForgetHint()
+        {
+            _hintHide?.Pause();
+            _hintHide = null;
+            _hintHost = null;
+            _hintCard = null;
+            _hintLabel = null;
+        }
+
         private void ApplyHint(JObject cmd)
         {
             if (_labelLayer == null) return;

@@ -447,8 +447,7 @@ namespace Lvn.UI
                 _uiRoot = null;
                 _menu = null;
                 _labelLayer = null;
-                _hintHide?.Pause(); _hintHide = null;
-                _hintHost = null; _hintCard = null; _hintLabel = null;
+                ForgetHint();
                 _labelEls.Clear();
                 _labelTmpl.Clear();
                 if (_audio != null) { Destroy(_audio); _audio = null; }
