@@ -1163,3 +1163,44 @@ func min(a, b int) int {
 	}
 	return b
 }
+
+// ОТВЕТ «ПОЛУЧИЛОСЬ ЛИ» НЕ БРОСАЮТ В ФОН.
+//
+// Операция, которая возвращает Task<bool>, отвечает на вопрос: списалось,
+// начислилось, выдалось, сохранилось. Брошенная в фон, она уносит ответ с
+// собой — и отказ становится невидимым. Так было со списанием по команде
+// сценария: не хватило средств, история пошла дальше как будто заплатили, и не
+// узнал никто.
+//
+// Правило не «не бросать в фон» — фоном такие вещи делаются правильно, ждать их
+// нельзя. Правило: бросая, оберни в метод, который СКАЖЕТ про отказ.
+func TestSuccessAnswerIsNotDropped(t *testing.T) {
+	root := repoRoot(t)
+	// Операции денег и учётки: их отказ виден игроку, а не только логу.
+	risky := regexp.MustCompile(`LvnAsync\.Fire\((?:\w+\.)*(SpendAsync|EarnAsync|ClaimAsync|SetDisplayNameAsync)\s*\(`)
+
+	var found []string
+	scanned := 0
+	_ = filepath.Walk(filepath.Join(root, "unity/Packages"), func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+			return nil
+		}
+		if strings.Contains(filepath.ToSlash(path), "/Tests/") {
+			return nil
+		}
+		scanned++
+		for i, l := range strings.Split(stripComments(string(mustRead(t, path))), "\n") {
+			if risky.MatchString(l) {
+				found = append(found, fmt.Sprintf("%s:%d: %s", filepath.Base(path), i+1, strings.TrimSpace(l)))
+			}
+		}
+		return nil
+	})
+	atLeast(t, scanned, 100, "просмотренных файлов")
+	if len(found) > 0 {
+		t.Errorf("ответ «получилось ли» брошен в фон (%d):\n  %s\n\n"+
+			"Оберните в метод, который скажет про отказ: расходится не картинка, "+
+			"а деньги и учётка, и заметить это можно только по жалобе игрока.",
+			len(found), strings.Join(found, "\n  "))
+	}
+}

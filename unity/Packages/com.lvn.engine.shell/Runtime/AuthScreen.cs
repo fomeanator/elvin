@@ -200,8 +200,19 @@ namespace Lvn.UI.Screens
             }
             // Fire-and-forget: the name lands on the account when the network
             // allows; Start never waits on the round-trip.
-            if (!string.IsNullOrEmpty(name)) LvnAsync.Fire(Lvn.Services.LvnBackend.SetDisplayNameAsync(name), "SetDisplayName");
+            if (!string.IsNullOrEmpty(name)) LvnAsync.Fire(SaveNameOrSayAsync(name), "SetDisplayName");
             return name;
+        }
+
+        /// <summary>Имя, которое не доехало до учётки. Локально оно уже стоит,
+        /// поэтому игрок ничего не заметит — до второго устройства, где он
+        /// окажется безымянным. Ждать ответа на входе нельзя (это задержало бы
+        /// начало игры), а промолчать — значит потерять единственный след.</summary>
+        private static async Task SaveNameOrSayAsync(string name)
+        {
+            if (await Lvn.Services.LvnBackend.SetDisplayNameAsync(name)) return;
+            Debug.LogWarning($"[lvn] имя «{name}» не сохранилось на учётке — " +
+                "на другом устройстве игрок окажется безымянным.");
         }
 
         public void Hide()
