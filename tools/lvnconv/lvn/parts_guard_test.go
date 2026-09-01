@@ -977,3 +977,49 @@ func TestEveryClientPathIsServed(t *testing.T) {
 			len(missing), strings.Join(missing, "\n  "))
 	}
 }
+
+// ПРО ВВОДНУЮ ЗНАЕТ ЕЁ ДОМ.
+//
+// «Это вводная?» — сравнение поля с литералом — стояло ПЯТЬ раз в четырёх
+// файлах. А «вводная пройдена» решали ДВОЕ и по разным правилам: цикл оболочки
+// по признаку «новелла пройдена», вход в главу — по финалу последней главы.
+// Второе правило заведено потому, что первое промахивалось на живом устройстве
+// («пролог по кругу» на чистой установке) — и встало РЯДОМ с прежним, а не
+// вместо него.
+func TestIntroIsKnownByItsHome(t *testing.T) {
+	root := repoRoot(t)
+	lit := regexp.MustCompile(`"intro"`)
+	flag := regexp.MustCompile(`LvnPrefs\.IntroDone\s*=`)
+
+	var found []string
+	scanned := 0
+	_ = filepath.Walk(filepath.Join(root, "unity/Packages"), func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+			return nil
+		}
+		base := filepath.Base(path)
+		p := filepath.ToSlash(path)
+		if strings.Contains(p, "/Tests/") || base == "LvnIntro.cs" {
+			return nil
+		}
+		scanned++
+		for i, l := range strings.Split(stripComments(string(mustRead(t, path))), "\n") {
+			if lit.MatchString(l) {
+				found = append(found, fmt.Sprintf("%s:%d — «вводная» литералом", base, i+1))
+			}
+			// Забыть метку (сброс устройства) вправе дом забвения: это не
+			// решение «пройдена», а стирание следов.
+			if flag.MatchString(l) && base != "LvnForget.cs" {
+				found = append(found, fmt.Sprintf("%s:%d — второй свидетель «пройдена»", base, i+1))
+			}
+		}
+		return nil
+	})
+	atLeast(t, scanned, 100, "просмотренных файлов")
+	if len(found) > 0 {
+		t.Errorf("про вводную решают мимо её дома (%d):\n  %s\n\n"+
+			"Спросите LvnIntro: свидетель «пройдена» должен быть один, иначе "+
+			"игрок получает пролог по кругу — это уже случалось у партнёра.",
+			len(found), strings.Join(found, "\n  "))
+	}
+}

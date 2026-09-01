@@ -83,11 +83,7 @@ namespace Lvn.UI.Screens
                     // устройстве промахивались — партнёр получил «пролог по
                     // кругу» на чистой установке. Финал последней главы
                     // вводной — единственный надёжный свидетель.
-                    if (string.Equals(title?.type, "intro", StringComparison.OrdinalIgnoreCase))
-                    {
-                        Lvn.UI.LvnPrefs.IntroDone = true;
-                        Debug.Log("[lvn-intro] вводная доиграна до конца — витрина открыта");
-                    }
+                    Lvn.UI.Screens.LvnIntro.NoteFinished(title);
                 }
                 SyncProgressVault();
                 // Between-chapters screen (ui.chapter_end): "Конец главы" with
@@ -96,7 +92,7 @@ namespace Lvn.UI.Screens
                 // пролог кончился, витрина открылась, и кнопка между ними —
                 // лишний щелчок на месте перехода, который должен быть
                 // непрерывным (героиня выходит из главы прямо в меню).
-                bool intro = string.Equals(title?.type, "intro", StringComparison.OrdinalIgnoreCase);
+                bool intro = Lvn.UI.Screens.LvnIntro.Is(title);
                 if (_shell?.ChapterEnd != null && !(intro && next == null))
                 {
                     bool goNext = await _shell.ChapterEnd.ShowAsync(finished.name, hasNext: next != null);
