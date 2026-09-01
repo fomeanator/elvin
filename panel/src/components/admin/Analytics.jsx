@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { analyticsSummary, analyticsFunnel, analyticsHealth, analyticsMoney, analyticsSlides, withSegment, adminCrashes, adminSpendStats } from "../../lib/api.js";
 import { useAsync, fmt } from "../adminShared.jsx";
-import { Page, LoadState, Empty } from "./ui.jsx";
+import { Page, LoadState, Empty, Kpi } from "./ui.jsx";
 import {
   WINDOWS, todayISO, windowQuery, windowLabel, pct, share,
   dropKindLabel, dropKindHint, severity, funnelMax, gapsPending,
@@ -75,13 +75,13 @@ export default function Analytics({ token }) {
         </p>
       )}
       <div className="adm-kpis tight">
-        <Stat label="событий" value={fmt(d.total || 0)} />
-        <Stat label="игроков" value={fmt(d.unique_users || 0)} />
-        <Stat label="стартов глав" value={fmt(sumDays(d.by_day, "chapter_starts"))} />
-        <Stat label="дочитано глав" value={fmt(sumDays(d.by_day, "chapter_finishes"))} />
-        <Stat label="доля отказов" value={pct((d.signals || {}).fail_event_share, 1)}
+        <Kpi label="событий" value={fmt(d.total || 0)} />
+        <Kpi label="игроков" value={fmt(d.unique_users || 0)} />
+        <Kpi label="стартов глав" value={fmt(sumDays(d.by_day, "chapter_starts"))} />
+        <Kpi label="дочитано глав" value={fmt(sumDays(d.by_day, "chapter_finishes"))} />
+        <Kpi label="доля отказов" value={pct((d.signals || {}).fail_event_share, 1)}
               tone={(d.signals || {}).fail_event_share > 0.02 ? "bad" : ""} />
-        <Stat label="игроков с ошибкой" value={pct((d.signals || {}).player_fail_share, 0)}
+        <Kpi label="игроков с ошибкой" value={pct((d.signals || {}).player_fail_share, 0)}
               tone={(d.signals || {}).player_fail_share > 0.1 ? "bad" : ""} />
       </div>
 
@@ -215,14 +215,6 @@ function SpendStats({ token }) {
   );
 }
 
-function Stat({ label, value, tone }) {
-  return (
-    <div className={"adm-kpi as-stat" + (tone ? " " + tone : "")}>
-      <span className="adm-kpi-value">{value}</span>
-      <span className="adm-kpi-label">{label}</span>
-    </div>
-  );
-}
 
 // ── Разрезы ─────────────────────────────────────────────────────────────────
 function Cuts({ summary }) {
@@ -687,12 +679,12 @@ function Money({ token, q }) {
   return (
     <LoadState loading={rep.loading} error={rep.error}>
       <div className="adm-kpis tight">
-        <Stat label={"выручка" + (cur ? ", " + cur : "")} value={money(d.revenue)} />
-        <Stat label="конверсия в платящего" value={pct(d.conversion, 1)} />
-        <Stat label="ARPPU (с платящего)" value={money(d.arppu)} />
-        <Stat label="ARPU (со всех)" value={money(d.arpu)} />
-        <Stat label="средний чек" value={money(d.avg_check)} />
-        <Stat label="платящих" value={fmt(d.payers || 0) + " из " + fmt(d.active_players || 0)} />
+        <Kpi label={"выручка" + (cur ? ", " + cur : "")} value={money(d.revenue)} />
+        <Kpi label="конверсия в платящего" value={pct(d.conversion, 1)} />
+        <Kpi label="ARPPU (с платящего)" value={money(d.arppu)} />
+        <Kpi label="ARPU (со всех)" value={money(d.arpu)} />
+        <Kpi label="средний чек" value={money(d.avg_check)} />
+        <Kpi label="платящих" value={fmt(d.payers || 0) + " из " + fmt(d.active_players || 0)} />
       </div>
       {t && (
         <p className="adm-dim adm-foot-note">
@@ -766,11 +758,11 @@ function Health({ token, q }) {
   return (
     <LoadState loading={rep.loading} error={rep.error}>
       <div className="adm-kpis tight">
-        <Stat label="событий отказа" value={fmt(d.fail_events || 0)} tone={d.fail_events ? "bad" : ""} />
-        <Stat label="доля отказов" value={pct(d.fail_event_share, 2)} />
-        <Stat label={"сессий (" + (s.basis || "—") + ")"} value={fmt(s.total || 0)} />
-        <Stat label="сессий с отказом" value={pct(s.share, 1)} tone={s.share > 0.1 ? "bad" : ""} />
-        <Stat label="битых строк" value={fmt(d.bad_lines || 0)} tone={d.bad_lines ? "bad" : ""} />
+        <Kpi label="событий отказа" value={fmt(d.fail_events || 0)} tone={d.fail_events ? "bad" : ""} />
+        <Kpi label="доля отказов" value={pct(d.fail_event_share, 2)} />
+        <Kpi label={"сессий (" + (s.basis || "—") + ")"} value={fmt(s.total || 0)} />
+        <Kpi label="сессий с отказом" value={pct(s.share, 1)} tone={s.share > 0.1 ? "bad" : ""} />
+        <Kpi label="битых строк" value={fmt(d.bad_lines || 0)} tone={d.bad_lines ? "bad" : ""} />
       </div>
       {s.note && <p className="adm-dim adm-foot-note">{s.note}</p>}
 

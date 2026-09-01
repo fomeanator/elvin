@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { adminFeedback } from "../../lib/api.js";
 import { useAsync, fmt } from "../adminShared.jsx";
-import { Page, LoadState, Empty } from "./ui.jsx";
+import { Page, LoadState, Empty, Kpi } from "./ui.jsx";
 import { WINDOWS, windowQuery, windowLabel } from "../../lib/analytics.js";
 
 // Отзывы из игры.
@@ -47,9 +47,9 @@ export default function Feedback({ token }) {
     >
       <LoadState loading={rep.loading} error={rep.error}>
         <div className="adm-kpis tight">
-          <Stat label="отзывов" value={fmt(d.total || 0)} />
+          <Kpi label="отзывов" value={fmt(d.total || 0)} />
           {builds.slice(0, 4).map(([b, n]) => (
-            <Stat key={b} label={"сборка " + b} value={fmt(n)} />
+            <Kpi key={b} label={"сборка " + b} value={fmt(n)} />
           ))}
         </div>
 
@@ -90,11 +90,3 @@ export default function Feedback({ token }) {
   );
 }
 
-function Stat({ label, value }) {
-  return (
-    <div className="adm-kpi as-stat">
-      <span className="adm-kpi-value">{value}</span>
-      <span className="adm-kpi-label">{label}</span>
-    </div>
-  );
-}
