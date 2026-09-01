@@ -194,7 +194,7 @@ namespace Lvn.UI.Screens
                     chip.style.backgroundColor = LvnTokens.Faint;
                     LvnChrome.Round(chip, LvnTokens.RadiusSm);
                     LvnAir.PadX(chip, LvnTokens.Space2);
-                    LvnAir.PadY(chip, 5);
+                    LvnAir.PadY(chip, LvnTokens.Tight);
                     chip.style.marginBottom = LvnTokens.Space1;
                     chip.style.marginRight = LvnTokens.Space1;
                     // РЯД СОБИРАЕТ ЦЕННИК. Здесь он складывался руками —
@@ -213,7 +213,7 @@ namespace Lvn.UI.Screens
                 var bonus = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("shop.bonus", "+{0} bonus", LvnPriceTag.Amount(pack.Bonus)));
                 bonus.style.color = LvnTokens.Gold;
                 bonus.style.fontSize = LvnTokens.TextXs;
-                bonus.style.marginTop = 4;
+                bonus.style.marginTop = LvnTokens.Tight;
                 bonus.style.unityFontStyleAndWeight = FontStyle.Bold;
                 body.Add(bonus);
             }
@@ -250,7 +250,7 @@ namespace Lvn.UI.Screens
                 ribbon.style.color = gold ? LvnTokens.Bg : LvnTokens.OnAccent;
                 ribbon.style.backgroundColor = gold ? LvnTokens.Gold : LvnTokens.Accent;
                 LvnAir.PadX(ribbon, LvnTokens.Space2);
-                LvnAir.PadY(ribbon, 3);
+                LvnAir.PadY(ribbon, LvnTokens.Hair);
                 LvnChrome.Round(ribbon, LvnTokens.RadiusXs);
                 card.Add(ribbon);
             }

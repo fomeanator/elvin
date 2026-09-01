@@ -149,7 +149,7 @@ namespace Lvn.UI.Screens
         {
             bool locked = IsLocked(t);
             var b = new VisualElement();
-            b.style.height = 370; b.style.flexShrink = 0; b.style.marginBottom = 30;
+            b.style.height = 370; b.style.flexShrink = 0; b.style.marginBottom = LvnEdges.PageSide;
             b.style.overflow = Overflow.Hidden;
             LvnChrome.Round(b, _radius + 2f);
 

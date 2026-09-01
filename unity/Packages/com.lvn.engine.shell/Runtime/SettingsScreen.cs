@@ -490,7 +490,7 @@ namespace Lvn.UI.Screens
                 var h = new Label(hint);
                 h.style.color = _dim;
                 h.style.fontSize = LvnTokens.TextSm;
-                h.style.marginTop = 2;
+                h.style.marginTop = LvnTokens.Hair;
                 h.style.whiteSpace = WhiteSpace.Normal;
                 col.Add(h);
             }

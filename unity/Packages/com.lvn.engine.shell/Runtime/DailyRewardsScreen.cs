@@ -129,7 +129,7 @@ namespace Lvn.UI.Screens
             _subtitle = new Label();
             _subtitle.style.color = LvnTokens.TextDim;
             _subtitle.style.fontSize = LvnTokens.TextSm;
-            _subtitle.style.marginTop = 4;
+            _subtitle.style.marginTop = LvnTokens.Tight;
             titleCol.Add(_subtitle);
 
             var close = new Button(Close) { text = "" };
@@ -244,7 +244,7 @@ namespace Lvn.UI.Screens
             if (premium)
             {
                 var pin = LvnIcons.Make(LvnIcon.Star, 16f, LvnTokens.Gold);
-                pin.style.marginLeft = 5;
+                pin.style.marginLeft = LvnTokens.Tight;
                 labelRow.Add(pin);
             }
             cell.Add(labelRow);
@@ -283,7 +283,7 @@ namespace Lvn.UI.Screens
                 badge.style.color = LvnTokens.OnAccent;
                 badge.style.backgroundColor = LvnTokens.Accent;
                 LvnAir.PadX(badge, LvnTokens.Space1);
-                LvnAir.PadY(badge, 2);
+                LvnAir.PadY(badge, LvnTokens.Hair);
                 LvnChrome.Round(badge, LvnTokens.RadiusXs);
                 cell.Add(badge);
             }

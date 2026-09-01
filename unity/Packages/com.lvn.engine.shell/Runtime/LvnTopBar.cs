@@ -221,7 +221,7 @@ namespace Lvn.UI.Screens
             l.pickingMode = PickingMode.Ignore;
             l.style.color = LvnTokens.Text;
             l.style.fontSize = LvnTokens.TextXs;
-            l.style.marginTop = 5;
+            l.style.marginTop = LvnTokens.Tight;
             b.Add(l);
             b.RegisterCallback<ClickEvent>(_ => onTap());
             return b;

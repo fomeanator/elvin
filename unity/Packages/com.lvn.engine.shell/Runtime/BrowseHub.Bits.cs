@@ -71,7 +71,7 @@ namespace Lvn.UI.Screens
             var chip = ScreenUi.Row();
             chip.style.backgroundColor = LvnTokens.Veil(0.28f);
             LvnAir.PadX(chip, LvnTokens.Space2);
-            LvnAir.PadY(chip, 4);
+            LvnAir.PadY(chip, LvnTokens.Tight);
             LvnChrome.Round(chip, LvnTokens.RadiusSm);
             return chip;
         }
@@ -82,7 +82,7 @@ namespace Lvn.UI.Screens
             if (icon != LvnIcon.None)
             {
                 var ic = LvnIcons.Make(icon, 18f, color);
-                if (!string.IsNullOrEmpty(text)) ic.style.marginRight = 5;
+                if (!string.IsNullOrEmpty(text)) ic.style.marginRight = LvnTokens.Tight;
                 chip.Add(ic);
             }
             if (!string.IsNullOrEmpty(text))
@@ -100,7 +100,7 @@ namespace Lvn.UI.Screens
             var col = new VisualElement();
             ScreenUi.Stretch(col);
             col.style.flexDirection = FlexDirection.Column;
-            LvnAir.PadX(col, 30);
+            LvnAir.PadX(col, LvnEdges.PageSide);
             LvnAir.PadY(col, LvnTokens.Space4);
             return col;
         }

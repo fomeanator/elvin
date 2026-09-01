@@ -144,7 +144,7 @@ namespace Lvn.UI.Screens
             v.style.color = LvnTokens.Text;
             v.style.fontSize = LvnTokens.TextXs;
             v.style.unityFontStyleAndWeight = FontStyle.Bold;
-            v.style.marginTop = 1;
+            v.style.marginTop = LvnTokens.Hair;
             cell.Add(v);
             host.Add(cell);
             return v;
@@ -168,7 +168,7 @@ namespace Lvn.UI.Screens
             l.style.color = LvnTokens.Text;
             l.style.fontSize = LvnTokens.TextSm;
             l.style.unityFontStyleAndWeight = FontStyle.Bold;
-            l.style.marginBottom = 4;
+            l.style.marginBottom = LvnTokens.Tight;
             return l;
         }
 
@@ -230,7 +230,7 @@ namespace Lvn.UI.Screens
             x.style.fontSize = LvnTokens.TextXs;
             // НАРОЧНО порознь: у крестика воздух слева и справа РАЗНЫЙ —
             // палец метит в центр знака, а не в центр кнопки.
-            x.style.paddingLeft = LvnTokens.Space2; x.style.paddingRight = 4;
+            x.style.paddingLeft = LvnTokens.Space2; x.style.paddingRight = LvnTokens.Tight;
             x.style.flexShrink = 0;
             var entry = e;
             x.RegisterCallback<ClickEvent>(ev =>

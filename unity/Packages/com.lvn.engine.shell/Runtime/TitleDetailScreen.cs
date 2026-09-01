@@ -147,8 +147,8 @@ namespace Lvn.UI.Screens
 
             var body = new VisualElement();
             body.style.flexShrink = 0;
-            LvnAir.PadX(body, 30);
-            body.style.paddingBottom = 34;
+            LvnAir.PadX(body, LvnEdges.PageSide);
+            body.style.paddingBottom = LvnEdges.PageSide;
             body.style.paddingTop = LvnTokens.Space3;
             _scroll.Add(body);
 
@@ -360,7 +360,7 @@ namespace Lvn.UI.Screens
                     : state == LvnChapterMark.Current || state == LvnChapterMark.Open ? LvnIcon.Play
                     : LvnIcon.Lock,
                 17f, stateColor);
-            stateIcon.style.marginRight = 5;
+            stateIcon.style.marginRight = LvnTokens.Tight;
             stateBox.Add(stateIcon);
             var stateLbl = new Label(state == LvnChapterMark.Done ? LvnWords.Of("chapter.done", "finished")
                 : state == LvnChapterMark.Current ? LvnWords.Of("chapter.current", "current")
@@ -387,7 +387,7 @@ namespace Lvn.UI.Screens
         {
             bar.Clear();
             bar.style.flexDirection = FlexDirection.Column; // restart row stacks over the play row
-            LvnAir.PadX(bar, 30);
+            LvnAir.PadX(bar, LvnEdges.PageSide);
             bar.style.paddingTop = LvnTokens.Space3;
             bar.style.paddingBottom = LvnTokens.Space3; // + safe inset via ApplySafeArea
             LvnChrome.Divider(bar, LvnSide.Top);

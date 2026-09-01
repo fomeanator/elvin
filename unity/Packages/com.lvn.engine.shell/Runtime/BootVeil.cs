@@ -116,7 +116,7 @@ namespace Lvn.UI.Screens
 
             var ver = new Label("v" + Lvn.LvnEngine.Version);
             ver.style.fontSize = LvnTokens.TextMicro;
-            ver.style.marginTop = 3;
+            ver.style.marginTop = LvnTokens.Hair;
             ver.style.letterSpacing = 3;
             ver.style.color = new Color(0.38f, 0.40f, 0.43f); // блёклый серый
             brand.Add(ver);

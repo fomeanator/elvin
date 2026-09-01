@@ -88,7 +88,7 @@ namespace Lvn.UI.Screens
             // выравнивание по центру не даёт числу «прилипать» к значку.
             _amount.style.minWidth = _look.FontSize * 2.2f;
             _amount.style.unityTextAlign = TextAnchor.MiddleCenter;
-            _amount.style.marginLeft = 4;
+            _amount.style.marginLeft = LvnTokens.Tight;
             _amount.style.flexShrink = 0;   // длинное число не режется многоточием
             Add(_amount);
 
@@ -143,7 +143,7 @@ namespace Lvn.UI.Screens
             var plus = new Button(onPlus) { text = "+" };
             plus.style.fontSize = _look.FontSize;
             LvnAir.PadX(plus, LvnTokens.Space2);
-            LvnAir.PadY(plus, 1);
+            LvnAir.PadY(plus, LvnTokens.Hair);
             plus.style.marginLeft = LvnTokens.Space1;
             // «Плюс» — главное действие пилюли: акцент и текст на акценте.
             // Роль называет это одним словом и переживёт смену темы.

@@ -22,7 +22,7 @@ namespace Lvn.UI.Screens
         {
             var row = new VisualElement();
             row.style.flexShrink = 0; // children of a vertical ScrollView must not shrink
-            row.style.marginBottom = 30;
+            row.style.marginBottom = LvnEdges.PageSide;
 
             var head = ScreenUi.Row(spread: true);
             head.style.marginBottom = LvnTokens.Space2;
@@ -50,7 +50,7 @@ namespace Lvn.UI.Screens
             allText.style.letterSpacing = _theme.Tracking;
             all.Add(allText);
             var allArrow = LvnIcons.Make(LvnIcon.Chevron, 20f, _accent);
-            allArrow.style.marginLeft = 4;
+            allArrow.style.marginLeft = LvnTokens.Tight;
             all.Add(allArrow);
             all.RegisterCallback<ClickEvent>(_ => ShowCollection(c));
             LvnMotion.Tappable(all);
@@ -166,7 +166,7 @@ namespace Lvn.UI.Screens
             {
                 var subLbl = Lvn.UI.LvnRedress.Bind(new Label(),
                     () => Lvn.Content.LvnWords.Name("subtitle", tid0, tsub0));
-                subLbl.style.color = _dim; subLbl.style.fontSize = LvnTokens.TextSm; subLbl.style.marginTop = 4;
+                subLbl.style.color = _dim; subLbl.style.fontSize = LvnTokens.TextSm; subLbl.style.marginTop = LvnTokens.Tight;
                 subLbl.style.whiteSpace = WhiteSpace.NoWrap;
                 subLbl.style.overflow = Overflow.Hidden;
                 subLbl.style.textOverflow = TextOverflow.Ellipsis;
@@ -229,7 +229,7 @@ namespace Lvn.UI.Screens
             var tid1 = t.id; var tsub1 = t.card?.description ?? t.subtitle ?? "";
             var desc = Lvn.UI.LvnRedress.Bind(new Label(),
                 () => Lvn.Content.LvnWords.Name("subtitle", tid1, tsub1));
-            desc.style.color = _dim; desc.style.fontSize = LvnTokens.TextSm; desc.style.marginTop = 5;
+            desc.style.color = _dim; desc.style.fontSize = LvnTokens.TextSm; desc.style.marginTop = LvnTokens.Tight;
             desc.style.whiteSpace = WhiteSpace.Normal;
             desc.style.overflow = Overflow.Hidden;
             col.Add(desc);

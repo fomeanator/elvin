@@ -36,6 +36,11 @@ namespace Lvn.UI
         public const float PageTopMin = 28f;
         /// <summary>Воздух над домашней полосой снизу (нижняя навигация).</summary>
         public const float NavBottomAir = 6f;
+        /// <summary>Поле страницы от боковых краёв экрана: витрина, сборник,
+        /// деталь. Шире нижней ступени шкалы намеренно — это поле СТРАНИЦЫ, а
+        /// не воздух между элементами, и мерить его шкалой отступов
+        /// неправильно. Стояло пятью числами по месту.</summary>
+        public const float PageSide = 30f;
 
         /// <summary>Вырезы устройства в единицах панели: x = сверху, y = снизу.
         /// Ноль, пока элемент не в панели (и на экранах без выреза).</summary>
@@ -55,6 +60,38 @@ namespace Lvn.UI
         /// <summary>Отступ снизу: вырез (домашняя полоса) плюс воздух.</summary>
         public static float Bottom(VisualElement el, float air = 0f)
             => Insets(el).y + air;
+
+        /// <summary>
+        /// НЕ НЫРЯТЬ ПОД НАКЛАДКУ — освободить снизу ровно столько, сколько
+        /// занимает элемент, лежащий поверх.
+        ///
+        /// <para>Высота накладки была ЧИСЛОМ у того, кто под ней: лента витрины
+        /// оставляла себе 124 пикселя, «чтобы не нырять под меню». Число
+        /// измерили рукой один раз, и оно описывает не решение, а ЧУЖУЮ высоту
+        /// — то есть тот же факт, что и вёрстка самого меню, только записанный
+        /// второй раз и в другом файле.</para>
+        ///
+        /// <para>Расходятся такие пары молча. Нижнее меню растёт от размера
+        /// шрифта интерфейса (у игрока эта ручка есть в настройках), и на
+        /// крупном размере лента начинает нырять — ровно то, что число должно
+        /// было предотвратить. Спрашивать надо у накладки, а не помнить за
+        /// неё.</para>
+        /// </summary>
+        public static void Under(VisualElement surface, VisualElement blocker, float air = 0f)
+        {
+            if (surface == null || blocker == null) return;
+            void Apply()
+            {
+                float h = blocker.resolvedStyle.height;
+                // До первой раскладки высоты нет — оставляем прежнее значение:
+                // ноль здесь означал бы «накладки нет», а она есть.
+                if (float.IsNaN(h) || h <= 0f) return;
+                surface.style.paddingBottom = h + air;
+            }
+            blocker.RegisterCallback<GeometryChangedEvent>(_ => Apply());
+            surface.RegisterCallback<AttachToPanelEvent>(_ => Apply());
+            Apply();
+        }
 
         /// <summary>
         /// СЛЕДИТЬ ЗА КРОМКОЙ: вызвать <paramref name="apply"/> сейчас и потом
