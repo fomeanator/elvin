@@ -26,10 +26,7 @@ namespace Lvn.UI.Screens
         // "Загрузить" actually lands.
         private VisualElement BuildSavesSection()
         {
-            var section = new VisualElement();
-            section.style.flexShrink = 0;
-            section.style.marginTop = 36;
-            section.Add(ScreenUi.SectionHeader(LvnWords.Of("saves.title", "Saves")));
+            var section = ScreenUi.Section(() => LvnWords.Of("saves.title", "Saves"));
 
             bool hasProgress = Title != null
                 && LvnProgress.Touched(Title);
