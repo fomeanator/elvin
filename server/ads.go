@@ -248,6 +248,11 @@ func (s *AdsService) loadUser(userID string) (*adsUserDoc, error) {
 }
 
 func (s *AdsService) saveUser(userID string, doc *adsUserDoc) error {
-	data, _ := json.Marshal(doc)
+	// Ошибку упаковки НЕЛЬЗЯ глотать: при сбое data пустая, и запись стёрла бы
+	// состояние игрока пустым файлом — молча, вместо того чтобы отказаться.
+	data, err := json.Marshal(doc)
+	if err != nil {
+		return err
+	}
 	return writeUserFile(s.dir, userID, data)
 }

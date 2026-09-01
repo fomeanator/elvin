@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -220,5 +221,65 @@ func TestNameMismatchRejected(t *testing.T) {
 	err := Sync(root, false)
 	if err == nil || !strings.Contains(err.Error(), "совпад") {
 		t.Fatalf("ожидал отказ по имени, получил: %v", err)
+	}
+}
+
+// КРУГ ЗАМКА: записали — прочитали — то же самое, и БАЙТ В БАЙТ при повторе.
+//
+// Половины писались порознь и не проверялись ни одна. У записи при этом
+// записано правило словами — «пишет детерминированно», — и держалось оно
+// ничем. Цена недетерминизма тихая и обидная: замок в каждом коммите выглядит
+// изменённым, дифф шумит, а на слиянии двух веток получается конфликт там, где
+// содержимое одинаковое.
+func TestLockRoundTripAndDeterminism(t *testing.T) {
+	dir := t.TempDir()
+	l := &Lock{Packages: map[string]LockEntry{
+		"@lvn/ui":    {Ref: "github:lvn/ui@v1", Commit: "abc", Files: map[string]string{"b.lvns": "2", "a.lvns": "1"}},
+		"@lvn/audio": {Ref: "file:../audio", Files: map[string]string{"x.lvns": "9"}},
+	}}
+	if err := writeLock(dir, l); err != nil {
+		t.Fatal(err)
+	}
+	first, err := os.ReadFile(filepath.Join(dir, LockName))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	back, err := readLock(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(l.Packages, back.Packages) {
+		t.Errorf("круг не сошёлся:\n  было  %#v\n  стало %#v", l.Packages, back.Packages)
+	}
+
+	// Второй заход по ПРОЧИТАННОМУ: порядок ключей в карте Go случаен от
+	// запуска к запуску, и если бы запись от него зависела, файл менялся бы
+	// сам собой.
+	if err := writeLock(dir, back); err != nil {
+		t.Fatal(err)
+	}
+	second, _ := os.ReadFile(filepath.Join(dir, LockName))
+	if string(first) != string(second) {
+		t.Errorf("повтор записи дал другой файл — замок недетерминирован:\n  %s\n  %s", first, second)
+	}
+	if len(first) == 0 || first[len(first)-1] != '\n' {
+		t.Error("файл без перевода строки в конце — дифф будет вечно трогать последнюю строку")
+	}
+}
+
+// Замка ещё нет — это НЕ ошибка: проект без него законен, и первый же Sync
+// его напишет. Отличать «нет файла» от «файл битый» обязано чтение, иначе
+// новый проект не собрать вовсе.
+func TestMissingLockIsEmptyNotAnError(t *testing.T) {
+	l, err := readLock(t.TempDir())
+	if err != nil {
+		t.Fatalf("отсутствие замка объявлено ошибкой: %v", err)
+	}
+	if l == nil || l.Packages == nil {
+		t.Fatal("пустой замок обязан быть пригодным к записи, а не nil")
+	}
+	if len(l.Packages) != 0 {
+		t.Errorf("в пустом замке что-то есть: %v", l.Packages)
 	}
 }
