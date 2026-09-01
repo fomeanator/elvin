@@ -128,6 +128,28 @@ namespace Lvn.UI.Screens
         public static Label SectionHeader(System.Func<string> text)
             => DressHeader(Lvn.UI.LvnRedress.Bind(new Label(), text));
 
+        /// <summary>
+        /// РАЗДЕЛ СТРАНИЦЫ: отступ сверху и заголовок в одной коробке.
+        ///
+        /// <para>Обёртка стояла тремя копиями (статы новеллы, главы, сохранения)
+        /// — и отступы в них уже разошлись: 34 у одной, 36 у двух других.
+        /// Разницу в два пикселя никто не задумывал и никто не заметит; она
+        /// просто означает, что общего решения нет.</para>
+        ///
+        /// <para>Заголовок принимается ТОЛЬКО живой связью со словарём. Две из
+        /// трёх копий передавали готовую строку — и заголовок замерзал в момент
+        /// сборки: игрок менял язык, а «Ваши статы» оставались на прежнем.
+        /// Именно этот сорт отказа Илья ловил трижды подряд.</para>
+        /// </summary>
+        public static VisualElement Section(System.Func<string> title)
+        {
+            var section = new VisualElement();
+            section.style.flexShrink = 0;
+            section.style.marginTop = LvnTokens.Space5;
+            section.Add(SectionHeader(title));
+            return section;
+        }
+
         private static Label DressHeader(Label lbl)
         {
             lbl.style.flexShrink = 0;

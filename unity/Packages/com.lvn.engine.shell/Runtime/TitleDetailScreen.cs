@@ -293,10 +293,7 @@ namespace Lvn.UI.Screens
         {
             if (Title?.stats == null || Title.stats.Count == 0) return null;
 
-            var section = new VisualElement();
-            section.style.flexShrink = 0;
-            section.style.marginTop = 34;
-            section.Add(ScreenUi.SectionHeader(LvnWords.Of("stats.title", "Your stats")));
+            var section = ScreenUi.Section(() => LvnWords.Of("stats.title", "Your stats"));
 
             foreach (var s in Title.stats)
                 if (s != null)
@@ -311,10 +308,7 @@ namespace Lvn.UI.Screens
             var chapterList = Title.ChaptersOf();
             if (chapterList.Count == 0) return null;
 
-            var section = new VisualElement();
-            section.style.flexShrink = 0;
-            section.style.marginTop = 36;
-            section.Add(ScreenUi.SectionHeader(LvnWords.Of("chapters.title", "Chapters")));
+            var section = ScreenUi.Section(() => LvnWords.Of("chapters.title", "Chapters"));
 
             // «Что с этой главой» спрашиваем у дома: правило одно на все три
             // списка глав в приложении, а жило оно здесь одним выражением, и
