@@ -310,8 +310,28 @@ namespace Lvn.UI
             return track;
         }
 
-        /// <summary>Подвинуть шкалу: заливка — первый ребёнок дорожки.</summary>
+        /// <summary>ПОСТАВИТЬ шкалу в долю — плавно В ОБЕ СТОРОНЫ.
+        ///
+        /// <para>Для величин, которые честно ходят туда-сюда: здоровье, статы,
+        /// отношения. Потеря — такое же событие, как прибавка, и прыжок назад
+        /// читался бы как сбой отрисовки.</para>
+        ///
+        /// <para>Не путать с <see cref="BarAdvance"/>: у прогресса откат — не
+        /// событие, а поправка учёта. Правила РАЗНЫЕ намеренно, и 01.09 я их
+        /// слил в одно — четыре теста слоя живых значений покраснели сразу же.
+        /// Разница стоит того, чтобы стоять в одном доме и быть названной.</para>
+        /// </summary>
         public static void BarSet(VisualElement track, float frac)
+        {
+            if (track == null || track.childCount == 0) return;
+            var fill = track[0];
+            LvnMotion.Smooth(fill, 220, "width");
+            fill.style.width = Length.Percent(Mathf.Clamp01(frac) * 100f);
+        }
+
+        /// <summary>ПРОДВИНУТЬ шкалу — вперёд едет, назад встаёт сразу.
+        /// Для прогресса: загрузка, скачивание, бут.</summary>
+        public static void BarAdvance(VisualElement track, float frac)
         {
             if (track == null || track.childCount == 0) return;
             FillTo(track[0], frac);
