@@ -162,9 +162,16 @@ namespace Lvn.UI.Screens
             // концом главы: по нему видно, стало ли лучше после правки, — раньше
             // это можно было только почувствовать.
             var (hitches, worstMs) = Lvn.LvnFrameWatch.Take();
+            // ЖИВЫХ ВХОДОВ В ПОЛОСУ — столько, сколько актёров и фонов было на
+            // экране. Число заметно больше означает, что фоновая работа ходит
+            // по сети как живая: ступень объявлена не тому, кто её спросит.
+            LvnLog.Trace(Lvn.Content.LvnLaneWatch.Report());
+            var (liveEnters, worstWaitMs, bgEnters, yields) = Lvn.Content.LvnLaneWatch.Take();
             Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.ChapterFinish,
                 ("title", title?.id), ("chapter", finished.id),
-                ("hitches", hitches), ("worst_ms", worstMs));
+                ("hitches", hitches), ("worst_ms", worstMs),
+                ("lane_live", liveEnters), ("lane_wait_ms", worstWaitMs),
+                ("lane_bg", bgEnters), ("lane_yields", yields));
             FlushUnknownOps(title, finished);
         }
 
