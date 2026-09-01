@@ -44,7 +44,7 @@ namespace Lvn.UI
             if (Assets == null || scene == null) return;
             try
             {
-                var spr = await Assets.LoadSpriteAsync("/content/ui/tile-bg.jpg", _cts.Token);
+                var spr = await Assets.LoadSpriteAsync(LvnAssetPath.Under("ui/tile-bg.jpg"), _cts.Token);
                 if (spr != null && spr.texture != null) scene.Background.SetTile(spr.texture, 140f);
             }
             catch { }   // разбор темы главы: кривое поле не повод не начать главу
