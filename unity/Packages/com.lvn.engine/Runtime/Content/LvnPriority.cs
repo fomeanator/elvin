@@ -87,12 +87,16 @@ namespace Lvn.Content
                 case AssetClass.Script:    return LvnRung.CurrentChapter;
                 case AssetClass.SceneBg:   return LvnRung.CurrentChapter;
                 case AssetClass.Actor:     return LvnRung.Spare;
+                // ЗВУК ГЛАВЫ — её же ступень. По умолчанию он уезжал в
+                // «прочее», то есть за другие новеллы: музыка сцены доезжала
+                // после чужой библиотеки, и тишина в начале главы выглядела
+                // как поломка звука. Страж поймал это на второй минуте жизни
+                // дома — класс без НАЗВАННОЙ ступени молча уходит в хвост.
+                case AssetClass.Audio:     return LvnRung.CurrentChapter;
+                case AssetClass.Other:     return LvnRung.Library;
                 default:                   return LvnRung.Library;
             }
         }
-
-        /// <summary>Ступень по адресу — тот же ответ, когда класс не посчитан.</summary>
-        public static LvnRung OfUrl(string url) => OfClass(DownloadPolicy.Classify(url));
 
         /// <summary>Разложить части по ступеням: сперва ступень, внутри ступени
         /// — как пришло. Порядок внутри ступени НЕ выдумывается: автор

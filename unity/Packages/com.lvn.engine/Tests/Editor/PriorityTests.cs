@@ -60,6 +60,15 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void Звук_главы_не_уезжает_за_другие_новеллы()
+        {
+            Assert.AreEqual(LvnPriority.OfChapterPart(new LvnPart("x", "sprite", 0, critical: false), current: true),
+                            LvnPriority.OfClass(AssetClass.Audio),
+                            "музыка сцены принадлежит текущей главе; по умолчанию она уезжала в «прочее», "
+                            + "то есть за чужую библиотеку, и тишина в начале выглядела поломкой звука");
+        }
+
+        [Test]
         public void Пустой_список_не_роняет()
             => Assert.IsEmpty(LvnPriority.ByRung(new LvnPart[0], p => LvnRung.Live).ToList());
     }

@@ -223,8 +223,10 @@ namespace Lvn.Services
                 // работает.
                 try
                 {
+                    // По событию: длинный опрос комнаты держится минутами,
+                    // и покадровый цикл всё это время жёг бы кадры впустую.
                     var op = req.SendWebRequest();
-                    while (!op.isDone) await Task.Yield();
+                    await Lvn.LvnNetWait.CompletedAsync(req, op, default);
                     return (req.responseCode, req.downloadHandler?.text ?? "");
                 }
                 catch (Exception e) { return (0, e.Message); }
