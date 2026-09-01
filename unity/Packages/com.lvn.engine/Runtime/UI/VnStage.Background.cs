@@ -231,9 +231,14 @@ namespace Lvn.UI
                 case "center": return 0.5f;
                 case "right": return 1f;
             }
-            return float.TryParse(s, System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var v)
-                ? Mathf.Clamp01(v) : (float?)null;
+            if (float.TryParse(s, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var v))
+                return Mathf.Clamp01(v);
+            // Не слово из списка и не число — панорамы не будет вовсе, и
+            // сказать об этом надо здесь: снаружи это выглядит как «фон не
+            // поехал», а не как непонятое слово.
+            Lvn.UI.LvnClosedWord.Unknown("pan", s, "left | center | right | доля 0..1");
+            return null;
         }
 
         /// <summary>`bg3d` — stand a built 3D set behind the scene and frame it.

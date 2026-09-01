@@ -138,6 +138,10 @@ namespace Lvn.UI
                 case "reset":
                     _renderer?.ResetCamera(dur);
                     break;
+                default:
+                    Lvn.UI.LvnClosedWord.Unknown("action", (string)cmd["action"],
+                        "shake | zoom | pan | reset");
+                    break;
             }
         }
     }
