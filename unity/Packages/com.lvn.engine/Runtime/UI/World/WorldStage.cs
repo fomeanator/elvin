@@ -44,13 +44,38 @@ namespace Lvn.UI.World
         private readonly float _canvasCameraDepthBefore;
         private readonly float _canvasCameraDepthForced;
 
-        private readonly Dictionary<string, WorldActor> _actors = new Dictionary<string, WorldActor>();
-        private readonly Dictionary<string, CanvasGroup> _slotGroups = new Dictionary<string, CanvasGroup>();
-        private readonly Dictionary<string, float> _baseOpacity = new Dictionary<string, float>();
+        /// <summary>
+        /// КТО СЕЙЧАС НА СЦЕНЕ — одна запись на актёра.
+        ///
+        /// <para>Памятей было пять, и все по одному ключу: сам объект, его
+        /// группа прозрачности, базовая непрозрачность, явный порядок слоя и
+        /// возраст рождения. Пока их пять, «поставить актёра» — это пять
+        /// записей, а «убрать» — пять удалений, причём В РАЗНЫЕ ГРУППЫ: три
+        /// переживают уборку у героини, две обязаны обнулиться (иначе она
+        /// войдёт в новую сцену с чужим z из катсцены или окажется старше
+        /// всех и потому за спинами).</para>
+        ///
+        /// <para>Такой список не ломается сегодня — он ломается на шестой
+        /// памяти: её заведут, забудут внести в уборку, и сцена начнёт
+        /// протекать между главами. Одна запись убирает и вопрос «все ли
+        /// перечислены», и вопрос «в какую группу».</para>
+        /// </summary>
+        private sealed class Slot
+        {
+            public WorldActor Actor;
+            public CanvasGroup Group;
+            public float BaseOpacity = 1f;
+            public int? Z;          // явный порядок слоя, если сцена его назвала
+            public int Birth;       // возраст: чем меньше, тем дальше за спинами
+
+            /// <summary>Забыть МИЗАНСЦЕНУ, оставив живой объект. Ровно то, что
+            /// уборка делала двумя Clear по отдельным словарям.</summary>
+            public void ForgetStaging() { Z = null; Birth = 0; }
+        }
+
+        private readonly Dictionary<string, Slot> _slots = new Dictionary<string, Slot>();
         // Paint order: explicit z per id (sticky; unset = 0) + birth order as the
         // tie-break: явный z сильнее, при равенстве побеждает пришедший раньше.
-        private readonly Dictionary<string, int> _zExplicit = new Dictionary<string, int>();
-        private readonly Dictionary<string, int> _birth = new Dictionary<string, int>();
         private int _nextSibling;
 
         /// <summary>ХРОНОМЕТРИСТ сцены. Рендерер знает, СКОЛЬКО длится его
@@ -337,7 +362,7 @@ namespace Lvn.UI.World
         /// <summary>Get (or create) the <see cref="WorldActor"/> for an id.</summary>
         public WorldActor EnsureActor(string id)
         {
-            if (_actors.TryGetValue(id, out var a) && a != null)
+            if (_slots.TryGetValue(id, out var slot) && slot.Actor != null)
             {
                 // ВОЗРАСТ ВЫДАЁТСЯ ЗАНОВО ТОМУ, КТО ПЕРЕЖИЛ УБОРКУ. Порядок слоёв
                 // без явного z решает старшинство рождения, а героиня теперь
@@ -345,8 +370,8 @@ namespace Lvn.UI.World
                 // всех, кого сцена покажет после неё. Уборка её возраст забыла;
                 // здесь он назначается по первому показу в новой сцене, ровно
                 // как у остальных.
-                if (!_birth.ContainsKey(id)) _birth[id] = _nextSibling++;
-                return a;
+                if (slot.Birth == 0) slot.Birth = _nextSibling++;
+                return slot.Actor;
             }
             var go = new GameObject("vn-obj-" + id, typeof(RectTransform), typeof(CanvasGroup));
             // Рождается СПРЯТАННЫМ. Переход входа играет на смене видимости, а
@@ -356,12 +381,14 @@ namespace Lvn.UI.World
             // повторный выход того же персонажа.
             go.SetActive(false);
             go.transform.SetParent(_content, false);
-            _birth[id] = _nextSibling++;
-            a = go.AddComponent<WorldActor>();
+            var a = go.AddComponent<WorldActor>();
             a.ContentSize = _reference;
-            _actors[id] = a;
-            _slotGroups[id] = go.GetComponent<CanvasGroup>();
-            _baseOpacity[id] = 1f;
+            _slots[id] = new Slot
+            {
+                Actor = a,
+                Group = go.GetComponent<CanvasGroup>(),
+                Birth = _nextSibling++,
+            };
             // Эффект, заказанный до рождения, доставляется прямо сейчас: слоёв
             // ещё нет, но состояние драйвера липкое — Configure оденет их
             // готовыми (см. Reskin), без единого кадра «светлой вспышки».
@@ -419,8 +446,8 @@ namespace Lvn.UI.World
         public int HushDeadLayers()
         {
             int hushed = 0;
-            foreach (var kv in _actors)
-                if (kv.Value != null) hushed += kv.Value.HideDeadLayers();
+            foreach (var kv in _slots)
+                if (kv.Value.Actor != null) hushed += kv.Value.Actor.HideDeadLayers();
             return hushed;
         }
 
@@ -461,8 +488,8 @@ namespace Lvn.UI.World
             if (p.SmoothPosition && wasVisible && p.Show)
                 a.MoveSlotBase(previousSlotBase, targetSlotBase, p.TransitionDuration);
 
-            _baseOpacity[id] = p.Opacity;
-            _slotGroups.TryGetValue(id, out var g);
+            CanvasGroup g = null;
+            if (_slots.TryGetValue(id, out var sl)) { sl.BaseOpacity = p.Opacity; g = sl.Group; }
 
             // ПОЯВЛЕНИЕ И УХОД — ТОЛЬКО НА СМЕНЕ ВИДИМОСТИ. Смена позы или
             // эмоции идёт тем же путём `actor`, и если проявлять на каждом
@@ -579,9 +606,9 @@ namespace Lvn.UI.World
         public List<string> ActorsWithDeadLayers()
         {
             List<string> dead = null;
-            foreach (var kv in _actors)
+            foreach (var kv in _slots)
             {
-                var a = kv.Value;
+                var a = kv.Value.Actor;
                 if (a == null || !a.gameObject.activeInHierarchy) continue;
                 if (a.HasDeadLayers()) (dead ??= new List<string>()).Add(kv.Key);
             }
@@ -658,7 +685,7 @@ namespace Lvn.UI.World
             // SetSiblingIndex(z) treated z as a CHILD INDEX: on a six-child canvas
             // z=10 and z=80 both clamped to "last", so whichever object finished
             // its async apply later drew on top (руки под скелетом в бою 1-на-1).
-            if (p.Z.HasValue) _zExplicit[id] = p.Z.Value;
+            if (p.Z.HasValue && _slots.TryGetValue(id, out var zs)) zs.Z = p.Z.Value;
             ResortSiblings();
         }
 
@@ -680,19 +707,19 @@ namespace Lvn.UI.World
         // while z-объекты stack by value no matter which async apply lands last.
         private void ResortSiblings()
         {
-            var order = new List<KeyValuePair<string, WorldActor>>(_actors.Count);
-            foreach (var kv in _actors) if (kv.Value != null) order.Add(kv);
+            var order = new List<KeyValuePair<string, Slot>>(_slots.Count);
+            foreach (var kv in _slots) if (kv.Value.Actor != null) order.Add(kv);
             order.Sort((x, y) =>
             {
-                int zx = _zExplicit.TryGetValue(x.Key, out var a) ? a : 0;
-                int zy = _zExplicit.TryGetValue(y.Key, out var b) ? b : 0;
+                int zx = x.Value.Z ?? 0;
+                int zy = y.Value.Z ?? 0;
                 if (zx != zy) return zx.CompareTo(zy);
-                int bx = _birth.TryGetValue(x.Key, out var c) ? c : 0;
-                int by = _birth.TryGetValue(y.Key, out var d) ? d : 0;
+                int bx = x.Value.Birth;
+                int by = y.Value.Birth;
                 return bx.CompareTo(by);
             });
             for (int i = 0; i < order.Count; i++)
-                order[i].Value.transform.SetSiblingIndex(i);
+                order[i].Value.Actor.transform.SetSiblingIndex(i);
         }
 
         // Legacy builds may have left a speaker-focus tint on live Graphics.
@@ -711,20 +738,20 @@ namespace Lvn.UI.World
         /// seam so older hosts also clear any focus tint they may have applied.</summary>
         public void SetSpeaker(string id)
         {
-            foreach (var kv in _slotGroups)
-                ClearFocusTint(kv.Value);
+            foreach (var kv in _slots)
+                ClearFocusTint(kv.Value.Group);
         }
 
         /// <summary>Automatic non-speaker dimming is disabled. Always restore
         /// neutral RGB for every actor, including after a hot content rebuild.</summary>
         public void HighlightSpeaker(string who)
         {
-            foreach (var kv in _slotGroups)
-                ClearFocusTint(kv.Value);
+            foreach (var kv in _slots)
+                ClearFocusTint(kv.Value.Group);
         }
 
-        public bool HasActor(string id) => _actors.TryGetValue(id, out var a) && a != null;
-        public WorldActor ActorFor(string id) => _actors.TryGetValue(id, out var a) ? a : null;
+        public bool HasActor(string id) => _slots.TryGetValue(id, out var s) && s.Actor != null;
+        public WorldActor ActorFor(string id) => _slots.TryGetValue(id, out var s) ? s.Actor : null;
 
         // ── animation (id-based: VnStage зовёт один API для всех актёров) ──
         public void SetFrames(string id, Dictionary<string, Dictionary<string, Sprite>> frames)
@@ -758,27 +785,29 @@ namespace Lvn.UI.World
             // «героиня пропадает» — зазор между смертью одной и рождением
             // другой (Илья, 27.08). Кто остаётся — решает сцена (KeepAlive);
             // его размещение, порядок слоя и возраст рождения остаются с ним.
-            foreach (var kv in _actors)
+            foreach (var kv in _slots)
             {
+                var actor = kv.Value.Actor;
                 if (Keeps(kv.Key))
                 {
                     // ОСТАЁТСЯ ЖИТЬ, НО УХОДИТ СО СЦЕНЫ. Кадр новой главы обязан
                     // быть чистым: иначе кукла из витрины меню так и стоит в нём
                     // до первой команды о ней. Объект и его слои целы —
                     // показать её снова стоит ноль загрузок.
-                    if (kv.Value != null) kv.Value.gameObject.SetActive(false);
+                    if (actor != null) actor.gameObject.SetActive(false);
                     continue;
                 }
-                if (kv.Value != null) Object.Destroy(kv.Value.gameObject);
+                if (actor != null) Object.Destroy(actor.gameObject);
             }
-            Prune(_actors); Prune(_slotGroups); Prune(_baseOpacity);
+            Prune(_slots);
             // ПОЗА НЕ ПЕРЕЖИВАЕТ УБОРКУ ДАЖЕ У НЕЁ. Живой объект — это про
             // спрайты и материал, а порядок слоя и возраст рождения — про
             // мизансцену уходящей главы: оставь их, и героиня войдёт в новую
             // сцену с чужим z=100 из катсцены или окажется старше всех и потому
             // за их спинами. Возраст ей выдаст первый показ (EnsureActor).
-            _zExplicit.Clear();
-            _birth.Clear();
+            // Мизансцену забывают ВСЕ, включая пережившую уборку героиню:
+            // порядок слоя и возраст принадлежат уходящей сцене, а не ей.
+            foreach (var kv in _slots) kv.Value.ForgetStaging();
             _nextSibling = 0;
             // ФОН ЗДЕСЬ НЕ ГАСИТСЯ. Уборка снимает актёров и эффекты — то, что
             // принадлежит уходящей сцене. Погасить ещё и полотно значит
