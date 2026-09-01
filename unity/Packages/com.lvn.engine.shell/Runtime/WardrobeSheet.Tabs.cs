@@ -307,6 +307,9 @@ namespace Lvn.UI.Screens
             // вопрос не «есть сейчас», а «было когда-либо», и ключ с нулём —
             // законное свидетельство, что вещь у игрока была.
             if (LvnWallet.Inventory.ContainsKey(LvnWardrobe.Sku(entity, axis, value))) return true;
+            // НАРОЧНО мимо костюмера: здесь нужно ИМЕННО надетое. Примерка —
+            // не доказательство владения, а костюмер её учитывает (и правильно
+            // делает: он отвечает, что ВИДНО, а не чем игрок владеет).
             return LvnWardrobe.Equipped(entity).TryGetValue(axis, out var worn) && worn == value;
         }
 
