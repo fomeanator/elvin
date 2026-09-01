@@ -523,7 +523,7 @@ namespace Lvn.UI.Screens
                 lbl.name = "ax-label";
                 lbl.style.fontSize = LvnTokens.TextSm;
                 lbl.style.whiteSpace = WhiteSpace.NoWrap;
-                lbl.style.color = _text;
+                lbl.style.color = SkinInk(false);
                 Smooth(lbl, LvnMotion.Normal, "color");
                 b.Add(lbl);
                 _tabs.Add(b);
@@ -673,11 +673,22 @@ namespace Lvn.UI.Screens
 
         // Choice-button skin: the same fill/text/art the story's choices use,
         // so the wardrobe's controls read as the game's own buttons.
+        /// <summary>ЧЕРНИЛА КНОПКИ В СКИНЕ — выбранная пишет по акценту,
+        /// остальные авторским цветом реплик.
+        ///
+        /// <para>Правило было записано внутри <see cref="SkinButton"/>, а
+        /// подпись таба красили рядом отдельной строкой — и там стоял просто
+        /// <c>_text</c>. Новелла, назначившая <c>ui.dialogue.text_color</c>,
+        /// получала кнопку своим цветом и подпись на ней — чужим.</para>
+        /// </summary>
+        private Color SkinInk(bool accent) =>
+            accent ? _accentText : UiColor.Named(_ch?.text_color, _text);
+
         private void SkinButton(Button b, bool accent)
         {
             LvnStyler.Skinned(b,
                 accent ? _accent : UiColor.Named(_ch?.color, LvnTokens.Faint),
-                accent ? _accentText : UiColor.Named(_ch?.text_color, _text),
+                SkinInk(accent),
                 _ch?.corner_radius ?? _radius);
             if (!accent && !string.IsNullOrEmpty(_ch?.button_image))
                 LvnAsync.Fire(Lvn.UI.LvnPicture.Frame(b, _ch.button_image, _ch.button_slice ?? 0, _assets), "ApplyNineSlice");
