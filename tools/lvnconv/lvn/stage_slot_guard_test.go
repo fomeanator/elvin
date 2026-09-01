@@ -41,3 +41,27 @@ func TestStageKeepsOneRecordPerActor(t *testing.T) {
 			"это отдельное правило, и оно обязано быть названо, а не разложено по Clear")
 	}
 }
+
+// ПОДПИСЬ НА КАДРЕ — тоже одна запись.
+//
+// Памятей было две: сам элемент и живой шаблон с подстановками, который
+// пересчитывают каждый тик. «Убрать подпись» — два удаления, сброс сцены —
+// две очистки, причём написанные в РАЗНЫХ ФАЙЛАХ (сброс кадра и сброс всей
+// сцены). Разъехавшись, пара даёт подпись-призрак: элемент снят, а шаблон
+// остался и считается каждый тик — или надпись висит и больше не
+// обновляется.
+func TestHudLabelIsOneRecord(t *testing.T) {
+	root := repoRoot(t)
+	dir := filepath.Join(root, "unity/Packages/com.lvn.engine/Runtime/UI")
+	for _, f := range csFiles(t, dir) {
+		body := stripComments(string(mustRead(t, f)))
+		if strings.Contains(body, "_labelTmpl") {
+			t.Errorf("%s: шаблон подписи снова живёт отдельной памятью — "+
+				"элемент и его живой текст обязаны уходить вместе", filepath.Base(f))
+		}
+	}
+	vn := filepath.Join(dir, "VnStage.cs")
+	if !strings.Contains(stripComments(string(mustRead(t, vn))), "class HudLabel") {
+		t.Error("VnStage.cs: пропала запись HudLabel — подпись снова разложена по памятям")
+	}
+}

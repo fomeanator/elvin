@@ -481,8 +481,7 @@ namespace Lvn.UI
             _choices?.Dismiss(); // clear any on-screen choice buttons (avoid stale clicks)
             _labelLayer?.Clear();
             _uiLayer?.Clear();   // деревья `ui` — того же срока жизни, что метки
-            _labelEls.Clear();
-            _labelTmpl.Clear();
+            _labels.Clear();
             ForgetHint();   // части подсказки оторваны Clear'ом выше
         }
 

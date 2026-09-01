@@ -105,8 +105,24 @@ namespace Lvn.UI
         private SafeAreaElement _chromeSafe, _menuSafe;
         private ChoiceList _choices;
         private VisualElement _labelLayer; // reactive HUD/stat text overlay (the `text` op)
-        private readonly Dictionary<string, Label> _labelEls = new Dictionary<string, Label>();
-        private readonly Dictionary<string, string> _labelTmpl = new Dictionary<string, string>(); // id → live `{expr}` template
+        /// <summary>
+        /// ПОДПИСЬ НА КАДРЕ — сама надпись и её живой шаблон, одной записью.
+        ///
+        /// <para>Памятей было две: элемент и текст с подстановками
+        /// (<c>{expr}</c>), который пересчитывают каждый тик. Пока их две,
+        /// «убрать подпись» — два удаления, а сброс сцены — две очистки, и
+        /// написаны они в РАЗНЫХ ФАЙЛАХ (сброс кадра и сброс всей сцены).
+        /// Разъехавшись, пара даёт подпись-призрак: элемент снят, шаблон
+        /// остался и продолжает считаться каждый тик, — или наоборот, надпись
+        /// висит и больше не обновляется.</para>
+        /// </summary>
+        private sealed class HudLabel
+        {
+            public Label El;
+            public string Tmpl;   // живой текст с подстановками; пусто — надпись статична
+        }
+
+        private readonly Dictionary<string, HudLabel> _labels = new Dictionary<string, HudLabel>();
         private VisualElement _hintHost;   // centred motion host: keeps the card's layout transform intact
         private VisualElement _hintCard;   // top-center popup for the `hint` op
         private Label _hintLabel;
@@ -456,8 +472,7 @@ namespace Lvn.UI
                 _menu = null;
                 _labelLayer = null;
                 ForgetHint();
-                _labelEls.Clear();
-                _labelTmpl.Clear();
+                _labels.Clear();
                 if (_audio != null) { Destroy(_audio); _audio = null; }
             }
         }
