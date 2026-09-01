@@ -1,6 +1,7 @@
 package lvn
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -816,5 +817,62 @@ func TestСловарьСогласияОдинНаДваЯзыка(t *testing.T
 			"Один пропущенный вариант написания — и `sfx off=n` снимает грим в "+
 			"проверке, оставляя его в игре. Держите оба списка слово в слово.",
 			len(only), strings.Join(only, "\n  "))
+	}
+}
+
+// СХЕМА НЕ ССЫЛАЕТСЯ НА ТО, ЧЕГО В НЕЙ НЕТ.
+//
+// Схема манифеста снимается с C#-классов и описывает поля типами: `"layers":
+// "LvnLayer"`, `"sprites": "map:LvnSpriteEntity"`. Ссылка на тип, которого в
+// схеме НЕТ, — это дыра, и дыра тихая: проверить и подсказать поля внутри
+// такого узла нечем, а снаружи схема выглядит полной.
+//
+// Так и было 02.09: снималось ДВА исходника, а слои фигуры описаны в третьем.
+// Автор писал в слое `when` (условный слой — «эта прядь только когда мокрая»)
+// или `spring`, и ни валидатор, ни подсказки редактора об этих словах не
+// знали. Ошибки нет, помощи тоже нет.
+func TestSchemaHasNoDanglingTypes(t *testing.T) {
+	var schema map[string]map[string]string
+	if err := json.Unmarshal(manifestFieldsJSON, &schema); err != nil {
+		t.Fatalf("схема не читается: %v", err)
+	}
+	sawSources(t, len(schema), 30, "классов схемы")
+
+	// Простые типы, которые описывать незачем.
+	simple := map[string]bool{
+		"string": true, "int": true, "long": true, "float": true, "double": true,
+		"bool": true, "object": true, "any": true,
+	}
+	dangling := map[string]bool{}
+	for cls, fields := range schema {
+		for field, typ := range fields {
+			t2 := strings.TrimPrefix(strings.TrimPrefix(typ, "map:"), "list:")
+			t2 = strings.TrimSuffix(t2, "[]")
+			if t2 == "" {
+				// ССЫЛКА С ПУСТЫМ ИМЕНЕМ — тоже висячая, и хуже прочих: она
+				// выглядит как «тип есть, просто короткий». Пропуск таких
+				// однажды уже скрыл сломанный разбор дженерика.
+				dangling["(пустое имя типа)  ← "+cls+"."+field] = true
+				continue
+			}
+			if simple[t2] || strings.Contains(t2, " ") {
+				continue // простое или заведомо не имя типа
+			}
+			if _, ok := schema[t2]; !ok {
+				dangling[t2+"  ← "+cls+"."+field] = true
+			}
+		}
+	}
+	var lost []string
+	for k := range dangling {
+		lost = append(lost, k)
+	}
+	sort.Strings(lost)
+	if len(lost) > 0 {
+		t.Errorf("схема ссылается на неописанные типы (%d):\n  %s\n\n"+
+			"Добавьте исходник в cmd/lvn-genschema и пересоберите. Пока тип не "+
+			"описан, поля внутри него не проверяются и не подсказываются — "+
+			"снаружи же схема выглядит полной.",
+			len(lost), strings.Join(lost, "\n  "))
 	}
 }

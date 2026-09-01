@@ -137,7 +137,7 @@ func TestСхемаМанифестаНеОтстаётОтDTO(t *testing.T) {
 	// Оба исходника, как и генератор: облик описан в LvnUiConfig, каталог — в
 	// LvnManifest, а для игрока это один файл.
 	fresh := ManifestSchema{}
-	for _, name := range []string{"LvnUiConfig.cs", "LvnManifest.cs"} {
+	for _, name := range ManifestSchemaSources {
 		raw, err := os.ReadFile(filepath.Join(root, "unity", "Packages", "com.lvn.engine",
 			"Runtime", "Content", name))
 		if err != nil {

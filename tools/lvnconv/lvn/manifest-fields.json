@@ -254,8 +254,21 @@
     "orient": "bool",
     "prop": "string"
   },
+  "LvnAssetMeta": {
+    "alias": "string",
+    "critical": "bool",
+    "eta_ms": "long",
+    "kind": "string",
+    "scope": "string",
+    "sha": "string",
+    "size": "long",
+    "tier": "string"
+  },
   "LvnBox": {
-    "h": "float x, y, w,"
+    "h": "float",
+    "w": "float",
+    "x": "float",
+    "y": "float"
   },
   "LvnCardArt": {
     "description": "string",
@@ -301,6 +314,21 @@
     "id": "string",
     "name": "string",
     "url": "string"
+  },
+  "LvnLayer": {
+    "HasRect": "bool",
+    "damping": "float",
+    "h": "float",
+    "id": "string",
+    "parent": "string",
+    "px": "float",
+    "py": "float",
+    "spring": "float",
+    "url": "string",
+    "w": "float",
+    "when": "string",
+    "x": "float",
+    "y": "float"
   },
   "LvnManifest": {
     "assets": "map:LvnAssetMeta",
@@ -474,7 +502,8 @@
     "idle": "float",
     "radius": "float",
     "sprite": "string",
-    "y": "float? x,"
+    "x": "float",
+    "y": "float"
   },
   "SettingsConfig": {
     "accent_color": "string",
@@ -518,6 +547,9 @@
     "click": "string",
     "type": "string",
     "volume": "float"
+  },
+  "SpriteCatalog": {
+    "Parent": "string"
   },
   "StageConfig": {
     "actor_enter": "string",

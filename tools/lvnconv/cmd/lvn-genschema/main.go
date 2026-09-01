@@ -22,11 +22,18 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	// ДВА ИСХОДНИКА, ОДНА СХЕМА. Облик описан в LvnUiConfig, каталог — в
-	// LvnManifest; для игрока это один файл, и гейт обязан знать обе половины.
+	// ЧЕТЫРЕ ИСХОДНИКА, ОДНА СХЕМА. Облик описан в LvnUiConfig, каталог — в
+	// LvnManifest, слои фигуры — в SpriteCatalog, список предзагрузки — в LvnAssetMeta;
+	// для игрока это один файл, и
+	// гейт обязан знать все части.
+	//
+	// Третий добавлен 02.09: схема ссылалась на `LvnLayer`, самого типа в ней не
+	// было, и ссылка висела в пустоту. Автор писал в слое `when` (условный слой)
+	// или `spring` — проверить и подсказать было нечем. Держит это страж
+	// висячих ссылок: тип, на который схема ссылается, обязан быть в ней описан.
 	base := filepath.Join(root, "..", "..", "unity", "Packages", "com.lvn.engine", "Runtime", "Content")
 	schema := lvn.ManifestSchema{}
-	for _, name := range []string{"LvnUiConfig.cs", "LvnManifest.cs"} {
+	for _, name := range lvn.ManifestSchemaSources {
 		raw, err := os.ReadFile(filepath.Join(base, name))
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "не читается", name, err)
@@ -52,5 +59,6 @@ func main() {
 	if err := os.WriteFile(dst, append(out, '\n'), 0o644); err != nil {
 		panic(err)
 	}
-	fmt.Printf("снято %d классов из LvnUiConfig.cs → lvn/manifest-fields.json\n", len(schema))
+	fmt.Printf("снято %d классов из %d исходников → lvn/manifest-fields.json\n",
+		len(schema), len(lvn.ManifestSchemaSources))
 }

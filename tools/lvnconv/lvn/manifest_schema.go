@@ -18,6 +18,22 @@ import (
 // рядом данными; свежесть держит страж — ровно как у сгенерированной
 // grammar.js.
 
+// ManifestSchemaSources — ИЗ ЧЕГО СНИМАЕТСЯ СХЕМА. Один список на всех.
+//
+// Список жил в ЧЕТЫРЁХ местах: у генератора и у трёх стражей, каждый со своим
+// перечислением. Добавили исходник — генератор снял больше, а стражи считают
+// по-старому и объявляют разницу «молчаливой потерей». Так и вышло 02.09:
+// правка на два файла уронила три проверки, ни одна из которых не была про
+// сами файлы.
+//
+// Порядок важен только для сообщения о столкновении имён; состав — нет.
+var ManifestSchemaSources = []string{
+	"LvnUiConfig.cs",   // облик: темы, экраны, оболочка
+	"LvnManifest.cs",   // каталог: титулы, главы, спрайты
+	"SpriteCatalog.cs", // слои фигуры: `when`, пивот, пружины костей
+	"LvnAssetMeta.cs",  // список предзагрузки главы
+}
+
 //go:embed manifest-fields.json
 var manifestFieldsJSON []byte
 
@@ -37,7 +53,10 @@ var (
 	// несуществующими настоящие — ровно та ложная тревога, которую он должен
 	// был убрать.
 	reJSONName = regexp.MustCompile(`JsonProperty\("([^"]+)"\)`)
-	reField    = regexp.MustCompile(`(?m)^\s*public ([\w<>,\s\.\?\[\]]+?)\s+(\w+)\s*(?:=[^;]*)?;`)
+	// Строка с НЕСКОЛЬКИМИ объявлениями одного типа. Тип — без пробелов и
+	// угловых скобок: запятая в дженерике не список.
+	reMulti = regexp.MustCompile(`(?m)^\s*public ([\w\.\?\[\]]+)\s+([A-Za-z_]\w*(?:\s*=\s*[^,;]+)?(?:\s*,\s*[A-Za-z_]\w*(?:\s*=\s*[^,;]+)?)+)\s*;`)
+	reField = regexp.MustCompile(`(?m)^\s*public ([\w<>,\s\.\?\[\]]+?)\s+(\w+)\s*(?:=[^;]*)?;`)
 )
 
 // ScrapeManifestSchema снимает «класс → поля» с исходника DTO.
@@ -68,6 +87,27 @@ func ScrapeManifestSchema(src string) ManifestSchema {
 		// поле из живого манифеста.
 		if m := reJSONName.FindStringSubmatch(ln); m != nil {
 			alias = m[1]
+			continue
+		}
+		// ОДНА СТРОКА — НЕСКОЛЬКО ПОЛЕЙ: `public float x, y, w, h;` и, что
+		// коварнее, `public float px = 0.5f, py = 0.5f;`. Общий разбор берёт
+		// ПЕРВОЕ имя и теряет остальные молча: у слоя фигуры так пропали и
+		// прямоугольник кадра, и вторая половина пивота. Живой прод-манифест
+		// пишет `py`, а гейт объявлял его несуществующим полем.
+		//
+		// Тип здесь без пробелов и скобок нарочно: запятая внутри дженерика
+		// (`Dictionary<string, X>`) — не список объявлений, и путать их нельзя.
+		if m := reMulti.FindStringSubmatch(ln); m != nil {
+			for _, part := range strings.Split(m[2], ",") {
+				f := strings.TrimSpace(part)
+				if i := strings.IndexAny(f, " ="); i > 0 {
+					f = f[:i]
+				}
+				if f != "" {
+					out[cur][f] = simpleType(m[1])
+				}
+			}
+			alias = ""
 			continue
 		}
 		if m := reField.FindStringSubmatch(ln); m != nil {
