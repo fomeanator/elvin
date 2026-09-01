@@ -1,0 +1,21 @@
+{
+  "dependencies": {
+    "com.lvn.engine": "file:../../unity/Packages/com.lvn.engine",
+    "com.lvn.engine.services": "file:../../unity/Packages/com.lvn.engine.services",
+    "com.lvn.engine.shell": "file:../../unity/Packages/com.lvn.engine.shell",
+    "com.unity.cloud.ktx": "3.6.3",
+    "com.unity.device-simulator.devices": "1.0.1",
+    "com.unity.modules.audio": "1.0.0",
+    "com.unity.modules.imageconversion": "1.0.0",
+    "com.unity.modules.imgui": "1.0.0",
+    "com.unity.modules.jsonserialize": "1.0.0",
+    "com.unity.modules.screencapture": "1.0.0",
+    "com.unity.modules.ui": "1.0.0",
+    "com.unity.modules.uielements": "1.0.0",
+    "com.unity.modules.unitywebrequest": "1.0.0",
+    "com.unity.modules.unitywebrequestaudio": "1.0.0",
+    "com.unity.modules.unitywebrequesttexture": "1.0.0",
+    "com.unity.nuget.newtonsoft-json": "3.2.1",
+    "com.unity.ugui": "2.0.0"
+  }
+}

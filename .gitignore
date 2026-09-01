@@ -148,3 +148,11 @@ tools/lvnconv/server/
 # Кадры для README: их снимает ReadmeShots прямо из редактора, десятки мегабайт
 # на прогон. В репозиторий едут только выбранные, уже уложенные в docs/img.
 readme-shots/
+
+# Лаборатория оболочки: в репозиторий едут только исходники и настройки —
+# импортированное Unity собирает у себя.
+ui-lab/Library/
+ui-lab/Logs/
+ui-lab/Temp/
+ui-lab/obj/
+ui-lab/UserSettings/
