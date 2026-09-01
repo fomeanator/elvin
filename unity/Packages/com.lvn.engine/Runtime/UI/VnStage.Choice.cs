@@ -185,17 +185,11 @@ namespace Lvn.UI
             {
                 _pendingSay = null;
                 int gen = ++_dialogueSwapGeneration;
-                int outMs = Mathf.RoundToInt(DialogueFadeSeconds() * 1000f);
-                _dialogue.DropOut(outMs, done: () =>
+                SwapBox(gen, () =>
                 {
-                    if (!BoxMine(gen)) return;
-                    _dialogue.style.display = DisplayStyle.None;
-                    AfterBeatPause(gen, () =>
-                    {
-                        PresentSay(gen, ps.who, ps.text, ps.style);
-                        _curChoices = options; // PresentSay их сбрасывает — выбор этого же такта
-                        PresentChoiceBeat(gen, options, kind);
-                    });
+                    PresentSay(gen, ps.who, ps.text, ps.style);
+                    _curChoices = options; // PresentSay их сбрасывает — выбор этого же такта
+                    PresentChoiceBeat(gen, options, kind);
                 });
                 return;
             }
