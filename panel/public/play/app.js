@@ -2,7 +2,7 @@
 // .lvns into a .lvn doc; core.js plays it; this file renders pauses into DOM
 // and shares scripts through the URL hash — open the link, the game runs.
 
-import { Player, trackStage as trackStageCore, replayStage, flag } from "./core.js";
+import { Player, trackStage as trackStageCore, replayStage, flag, pushBeat } from "./core.js";
 import { interpolate } from "./expr.js";
 import { attach as attachHighlight } from "./highlight.js";
 import { exportHtml } from "./export.js";
@@ -598,13 +598,8 @@ function refreshHud(vars) {
 let saveKey = null;
 // Rollback history: one {snap, stage} pair per pause, engine-style.
 let history = [];
-const HISTORY_MAX = 100;
-
-function pushHistory() {
-  if (!player || player.finished) return;
-  history.push({ snap: player.snapshot(), stage: JSON.parse(JSON.stringify(stagedState)) });
-  if (history.length > HISTORY_MAX) history.shift();
-}
+// Правило отката приезжает из плеера — как и правило кадра.
+function pushHistory() { pushBeat(history, player, stagedState); }
 
 function rollback() {
   if (history.length < 2) return;

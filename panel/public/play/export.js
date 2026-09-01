@@ -221,11 +221,8 @@ function autosave() {
 }
 
 let history = [];
-function pushHistory() {
-  if (!player || player.finished) return;
-  history.push({ snap: player.snapshot(), stage: JSON.parse(JSON.stringify(stagedState)) });
-  if (history.length > 100) history.shift();
-}
+// Правило отката приезжает вместе с плеером: core.js инлайнится целиком.
+function pushHistory() { pushBeat(history, player, stagedState); }
 function rollback() {
   if (history.length < 2) return;
   clearInterval(typeTimer); clearInterval(choiceTimer);

@@ -15,6 +15,32 @@ export const authMsg = (e) =>
 
 // useDebounced trails a fast-changing value (the token being typed) by `ms`,
 // so data loads fire once per pause instead of once per keystroke.
+// ДЕЙСТВИЕ, КОТОРОЕ ЖДЁТ СЕРВЕР: занять кнопки, позвать, сказать словами, что
+// вышло, и ОТПУСТИТЬ — чем бы дело ни кончилось.
+//
+// Обряд из шести строк, и опасна в нём ровно одна: `finally`. Забудь её на
+// ошибочном пути — и панель останется занятой навсегда: кнопки серые, ошибка
+// показана, а нажать нельзя ничего, кроме перезагрузки страницы. Ошибка при
+// этом выглядит как «сервер не отвечает», хотя он ответил.
+//
+// Что делать ПОСЛЕ удачи, знает только вызывающий (сбросить черновик, уйти со
+// вкладки, перезагрузить список) — поэтому `after` приходит доводом, а не
+// зашито здесь.
+export function useBusyAction(setBusy, notify) {
+  return async function act(work, okText, after) {
+    setBusy(true);
+    try {
+      await work();
+      if (okText) notify(okText, "ok");
+      if (after) after();
+    } catch (e) {
+      notify("✗ " + authMsg(e), "err");
+    } finally {
+      setBusy(false);
+    }
+  };
+}
+
 export function useDebounced(value, ms) {
   const [v, setV] = useState(value);
   useEffect(() => {

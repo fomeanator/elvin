@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { adminManifest, adminPutManifest, adminPublishManifest, adminDiscardDraft } from "../lib/api.js";
-import { useAsync, Status, authMsg } from "./adminShared.jsx";
+import { useAsync, Status, authMsg, useBusyAction } from "./adminShared.jsx";
 import { useJsonDoc, JsonCard } from "./admin/jsonTools.jsx";
 import { Confirm } from "./admin/ui.jsx";
 import { adminHistory, adminRollback } from "../lib/api.js";
@@ -35,27 +35,14 @@ export default function AdminManifest({ token, notify }) {
     finally { setBusy(false); }
   }
 
-  async function publish() {
-    setBusy(true);
-    try {
-      await adminPublishManifest(token);
-      notify("Опубликовано — клиенты подхватят сами", "ok");
-      doc.reset();
-      setDraft(false);
-    } catch (e) { notify("✗ " + authMsg(e), "err"); }
-    finally { setBusy(false); }
-  }
-
-  async function discard() {
-    setBusy(true);
-    try {
-      await adminDiscardDraft(token);
-      notify("Черновик сброшен", "ok");
-      doc.reset();
-      setDraft(false);
-    } catch (e) { notify("✗ " + authMsg(e), "err"); }
-    finally { setBusy(false); }
-  }
+  // Обе кнопки — одно действие с разным глаголом: позвать сервер и вернуться к
+  // опубликованному виду. Обряд (занять / отпустить в finally) живёт в доме.
+  const act = useBusyAction(setBusy, notify);
+  const backToPublished = () => { doc.reset(); setDraft(false); };
+  const publish = () => act(() => adminPublishManifest(token),
+                            "Опубликовано — клиенты подхватят сами", backToPublished);
+  const discard = () => act(() => adminDiscardDraft(token),
+                            "Черновик сброшен", backToPublished);
 
   return (
     <div className="admin-card">
