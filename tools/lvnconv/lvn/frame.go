@@ -66,10 +66,12 @@ func (f *Frame) absorb(c Cmd) bool {
 		a := f.Actors[id]
 		a.Pose = c
 		a.Visible = true
+		// `show` разбирается СЛОВАРЁМ, а не приведением типа: компилятор
+		// булевых не приводит, и `show=no` доезжает сюда строкой «no».
+		// Приведение видело только настоящий bool — строку молча пропускало,
+		// и повтор оставлял на сцене того, кого живой показ убрал.
 		if v, ok := c["show"]; ok {
-			if b, isBool := v.(bool); isBool {
-				a.Visible = b
-			}
+			a.Visible = flagOf(v, true)
 		}
 		f.Actors[id] = a
 		return true
@@ -543,26 +545,49 @@ func (r FrameReport) FrameSummary() string {
 // Зеркало `Lvn.LvnBool.Flag` из рантайма. Словарь отказа взят тот же, что у
 // него: без совпадения повтор кадра и живой показ расходятся на рукописном
 // `.lvn`, а расхождение C#↔Go — главный структурный риск движка.
-func flagOn(v any) bool {
+// parseFlag — РАЗБОР ПО СЛОВАРЮ: значение и знаем ли мы слово. Зеркало
+// Lvn.LvnBool.Parse, слово в слово.
+//
+// Словарь расходился с рантаймом дважды при первом переносе: здесь не было
+// «n», и пустая строка считалась отказом. У рантайма пустая строка — НЕ слово
+// из словаря, а значит поле просто «есть». Сверку держит
+// TestСловарьСогласияОдинНаДваЯзыка: без совпадения повтор кадра и живой показ
+// расходятся на рукописном `.lvn`, а расхождение C#↔Go — главный структурный
+// риск движка.
+func parseFlag(v any) (bool, bool) {
 	switch x := v.(type) {
 	case nil:
-		return false
+		return false, false
 	case bool:
-		return x
+		return x, true
 	case float64:
-		return x != 0
+		return x != 0, true
 	case string:
-		// Словарь отказа — ТОТ ЖЕ, что у Lvn.LvnBool.Parse, слово в слово.
-		// Расходились дважды при первом переносе: здесь не было «n», и пустая
-		// строка считалась отказом. У рантайма пустая строка — НЕ слово из
-		// словаря, а значит поле просто «есть», и признак поднят. Сверку держит
-		// TestСловарьСогласияОдинНаДваЯзыка.
 		switch strings.ToLower(strings.TrimSpace(x)) {
+		case "1", "true", "yes", "y", "on", "да":
+			return true, true
 		case "0", "false", "no", "n", "off", "нет":
-			return false
+			return false, true
 		}
-		return true
-	default:
-		return true
 	}
+	return false, false
+}
+
+// flagOf — ЗНАЧЕНИЕ ПОЛЯ «да-нет» с умолчанием. Зеркало Lvn.LvnBool.Of: слово
+// не из словаря — это «не понял», а не «нет», и вызывающий берёт своё
+// умолчание. У `show` оно true (не сказано — значит видно), у `off` — своё.
+func flagOf(v any, fallback bool) bool {
+	if b, known := parseFlag(v); known {
+		return b
+	}
+	return fallback
+}
+
+// flagOn — ПОЛЕ-ПРИЗНАК: присутствует и не отменено словом. Зеркало
+// Lvn.LvnBool.Flag.
+func flagOn(v any) bool {
+	if v == nil {
+		return false
+	}
+	return flagOf(v, true)
 }

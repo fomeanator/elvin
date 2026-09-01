@@ -2,7 +2,7 @@
 // .lvns into a .lvn doc; core.js plays it; this file renders pauses into DOM
 // and shares scripts through the URL hash — open the link, the game runs.
 
-import { Player, trackStage as trackStageCore, replayStage } from "./core.js";
+import { Player, trackStage as trackStageCore, replayStage, flag } from "./core.js";
 import { interpolate } from "./expr.js";
 import { attach as attachHighlight } from "./highlight.js";
 import { exportHtml } from "./export.js";
@@ -469,7 +469,7 @@ function applyStageDom(cmd, vars) {
     case "obj": {
       if (!cmd.id) break;
       let node = els.actors.querySelector(`[data-id="${cmd.id}"]`);
-      if (cmd.show === false) { node?.remove(); break; }
+      if (!flag(cmd.show, true)) { node?.remove(); break; }
 
       const entity = !cmd.sprite_url && !cmd.body_url ? catalog[cmd.id] : null;
       if (entity && entity.layers) {
@@ -527,7 +527,7 @@ function applyStageDom(cmd, vars) {
     }
     case "text": {
       if (!cmd.id) break;
-      if (cmd.hide) { hudLabels.get(cmd.id)?.el.remove(); hudLabels.delete(cmd.id); break; }
+      if (flag(cmd.hide, false)) { hudLabels.get(cmd.id)?.el.remove(); hudLabels.delete(cmd.id); break; }
       let entry = hudLabels.get(cmd.id);
       if (!entry) {
         const el = document.createElement("div");

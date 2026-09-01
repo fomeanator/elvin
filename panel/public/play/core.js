@@ -32,10 +32,10 @@ export function trackStage(state, cmd) {
   else if (cmd.op === "clear") state.actors = {};
   else if (cmd.op === "actor" || cmd.op === "obj") {
     if (!cmd.id) return state;
-    if (cmd.show === false) delete state.actors[cmd.id];
+    if (!flag(cmd.show, true)) delete state.actors[cmd.id];
     else state.actors[cmd.id] = Object.assign({}, state.actors[cmd.id] || {}, cmd);
   } else if (cmd.op === "text" && cmd.id) {
-    if (cmd.hide) delete state.hud[cmd.id];
+    if (flag(cmd.hide, false)) delete state.hud[cmd.id];
     else state.hud[cmd.id] = Object.assign({}, state.hud[cmd.id] || {}, cmd);
   }
   return state;
@@ -58,19 +58,41 @@ export function replayStage(state, apply) {
   for (const cmd of Object.values(state.hud || {})) apply(cmd);
 }
 
-// СОГЛАСИЕ, КАКИМ ЕГО ПИШЕТ АВТОР — тот же словарь, что у движка
-// (Lvn.LvnBool): true/1/yes/y/on/да. Незнакомое слово согласием НЕ считается:
-// опечатка вернее опечатка, чем решение.
-export function consent(v) {
+// СЛОВАРЬ «ДА-НЕТ» — тот же, что у движка (Lvn.LvnBool) и у повтора кадра
+// (lvn.flagOn). Компилятор булевых значений НЕ приводит: `show=no` доезжает до
+// плеера СТРОКОЙ «no», `show=0` — числом, и разобрать это обязан плеер.
+//
+// Возвращает null для слова НЕ ИЗ СЛОВАРЯ: это «не понял», а не «нет», и
+// различать обязан вызывающий — полю команды правильнее взять своё умолчание.
+function parseFlag(v) {
+  if (v === null || v === undefined) return null;
   if (typeof v === "boolean") return v;
   if (typeof v === "number") return v !== 0;
-  if (typeof v !== "string") return false;
+  if (typeof v !== "string") return null;
   switch (v.trim().toLowerCase()) {
     case "1": case "true": case "yes": case "y": case "on": case "да":
       return true;
-    default:
+    case "0": case "false": case "no": case "n": case "off": case "нет":
       return false;
+    default:
+      return null;
   }
+}
+
+// ЗНАЧЕНИЕ ПОЛЯ: не понял — берём умолчание. Зеркало LvnBool.Of.
+//
+// Читать `cmd.hide` голой истинностью JS нельзя: строка «no» истинна, и
+// `hide=no` прятал бы надпись, которую движок оставляет. Так три копии
+// рендерера и разошлись с рантаймом на полях, решающих, кто на экране.
+export function flag(v, fallback) {
+  const parsed = parseFlag(v);
+  return parsed === null ? fallback : parsed;
+}
+
+// Согласие там, где умолчание — «нет»: незнакомое слово вернее считать
+// опечаткой автора, чем его решением.
+export function consent(v) {
+  return flag(v, false);
 }
 
 // ЧИСЛО ИЗ ЗНАЧЕНИЯ СОСТОЯНИЯ — то же правило, что у движка (Lvn.LvnNum.Value):
