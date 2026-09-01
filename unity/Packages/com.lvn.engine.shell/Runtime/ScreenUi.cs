@@ -35,8 +35,7 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(el, LvnTokens.Radius);
             var edge = LvnTokens.Accent;
             LvnChrome.Border(el, UiColor.WithAlpha(edge, 0.30f), 1f);
-            el.style.borderTopWidth = 2f;
-            el.style.borderTopColor = UiColor.WithAlpha(edge, 0.72f);
+            LvnChrome.EdgeOn(el, LvnSide.Top, UiColor.WithAlpha(edge, 0.72f), 2f);
         }
 
         /// <summary>

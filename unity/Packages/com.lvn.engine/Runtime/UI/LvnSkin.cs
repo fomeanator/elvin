@@ -99,10 +99,7 @@ namespace Lvn.UI
             // цвета по краю скругления — тот самый «пластиковый» контур, из-за
             // которого всё и затевалось.
             el.style.backgroundColor = Color.clear;
-            el.style.borderLeftWidth = 0;
-            el.style.borderRightWidth = 0;
-            el.style.borderTopWidth = 0;
-            el.style.borderBottomWidth = 0;
+            LvnChrome.ClearBorder(el);
             return true;
         }
 

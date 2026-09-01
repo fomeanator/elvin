@@ -359,15 +359,11 @@ namespace Lvn.UI
             // opaque/translucent surface, no fullscreen glass RenderTexture.
             UiGlass.Apply(_hintCard, 0f, bg);
             _hintCard.style.backgroundColor = bg;
-            _hintCard.style.borderLeftWidth = 2;
-            _hintCard.style.borderTopWidth = 1;
-            _hintCard.style.borderRightWidth = 1;
-            _hintCard.style.borderBottomWidth = 1;
-            var border = accent; border.a = 0.7f;
-            _hintCard.style.borderLeftColor = border;
-            _hintCard.style.borderTopColor = border;
-            _hintCard.style.borderRightColor = border;
-            _hintCard.style.borderBottomColor = border;
+            // Слева толще: подсказка — не рамка вокруг текста, а полоска,
+            // от которой текст начинается.
+            var border = UiColor.WithAlpha(accent, 0.7f);
+            LvnChrome.Border(_hintCard, border, 1f);
+            LvnChrome.EdgeOn(_hintCard, LvnSide.Left, border, 2f);
             float r = Mathf.Max(12f, (Theme != null ? Theme.PanelCornerRadius : 12f) * 0.65f);
             LvnChrome.Round(_hintCard, r);
 

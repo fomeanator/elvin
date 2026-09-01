@@ -213,8 +213,7 @@ namespace Lvn.UI.Screens
             {
                 // Активная глава помечена акцентной кромкой слева — бордер
                 // работает как маркер состояния, в языке Полуночи.
-                row.style.borderLeftWidth = 3f;
-                row.style.borderLeftColor = LvnTokens.Accent;
+                LvnChrome.Stripe(row);
                 row.style.paddingLeft = LvnTokens.Space1;
             }
             var l = new Label((e.Active ? "▶ " : "") + e.Label

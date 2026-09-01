@@ -55,8 +55,8 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(_capsule, Mathf.Lerp(MiniSize * 0.5f, 22f, k));
             // Верхняя кромка наливается акцентом по мере разворота — та же
             // «крышка», что у попап-экранов оболочки (AdoptSheet).
-            _capsule.style.borderTopWidth = Mathf.Lerp(1f, 2.5f, k);
-            _capsule.style.borderTopColor = Color.Lerp(LvnTokens.Border, LvnTokens.Accent, k);
+            LvnChrome.EdgeOn(_capsule, LvnSide.Top,
+                Color.Lerp(LvnTokens.Border, LvnTokens.Accent, k), Mathf.Lerp(1f, 2.5f, k));
             // Кроссфейд содержимого: мини-кольцо гаснет в первой трети морфа,
             // полная карточка проявляется во второй — в середине капсула
             // «пустая», и перетекание читается формой, а не мешаниной слоёв.

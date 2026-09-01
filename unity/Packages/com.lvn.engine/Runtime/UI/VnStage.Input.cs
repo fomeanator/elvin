@@ -215,8 +215,7 @@ namespace Lvn.UI
                 Theme != null ? Theme.ChoiceTextColor : LvnTokens.Text);
             ok.style.backgroundColor = UiColor.Named(NameInput?.button_color,
                 Theme != null ? Theme.ChoiceColor : LvnTokens.Surface);
-            ok.style.borderLeftWidth = 0; ok.style.borderRightWidth = 0;
-            ok.style.borderTopWidth = 0; ok.style.borderBottomWidth = 0;
+            LvnChrome.ClearBorder(ok);
             LvnChrome.Round(ok, Mathf.Max(8f, r * 0.4f));
             LvnChrome.Border(ok, Theme != null ? Theme.SpeakerColor : LvnTokens.Accent, 2f);
             LvnFonts.Apply(ok, Theme?.Font);

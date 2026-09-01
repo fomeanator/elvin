@@ -266,6 +266,9 @@ namespace Lvn.UI
                     b.focusable = false;
                     b.style.marginLeft = 0; b.style.marginRight = 0;
                     b.style.marginTop = 0; b.style.marginBottom = 0;
+                    // НАРОЧНО три стороны, а не ClearBorder: НИЖНЯЯ кромка
+                    // здесь не рамка, а объём кнопки (ButtonLift) — погасив её
+                    // заодно, кнопка становится плоской.
                     b.style.borderLeftWidth = 0; b.style.borderRightWidth = 0;
                     b.style.borderTopWidth = 0;
                     b.style.unityTextAlign = TextAnchor.MiddleCenter;
@@ -377,8 +380,7 @@ namespace Lvn.UI
             var shade = LvnTokens.ButtonShade;
             if (lift > 0f)
             {
-                el.style.borderBottomWidth = lift;
-                el.style.borderBottomColor = shade;
+                LvnChrome.EdgeOn(el, LvnSide.Bottom, shade, lift);
                 el.style.marginBottom = 0;
             }
 
@@ -398,7 +400,7 @@ namespace Lvn.UI
                 veil.style.backgroundColor = new Color(1f, 1f, 1f, 0.13f);
                 if (lift > 0f)
                 {
-                    el.style.borderBottomWidth = 0;
+                    el.style.borderBottomWidth = 0;   // НАРОЧНО одна толщина: цвет объёма не меняется, кнопка «утоплена»
                     el.style.translate = new Translate(0, lift);
                 }
             }
@@ -407,7 +409,7 @@ namespace Lvn.UI
                 veil.style.backgroundColor = new Color(1f, 1f, 1f, 0f);
                 if (lift > 0f)
                 {
-                    el.style.borderBottomWidth = lift;
+                    el.style.borderBottomWidth = lift;   // НАРОЧНО одна толщина: объём вернулся, цвет прежний
                     el.style.translate = new Translate(0, 0);
                 }
             }
@@ -544,11 +546,7 @@ namespace Lvn.UI
                 float w = Num(n["edge"], 0);
                 if (w > 0f)
                 {
-                    s.borderTopWidth = w; s.borderBottomWidth = w;
-                    s.borderLeftWidth = w; s.borderRightWidth = w;
-                    var c = LvnTheme.Current.EdgeColor;
-                    s.borderTopColor = c; s.borderBottomColor = c;
-                    s.borderLeftColor = c; s.borderRightColor = c;
+                    LvnChrome.Border(el, LvnTheme.Current.EdgeColor, w);
                 }
             }
             else if (LvnTheme.Current.EdgeWidth > 0f && (string)n["kind"] == "panel" && n["bg"] != null)

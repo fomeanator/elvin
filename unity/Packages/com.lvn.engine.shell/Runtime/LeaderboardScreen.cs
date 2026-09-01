@@ -270,9 +270,7 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(row, LvnTokens.RadiusSm);
             if (e.IsYou)
             {
-                row.style.borderLeftWidth = 3;
-                row.style.borderTopWidth = 0; row.style.borderRightWidth = 0; row.style.borderBottomWidth = 0;
-                row.style.borderLeftColor = LvnTokens.Accent;
+                LvnChrome.Stripe(row);
             }
 
             // Rank number — tabular, right-aligned in a fixed gutter.
