@@ -326,10 +326,7 @@ namespace Lvn.UI
         /// combos like <c>"bottom-center"</c>, <c>"top-left"</c>, <c>"center"</c>.</summary>
         private static (float tx, float ty) AnchorTranslate(string anchor)
         {
-            string a = string.IsNullOrEmpty(anchor) ? "center" : anchor.ToLowerInvariant();
-            float tx = a.Contains("left") ? 0f : a.Contains("right") ? -100f : -50f;
-            float ty = a.Contains("top") ? 0f : a.Contains("bottom") ? -100f : -50f;
-            return (tx, ty);
+            return LvnAnchor.Percent(anchor, "center");
         }
 
         // Сторона последнего спикера — SlideIn въезжает карточкой с неё.
