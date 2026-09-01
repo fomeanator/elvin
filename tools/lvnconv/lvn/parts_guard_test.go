@@ -1071,3 +1071,91 @@ func TestLayerOrderComesFromItsHome(t *testing.T) {
 			len(found), strings.Join(found, "\n  "))
 	}
 }
+
+// ПЕРЕЧИСЛЕНИЕ АВТОРСКИХ СЛОВ ОБЯЗАНО ИМЕТЬ ВЕТКУ «ИНАЧЕ».
+//
+// Слово не совпало ни с одним случаем — значит не произошло НИЧЕГО. Автор
+// пишет `justify=middle`, видит вёрстку по умолчанию и уходит искать ошибку в
+// другом месте. Ошибки нет: слово не то, и об этом никто не сказал.
+//
+// Правило касается только слов, пришедших ОТ АВТОРА (из команды или конфига):
+// внутренние перечисления по своим же типам ничего подобного не скрывают.
+func TestAuthorWordsHaveAnElseBranch(t *testing.T) {
+	root := repoRoot(t)
+	authored := regexp.MustCompile(`switch\s*\(.*(?:\(string\)\s*(?:cmd|command|n)\[|ToLowerInvariant\(\))`)
+
+	var found []string
+	scanned := 0
+	_ = filepath.Walk(filepath.Join(root, "unity/Packages"), func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+			return nil
+		}
+		p := filepath.ToSlash(path)
+		if strings.Contains(p, "/Tests/") || strings.Contains(p, "/Editor/") {
+			return nil
+		}
+		scanned++
+		lines := strings.Split(stripComments(string(mustRead(t, path))), "\n")
+		for i, l := range lines {
+			if !authored.MatchString(l) {
+				continue
+			}
+			// тело switch: до строки, где глубина скобок вернулась к нулю
+			depth, body := 0, []string{}
+			for j := i; j < len(lines); j++ {
+				depth += strings.Count(lines[j], "{") - strings.Count(lines[j], "}")
+				body = append(body, lines[j])
+				if depth == 0 && strings.Contains(strings.Join(body, "\n"), "{") {
+					break
+				}
+			}
+			// КОММУТАТОР КОМАНД — исключение с причиной. Незнакомый op сюда не
+			// доходит: плеер форвардит только те, что знает сам, а остальные
+			// считает и докладывает (LvnPlayer.NoteUnclaimed). Сам же список
+			// диспетчера сверяется с таблицей владения отдельным стражем — то
+			// есть «молчания по умолчанию» здесь нет, оно закрыто дважды.
+			if strings.Contains(l, `command["op"]`) {
+				continue
+			}
+			joined := strings.Join(body, "\n")
+			// «Иначе» бывает двух видов: явная ветка и разбор ПОСЛЕ перечисления
+			// (цвет: имя не токен — пробуем hex, и только потом жалуемся).
+			if strings.Contains(joined, "default:") || strings.Contains(joined, "LvnClosedWord") {
+				continue
+			}
+			// «Иначе» бывает и ПОСЛЕ перечисления: цвет сначала ищет токен, потом
+			// пробует hex и только тогда жалуется. Окно намеренно узкое и
+			// обрывается на следующем switch: в первой версии оно захватывало
+			// СОСЕДНЕЕ перечисление, и снятая ветка «иначе» у justify проходила
+			// молча, потому что LvnClosedWord нашёлся у align (проверено
+			// поломкой).
+			after := []string{}
+			for k := i + len(body); k < len(lines) && len(after) < 4; k++ {
+				if strings.Contains(lines[k], "switch") {
+					break
+				}
+				after = append(after, lines[k])
+			}
+			joinedAfter := strings.Join(after, "\n")
+			if strings.Contains(joinedAfter, "LvnClosedWord") || strings.Contains(joinedAfter, "TryParse") {
+				continue
+			}
+			found = append(found, fmt.Sprintf("%s:%d: %s", filepath.Base(path), i+1, strings.TrimSpace(l)))
+		}
+		return nil
+	})
+	atLeast(t, scanned, 100, "просмотренных файлов")
+	if len(found) > 0 {
+		t.Errorf("авторское слово разбирают молча (%d):\n  %s\n\n"+
+			"Добавьте ветку «иначе» — LvnClosedWord.Unknown(поле, слово, список). "+
+			"Молчаливое перечисление превращает опечатку автора в «просто не работает».",
+			len(found), strings.Join(found, "\n  "))
+	}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}

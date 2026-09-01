@@ -509,6 +509,10 @@ namespace Lvn.UI
                     // НАВСЕГДА. Узел заворачивается в невидимую рамку во весь
                     // родитель и центрируется ею — смещение остаётся свободным.
                     return true;
+                default:
+                    LvnClosedWord.Unknown("at", (string)n["at"],
+                        "fill | top | bottom | left | right | center");
+                    break;
             }
             return false;
         }
