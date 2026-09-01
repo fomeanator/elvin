@@ -35,6 +35,25 @@ namespace Lvn.UI
         // the next chapter's script/art loads) there is no line, and the empty
         // skinned box floating over a bare stage read as a glitch. Hidden on
         // every stage reset, shown again by the first ShowSay.
+        /// <summary>
+        /// ПОКАЗЫВАТЬ ЛИ ОКНО РЕПЛИКИ ПРЯМО СЕЙЧАС.
+        ///
+        /// <para>Записей о видимости окна две — «игрок припаркован на строке»
+        /// (<c>_sayUp</c>) и «предмет say кем-то УДЕРЖАН», — и восстанавливали
+        /// видимость по одной первой. Катсцена прячет окно удержанием, а
+        /// <c>_sayUp</c> при этом остаётся правдой: игрок и правда стоял на
+        /// строке, когда началось наложение.</para>
+        ///
+        /// <para>Отсюда живой случай: смена шрифта или размера интерфейса
+        /// посреди катсцены пересобирает огранку, огранка восстанавливает
+        /// видимость «как было» — и поверх кадра катсцены всплывает ПУСТОЕ
+        /// окно реплики. То же на пересборке документа.</para>
+        ///
+        /// <para>Правило одно и живёт здесь; диагностика (<c>Health</c>) про
+        /// удержание знала и раньше — знал не тот, кто решает.</para>
+        /// </summary>
+        private bool SayOnScreen => _sayUp && Commands?.HolderOf("say") == null;
+
         private void SetSayVisible(bool on, Action shown = null)
         {
             if (!on)

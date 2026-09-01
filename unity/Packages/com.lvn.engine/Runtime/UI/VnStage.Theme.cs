@@ -77,7 +77,7 @@ namespace Lvn.UI
             _dialogue = new DialogueBox(Theme);
             _dialogue.RevealingChanged += OnDialogueRevealing; // луп клавиатуры
             _dialogue.SetUserOpacity(LvnPrefs.DialogOpacity);
-            SetSayVisible(_sayUp); // a re-theme between lines must not reveal the empty frame
+            SetSayVisible(SayOnScreen); // a re-theme between lines must not reveal the empty frame
             _choices = new ChoiceList(Theme);
             // Rebuilt chrome goes back into the safe-area container, before the
             // label layer — keeps z-order: dialogue, choices, labels (fx above).
