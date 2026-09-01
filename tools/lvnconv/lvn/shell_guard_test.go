@@ -13,9 +13,25 @@ import (
 // Каждый держит правило, которое уже стоило игроку кадра или прохождения;
 // повод записан в комментарии над самим стражем.
 
+// Каталог исходников оболочки — и СРАЗУ порог пустоты. Пять здешних стражей
+// читают этот каталог и требуют «нарушений ноль»; переименуй пакет, переедь
+// папка — и все пятеро позеленели бы, не прочитав ни файла. Порог стоит один
+// раз здесь, а не пятью копиями в каждом.
 func shellRuntimeDir(t *testing.T) string {
 	t.Helper()
-	return filepath.Join(repoRoot(t), "unity", "Packages", "com.lvn.engine.shell", "Runtime")
+	dir := filepath.Join(repoRoot(t), "unity", "Packages", "com.lvn.engine.shell", "Runtime")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("каталог оболочки не читается (%s): %v", dir, err)
+	}
+	n := 0
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".cs") {
+			n++
+		}
+	}
+	atLeast(t, n, 40, "файлов оболочки")
+	return dir
 }
 
 // Оболочка не ведёт список своих экранов от руки.
