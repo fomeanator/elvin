@@ -35,7 +35,8 @@ namespace Lvn.Services
             LvnOps.Register("wallet_spend", (cmd, ctx) =>
             {
                 var (cur, amt) = MoneyArgs(cmd, ctx.Vars);
-                if (amt > 0) LvnAsync.Fire(LvnWallet.SpendAsync(cur, amt, (string)cmd["reason"] ?? "script", (string)cmd["sku"]), "Spend");
+                if (amt > 0) LvnAsync.Fire(SpendOrSayAsync(cur, amt,
+                    (string)cmd["reason"] ?? "script", (string)cmd["sku"]), "Spend");
             });
 
             LvnOps.Register("leaderboard_submit", (cmd, ctx) =>
@@ -300,6 +301,34 @@ namespace Lvn.Services
         private static async System.Threading.Tasks.Task RunAdAsync(string placement, ILvnOpContext ctx)
         {
             await LvnAds.WatchAndRewardAsync(placement);
+        }
+
+        /// <summary>
+        /// СПИСАНИЕ, КОТОРОГО НЕ ПРОИЗОШЛО, — НЕ МОЛЧАНИЕ.
+        ///
+        /// <para>Команда <c>wallet_spend</c> берёт деньги без вопросов: у неё
+        /// нет ни подтверждения, ни выхода в магазин — этим занимается Кассир,
+        /// когда платит ИГРОК. Здесь платит СЦЕНАРИЙ.</para>
+        ///
+        /// <para>Но взять можно не всегда: не хватило средств, сервер ответил
+        /// отказом, офлайн не даёт уйти в минус. Результат при этом
+        /// игнорировался целиком — история шла дальше, как будто заплатили, и
+        /// не узнавал об этом никто: ни игрок, ни автор, ни лог. Самый дорогой
+        /// вид тихого отказа: расходится не картинка, а ЭКОНОМИКА.</para>
+        ///
+        /// <para>Сказать — здесь и есть починка. Что делать с отказом, решает
+        /// автор: если оплата что-то меняет в истории, её надо спрашивать
+        /// выбором с ценой, а не командой.</para>
+        /// </summary>
+        private static async System.Threading.Tasks.Task SpendOrSayAsync(
+            string currency, long amount, string reason, string sku)
+        {
+            if (await LvnWallet.SpendAsync(currency, amount, reason, sku)) return;
+            UnityEngine.Debug.LogWarning(
+                $"[lvn] wallet_spend {amount} {currency} НЕ ПРОШЛО (причина «{reason}»): " +
+                "не хватило средств, отказ сервера или запрет ухода в минус офлайн. " +
+                "История идёт дальше, как будто заплатили: если списание что-то в ней " +
+                "меняет, спрашивайте выбором с ценой.");
         }
 
         private static (string currency, long amount) MoneyArgs(
