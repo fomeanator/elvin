@@ -235,6 +235,9 @@ namespace Lvn.UI.Screens
             if (fav == _menuSceneActor
                 && (string.IsNullOrEmpty(fav) || Stage.ActorVisibleOrPending(fav))) return;
             // Самолечение того же фаворита не прячет его перед повтором show.
+            // НАРОЧНО команда, а не Прима: Прима — это ТЕКУЩАЯ постоянная
+            // фигура, а здесь уводят ПРЕЖНЮЮ, которая ею быть перестала.
+            // Постановка идёт ниже, через PlaceMenuHeroine → Stage.Prima.
             if (!string.IsNullOrEmpty(_menuSceneActor) && _menuSceneActor != fav)
                 Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
                 { ["op"] = "actor", ["id"] = _menuSceneActor, ["show"] = false }, LvnSender.Menu);
