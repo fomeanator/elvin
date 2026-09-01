@@ -141,7 +141,7 @@ namespace Lvn.UI
                 : LvnTimeWords.Stamp(slot.SavedAtUnixMs);
             text.Add(Text(label + "   " + when, 24, FontStyle.Bold));
             if (!string.IsNullOrEmpty(slot?.Preview))
-                text.Add(Text("«" + Trunc(slot.Preview, Lvn.Content.LvnClip.PreviewMax) + "»", 20, FontStyle.Italic, dim: true));
+                text.Add(Text("«" + Trunc(slot.Preview, Lvn.LvnClip.PreviewMax) + "»", 20, FontStyle.Italic, dim: true));
             row.Add(text);
             return row;
         }

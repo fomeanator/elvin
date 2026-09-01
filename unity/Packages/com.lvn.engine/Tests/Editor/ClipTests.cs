@@ -1,4 +1,4 @@
-using Lvn.Content;
+using Lvn;
 using NUnit.Framework;
 
 namespace Lvn.Tests

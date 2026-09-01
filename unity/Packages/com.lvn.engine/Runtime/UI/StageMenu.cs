@@ -447,6 +447,6 @@ namespace Lvn.UI
 
         // Правило обрезки — в доме (LvnClip): здесь оно рвало суррогатные
         // пары и оставляло хвостовые запятые перед многоточием.
-        private static string Trunc(string s, int max) => Lvn.Content.LvnClip.Text(s, max);
+        private static string Trunc(string s, int max) => Lvn.LvnClip.Text(s, max);
     }
 }
