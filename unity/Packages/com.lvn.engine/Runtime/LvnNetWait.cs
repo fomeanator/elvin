@@ -42,16 +42,30 @@ namespace Lvn
         /// службы, а сборки контента они не видят — оттуда и пятая копия
         /// цикла.</para>
         /// </summary>
+        /// <summary>ДОЖДАТЬСЯ ОПЕРАЦИИ — механизм ожидания без вида работы.
+        ///
+        /// <para>Подписаться на завершение, обернуть в задачу, снять ожидание по
+        /// отмене. Это стояло дважды: у сетевого запроса и у обычной операции
+        /// Unity, и различалось ровно одной строкой — ЧТО делать при отмене.
+        /// Она и осталась доводом.</para></summary>
+        private static async Task SettledAsync(UnityEngine.AsyncOperation op, CancellationToken ct,
+                                               System.Action<TaskCompletionSource<bool>> onCancel)
+        {
+            if (op.isDone) return;
+            var tcs = new TaskCompletionSource<bool>();
+            op.completed += _ => tcs.TrySetResult(true);
+            using (ct.CanBeCanceled ? ct.Register(() => onCancel(tcs)) : default)
+                await tcs.Task;
+        }
+
         public static async Task DoneAsync(UnityEngine.AsyncOperation op, CancellationToken ct = default)
         {
             if (op == null) return;
-            if (!op.isDone)
-            {
-                var tcs = new TaskCompletionSource<bool>();
-                op.completed += _ => tcs.TrySetResult(true);
-                using (ct.CanBeCanceled ? ct.Register(() => tcs.TrySetResult(false)) : default)
-                    await tcs.Task;
-            }
+            // Ждём общим способом: разница между этим ожиданием и сетевым —
+            // ТОЛЬКО в том, что делать при отмене. Здесь достаточно перестать
+            // ждать; у запроса приходится ещё и обрывать соединение, иначе он
+            // доедет до конца впустую и займёт место в полосе.
+            await SettledAsync(op, ct, tcs => tcs.TrySetResult(false));
             ct.ThrowIfCancellationRequested();
         }
 
@@ -104,15 +118,10 @@ namespace Lvn
             UnityWebRequest req, UnityWebRequestAsyncOperation op, CancellationToken ct)
         {
             if (req == null || op == null) return;
-            if (!op.isDone)
-            {
-                var tcs = new TaskCompletionSource<bool>();
-                op.completed += _ => tcs.TrySetResult(true);
-                using (ct.CanBeCanceled
-                           ? ct.Register(() => { LvnQuiet.Try(req.Abort); })
-                           : default)
-                    await tcs.Task;
-            }
+            // Запрос при отмене НАДО ОБОРВАТЬ, а не просто перестать ждать:
+            // иначе он доедет до конца впустую и всё это время будет занимать
+            // место в полосе, ради которой отмена и случилась.
+            await SettledAsync(op, ct, _ => LvnQuiet.Try(req.Abort));
             ct.ThrowIfCancellationRequested();
         }
 

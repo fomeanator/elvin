@@ -66,15 +66,21 @@ namespace Lvn.Content
             ["updatedAt"] = DateTime.UtcNow.ToString("o"),
         };
 
-        internal static JObject ReadDoc(string titleId)
+        /// <summary>ПРОЧИТАТЬ СОХРАНЁННЫЙ РАЗБОР. Нет записи или она битая —
+        /// <c>null</c>, и это не беда: значит сохранять было нечего или сохранённое
+        /// пережило смену формата. Оба чтения — общий разбор и базовый — держали
+        /// эти пять строк своей копией.</summary>
+        private static JObject ReadJson(string key)
         {
             try
             {
-                var s = LvnKeep.Get(Key(titleId), "");
+                var s = LvnKeep.Get(key, "");
                 return string.IsNullOrEmpty(s) ? null : JObject.Parse(s);
             }
             catch { return null; }
         }
+
+        internal static JObject ReadDoc(string titleId) => ReadJson(Key(titleId));
 
         internal static void WriteDoc(string titleId, JObject doc)
         {
@@ -93,15 +99,7 @@ namespace Lvn.Content
 
         internal static string BaseKey(string titleId) => Lvn.LvnKeep.Scoped("lvn_state_base_", titleId);
 
-        internal static JObject ReadBase(string titleId)
-        {
-            try
-            {
-                var s = LvnKeep.Get(BaseKey(titleId), "");
-                return string.IsNullOrEmpty(s) ? null : JObject.Parse(s);
-            }
-            catch { return null; }
-        }
+        internal static JObject ReadBase(string titleId) => ReadJson(BaseKey(titleId));
 
         internal static void WriteBase(string titleId, JObject vars)
         {

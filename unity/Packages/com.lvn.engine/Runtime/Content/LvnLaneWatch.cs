@@ -46,6 +46,23 @@ namespace Lvn.Content
         /// <summary>Место занято. <paramref name="waitedMs"/> — сколько простоял
         /// в очереди; ноль означает «место было свободно».</summary>
         public static void Entered(string lane, LvnRung rung, long waitedMs)
+            => Amend(lane, rung, t =>
+            {
+                t.Entries++;
+                t.WaitedMs += waitedMs;
+                if (waitedMs > t.WorstMs) t.WorstMs = (int)waitedMs;
+                return t;
+            });
+
+        /// <summary>НАЙТИ ИЛИ ЗАВЕСТИ ЗАПИСЬ и поправить её под замком.
+        ///
+        /// <para>Эти восемь строк — поиск по паре «полоса + ступень», починка
+        /// отсутствующей записи и возврат её на место — стояли в обоих
+        /// счётчиках дословно, различаясь одной строкой посередине. Заметил я
+        /// это не глазами: сплошной обход почти-двойников нашёл мой же
+        /// сегодняшний код. Механизм здесь — учёт по паре ключей; что именно
+        /// прибавить, знает вызывающий.</para></summary>
+        private static void Amend(string lane, LvnRung rung, System.Func<Tally, Tally> change)
         {
             if (string.IsNullOrEmpty(lane)) return;
             lock (_lock)
@@ -53,26 +70,13 @@ namespace Lvn.Content
                 var key = (lane, rung);
                 _tally.TryGetValue(key, out var t);
                 t.Lane = lane; t.Rung = rung;
-                t.Entries++;
-                t.WaitedMs += waitedMs;
-                if (waitedMs > t.WorstMs) t.WorstMs = (int)waitedMs;
-                _tally[key] = t;
+                _tally[key] = change(t);
             }
         }
 
         /// <summary>Место вернули живому по просьбе.</summary>
         public static void Yielded(string lane, LvnRung rung)
-        {
-            if (string.IsNullOrEmpty(lane)) return;
-            lock (_lock)
-            {
-                var key = (lane, rung);
-                _tally.TryGetValue(key, out var t);
-                t.Lane = lane; t.Rung = rung;
-                t.Yields++;
-                _tally[key] = t;
-            }
-        }
+            => Amend(lane, rung, t => { t.Yields++; return t; });
 
         /// <summary>Сколько живых входов и сколько худшее их ожидание — два
         /// числа, которые едут в отчёт главы. Первое ловит «объявлено не тому»,
