@@ -481,8 +481,7 @@ namespace Lvn.UI
             _uiLayer?.Clear();   // деревья `ui` — того же срока жизни, что метки
             _labelEls.Clear();
             _labelTmpl.Clear();
-            _hintHide?.Pause(); _hintHide = null;
-            _hintHost = null; _hintCard = null; _hintLabel = null; // detached by the Clear above
+            ForgetHint();   // части подсказки оторваны Clear'ом выше
         }
 
         private void ResetStage()
