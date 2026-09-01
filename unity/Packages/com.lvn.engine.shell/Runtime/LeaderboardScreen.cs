@@ -115,7 +115,6 @@ namespace Lvn.UI.Screens
 
         // ── Public surface ──────────────────────────────────────────────────
 
-        /// <summary>Re-render the podium and the list from <see cref="Entries"/>.</summary>
         /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
 
         public override void Rebuild()

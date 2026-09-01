@@ -125,10 +125,6 @@ namespace Lvn.Content
         public float? backdrop_grace; // max wait for the first bg before revealing anyway; default 2.0
     }
 
-    /// <summary>The wardrobe overlay: a live layered preview of the character
-    /// plus slot tabs with buy/equip cards. The ITEMS live with the character
-    /// (<c>sprites.&lt;id&gt;.wardrobe</c>); this block is only the screen's
-    /// look and strings. Every field optional.</summary>
     /// <summary>Как выглядит валюта в интерфейсе (см. <c>LvnPriceTag</c>).</summary>
     public sealed class CurrencyLook
     {

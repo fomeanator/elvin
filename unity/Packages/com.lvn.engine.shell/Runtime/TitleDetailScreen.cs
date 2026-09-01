@@ -135,8 +135,6 @@ namespace Lvn.UI.Screens
         private void Back() => Cancel();
 
 
-        /// <summary>(Re)build the whole content column. Public so tests/hosts can
-        /// render the page without driving <see cref="ShowAsync"/>.</summary>
         /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
 
         public override void Rebuild()

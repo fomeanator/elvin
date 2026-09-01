@@ -198,8 +198,6 @@ namespace Lvn.UI.Screens
             Rebuild();
         }
 
-        /// <summary>Re-render the grid + counter from the current entries. Safe to call
-        /// repeatedly (e.g. after an unlock).</summary>
         /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
         public void Redress() => Rebuild();
 

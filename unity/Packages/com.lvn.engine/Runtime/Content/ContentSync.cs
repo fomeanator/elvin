@@ -20,9 +20,17 @@ namespace Lvn.Content
         private string _lastVersion;
         private CancellationTokenSource _cts;
 
-        /// <summary>Seconds between polls. Fast for dev (1–2s), slow for prod
-        /// (15–30s). Clamped to a 0.25s floor.</summary>
-        public float IntervalSeconds = 2f;
+        /// <summary>КАК ЧАСТО СПРАШИВАТЬ. Быстро для разработки (1–2 с),
+        /// медленно для прода (15–30 с); пол — четверть секунды.</summary>
+        public float IntervalSeconds = DefaultIntervalSeconds;
+
+        /// <summary>Умолчание опроса — ОДНО ЧИСЛО НА ДВОИХ.
+        ///
+        /// <para>Столько же стояло в <c>NovelApp.SyncInterval</c>, которое это
+        /// поле и заполняет. Две копии одного решения: поправишь одну — вторая
+        /// молча останется прежней и оживёт там, где синхронизацию заводят
+        /// мимо приложения. Теперь число здесь, а приложение его спрашивает.</para></summary>
+        public const float DefaultIntervalSeconds = 2f;
 
         /// <summary>
         /// When enabled, the first successful poll also raises <see cref="OnChanged"/>.

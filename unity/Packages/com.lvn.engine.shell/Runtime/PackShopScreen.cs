@@ -251,8 +251,6 @@ namespace Lvn.UI.Screens
             };
         }
 
-        /// <summary>Re-render the pack grid for the active tab and re-style the tab
-        /// pills. Cheap to call after any state change.</summary>
         /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
 
         public override void Rebuild()
