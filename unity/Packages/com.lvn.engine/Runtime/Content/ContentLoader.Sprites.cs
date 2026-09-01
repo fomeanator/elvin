@@ -150,24 +150,16 @@ namespace Lvn.Content
         {
             try
             {
-                // GPU-native compressed texture, when the device supports it and the
-                // server has a transcoded variant: the ONE encoding that actually cuts
-                // runtime VRAM (the GPU samples the compressed bytes directly), not
-                // just download size. Never a hard dependency — any miss (unsupported
-                // GPU, no server-side astcenc, corrupt data) falls through to the
-                // normal PNG/JPG decode below untouched. See ContentLoader.Astc.cs.
-                var (astcSprite, astcBytes) = await TryDecodeAstcAsync(url, ct);
-                if (astcSprite != null)
-                {
-                    // ASTC's whole point is using far fewer bytes than raw RGBA — charge
-                    // the cache budget the texture's ACTUAL compressed size, not
-                    // width*height*4, or the LRU would evict as if every hit here were
-                    // still full-size and erase most of the memory win.
-                    return CacheSprite(url, astcSprite, astcBytes);
-                }
-
-                // KTX2/BasisU (see ContentLoader.Ktx2.cs) — the raw-ASTC path's
-                // successor: same VRAM win, official transcoder, every platform.
+                // ЕДИНСТВЕННЫЙ ФОРМАТ АРТА ИСТОРИИ. Видеокарта читает
+                // сжатые блоки как есть: ни распаковки в RGBA, ни полного
+                // кадра в видеопамяти (16 МБ на фон @2k превращаются в 4).
+                //
+                // Форматов тут было два. Сырой ASTC приехал первым, слёг
+                // 06.07 на блоках невыровненного размера и с тех пор стоял
+                // выключенный — 171 строка клиента и 205 сервера, которые
+                // ничего не делали, но исправно объясняли, почему они нужны.
+                // Второй, живой, умеет то же самое и на всех платформах.
+                // Мёртвый снят 01.09; разбор — в docs/missing-roles.md.
                 var (ktx2Sprite, ktx2Bytes) = await TryDecodeKtx2Async(url, ct);
                 if (ktx2Sprite != null)
                     return CacheSprite(url, ktx2Sprite, ktx2Bytes);

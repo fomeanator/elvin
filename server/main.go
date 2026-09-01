@@ -121,7 +121,7 @@ func main() {
 	mux.HandleFunc("/content/asset-versions.json", srv.handleAssetVersions)
 	mux.HandleFunc("/v1/content/version", srv.handleVersion)
 	ds := newDownscaler() // shared: withDownscale + withKTX2 (@2k source materialization)
-	mux.Handle("/content/", srv.withKTX2(ds, srv.withASTC(srv.withDownscale(ds, srv.contentHandler(*contentDir)))))
+	mux.Handle("/content/", srv.withKTX2(ds, srv.withDownscale(ds, srv.contentHandler(*contentDir))))
 	mux.HandleFunc("/v1/state", srv.handleState)
 
 	// Product services — auth, wallet/IAP, analytics. Modular by design: each
@@ -492,8 +492,9 @@ func (s *server) computeVersions(includeManifest bool) map[string]string {
 		if rel == "asset-versions.json" || (rel == "manifest.json" && !includeManifest) {
 			return nil
 		}
-		// Derived, regenerable artifacts (downscale.go's @2k variants, astc.go's
-		// transcodes) must NOT fold into the content version: they appear on
+		// Derived, regenerable artifacts (downscale.go's @2k variants,
+		// ktx2.go's codes — plus .astc leftovers from the format we dropped)
+		// must NOT fold into the content version: they appear on
 		// disk lazily as clients request them, and counting them made every
 		// first visit to a scene bump the version — the client's ContentSync
 		// then "detected a content change" and reloaded the chapter MID-PLAY
@@ -1114,10 +1115,10 @@ func onlyMethod(w http.ResponseWriter, r *http.Request, method string) bool {
 //
 // Правил ровно два, и выбор между ними — про СМЫСЛ, а не про вкус:
 //
-//   • qtyParam — число меняет только ОБЪЁМ ответа (сколько строк, сколько
+//   - qtyParam — число меняет только ОБЪЁМ ответа (сколько строк, сколько
 //     секунд ждать). Перегиб срезается до потолка молча: клиент просил больше,
 //     чем есть, и получает всё, что есть.
-//   • spanParam — число меняет СМЫСЛ ответа (за какой период отчёт). Перегиб —
+//   - spanParam — число меняет СМЫСЛ ответа (за какой период отчёт). Перегиб —
 //     ошибка: молча подменённый период превращает отчёт про деньги в отчёт про
 //     другой отрезок времени, и заметить это по цифрам нельзя.
 //
