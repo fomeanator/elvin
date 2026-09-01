@@ -76,6 +76,29 @@ namespace Lvn.Content
             return mipped;
         }
 
+        /// <summary>УНИЧТОЖИТЬ СОЗДАННОЕ НАМИ — верно в обоих режимах.
+        ///
+        /// <para>В редакторе <c>Object.Destroy</c> НЕ уничтожает: он пишет
+        /// ошибку в лог и уходит, оставив объект жить. Пять мест этого дома
+        /// звали его напрямую, и в редакторе — то есть в тестах, в пробах и в
+        /// любой редакторной оснастке — освобождение памяти просто не
+        /// происходило. Наружу это выглядит никак: игра-то работает.</para>
+        ///
+        /// <para>Поймал это первый же тест, написанный на дом разбора картинки:
+        /// «битые байты не оставляют текстуру» упал не на утверждении, а на
+        /// строке ошибки от самого Unity.</para>
+        ///
+        /// <para>Уничтожаем только СВОЁ — текстуры и клипы, собранные из
+        /// байтов. Ассет с диска сюда не попадает, и немедленное уничтожение
+        /// ему не грозит.</para>
+        /// </summary>
+        private static void Discard(UnityEngine.Object o)
+        {
+            if (o == null) return;
+            if (Application.isPlaying) Object.Destroy(o);
+            else Object.DestroyImmediate(o);
+        }
+
         /// <summary>КАРТИНКА ИЗ БАЙТОВ — или ничего, но без следа.
         ///
         /// <para>Обряд из двух шагов: завести пустую текстуру и попросить её
@@ -93,7 +116,7 @@ namespace Lvn.Content
             if (bytes == null || bytes.Length == 0) return null;
             var tex = new Texture2D(2, 2, TextureFormat.RGBA32, mipChain: false);
             if (tex.LoadImage(bytes)) return tex;
-            UnityEngine.Object.Destroy(tex);
+            Discard(tex);
             return null;
         }
 
@@ -122,8 +145,8 @@ namespace Lvn.Content
         public static void Release(Sprite sprite)
         {
             if (sprite == null) return;
-            if (sprite.texture != null) Object.Destroy(sprite.texture);
-            Object.Destroy(sprite);
+            if (sprite.texture != null) Discard(sprite.texture);
+            Discard(sprite);
         }
 
         /// <summary>Выкинуть запись из обоих кэшей поставщика.</summary>
@@ -139,7 +162,7 @@ namespace Lvn.Content
             }
             if (clips != null && clips.TryGetValue(url, out var clip))
             {
-                if (clip != null) Object.Destroy(clip);
+                if (clip != null) Discard(clip);
                 clips.Remove(url);
             }
         }
@@ -155,7 +178,7 @@ namespace Lvn.Content
             }
             if (clips != null)
             {
-                foreach (var kv in clips) if (kv.Value != null) Object.Destroy(kv.Value);
+                foreach (var kv in clips) if (kv.Value != null) Discard(kv.Value);
                 clips.Clear();
             }
         }
