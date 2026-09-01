@@ -487,9 +487,7 @@ namespace Lvn.UI.Screens
             col.style.minWidth = new Length(55, LengthUnit.Percent);
             col.style.marginRight = LvnTokens.Space2;
             var lbl = new Label(label);
-            lbl.style.color = _text;
-            lbl.style.fontSize = LvnTokens.TextBase;
-            lbl.style.whiteSpace = WhiteSpace.Normal;
+            ScreenUi.Quiet(lbl, LvnTokens.TextBase, _text);
             col.Add(lbl);
             if (!string.IsNullOrEmpty(hint))
             {

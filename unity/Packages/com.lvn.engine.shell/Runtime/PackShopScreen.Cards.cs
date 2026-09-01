@@ -48,15 +48,11 @@ namespace Lvn.UI.Screens
             // игре две валюты, и путать их дороже всего именно в магазине.
             var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("ads.free_title", "Watch an ad — get {0}",
                 LvnPriceTag.Full(st.Currency, st.Amount)));
-            title.style.color = LvnTokens.Text;
-            title.style.fontSize = LvnTokens.TextBase;
-            title.style.whiteSpace = WhiteSpace.Normal;
+            ScreenUi.Quiet(title, LvnTokens.TextBase, LvnTokens.Text);
             card.Add(title);
 
             var hint = new Label();
-            hint.style.color = LvnTokens.TextDim;
-            hint.style.fontSize = LvnTokens.TextXs;
-            hint.style.whiteSpace = WhiteSpace.Normal;
+            ScreenUi.Quiet(hint, LvnTokens.TextXs);
             hint.style.marginTop = LvnTokens.Space1;
             card.Add(hint);
 

@@ -115,9 +115,7 @@ namespace Lvn.UI.Screens
             _card.Add(_title);
 
             _message = new Label { name = "popup-message" };
-            _message.style.color = _text;
-            _message.style.fontSize = LvnTokens.TextSm;
-            _message.style.whiteSpace = WhiteSpace.Normal;
+            ScreenUi.Quiet(_message, LvnTokens.TextSm, _text);
             _message.style.unityTextAlign = TextAnchor.MiddleCenter;
             _message.style.marginBottom = LvnTokens.Space3;
             _card.Add(_message);

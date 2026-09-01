@@ -267,9 +267,7 @@ namespace Lvn.UI.Screens
         {
             var p = new Label(ShownSynopsis);
             p.style.flexShrink = 0;
-            p.style.color = LvnTokens.TextDim;
-            p.style.fontSize = LvnTokens.TextSm;
-            p.style.whiteSpace = WhiteSpace.Normal;
+            ScreenUi.Quiet(p, LvnTokens.TextSm);
             p.style.marginTop = LvnTokens.Space2;
             return p;
         }
