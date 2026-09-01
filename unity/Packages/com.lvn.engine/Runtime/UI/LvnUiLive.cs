@@ -136,16 +136,15 @@ namespace Lvn.UI
                     {
                         float f = fv.Value;
                         var fill = el[0];
-                        if (fill.style.transitionProperty.keyword == StyleKeyword.Null
-                            && (fill.style.transitionDuration.value == null
-                                || fill.style.transitionDuration.value.Count == 0))
-                        {
-                            fill.style.transitionProperty = new List<StylePropertyName> { "width" };
-                            fill.style.transitionDuration =
-                                new List<TimeValue> { new TimeValue(0.22f, TimeUnit.Second) };
-                            fill.style.transitionTimingFunction =
-                                new List<EasingFunction> { new EasingFunction(EasingMode.EaseOutCubic) };
-                        }
+                        // ДЛИТЕЛЬНОСТЬ СПРАШИВАЕТСЯ У ДОМА ДВИЖЕНИЯ, А НЕ
+                        // ПИШЕТСЯ ЧИСЛОМ. Здесь стояли свои 0.22 с, поставленные
+                        // ОДИН РАЗ и навсегда: полосу не касался ни темп
+                        // анимаций, ни «уменьшить движение» — единственное
+                        // место оболочки, до которого настройка не доезжала.
+                        // Заодно уходит и кэш: длительность переписывается на
+                        // каждом обновлении, поэтому смена темпа доходит сама,
+                        // без уведомления и без памяти о тронутых элементах.
+                        LvnMotion.Smooth(fill, 220, "width");
                         fill.style.width = Length.Percent(Mathf.Clamp01(f) * 100f);
                     }
                     break;
