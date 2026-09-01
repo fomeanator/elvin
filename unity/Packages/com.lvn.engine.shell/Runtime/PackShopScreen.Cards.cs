@@ -137,7 +137,7 @@ namespace Lvn.UI.Screens
             art.style.height = wide ? 112 : 82;
             art.style.alignItems = Align.Center;
             art.style.justifyContent = Justify.Center;
-            art.style.backgroundColor = new Color(pack.Tint.r, pack.Tint.g, pack.Tint.b, 0.88f);
+            art.style.backgroundColor = UiColor.WithAlpha(pack.Tint, 0.88f);
             art.style.borderTopLeftRadius = LvnTokens.Radius;
             art.style.borderTopRightRadius = LvnTokens.Radius;
             art.style.overflow = Overflow.Hidden;
@@ -154,7 +154,7 @@ namespace Lvn.UI.Screens
             { pickingMode = PickingMode.Ignore };
             category.style.position = Position.Absolute;
             category.style.left = 12; category.style.bottom = 9;
-            category.style.color = new Color(LvnTokens.Text.r, LvnTokens.Text.g, LvnTokens.Text.b, 0.72f);
+            category.style.color = UiColor.WithAlpha(LvnTokens.Text, 0.72f);
             category.style.fontSize = LvnTokens.TextMicro;
             category.style.letterSpacing = 1.4f;
             category.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -235,11 +235,11 @@ namespace Lvn.UI.Screens
             buy.style.color = pack.Best ? LvnTokens.OnAccent : LvnTokens.Text;
             buy.style.backgroundColor = pack.Best
                 ? LvnTokens.Accent
-                : new Color(LvnTokens.Accent.r, LvnTokens.Accent.g, LvnTokens.Accent.b, 0.15f);
+                : UiColor.WithAlpha(LvnTokens.Accent, 0.15f);
             buy.style.unityFontStyleAndWeight = FontStyle.Bold;
             LvnChrome.Round(buy, LvnTokens.RadiusSm);
             if (pack.Best) LvnChrome.ClearBorder(buy);
-            else LvnChrome.Border(buy, new Color(LvnTokens.Accent.r, LvnTokens.Accent.g, LvnTokens.Accent.b, 0.36f), 1f);
+            else LvnChrome.Border(buy, UiColor.WithAlpha(LvnTokens.Accent, 0.36f), 1f);
             buy.clicked += () => Buy(buy, pack);
             body.Add(buy);
 

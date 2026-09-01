@@ -265,7 +265,7 @@ namespace Lvn.UI.Screens
             row.style.paddingTop = LvnTokens.Space2; row.style.paddingBottom = LvnTokens.Space2;
             row.style.paddingLeft = LvnTokens.Space2; row.style.paddingRight = LvnTokens.Space3;
             row.style.backgroundColor = e.IsYou
-                ? new Color(LvnTokens.Accent.r, LvnTokens.Accent.g, LvnTokens.Accent.b, 0.18f)
+                ? UiColor.WithAlpha(LvnTokens.Accent, 0.18f)
                 : LvnTokens.Surface;
             LvnChrome.Round(row, LvnTokens.RadiusSm);
             if (e.IsYou)

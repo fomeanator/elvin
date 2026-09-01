@@ -163,8 +163,7 @@ namespace Lvn.UI
             card.Add(LvnSlider.Make(min, max, value, onChange,
                 onPreview: live ? onChange : null,
                 accent: LvnTokens.Accent,
-                track: new Color(_theme.MenuTextColor.r, _theme.MenuTextColor.g,
-                                 _theme.MenuTextColor.b, 0.18f)));
+                track: UiColor.WithAlpha(_theme.MenuTextColor, 0.18f)));
             return card;
         }
 
