@@ -395,9 +395,15 @@ namespace Lvn.UI
         }
 
         /// <summary>
-        /// Хореография: те же появления, но со сдвигом по времени. Первый
+        /// НЕ ПОДКЛЮЧЁН: ждёт авторской настройки. Естественный заказчик один —
+        /// список выборов: он появляется мгновенно и лесенкой смотрелся бы
+        /// живее. Но выбор — это ЭКРАН РЕШЕНИЯ: игрок уже готов нажать, и
+        /// движение здесь скорее мешает, чем украшает. Такое включают полем
+        /// манифеста (<c>ui.choices.appear</c>, как у диалога), а не молча.
+        ///
+        /// <para>Хореография: те же появления, но со сдвигом по времени. Первый
         /// элемент идёт сразу, каждый следующий — на <paramref name="stepMs"/>
-        /// позже.
+        /// позже.</para>
         /// </summary>
         public static void Stagger(IEnumerable<VisualElement> items, float fromY = 22f,
                                    int stepMs = StaggerMs, int startDelayMs = 0)
@@ -415,25 +421,6 @@ namespace Lvn.UI
             }
         }
 
-        /// <summary>
-        /// Нажатие: короткое сжатие и возврат. Делает интерфейс осязаемым
-        /// сильнее, чем любая подсветка.
-        /// </summary>
-        public static void Press(VisualElement el, float scale = 0.96f)
-        {
-            if (el == null) return;
-            el.RegisterCallback<PointerDownEvent>(_ =>
-                el.style.scale = new Scale(new Vector2(scale, scale)));
-            // И отпускание, и уход пальца за пределы: без второго элемент
-            // залипает сжатым, если игрок передумал и увёл палец.
-            EventCallback<EventBase> back = _ => Animate(el, 0, (t, e) =>
-            {
-                float s = Mathf.LerpUnclamped(scale, 1f, t);
-                e.style.scale = new Scale(new Vector2(s, s));
-            }, DampingSoft);
-            el.RegisterCallback<PointerUpEvent>(e => back(e));
-            el.RegisterCallback<PointerLeaveEvent>(e => back(e));
-        }
 
         /// <summary>Класс-пометка «меня можно нажать». Кнопке не нужна — её
         /// узнаём по типу; ставится на всё остальное: вкладки, карточки,

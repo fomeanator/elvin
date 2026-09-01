@@ -27,7 +27,9 @@ import (
 // честные: подключить способ или подписать его словом НЕ ПОДКЛЮЧЁН с
 // объяснением, чего он ждёт.
 func TestDormantMethodsExplainThemselves(t *testing.T) {
-	const budget = 4 // 01.09: 13 → 4. Две двери-дубля удалены, LvnUrl.Absolute подключён
+	const budget = 0 // 01.09: 13 → 0. Подключены (LvnUrl.Absolute, LvnLog.Error), удалены как
+	// вытесненные (LvnChrome.Panel, LvnPicture.Picture, LvnMotion.Press, LvnFonts.PathFor
+	// и DisplayPathFor), остальные подписаны словом НЕ ПОДКЛЮЧЁН с тем, чего ждут.
 	// (оболочка решала «уже адрес или ещё путь» подстрокой «://» — шире правды),
 	// шесть подписаны словом НЕ ПОДКЛЮЧЁН с тем, чего ждут.
 	// Card+Edge, и мимо собственного Round) и LvnPicture.Picture (Photo/Skin вписывают сами).
@@ -104,7 +106,15 @@ func TestDormantMethodsExplainThemselves(t *testing.T) {
 			// того же дома. Способ, зовомый только внутри, — это вопрос «зачем
 			// он публичный», а не «кто его зовёт»; путать их нельзя, иначе у
 			// стража появляются ложные записи.
-			if strings.Count(s, name+"(") > 1 {
+			// ПО ГРАНИЦАМ СЛОВА, а не по вхождению. Счёт подстрок объявлял
+			// способ живым, если рядом стоит СОСЕД С ТЕМ ЖЕ ОКОНЧАНИЕМ:
+			// «PathFor(» входит в «DisplayPathFor(», и страж видел два
+			// упоминания там, где было одно объявление и один сосед. Ровно так
+			// же прятался дом за домом в карте (LvnWardrobe за
+			// LvnWardrobeStage) — третий за сутки случай одной и той же
+			// ловушки, и лечится он одинаково: границей слова.
+			selfCalls := regexp.MustCompile(`\b` + regexp.QuoteMeta(name) + `\s*\(`)
+			if len(selfCalls.FindAllString(s, -1)) > 1 {
 				used = true
 			}
 			for q, t2 := range src {

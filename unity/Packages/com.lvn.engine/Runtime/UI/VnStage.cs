@@ -251,6 +251,14 @@ namespace Lvn.UI
             if (root == null) return; // panel not ready yet — Start will retry
             _uiRoot = root;
             _built = true;
+            // ОТКЛИК НА НАЖАТИЕ — на корне СЦЕНЫ тоже. Механизм заведён общим
+            // и висит на корне, а не на каждой кнопке, ровно затем, чтобы про
+            // него не пришлось помнить в каждом новом месте. И всё же про него
+            // забыли — здесь: оболочка отвечала на палец, а игровые
+            // поверхности (окно диалога, выборы, форма ввода имени) молчали,
+            // хотя кнопку формы даже пометили нажимаемой (VnStage.Input).
+            // Пометка была, слушателя не было.
+            LvnMotion.EnableTapFeedback(root);
             LvnPlayer.Log = m => LvnLog.Trace("[LVN] " + m); // full step trace to the console
 
             if (Assets == null && !string.IsNullOrEmpty(ContentRoot))
