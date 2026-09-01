@@ -10,6 +10,44 @@ namespace Lvn.Tests
     /// sticky rules. Shared by the resume-truth fixtures and the soak bot so
     /// test land has ONE definition of scene equality.
     /// </summary>
+    /// <summary>
+    /// ВИДИМОСТЬ В МОДЕЛИ СЦЕНЫ — ключ и правило, один на всех читателей.
+    ///
+    /// <para>Модель сцены сводит поток команд к «кто на экране». Признак
+    /// видимости она хранит служебным полем внутри самой команды, и это
+    /// ПРОТОКОЛ: имя поля знали три файла — заглушка сцены, модель корпуса
+    /// соответствия и проба расстановки, — каждый своей строкой.</para>
+    ///
+    /// <para>Опасность тут особая: два из трёх — код, который СЕРТИФИЦИРУЕТ
+    /// поведение движка. Разойдись правило — и корпус подтвердит согласие
+    /// рантаймов ровно там, где они расходятся. Так уже было: `show` читали
+    /// приведением типа, и `show=no` оставался «видимым».</para>
+    /// </summary>
+    internal static class Видимость
+    {
+        /// <summary>Служебное поле внутри команды. Начинается с подчёркиваний,
+        /// чтобы не столкнуться с полем автора.</summary>
+        public const string Ключ = "__visible";
+
+        /// <summary>Отметить по команде: не сказано — видно. Слово читает ДОМ
+        /// (<see cref="Lvn.LvnBool"/>), а не приведение: `show=no` доезжает
+        /// строкой.</summary>
+        public static void Отметить(JObject состояние, JObject команда) =>
+            состояние[Ключ] = Lvn.LvnBool.Of(команда["show"], true);
+
+        /// <summary>Скрыть — для `clear`, который уводит всех разом.</summary>
+        public static void Снять(JObject состояние) => состояние[Ключ] = false;
+
+        /// <summary>Кто на экране.</summary>
+        public static HashSet<string> Видимые(Dictionary<string, JObject> актёры)
+        {
+            var v = new HashSet<string>();
+            foreach (var kv in актёры)
+                if ((bool?)kv.Value[Ключ] == true) v.Add(kv.Key);
+            return v;
+        }
+    }
+
     internal sealed class SceneModel : ILvnStage
     {
         public string Bg;
@@ -52,18 +90,12 @@ namespace Lvn.Tests
                     // строкой. Приведение видело только настоящий bool, и заглушка
                     // считала скрытую героиню видимой — сертифицируя не то, что
                     // делает движок.
-                    st["__visible"] = Lvn.LvnBool.Of(c["show"], true);
+                    Видимость.Отметить(st, c);
                     break;
             }
         }
 
-        public HashSet<string> Visible()
-        {
-            var v = new HashSet<string>();
-            foreach (var kv in Actors)
-                if ((bool?)kv.Value["__visible"] == true) v.Add(kv.Key);
-            return v;
-        }
+        public HashSet<string> Visible() => Видимость.Видимые(Actors);
 
         public static void AssertSameScene(SceneModel live, SceneModel replayed, string when)
         {
