@@ -93,12 +93,8 @@ namespace Lvn.UI
             b.style.whiteSpace = WhiteSpace.Normal;   // крупный кегль и широкая гарнитура переносятся
             LvnAir.PadX(b, LvnTokens.Space2);
             LvnAir.PadY(b, LvnTokens.Space1);
-            LvnChrome.ClearBorder(b);
-            LvnChrome.Round(b, LvnTokens.RadiusSm);
-            b.style.backgroundColor = active
-                ? UiColor.WithAlpha(tint, 0.28f)
-                : UiColor.WithAlpha(tint, 0.10f);
-            b.style.color = tint;
+            LvnStyler.Plate(b, UiColor.WithAlpha(tint, active ? 0.28f : 0.10f),
+                tint, LvnTokens.RadiusSm);
         }
 
         private VisualElement FontSegment()

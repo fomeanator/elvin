@@ -114,9 +114,7 @@ namespace Lvn.UI.Screens
             var back = Lvn.UI.LvnRedress.Bind(new Button(onBack),
                 () => LvnWords.Pick("hub.back", _cfg.back_text, "‹"));
             back.style.fontSize = LvnTokens.TextXl; back.style.minWidth = 52;
-            back.style.color = _titleColor;
-            back.style.backgroundColor = LvnTokens.Faint;
-            LvnChrome.ClearBorder(back); LvnChrome.Round(back, _radius);
+            LvnStyler.Plate(back, LvnTokens.Faint, _titleColor, _radius);
             bar.Add(back);
             title = Heading("", 30);
             title.style.marginLeft = LvnTokens.Space2;

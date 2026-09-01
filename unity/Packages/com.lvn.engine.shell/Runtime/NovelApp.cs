@@ -439,7 +439,10 @@ namespace Lvn.UI.Screens
         {
             var p = Application.streamingAssetsPath;
             if (!string.IsNullOrEmpty(sub)) p += "/" + sub.Trim('/');
-            return p.Contains("://") ? p : "file://" + p;
+            // «Уже адрес или ещё путь» решает ДОМ АДРЕСОВ. Здесь стояла проверка
+            // на подстроку «://» — она шире правды: под неё подходит любая
+            // схема, в том числе та, которую читать с диска нельзя.
+            return LvnUrl.Absolute(p) ? p : "file://" + p;
         }
 
         // Load a chapter's localization catalog (text_id → string) for the active

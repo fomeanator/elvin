@@ -197,8 +197,7 @@ namespace Lvn.UI.Screens
             play.style.fontSize = LvnTokens.TextLg;
             LvnAir.PadX(play, LvnTokens.Space4);
             LvnAir.PadY(play, LvnTokens.Space2);
-            play.style.color = _accentText; play.style.backgroundColor = _accent;
-            LvnChrome.ClearBorder(play); LvnChrome.Round(play, LvnTokens.RadiusSm);
+            LvnStyler.Plate(play, _accent, _accentText, LvnTokens.RadiusSm);
             actions.Add(play);
             if (!locked && t.cost != null && t.cost.amount > 0)
             {

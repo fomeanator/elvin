@@ -177,12 +177,10 @@ namespace Lvn.UI
             if (input != null)
             {
                 var tint = _theme.MenuTextColor;
-                input.style.backgroundColor = UiColor.WithAlpha(tint, 0.08f);
-                input.style.color = _theme.MenuTextColor;
+                LvnStyler.Plate(input, UiColor.WithAlpha(tint, 0.08f),
+                    _theme.MenuTextColor, LvnTokens.RadiusXs);
                 input.style.unityTextAlign = TextAnchor.MiddleCenter;
                 input.style.fontSize = LvnTokens.TextBase;
-                LvnChrome.ClearBorder(input);
-                LvnChrome.Round(input, LvnTokens.RadiusXs);
             }
             LvnFonts.Apply(f, _theme.Font);
             return f;
@@ -193,11 +191,8 @@ namespace Lvn.UI
             var b = new Button(onClick) { text = glyph };
             b.style.width = 60; b.style.height = 56;
             b.style.fontSize = LvnTokens.TextBase;
-            b.style.color = _theme.MenuTextColor;
             var tint = _theme.MenuTextColor;
-            b.style.backgroundColor = UiColor.WithAlpha(tint, 0.08f);
-            LvnChrome.ClearBorder(b);
-            LvnChrome.Round(b, LvnTokens.RadiusXs);
+            LvnStyler.Plate(b, UiColor.WithAlpha(tint, 0.08f), tint, LvnTokens.RadiusXs);
             LvnFonts.Apply(b, _theme.Font);
             return b;
         }

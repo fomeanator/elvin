@@ -226,9 +226,7 @@ namespace Lvn.UI.Screens
             back.style.fontSize = LvnTokens.TextLg; back.style.width = 56; back.style.height = 56;
             LvnAir.PadY(back, 0);
             back.style.unityTextAlign = TextAnchor.MiddleCenter;
-            back.style.color = LvnTokens.Text;
-            back.style.backgroundColor = LvnTokens.Veil(0.45f);
-            LvnChrome.ClearBorder(back); LvnChrome.Round(back, LvnTokens.RadiusLg);
+            LvnStyler.Plate(back, LvnTokens.Veil(0.45f), LvnTokens.Text, LvnTokens.RadiusLg);
             hero.Add(back);
 
             return hero;

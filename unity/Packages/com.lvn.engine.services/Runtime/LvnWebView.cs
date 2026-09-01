@@ -50,7 +50,11 @@ namespace Lvn.Services
             Application.OpenURL(url);
         }
 
-        /// <summary>Close the in-app web view if the host supports it.</summary>
+        /// <summary>НЕ ПОДКЛЮЧЁН: страницу закрывает сам платформенный просмотрщик своей
+        /// кнопкой. Программное закрытие понадобится, когда игра начнёт вести
+        /// игрока со страницы обратно в сцену.
+        ///
+        /// Прежнее описание:Close the in-app web view if the host supports it.</summary>
         public static void Close()
         {
             try { Closer?.Invoke(); }

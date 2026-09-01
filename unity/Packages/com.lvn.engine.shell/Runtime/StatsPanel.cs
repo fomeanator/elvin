@@ -49,10 +49,7 @@ namespace Lvn.UI.Screens
             close.style.marginTop = LvnTokens.Space3;
             close.style.fontSize = LvnTokens.TextSm;
             LvnAir.PadY(close, LvnTokens.Space2);
-            close.style.color = LvnTokens.Text;
-            close.style.backgroundColor = LvnTokens.Faint;
-            LvnChrome.Round(close, LvnTokens.RadiusSm);
-            LvnChrome.ClearBorder(close);
+            LvnStyler.Quiet(close, LvnTokens.RadiusSm);
             panel.Add(close);
         }
 

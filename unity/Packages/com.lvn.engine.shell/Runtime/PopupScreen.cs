@@ -241,11 +241,9 @@ namespace Lvn.UI.Screens
             LvnAir.PadX(b, LvnTokens.Space3);
             LvnAir.PadY(b, LvnTokens.Space2);
             b.style.marginLeft = index > 0 ? 8 : 0;
-            b.style.color = spec.Primary ? _primaryText : _btnText;
-            b.style.backgroundColor = spec.Primary ? _primaryColor : _btnColor;
+            LvnStyler.Plate(b, spec.Primary ? _primaryColor : _btnColor,
+                spec.Primary ? _primaryText : _btnText, _radius);
             b.style.unityTextAlign = TextAnchor.MiddleCenter;
-            LvnChrome.ClearBorder(b);
-            LvnChrome.Round(b, _radius);
             return b;
         }
     }
