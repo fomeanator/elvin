@@ -809,3 +809,36 @@ func TestHardwareIsAskedFromTheProfile(t *testing.T) {
 			len(found), strings.Join(found, "\n  "))
 	}
 }
+
+// КАНАЛЫ ЗВУКА В СЦЕНЕ НАЗЫВАЮТСЯ СЛОВАМИ ДОМА ГРОМКОСТЕЙ.
+//
+// Имена каналов объявлены в LvnVolumes с прямым напоминанием: «те же, что в
+// авторских командах звука». Сцена при этом писала их литералами — и таблица
+// каналов сцены уже расходилась с той: канал озвучки в ней просто забыли, и
+// голос звучал мимо своего ползунка.
+//
+// Страж держит границу там, где расхождение уже случалось: у самой сцены.
+// Автор в скрипте и компилятор пишут те же слова как ЯЗЫК — им сюда не надо.
+func TestStageCallsChannelsByTheirHomeNames(t *testing.T) {
+	root := repoRoot(t)
+	lit := regexp.MustCompile(`"(?:music|ambient|sfx|voice)"`)
+
+	var found []string
+	for _, name := range []string{"StageAudio.cs", "LvnVoice.cs"} {
+		path := filepath.Join(root, "unity/Packages/com.lvn.engine/Runtime/UI", name)
+		if _, err := os.Stat(path); err != nil {
+			continue
+		}
+		for i, l := range strings.Split(stripComments(string(mustRead(t, path))), "\n") {
+			if lit.MatchString(l) {
+				found = append(found, fmt.Sprintf("%s:%d: %s", name, i+1, strings.TrimSpace(l)))
+			}
+		}
+	}
+	if len(found) > 0 {
+		t.Errorf("сцена зовёт канал звука литералом (%d):\n  %s\n\n"+
+			"Возьмите LvnVolumes.Music/Ambient/Sfx/Voice: своя таблица каналов у сцены "+
+			"однажды уже потеряла озвучку, и голос звучал мимо своего ползунка.",
+			len(found), strings.Join(found, "\n  "))
+	}
+}
