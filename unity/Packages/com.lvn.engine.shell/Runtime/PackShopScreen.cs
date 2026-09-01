@@ -83,7 +83,7 @@ namespace Lvn.UI.Screens
             if (modal)
             {
                 // Скрим ловит тап мимо листа = закрыть (как попап загрузок).
-                style.backgroundColor = new Color(0f, 0f, 0f, 0.55f);
+                style.backgroundColor = LvnTokens.Veil(0.55f);
                 pickingMode = PickingMode.Position;
                 RegisterCallback<ClickEvent>(e => { if (e.target == this) Cancel(); });
                 sheet.style.left = 16; sheet.style.right = 16;

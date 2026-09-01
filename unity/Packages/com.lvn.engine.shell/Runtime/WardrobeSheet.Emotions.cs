@@ -74,7 +74,7 @@ namespace Lvn.UI.Screens
                 var seg = new VisualElement { pickingMode = PickingMode.Ignore };
                 seg.style.flexGrow = 1;
                 seg.style.marginBottom = s == EmoBarSegments - 1 ? 0 : 4;
-                seg.style.backgroundColor = new Color(1f, 1f, 1f, 0.13f);
+                seg.style.backgroundColor = LvnTokens.Track;
                 LvnChrome.Round(seg, EmoBarWidth * 0.5f);
                 _emoBar.Add(seg);
             }

@@ -330,7 +330,7 @@ namespace Lvn.UI.Screens
             LvnAir.PadX(caption, LvnTokens.Space3);
             caption.style.paddingBottom = LvnTokens.Space3;
             caption.style.paddingTop = LvnTokens.Space2;
-            caption.style.backgroundColor = new Color(0f, 0f, 0f, 0.45f);
+            caption.style.backgroundColor = LvnTokens.Veil(0.45f);
             caption.pickingMode = PickingMode.Ignore;
             card.Add(caption);
 
@@ -387,7 +387,7 @@ namespace Lvn.UI.Screens
             // Scrim: swallow every tap; tapping outside the panel closes.
             _picker = new VisualElement();
             LvnChrome.Stretch(_picker);
-            _picker.style.backgroundColor = new Color(0f, 0f, 0f, 0.6f);
+            _picker.style.backgroundColor = LvnTokens.Veil(0.6f);
             _picker.RegisterCallback<PointerDownEvent>(e =>
             {
                 e.StopPropagation();

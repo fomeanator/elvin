@@ -103,7 +103,7 @@ namespace Lvn.UI
 
                 var frame = new VisualElement();
                 frame.style.height = 110;
-                frame.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
+                frame.style.backgroundColor = LvnTokens.Veil(0.35f);
                 frame.style.justifyContent = Justify.Center;
                 frame.style.alignItems = Align.Center;
                 LvnChrome.Round(frame, LvnTokens.RadiusXs);

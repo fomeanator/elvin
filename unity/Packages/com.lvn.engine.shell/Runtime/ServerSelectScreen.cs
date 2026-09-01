@@ -139,7 +139,7 @@ namespace Lvn.UI.Screens
             panel.style.top = Length.Percent(18f);
             LvnAir.PadX(panel, 22);
             LvnAir.PadY(panel, LvnTokens.Space3);
-            panel.style.backgroundColor = new Color(0f, 0f, 0f, 0.72f);
+            panel.style.backgroundColor = LvnTokens.Scrim;
             LvnChrome.Round(panel, LvnTokens.Radius);
             root.Add(panel);
 
@@ -167,7 +167,7 @@ namespace Lvn.UI.Screens
                 btn.style.fontSize = LvnTokens.TextMicro;
                 LvnAir.PadY(btn, LvnTokens.Space1);
                 btn.style.paddingLeft = LvnTokens.Space2;
-                btn.style.backgroundColor = new Color(1f, 1f, 1f, 0.08f);
+                btn.style.backgroundColor = LvnTokens.Faint;
                 btn.style.color = new Color(0.9f, 0.9f, 0.9f);
                 row.Add(btn);
                 panel.Add(row);
