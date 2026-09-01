@@ -167,10 +167,7 @@ namespace Lvn.UI.Screens
             ScreenUi.Row(_topPills);
             rightGroup.Add(_topPills);
             // daily-rewards gift (badge dot hints there's something to claim)
-            var gift = IconButton(LvnIcon.Gift, 24f, _text, () => { if (OnDaily != null) LvnAsync.Fire(OnDaily(), "OpenDaily"); });
-            gift.style.width = 44; gift.style.height = 44; gift.style.marginLeft = LvnTokens.Space2;
-            gift.style.backgroundColor = LvnTokens.Faint;
-            LvnChrome.Frame(gift, LvnTokens.RadiusSm);
+            var gift = TopIconButton(LvnIcon.Gift, _text, () => { if (OnDaily != null) LvnAsync.Fire(OnDaily(), "OpenDaily"); });
             var dot = new Label { pickingMode = PickingMode.Ignore };
             dot.style.position = Position.Absolute; dot.style.top = 6; dot.style.right = 6;
             dot.style.width = 10; dot.style.height = 10; dot.style.backgroundColor = _accent; LvnChrome.Round(dot, LvnTokens.RadiusXs);
@@ -178,11 +175,8 @@ namespace Lvn.UI.Screens
             // Чистка витрины (TR-25): партнёр убирает ежедневную награду данными.
             if (!(_cfg.show_daily ?? true)) gift.style.display = DisplayStyle.None;
             rightGroup.Add(gift);
-            var gear = IconButton(LvnIcon.Settings, 24f, _dim, () => { if (OnMenu != null) LvnAsync.Fire(OnMenu(), "OpenMenu"); });
+            var gear = TopIconButton(LvnIcon.Settings, _dim, () => { if (OnMenu != null) LvnAsync.Fire(OnMenu(), "OpenMenu"); });
             _settingsBtn = gear;
-            gear.style.width = 44; gear.style.height = 44; gear.style.marginLeft = LvnTokens.Space2;
-            gear.style.backgroundColor = LvnTokens.Faint;
-            LvnChrome.Frame(gear, LvnTokens.RadiusSm);
             rightGroup.Add(gear);
             topBar.Add(rightGroup);
             _hubView.Add(topBar);
