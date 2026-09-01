@@ -24,7 +24,7 @@ import (
 //
 // Всё остальное обязано иметь строку: иначе следующий автор напишет своё.
 func TestEveryHomeInCodeIsInTheMap(t *testing.T) {
-	const budget = 19 // 01.09: 25 было, шесть самых «дублируемых» вписаны
+	const budget = 13 // 01.09: 25 было; вписаны двенадцать — все, кроме служб, мостов и демо
 
 	root := repoRoot(t)
 	canon := string(mustRead(t, filepath.Join(root, "docs", "where-things-live.md")))
