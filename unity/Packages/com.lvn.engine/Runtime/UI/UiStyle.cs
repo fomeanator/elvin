@@ -7,20 +7,12 @@ namespace Lvn.UI
     /// the dialogue box and choice list skin their panels the same way.</summary>
     public static class UiStyle
     {
-        /// <summary>Paint <paramref name="el"/> with a background sprite (optionally
-        /// 9-sliced) instead of a flat colour. The sprite owns the element's corners
-        /// and fill, so the solid colour and rounded radii are cleared. A null sprite
-        /// leaves the element untouched, so the caller's colour fallback stands.</summary>
+        /// <summary>ОКНО в дом картинки: поставить готовый спрайт фоном.
+        ///
+        /// <para>Роль жила здесь отдельным домом в одну работу и разошлась с
+        /// показом по адресу в правиле про углы. Работа переехала к картинке,
+        /// имя осталось: его знают четыре опорных компонента.</para></summary>
         public static void ApplyBackground(VisualElement el, Sprite sprite, int slice)
-        {
-            if (el == null || sprite == null) return;
-
-            el.style.backgroundImage = new StyleBackground(sprite);
-            el.style.backgroundColor = Color.clear; // let the art show, not a colour behind it
-            // A framed sprite defines its own corners — drop the rounded-rect radii.
-            LvnChrome.Sharp(el);
-
-            if (slice > 0) LvnPicture.Slice(el, slice);
-        }
+            => LvnPicture.Paint(el, sprite, slice);
     }
 }

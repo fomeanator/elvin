@@ -57,6 +57,42 @@ namespace Lvn.UI
         /// рисуют под плотный экран, и на обычном срез надо ужимать, иначе
         /// рамка съедает содержимое.</para>
         /// </summary>
+        /// <summary>ПОСТАВИТЬ ГОТОВЫЙ СПРАЙТ ФОНОМ — синхронная половина показа.
+        ///
+        /// <para>Жила отдельным домом `UiStyle` в одну работу, и дома
+        /// разошлись в правиле про углы: этот сбрасывал скругление элемента,
+        /// а показ по адресу — нет. Один и тот же спрайт на одной и той же
+        /// кнопке получал разные углы в зависимости от того, каким путём его
+        /// поставили.</para>
+        ///
+        /// <para>Правило теперь названо: <b>углы сбрасывает НАРЕЗАННЫЙ спрайт</b>
+        /// — он рисует рамку своими краями, и скругление элемента поверх неё
+        /// срезало бы её же углы. Ненарезанный спрайт — просто заливка, и
+        /// скругление элемента остаётся его собственным делом.</para>
+        ///
+        /// <para>Пустой спрайт НЕ ТРОГАЕТ элемент: у вызывающего есть запасной
+        /// цвет, и затирать его нечем.</para></summary>
+        public static void Paint(VisualElement el, Sprite sprite, int slice)
+        {
+            if (el == null || sprite == null) return;
+            el.style.backgroundImage = new StyleBackground(sprite);
+            Dress(el, slice);
+        }
+
+        /// <summary>Всё, кроме самой картинки: убрать цвет под ней и, если
+        /// спрайт нарезан, отдать ему углы. Отдельно от <see cref="Paint"/>,
+        /// потому что показ ПО АДРЕСУ ставит картинку сам — ему нужна только
+        /// эта половина.</summary>
+        private static void Dress(VisualElement el, int slice)
+        {
+            el.style.backgroundColor = Color.clear; // пусть виден арт, а не цвет под ним
+            if (slice > 0)
+            {
+                LvnChrome.Sharp(el);   // рамка держит углы сама
+                Slice(el, slice);
+            }
+        }
+
         public static void Slice(VisualElement el, int all, float scale = 1f)
         {
             if (el == null) return;
@@ -169,11 +205,7 @@ namespace Lvn.UI
         /// </summary>
         public static System.Threading.Tasks.Task Frame(
             VisualElement el, string url, int slice, ILvnAssets assets)
-            => ShowAsync(el, url, assets, e =>
-            {
-                e.style.backgroundColor = Color.clear;
-                if (slice > 0) Slice(e, slice);
-            });
+            => ShowAsync(el, url, assets, e => Dress(e, slice));
 
         // ЧЕГО ЖДЁТ ЭТОТ ЭЛЕМЕНТ ПРЯМО СЕЙЧАС.
         //
