@@ -284,27 +284,56 @@ namespace Lvn.Content
                                              Action<UnityWebRequest> prepare = null)
         {
             ThrowIfOffline();
-            // Ширина полосы и бронь для живого — не здесь: LvnLanes.Wire.
-            using var pass = await LvnLanes.Wire.EnterAsync(ct);
             var full = ResolveUrl(url);
-            using var req = UnityWebRequest.Get(full);
-            prepare?.Invoke(req);
-            req.downloadHandler = new DownloadHandlerBuffer();
-            req.timeout = 0; // the stall guard below owns the deadline
-#if DEVELOPMENT_BUILD || UNITY_EDITOR
-            req.certificateHandler = new AcceptAllCertificates();
-#endif
-            var op = req.SendWebRequest();
-            if (!await LvnNetWait.AwaitAsync(req, op, ct, StallTimeoutSeconds, onProgress))
-                throw new OperationCanceledException(ct);
-            if (LvnNetWait.Failed(req))
+
+            // УСТУПКА — НЕ ОТМЕНА, И РАЗНИЦУ ДЕРЖАТ ЗДЕСЬ.
+            //
+            // Полоса вправе попросить фоновый заход вернуть место живому. Для
+            // вызывающего при этом НИЧЕГО НЕ ПРОИСХОДИТ: он не видит ни ошибки,
+            // ни отмены — только более долгую загрузку. Отмена самого
+            // вызывающего остаётся отменой и уходит наверх: путать их нельзя,
+            // иначе «игрок вышел из главы» превратится в «повторим позже», и
+            // ушедшая глава продолжит качать себя в фоне.
+            //
+            // Кусок, скачанный сверх последнего сохранённого, теряется: на
+            // диске остаётся дописанное в .part, и следующий заход продолжает
+            // оттуда. Не терять ничего стоило бы записи каждого пакета на
+            // диск — цена выше пропажи.
+            while (true)
             {
-                NoteFetchFailure(req);
-                throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
+                ct.ThrowIfCancellationRequested();
+                using var pass = await LvnLanes.Wire.EnterAsync(ct);
+                using var link = CancellationTokenSource.CreateLinkedTokenSource(ct, pass.Yield);
+                try
+                {
+                    using var req = UnityWebRequest.Get(full);
+                    prepare?.Invoke(req);
+                    req.downloadHandler = new DownloadHandlerBuffer();
+                    req.timeout = 0; // the stall guard below owns the deadline
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    req.certificateHandler = new AcceptAllCertificates();
+#endif
+                    var op = req.SendWebRequest();
+                    if (!await LvnNetWait.AwaitAsync(req, op, link.Token, StallTimeoutSeconds, onProgress))
+                        throw new OperationCanceledException(link.Token);
+                    if (LvnNetWait.Failed(req))
+                    {
+                        // Уступивший запрос обрывается — и выглядит как сбой
+                        // сети. Считать его сбоем значило бы объявить офлайн
+                        // на ровном месте: проверяем ПРИЧИНУ, а не симптом.
+                        if (pass.Yielded && !ct.IsCancellationRequested) continue;
+                        NoteFetchFailure(req);
+                        throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
+                    }
+                    if (req.responseCode is < 200 or >= 300)
+                        throw new LvnFetchException((int)req.responseCode, "http_" + req.responseCode, $"GET {full}");
+                    return new Fetched(req.downloadHandler.data ?? Array.Empty<byte>(), req.responseCode);
+                }
+                catch (OperationCanceledException) when (pass.Yielded && !ct.IsCancellationRequested)
+                {
+                    // Место отдано живому. Заходим снова — в конец очереди.
+                }
             }
-            if (req.responseCode is < 200 or >= 300)
-                throw new LvnFetchException((int)req.responseCode, "http_" + req.responseCode, $"GET {full}");
-            return new Fetched(req.downloadHandler.data ?? Array.Empty<byte>(), req.responseCode);
         }
 
         private Task<byte[]> FetchToMemoryPrefetch(string url, CancellationToken ct)

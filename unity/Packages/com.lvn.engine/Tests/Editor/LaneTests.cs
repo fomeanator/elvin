@@ -142,5 +142,62 @@ namespace Lvn.Tests
                 "запущенное ВНУТРИ объявления наследует его — это и есть смысл дома");
             Assert.AreEqual(LvnRung.Live, LvnRungScope.Current);
         }
+        [Test]
+        public async Task Живое_просит_фон_уступить_когда_мест_нет()
+        {
+            // Брони мало, когда живого много: у актёра слоёв пять-восемь, и все
+            // живые. Третий такой запрос встаёт за фоном ЧЕСТНО, по устройству
+            // полосы, — если полоса не умеет попросить уступить.
+            var lane = new LvnLane("проба", width: 2, keptForLive: 1);
+            var фон = await lane.EnterAsync(LvnRung.Library, CancellationToken.None);
+            using var живое1 = await lane.EnterAsync(LvnRung.Live, CancellationToken.None);
+            // Мест больше нет: 2 из 2 заняты (фон + живое).
+
+            Assert.IsFalse(фон.Yield.IsCancellationRequested, "у фона попросили место раньше времени");
+            var живое2 = lane.EnterAsync(LvnRung.Live, CancellationToken.None);
+            await Until(() => фон.Yield.IsCancellationRequested, "фон не попросили уступить");
+            Assert.IsTrue(фон.Yielded, "признак «место просят» не поднялся");
+
+            // Уступивший отдаёт место — и второе живое проходит.
+            фон.Dispose();
+            Assert.AreSame(живое2, await Task.WhenAny(живое2, Task.Delay(1000)),
+                "живое не прошло даже после уступки");
+            (await живое2).Dispose();
+        }
+
+        [Test]
+        public async Task Живого_уступить_не_просят()
+        {
+            var lane = new LvnLane("проба", width: 1, keptForLive: 0);
+            using var живое = await lane.EnterAsync(LvnRung.Live, CancellationToken.None);
+            Assert.IsFalse(живое.Yield.CanBeCanceled,
+                "у живого места есть признак уступки — значит однажды его и попросят");
+
+            var второе = lane.EnterAsync(LvnRung.Live, CancellationToken.None);
+            await Task.Delay(30);
+            Assert.IsFalse(второе.IsCompleted, "живое вытеснило живое: очередь стала кучей");
+            живое.Dispose();
+            (await второе).Dispose();
+        }
+
+        [Test]
+        public async Task Просят_одного_и_самого_давнего()
+        {
+            // Просить всех значило бы обрушить фоновую очередь ради одного
+            // кадра. Самый давний ближе всех к концу работы — его потеря меньше.
+            var lane = new LvnLane("проба", width: 3, keptForLive: 1);
+            var старший = await lane.EnterAsync(LvnRung.Library, CancellationToken.None);
+            var младший = await lane.EnterAsync(LvnRung.Library, CancellationToken.None);
+            using var живое1 = await lane.EnterAsync(LvnRung.Live, CancellationToken.None);
+
+            var живое2 = lane.EnterAsync(LvnRung.Live, CancellationToken.None);
+            await Until(() => старший.Yield.IsCancellationRequested, "самого давнего не попросили");
+            Assert.IsFalse(младший.Yield.IsCancellationRequested,
+                "попросили обоих — фоновая очередь обрушится ради одного кадра");
+
+            старший.Dispose();
+            (await живое2).Dispose();
+            младший.Dispose();
+        }
     }
 }

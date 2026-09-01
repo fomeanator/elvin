@@ -92,3 +92,40 @@ func TestEveryLaneLeavesRoomForBackground(t *testing.T) {
 			"видимым — забыть объявление должно стоить брони, а не показа")
 	}
 }
+
+// УСТУПКА — НЕ ОТМЕНА.
+//
+// Полоса вправе попросить фоновый заход вернуть место живому. Для вызывающего
+// при этом НИЧЕГО не происходит: он не видит ни ошибки, ни отмены — только
+// более долгую загрузку. Отмена самого вызывающего остаётся отменой и уходит
+// наверх.
+//
+// Слить их в одно означало бы либо «игрок вышел из главы, а она продолжает
+// качать себя», либо «фоновый файл, которого попросили подвинуться, больше не
+// приедет никогда». Оба признака есть, и различать их обязан тот, кто ловит.
+func TestYieldingIsNotCancelling(t *testing.T) {
+	root := repoRoot(t)
+	fetch := stripComments(string(mustRead(t, filepath.Join(root,
+		"unity/Packages/com.lvn.engine/Runtime/Content/ContentLoader.Fetch.cs"))))
+
+	if !strings.Contains(fetch, "catch (OperationCanceledException) when (pass.Yielded && !ct.IsCancellationRequested)") {
+		t.Error("заход за байтами больше не отличает уступку от отмены: " +
+			"либо ушедшая глава продолжит качать себя, либо подвинувшийся " +
+			"файл не приедет никогда")
+	}
+	if !strings.Contains(fetch, "if (pass.Yielded && !ct.IsCancellationRequested) continue;") {
+		t.Error("оборванный по уступке запрос снова считается сбоем сети — " +
+			"движок объявит офлайн на ровном месте")
+	}
+
+	lanes := stripComments(string(mustRead(t, filepath.Join(root,
+		"unity/Packages/com.lvn.engine/Runtime/Content/LvnLanes.cs"))))
+	if !strings.Contains(lanes, "if (_all.CurrentCount == 0) AskOneToYield();") {
+		t.Error("живое больше не просит фон уступить — брони хватает одному " +
+			"живому делу, а у актёра слоёв пять-восемь, и все живые")
+	}
+	// Просят ОДНОГО: обрушить фоновую очередь ради одного кадра — не размен.
+	if !strings.Contains(lanes, "if (!s.Asked) { victim = s; break; }") {
+		t.Error("уступить просят не одного и не самого давнего")
+	}
+}
