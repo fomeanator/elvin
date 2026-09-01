@@ -48,6 +48,22 @@ func TestHomesAreNotBypassed(t *testing.T) {
 		// интерфейс на том же экране получается другого размера, и заметно это
 		// только глазами, на устройстве. Оговорка — упоминание LvnPanel.Shared
 		// рядом (дом этажей ставит его сам).
+		// Следы домов, заведённых 01.09. Каждый — не гипотеза: ровно так это и
+		// было написано по месту, пока дома не появилось.
+		// «@» встречается и в ключе кэша (url@version) — это другое понятие,
+		// поэтому след ищет склейку именно со СТУПЕНЬЮ качества.
+		{regexp.MustCompile(`"@" \+ \w*[Qq]uality`), "ступень арта склеена руками",
+			"DownloadPolicy.SuffixFor(качество) — иначе разделитель нельзя переименовать: клиент попросит одно, сервер сделает другое",
+			regexp.MustCompile(`DownloadPolicy\.cs`)},
+		{regexp.MustCompile(`Contains\("(left|right|top|bottom)"\)\s*\?`), "якорь разобран на месте",
+			"LvnAnchor.Percent(слово, умолчание) — правило одно, отличаться вправе только умолчание",
+			regexp.MustCompile(`LvnAnchor\.cs`)},
+		{regexp.MustCompile(`Mathf\.Min\(0?\.\d+f?,\s*\w+ - _?\w*[Ll]ast`), "шаг кадра посчитан на месте",
+			"LvnClock.Step(ref отметка, потолок) — он же двигает отметку, а забыть вторую половину легко",
+			regexp.MustCompile(`LvnClock\.cs`)},
+		{regexp.MustCompile(`"/content"`), "приставка контента вписана строкой",
+			"LvnAssetPath.ContentPrefix — это соглашение ЯЗЫКА, и сменить его наполовину нельзя",
+			regexp.MustCompile(`LvnAssetPath\.cs`)},
 		{regexp.MustCompile(`AddComponent<UIDocument>\(\)`), "свой слой мимо общей панели",
 			"LvnFloor.Open(имя, этаж) — он ставит документ, общие настройки и этаж разом",
 			regexp.MustCompile(`LvnPanel\.Shared|LvnFloor\.cs`)},
