@@ -213,13 +213,8 @@ namespace Lvn.UI.Screens
             style.opacity = 1f;
             OnOpening();
             float w = resolvedStyle.width > 0 ? resolvedStyle.width : 1080f;
-            var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            this.experimental.animation.Start(0f, 1f, ms, (e, p) =>
-            {
-                e.style.translate = new Translate(Mathf.Lerp(dir * w, -dir * w, p), 0f);
-                if (p >= 1f) tcs.TrySetResult(true);
-            });
-            await tcs.Task;
+            await Lvn.UI.LvnMotion.PlayAsync(this, ms, (e, p) =>
+                e.style.translate = new Translate(Mathf.Lerp(dir * w, -dir * w, p), 0f));
             PutAway();
             Closed();
         }
