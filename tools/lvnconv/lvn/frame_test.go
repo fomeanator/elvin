@@ -26,14 +26,15 @@ func issuesOf(r FrameReport, kind string) []FrameIssue {
 func actor(id string, show bool) Cmd {
 	return Cmd{"op": "actor", "id": id, "show": show, "position": "center"}
 }
+
 // Реплика: `who` — отображаемое имя, `who_id` — актёр на сцене. Именно вторым
 // связаны говорящий и фигура в кадре; на живом контенте проверка молчала, пока
 // сравнивала имена.
 func say(who, text string) Cmd {
 	return Cmd{"op": "say", "who": who, "who_id": who, "text": text}
 }
-func label(id string) Cmd      { return Cmd{"op": "label", "id": id} }
-func gotoL(id string) Cmd      { return Cmd{"op": "goto", "label": id} }
+func label(id string) Cmd { return Cmd{"op": "label", "id": id} }
+func gotoL(id string) Cmd { return Cmd{"op": "goto", "label": id} }
 
 func TestScheduleLinearKnowsEveryStop(t *testing.T) {
 	d := doc(
@@ -81,12 +82,12 @@ func TestScheduleBranchesThatAgreeStayCertain(t *testing.T) {
 	d := doc(
 		actor("agent", true),                      // 0
 		Cmd{"op": "if", "then": "A", "else": "B"}, // 1
-		label("A"),                                // 2
-		gotoL("END"),                              // 3
-		label("B"),                                // 4
-		gotoL("END"),                              // 5
-		label("END"),                              // 6
-		say("agent", "вместе"),                    // 7
+		label("A"),             // 2
+		gotoL("END"),           // 3
+		label("B"),             // 4
+		gotoL("END"),           // 5
+		label("END"),           // 6
+		say("agent", "вместе"), // 7
 	)
 	r := Schedule(d, 0)
 	if !r.Stops[7].Reached {
@@ -103,14 +104,14 @@ func TestScheduleBranchesThatDisagreeAreUncertain(t *testing.T) {
 	d := doc(
 		actor("agent", true),                      // 0
 		Cmd{"op": "if", "then": "A", "else": "B"}, // 1
-		label("A"),                                // 2
-		actor("hero", true),                       // 3
-		gotoL("END"),                              // 4
-		label("B"),                                // 5
-		actor("agent", false),                     // 6
-		gotoL("END"),                              // 7
-		label("END"),                              // 8
-		say("agent", "вместе"),                    // 9
+		label("A"),             // 2
+		actor("hero", true),    // 3
+		gotoL("END"),           // 4
+		label("B"),             // 5
+		actor("agent", false),  // 6
+		gotoL("END"),           // 7
+		label("END"),           // 8
+		say("agent", "вместе"), // 9
 	)
 	r := Schedule(d, 0)
 	if r.Stops[9].Certain {
@@ -129,15 +130,15 @@ func TestScheduleInvariantSurvivesBranching(t *testing.T) {
 	d := doc(
 		actor("agent", true),                      // 0 — есть у всех путей
 		Cmd{"op": "if", "then": "A", "else": "B"}, // 1
-		label("A"),                                // 2
-		actor("hero", true),                       // 3 — только на этом пути
-		gotoL("END"),                              // 4
-		label("B"),                                // 5
-		actor("cat", true),                        // 6 — только на этом
-		actor("cat", false),                       // 7 — и сразу уходит
-		gotoL("END"),                              // 8
-		label("END"),                              // 9
-		say("agent", "вместе"),                    // 10
+		label("A"),             // 2
+		actor("hero", true),    // 3 — только на этом пути
+		gotoL("END"),           // 4
+		label("B"),             // 5
+		actor("cat", true),     // 6 — только на этом
+		actor("cat", false),    // 7 — и сразу уходит
+		gotoL("END"),           // 8
+		label("END"),           // 9
+		say("agent", "вместе"), // 10
 	)
 	r := Schedule(d, 0)
 	st := r.Stops[10]
@@ -160,8 +161,8 @@ func TestScheduleInvariantSurvivesBranching(t *testing.T) {
 // пути. Иначе на ветвистой игре отчёт полон тревог, верных лишь для одной ветви.
 func TestScheduleReportsSpeakingOffstage(t *testing.T) {
 	d := doc(
-		actor("agent", true),  // 0
-		actor("agent", false), // 1
+		actor("agent", true),    // 0
+		actor("agent", false),   // 1
 		say("agent", "я здесь"), // 2 — но его нет
 	)
 	got := issuesOf(Schedule(d, 0), "speaks-offstage")
