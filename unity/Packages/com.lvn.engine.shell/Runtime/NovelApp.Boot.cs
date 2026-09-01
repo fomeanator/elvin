@@ -55,7 +55,7 @@ namespace Lvn.UI.Screens
             try { await StartAsync(); }
             catch (Exception e)
             {
-                Debug.LogError("[lvn-boot] бут сорвался: " + e);
+                LvnLog.Error("[lvn-boot] бут сорвался: " + e);
                 try { BootVeil.Status(LvnWords.Of("boot.failed", "startup failed — check the log")); }
                 catch { /* вуали уже нет: сообщать некуда, лог уже написан */ }
             }

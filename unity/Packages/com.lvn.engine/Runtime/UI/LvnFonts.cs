@@ -224,15 +224,6 @@ namespace Lvn.UI
         private static readonly System.Collections.Generic.Dictionary<string, float> _optical
             = new System.Collections.Generic.Dictionary<string, float>();
 
-        /// <summary>Путь текстового шрифта с учётом выбора игрока: тема
-        /// спрашивает ЗДЕСЬ, а не читает своё поле напрямую.</summary>
-        public static string PathFor(string themePath)
-            => PlayerPicked ? Chosen.Path : (string.IsNullOrEmpty(themePath) ? EngineFontPath : themePath);
-
-        /// <summary>То же для заголовков.</summary>
-        public static string DisplayPathFor(string themePath)
-            => PlayerPicked ? Chosen.Display : (string.IsNullOrEmpty(themePath) ? EngineDisplayPath : themePath);
-
         /// <summary>Прежние имена умолчаний — их читают темы при сборке.</summary>
         public const string DefaultPath = EngineFontPath;
         public const string DefaultDisplayPath = EngineDisplayPath;

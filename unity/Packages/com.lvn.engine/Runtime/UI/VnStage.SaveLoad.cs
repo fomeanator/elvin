@@ -91,7 +91,7 @@ namespace Lvn.UI
             try { await RestoreSnapshotAsync(snap); }
             catch (System.Exception e)
             {
-                Debug.LogError("[lvn] restore failed: " + e);
+                LvnLog.Error("[lvn] restore failed: " + e);
                 try { _player?.Advance(); } catch { /* stage unusable; error already logged */ }
             }
         }
