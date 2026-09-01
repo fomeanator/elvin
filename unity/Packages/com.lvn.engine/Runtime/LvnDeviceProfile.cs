@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Lvn.UI
+namespace Lvn
 {
     /// <summary>
     /// ПАСПОРТ УСТРОЙСТВА — одна точка правды о железе и системе (решение
@@ -10,6 +10,13 @@ namespace Lvn.UI
     /// снимок в серверный профиль игрока — как это делают все крупные
     /// аналитики (Firebase/Amplitude шлют device model/os/screen автоматом):
     /// саппорт и сегменты видят, НА ЧЁМ играет человек.
+    ///
+    /// <para>Живёт в ЯДРЕ, а не в интерфейсном слое: про железо спрашивают все —
+    /// кэш картинок считает бюджет по памяти, загрузчик спрашивает про формат
+    /// текстур, отчёты называют модель и систему. Пока паспорт лежал в UI, до
+    /// него не дотягивался слой контента, и он читал железо напрямую; отчёты,
+    /// у которых не хватало пары полей (видеочип, номер устройства), заодно
+    /// брали напрямую и всё остальное.</para>
     /// </summary>
     public static class LvnDeviceProfile
     {
@@ -23,6 +30,20 @@ namespace Lvn.UI
         public static string Model => SystemInfo.deviceModel;
 
         public static string Os => SystemInfo.operatingSystem;
+
+        /// <summary>Видеочип — им объясняются «полосы на земле» и просевший
+        /// кадр там, где на соседнем телефоне всё ровно.</summary>
+        public static string Gpu => SystemInfo.graphicsDeviceName;
+
+        /// <summary>Опознавательный номер устройства. Нужен отчётам, чтобы
+        /// склеить между собой логи, жалобу и сессию одного человека.</summary>
+        public static string DeviceId => SystemInfo.deviceUniqueIdentifier;
+
+        /// <summary>Тянет ли устройство такой формат текстуры. Вопрос к железу,
+        /// а не решение: ВКЛЮЧАТЬ ли формат — отдельное правило, и живёт оно у
+        /// того, кто грузит картинки.</summary>
+        public static bool SupportsFormat(UnityEngine.TextureFormat format)
+            => SystemInfo.SupportsTextureFormat(format);
 
         /// <summary>Язык системы кодом ISO ("ru", "en", …); "" — не определён.</summary>
         public static string SystemLocale

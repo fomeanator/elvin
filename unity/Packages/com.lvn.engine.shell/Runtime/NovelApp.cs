@@ -231,7 +231,7 @@ namespace Lvn.UI.Screens
             // builds: the host plugs LvnPlatformAuth.Google/Apple and
             // LvnAds.ShowRewarded (CAS.AI etc.) instead.
             Lvn.Services.LvnPlatformAuth.Dev ??=
-                () => Task.FromResult("editor-dev-" + SystemInfo.deviceUniqueIdentifier);
+                () => Task.FromResult("editor-dev-" + Lvn.LvnDeviceProfile.DeviceId);
             Lvn.Services.LvnAds.ShowRewarded ??= _ => Task.FromResult(true);
 #endif
             // Откуда пришёл игрок. Init ловит и холодный запуск по ссылке, и
@@ -399,7 +399,7 @@ namespace Lvn.UI.Screens
             // Настройка игрока (30 — экономия батареи), но не выше возможностей
             // экрана: на 30-герцовой панели просить 60 бессмысленно.
             Application.targetFrameRate =
-                Mathf.Min(Lvn.UI.LvnPrefs.TargetFps, Lvn.UI.LvnDeviceProfile.FpsCap());
+                Mathf.Min(Lvn.UI.LvnPrefs.TargetFps, Lvn.LvnDeviceProfile.FpsCap());
         }
 
         private float ChapterLoadProgress()

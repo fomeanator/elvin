@@ -292,7 +292,7 @@ namespace Lvn.UI.Screens
                 }
                 // Паспорт устройства → серверный профиль игрока (сегменты,
                 // саппорт «на чём играет»), как делают все крупные аналитики.
-                Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.Device, Lvn.UI.LvnDeviceProfile.Snapshot());
+                Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.Device, Lvn.LvnDeviceProfile.Snapshot());
 
                 _shell.Settings.StorageInfo = StorageInfoAsync;
                 _shell.Settings.DownloadAll = DownloadEverythingAsync;

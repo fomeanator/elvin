@@ -58,7 +58,7 @@ namespace Lvn.Services
                 ["text"] = text.Trim(),
                 ["kind"] = kind,
                 ["build"] = Application.version,
-                ["device"] = SystemInfo.deviceModel,
+                ["device"] = Lvn.LvnDeviceProfile.Model,
             };
             if (!string.IsNullOrEmpty(CurrentTitle)) body["title"] = CurrentTitle;
             if (!string.IsNullOrEmpty(CurrentChapter)) body["chapter"] = CurrentChapter;

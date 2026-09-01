@@ -121,7 +121,7 @@ namespace Lvn.UI.Screens
             var chosen = Lvn.UI.LvnPrefs.ArtQuality;
             return !string.IsNullOrEmpty(chosen)
                 ? chosen
-                : Lvn.UI.LvnDeviceProfile.RecommendedArtQuality();
+                : Lvn.LvnDeviceProfile.RecommendedArtQuality();
         }
 
         // Смена качества = ПЕРЕКАЧКА (мысль Ильи: «для этого дозагрузчик и
