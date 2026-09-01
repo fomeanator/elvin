@@ -248,8 +248,7 @@ namespace Lvn.UI.Screens
             LvnAir.PadX(info, LvnTokens.Space2);
             info.style.paddingBottom = LvnTokens.Space1;
             info.style.paddingTop = LvnTokens.Space2;
-            info.style.flexDirection = FlexDirection.Row;
-            info.style.flexWrap = Wrap.Wrap;
+            LvnFlow.Wrap(info);
             _full.Add(info);
             _vSpeed = InfoCell(info, () => LvnWords.Of("dl.speed", "Speed"));
             _vQueue = InfoCell(info, () => LvnWords.Of("dl.queued", "Queued"));

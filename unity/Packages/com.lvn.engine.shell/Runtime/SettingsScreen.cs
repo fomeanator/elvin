@@ -472,7 +472,7 @@ namespace Lvn.UI.Screens
             // оставалось сорок пикселей: «ID игрока» рассыпался в столбик по
             // одной букве (снимок Ильи 28.08). Минимальная ширина держит текст
             // читаемым, а кнопке остаётся переехать на следующую строку.
-            row.style.flexWrap = Wrap.Wrap;
+            LvnFlow.Wrap(row);   // выравнивание уже задал ScreenUi.Row(spread)
             LvnAir.PadY(row, LvnTokens.Space2);
             row.style.marginBottom = LvnTokens.Space1;
             var col = new VisualElement();

@@ -87,8 +87,7 @@ namespace Lvn.UI
             p.Add(scroll);
 
             var grid = new VisualElement();
-            grid.style.flexDirection = FlexDirection.Row;
-            grid.style.flexWrap = Wrap.Wrap;
+            LvnFlow.Wrap(grid);
             scroll.Add(grid);
 
             var unlocked = LvnGalleryStore.Unlocked(_stage.SaveTitleId);
