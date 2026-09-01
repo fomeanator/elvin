@@ -438,8 +438,17 @@ namespace Lvn.UI.World
             if (!_queue.TryGetValue(channel, out var q)) _queue[channel] = q = new Queue<LvnAnim>();
             q.Enqueue(anim);
         }
-        public void Stop(string channel) { _channels.Remove(channel); _queue.Remove(channel); if (_channels.Count == 0) ResetTargets(); }
-        public void StopAll() { _channels.Clear(); _queue.Clear(); ResetTargets(); }
+        public void Stop(string channel)
+        {
+            AnimLanes.Drop(_channels, _queue, channel);
+            if (_channels.Count == 0) ResetTargets();
+        }
+
+        public void StopAll()
+        {
+            AnimLanes.DropAll(_channels, _queue);
+            ResetTargets();
+        }
 
         /// <summary>Stop every script-driven lane ("script:*"), leaving engine lanes.</summary>
         public void StopScript()
@@ -452,11 +461,8 @@ namespace Lvn.UI.World
         /// <summary>Stop one lane by exact name or by the derived "script:&lt;target&gt;".</summary>
         public void StopTarget(string target)
         {
-            _queue.Remove(target);
-            _queue.Remove("script:" + target);
-            bool r = _channels.Remove(target);
-            r |= _channels.Remove("script:" + target);
-            if (r && _channels.Count == 0) ResetTargets();
+            if (AnimLanes.DropTarget(_channels, _queue, target) && _channels.Count == 0)
+                ResetTargets();
         }
 
         public void EnsureIdle(string id, LvnAnim idle) { if (idle != null && !ReferenceEquals(Current("base"), idle)) Play("base", idle); }
