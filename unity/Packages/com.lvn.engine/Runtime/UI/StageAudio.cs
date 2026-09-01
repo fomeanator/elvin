@@ -184,7 +184,6 @@ namespace Lvn.UI
             voice.Src.Play();
         }
 
-        /// <summary>Cut the voice line (scene reset / chapter end).</summary>
         /// <summary>
         /// ЗАМОЛЧАТЬ ВМЕСТЕ С ГЛАВОЙ — всё звучание, которое ей принадлежит.
         ///
@@ -220,6 +219,7 @@ namespace Lvn.UI
             else { CancelFade(channel); src.Stop(); }
         }
 
+        /// <summary>Оборвать реплику озвучки (уборка сцены, конец главы).</summary>
         public void StopVoice()
         {
             var voice = Voice;

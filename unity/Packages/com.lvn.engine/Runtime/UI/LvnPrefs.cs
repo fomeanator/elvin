@@ -86,8 +86,6 @@ namespace Lvn.UI
             Changed?.Invoke();
         }
 
-        /// <summary>Typewriter speed multiplier (0.25×–3×; 1 = author's pace).
-        /// Pushed into <see cref="TypewriterClock.UserSpeedMultiplier"/>.</summary>
         /// <summary>The player's chosen display name — asked ONCE (at a novel's
         /// start), persisted forever. Empty until entered.</summary>
         public static string PlayerName
@@ -143,6 +141,8 @@ namespace Lvn.UI
             set { LvnKeep.Put(P + "server_url_override", value ?? ""); }
         }
 
+        /// <summary>Множитель скорости печати (0,25×–3×; 1 — темп автора).
+        /// Уезжает в <see cref="TypewriterClock.UserSpeedMultiplier"/>.</summary>
         public static float TextSpeed
         {
             get { EnsureLoaded(); return _textSpeed; }

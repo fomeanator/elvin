@@ -102,8 +102,6 @@ namespace Lvn.UI.Screens
         public static Task AssignNineSliceAsync(VisualElement el, string url, int slice, ILvnAssets assets)
             => Lvn.UI.LvnPicture.Frame(el, url, slice, assets);
 
-        /// <summary>A full-width, centre-aligned absolute label placed at a vertical
-        /// fraction of its parent. Ignores pointer input (overlay text).</summary>
         /// <summary>
         /// ЗАГОЛОВОК РАЗДЕЛА внутри экрана — «Главы», «Достижения», «Ваши
         /// статы», шапка окна перезапуска.
@@ -184,6 +182,8 @@ namespace Lvn.UI.Screens
             return lbl;
         }
 
+        /// <summary>Подпись во всю ширину, по центру, на заданной доле высоты
+        /// родителя. Ввод не ловит — это надпись поверх, а не элемент.</summary>
         public static Label CenterLabel(float topFraction, Color color, float size)
         {
             var l = new Label();
