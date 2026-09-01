@@ -33,7 +33,7 @@ namespace Lvn.Content
             if (clamped != SpriteCacheBudgetBytes)
             {
                 SpriteCacheBudgetBytes = clamped;
-                Debug.Log($"[content] бюджет спрайт-кэша: {clamped >> 20} МБ (RAM устройства {mb} МБ)");
+                LvnLog.Info($"[content] бюджет спрайт-кэша: {clamped >> 20} МБ (RAM устройства {mb} МБ)");
             }
         }
 

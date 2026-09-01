@@ -119,7 +119,7 @@ namespace Lvn.UI.Screens
                 default:
                     var handler = Command;
                     if (handler != null) handler(type, json);
-                    else Debug.Log($"[lvn-host] команда «{type}» никем не разобрана");
+                    else LvnLog.Trace($"[lvn-host] команда «{type}» никем не разобрана");
                     break;
             }
         }

@@ -240,7 +240,7 @@ namespace Lvn.UI.World
                 if (changed) renderer.sharedMaterials = materials;
             }
             if (replacements.Count > 0)
-                Debug.Log($"[bg3d-shadow] frozen wind in {replacements.Count} material(s), " +
+                LvnLog.Trace($"[bg3d-shadow] frozen wind in {replacements.Count} material(s), " +
                           $"{bindings} renderer binding(s)");
         }
 
@@ -409,7 +409,7 @@ namespace Lvn.UI.World
                 filterMode = FilterMode.Bilinear, // мягко ужимаем крупный кадр
             };
             _cam.targetTexture = _rt;
-            Debug.Log($"[bg3d-aa] буфер {_rt.width}×{_rt.height} MSAA×{_rt.antiAliasing} " +
+            LvnLog.Trace($"[bg3d-aa] буфер {_rt.width}×{_rt.height} MSAA×{_rt.antiAliasing} " +
                       $"(экран {Screen.width}×{Screen.height}, живой={_live}, едет={_speed > 0f})");
             TextureChanged?.Invoke(_rt);
             Shoot(); // the buffer is fresh and empty — fill it at once

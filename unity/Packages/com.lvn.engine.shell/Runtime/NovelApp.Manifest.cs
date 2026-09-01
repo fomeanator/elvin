@@ -97,7 +97,7 @@ namespace Lvn.UI.Screens
                     }
                     catch (Exception ex)
                     {
-                        Debug.Log($"[novelapp] manifest retry {attempt}: {ex.Message}");
+                        LvnLog.Info($"[novelapp] manifest retry {attempt}: {ex.Message}");
                     }
                 }
                 mark("manifest (recovered)");

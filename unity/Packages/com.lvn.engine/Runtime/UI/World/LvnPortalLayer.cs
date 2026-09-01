@@ -60,7 +60,7 @@ namespace Lvn.UI.World
             }
             else
             {
-                Lvn.UI.LvnLog.Warn(shader == null
+                Lvn.LvnLog.Warn(shader == null
                     ? "[lvn-portal] шейдер Hidden/LvnPortalDisk не найден — створ не рисуется"
                     : "[lvn-portal] шейдер Hidden/LvnPortalDisk не собрался — створ не рисуется");
                 layer._image.enabled = false;
@@ -83,7 +83,7 @@ namespace Lvn.UI.World
             if (_speed <= 0f) _open = _target;
             enabled = true;
             Apply();
-            Lvn.UI.LvnLog.Trace($"[lvn-portal] створ → {_target:0.00} (сейчас {_open:0.00}), "
+            Lvn.LvnLog.Trace($"[lvn-portal] створ → {_target:0.00} (сейчас {_open:0.00}), "
                               + $"радиус={_radius:0.00}, центр=({_center.x:0.00},{_center.y:0.00}), dur={seconds:0.00}");
         }
 
@@ -140,7 +140,7 @@ namespace Lvn.UI.World
             string what = m == null ? "материала НЕТ"
                         : m.shader == null ? "шейдер NULL"
                         : m.shader.name + (m.shader.isSupported ? "" : " (НЕ ПОДДЕРЖАН)");
-            Lvn.UI.LvnLog.Warn($"[lvn-portal] СТВОР РИСУЕТ НЕ ТЕМ: {what}, "
+            Lvn.LvnLog.Warn($"[lvn-portal] СТВОР РИСУЕТ НЕ ТЕМ: {what}, "
                              + $"раскрытие={_open:0.00}, сторона={_rt?.sizeDelta.x:0} — гашу слой");
             _image.enabled = false;
             enabled = false;

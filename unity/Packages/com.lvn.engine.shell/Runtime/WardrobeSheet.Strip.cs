@@ -372,7 +372,7 @@ namespace Lvn.UI.Screens
                 Debug.LogWarning($"[lvn-card-art] ПУСТО: mini={mini ?? "-"} и full={icon} не дали спрайта");
                 return;
             }
-            Debug.Log($"[lvn-card-art] ok via {via}: {(via == "mini" ? mini : icon)} ({s.texture?.width}x{s.texture?.height})");
+            LvnLog.Trace($"[lvn-card-art] ok via {via}: {(via == "mini" ? mini : icon)} ({s.texture?.width}x{s.texture?.height})");
             // НЕ проверять art.panel: мгновенный кэш-хит завершается ДО того,
             // как RebuildStrip добавил карточку в панель, и страж по panel
             // молча выбрасывал арт — «показались, а при возврате на таб

@@ -71,9 +71,9 @@ namespace Lvn.Content
             // Диагностический след: без него «а тот ли контент играет?» каждый
             // раз выясняется руками через curl к /v1/content/version.
             if (prev == null && _lastVersion != null)
-                UnityEngine.Debug.Log($"[lvn-sync] контент: базовая версия {Short(_lastVersion)}");
+                LvnLog.Info($"[lvn-sync] контент: базовая версия {Short(_lastVersion)}");
             else if (changed)
-                UnityEngine.Debug.Log($"[lvn-sync] контент: {Short(prev)} → {Short(_lastVersion)}");
+                LvnLog.Info($"[lvn-sync] контент: {Short(prev)} → {Short(_lastVersion)}");
             return changed;
         }
 

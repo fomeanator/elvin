@@ -190,7 +190,7 @@ namespace Lvn.Content
                     // NRE в ЛОГ-СТРОКЕ ронял весь декод уже ПОСЛЕ успешного
                     // транскода — целый файл читался как «битый» (живой стек
                     // 27.08, hair_orchid_red@2k).
-                    Debug.Log($"[lvn-perf] ktx2 transcode {ktx2Url}: {sw.ElapsedMilliseconds}ms ({tex.width}x{tex.height}, {tex.format})");
+                    LvnLog.Trace($"[lvn-perf] ktx2 transcode {ktx2Url}: {sw.ElapsedMilliseconds}ms ({tex.width}x{tex.height}, {tex.format})");
                 // Budget the LRU by the COMPRESSED size — that's what actually
                 // occupies VRAM; charging width*height*4 would evict 4-8× early.
                 return (sprite, bytes.LongLength);

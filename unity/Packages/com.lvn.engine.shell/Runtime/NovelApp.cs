@@ -182,7 +182,7 @@ namespace Lvn.UI.Screens
             {
                 contentBase = LocalContentBase(BundleSubdir);
                 SyncInterval = 0f; // nothing to poll — content is baked into the build
-                Debug.Log($"[novelapp] offline bundle → {contentBase}");
+                LvnLog.Info($"[novelapp] offline bundle → {contentBase}");
             }
 
             _assets = new CachingAssets(contentBase);
@@ -359,7 +359,7 @@ namespace Lvn.UI.Screens
             float revealDeadline = revealStart + (_shell?.Transitions?.backdrop_grace ?? 2f);
             while (Stage != null && !Stage.HasBackdrop && Lvn.LvnClock.Wall() < revealDeadline)
                 await Task.Yield();
-            Debug.Log($"[novelapp] entry reveal: backdrop={Stage?.HasBackdrop} " +
+            LvnLog.Trace($"[novelapp] entry reveal: backdrop={Stage?.HasBackdrop} " +
                       $"waited={(Lvn.LvnClock.Wall() - revealStart) * 1000f:F0}ms resuming={resuming}");
             // СТВОР ЗАКРЫВАЕТСЯ ИМЕННО ЗДЕСЬ, а не сразу после Play. Между Play
             // и этим местом сцена убирается ЕЩЁ РАЗ — восстановление автосейва

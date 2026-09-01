@@ -48,8 +48,9 @@ namespace Lvn.Tests
         {
             Assert.AreEqual("x.png", LvnAssetPath.Relative("/assets/x.png", "/assets"));
             Assert.AreEqual("x.png", LvnAssetPath.Relative("assets/x.png", "/assets"));
-            Assert.AreEqual("/content/x.png", LvnAssetPath.Relative("/content/x.png", ""),
-                "пустая приставка значит «не срезать», а не «срезать умолчание»");
+            Assert.AreEqual("content/x.png", LvnAssetPath.Relative("/content/x.png", ""),
+                "пустая приставка значит «не срезать приставку», но «относительный» "
+                + "по-прежнему значит «без ведущей косой»");
         }
 
         [Test]

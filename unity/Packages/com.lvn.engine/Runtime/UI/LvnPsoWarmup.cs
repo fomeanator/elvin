@@ -44,14 +44,14 @@ namespace Lvn.UI
                 if (loaded && _collection.variantCount > 0)
                 {
                     Driver().StartWarmup(_collection);
-                    Debug.Log($"[pso] warming {_collection.variantCount} variant(s) / {_collection.totalGraphicsStateCount} state(s) from {Path.GetFileName(path)}");
+                    LvnLog.Trace($"[pso] warming {_collection.variantCount} variant(s) / {_collection.totalGraphicsStateCount} state(s) from {Path.GetFileName(path)}");
                 }
                 else
                 {
                     _collection.BeginTrace();
                     _tracing = true;
                     Driver(); // hooks quit/pause saves
-                    Debug.Log("[pso] no collection for this device yet — tracing this session");
+                    LvnLog.Trace("[pso] no collection for this device yet — tracing this session");
                 }
             }
             catch (System.Exception ex)
@@ -73,7 +73,7 @@ namespace Lvn.UI
             {
                 _collection.EndTrace();
                 if (_collection.variantCount > 0 && _collection.SaveToFile(FilePath))
-                    Debug.Log($"[pso] traced {_collection.variantCount} variant(s) → {Path.GetFileName(FilePath)}");
+                    LvnLog.Trace($"[pso] traced {_collection.variantCount} variant(s) → {Path.GetFileName(FilePath)}");
                 // Keep collecting if the session continues (pause ≠ quit).
                 _collection.BeginTrace();
             }
@@ -112,7 +112,7 @@ namespace Lvn.UI
                 if (_warming == null) return;
                 if (_warming.isWarmedUp)
                 {
-                    Debug.Log($"[pso] warmup complete: {_warming.completedWarmupCount} state(s)");
+                    LvnLog.Trace($"[pso] warmup complete: {_warming.completedWarmupCount} state(s)");
                     _warming = null;
                     return;
                 }

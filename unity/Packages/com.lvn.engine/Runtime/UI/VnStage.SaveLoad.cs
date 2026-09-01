@@ -140,7 +140,7 @@ namespace Lvn.UI
             int inFlight = PendingSpineBuilds;
             try { await SpineBuildsSettled(); } catch { }   // снимок повреждён — начнём главу с начала, а не упадём
             if (inFlight > 0)
-                Debug.Log($"[lvn] resume warmed {inFlight} spine build(s) in {(Lvn.LvnClock.Wall() - t0):F2}s before rendering");
+                LvnLog.Trace($"[lvn] resume warmed {inFlight} spine build(s) in {(Lvn.LvnClock.Wall() - t0):F2}s before rendering");
             if (veil != null)
             {
                 // Reveal the fully built scene with a short fade instead of a pop.

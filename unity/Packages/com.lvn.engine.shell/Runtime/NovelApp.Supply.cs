@@ -66,10 +66,10 @@ namespace Lvn.UI.Screens
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
             try { await script; } catch { /* the gate's error path reports it */ }
-            Debug.Log($"[lvn-boot] warm {ch.id}: script +{sw.ElapsedMilliseconds}ms");
+            LvnLog.Trace($"[lvn-boot] warm {ch.id}: script +{sw.ElapsedMilliseconds}ms");
             while (!sched.RequiredReady && sw.ElapsedMilliseconds < 120_000)
                 await Task.Delay(100);
-            Debug.Log($"[lvn-boot] warm {ch.id}: required assets {sched.RequiredDone}/{sched.RequiredTotal} +{sw.ElapsedMilliseconds}ms");
+            LvnLog.Trace($"[lvn-boot] warm {ch.id}: required assets {sched.RequiredDone}/{sched.RequiredTotal} +{sw.ElapsedMilliseconds}ms");
         }
 
         // Progress for the loading bar: bytes when the manifest reports asset

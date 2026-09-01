@@ -201,7 +201,7 @@ namespace Lvn.UI.World
             // OnRenderImage ниже. Пока эти два факта неизвестны, любая правка
             // перехода — гадание.
             if (cmd["portal"] != null || cmd["off"] != null || cmd["reset"] != null)
-                Lvn.UI.LvnLog.Trace($"[lvn-fx] портал ← {_tPortal:0.00} (было {_portal:0.00}), "
+                Lvn.LvnLog.Trace($"[lvn-fx] портал ← {_tPortal:0.00} (было {_portal:0.00}), "
                                   + $"радиус={_portalRadius:0.00}, центр=({_portalCenter.x:0.00},{_portalCenter.y:0.00}), "
                                   + $"dur={(_speed > 0f ? 1f / _speed : 0f):0.00}");
         }
@@ -380,7 +380,7 @@ namespace Lvn.UI.World
             // Рисуемся ли мы вообще: OnRenderImage зовёт только КАМЕРА, и на
             // сцене без неё весь стек — молчаливый no-op.
             if (_portal > 0.001f && Time.frameCount % 20 == 0)
-                Lvn.UI.LvnLog.Trace($"[lvn-fx] портал рисуется: {_portal:0.00} (кадр {Time.frameCount})");
+                Lvn.LvnLog.Trace($"[lvn-fx] портал рисуется: {_portal:0.00} (кадр {Time.frameCount})");
             _mat.SetFloat("_PortalRadius", _portalRadius);
             _mat.SetFloat("_Letterbox", _letterbox);
             _mat.SetFloat("_Space", _space);

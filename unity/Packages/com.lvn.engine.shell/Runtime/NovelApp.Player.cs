@@ -172,7 +172,7 @@ namespace Lvn.UI.Screens
             // прогресс, имя и два флага, но не галерею, прочитанное, гардероб,
             // миниатюры и статы игрока.
             Lvn.UI.LvnForget.All(TitleIds(), WardrobeEntities());
-            Debug.Log("[novelapp] аккаунт удалён — сервер и локальные данные стёрты");
+            LvnLog.Info("[novelapp] аккаунт удалён — сервер и локальные данные стёрты");
             return true;
         }
 

@@ -192,7 +192,7 @@ namespace Lvn.UI
                               + $"цвет=#{ColorUtility.ToHtmlStringRGBA(c)} размер={size.x:0}x{size.y:0}");
             }
             if (found == 0) sb.AppendLine("  — сплошных светлых поверхностей нет");
-            Debug.Log(sb.ToString());
+            LvnLog.Trace(sb.ToString());
         }
 
         private static string HierarchyPath(Transform t)
