@@ -251,7 +251,7 @@ namespace Lvn.UI
         /// written for 3D still plays.</para></summary>
         private async Task ApplyBg3DAsync(JObject cmd)
         {
-            if (BoolOr(cmd["off"], false) || (string)cmd["id"] == "off")
+            if (Turns3DOff(cmd))
             {
                 _clock.Cancel(LvnStageClock.BackgroundLane); // отменяем ещё качающийся бандл
                 _renderer?.Set3DBackdrop(null);

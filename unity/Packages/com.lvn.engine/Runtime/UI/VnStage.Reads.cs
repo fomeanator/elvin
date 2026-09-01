@@ -37,6 +37,21 @@ namespace Lvn.UI
         // true/1/yes, звук не знал и этого, а UI-слой знал ещё on/off и «нет».
         private static bool BoolOr(JToken t, bool dflt) => Lvn.LvnBool.Of(t, dflt);
 
+        /// <summary>КОМАНДА ВЫКЛЮЧАЕТ ТРЁХМЕРНЫЙ ФОН — один ответ на двоих.
+        ///
+        /// <para>Сказать «убрать набор» можно двумя способами: полем
+        /// <c>off: true</c> или именем-признаком <c>id: "off"</c>. Применение
+        /// знало оба, предзагрузчик — только второй.</para>
+        ///
+        /// <para>Цена расхождения не косметическая. На команде вида
+        /// <c>{op: "bg3d", off: true, id: "castle"}</c> предзагрузчик выкачивал
+        /// ЦЕЛЫЙ трёхмерный набор, а применение тут же его выбрасывало: трафик
+        /// и место на диске за сцену, которую никто не покажет. В логе это
+        /// выглядит как обычная загрузка — ошибки нет нигде.</para>
+        /// </summary>
+        internal static bool Turns3DOff(JObject cmd)
+            => cmd != null && (BoolOr(cmd["off"], false) || (string)cmd["id"] == "off");
+
 
         internal static TransitionType ParseTransition(string name)
         {

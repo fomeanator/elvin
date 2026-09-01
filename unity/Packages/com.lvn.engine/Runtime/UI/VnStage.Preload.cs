@@ -38,7 +38,7 @@ namespace Lvn.UI
                 {
                     var id = (string)c["id"];
                     if (!set3dKicked && !string.IsNullOrEmpty(id) &&
-                        id != "off" && id != Lvn.UI.World.Lvn3DDemoSet.Id &&
+                        !Turns3DOff(c) && id != Lvn.UI.World.Lvn3DDemoSet.Id &&
                         _prefetched.Add("bg3d:" + id))
                     {
                         set3dKicked = true;
@@ -147,7 +147,9 @@ namespace Lvn.UI
             {
                 if ((string)c["op"] != "bg3d") continue;
                 var id = (string)c["id"];
-                if (string.IsNullOrEmpty(id) || id == "off" ||
+                // Выключение спрашиваем у дома чтения: раньше здесь знали
+                // только имя-признак, и команда с полем off тянула целый набор.
+                if (string.IsNullOrEmpty(id) || Turns3DOff(c) ||
                     id == Lvn.UI.World.Lvn3DDemoSet.Id) continue;
                 _prefetched.Add("bg3d:" + id);
                 await Assets.Preload3DSetAsync(id, _cts.Token);
