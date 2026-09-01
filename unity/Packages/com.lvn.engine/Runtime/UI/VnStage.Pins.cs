@@ -1,3 +1,4 @@
+using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -97,6 +98,44 @@ namespace Lvn.UI
         /// и остаётся закреплённым: витрина открывается с готовым полотном, а
         /// возврат из главы не платит декод заново.</para>
         /// </summary>
+        /// <summary>
+        /// ПРОГРЕТЬ ГЕРОИНЮ ВИТРИНЫ — до того, как её попросят показать.
+        ///
+        /// <para>Полотно витрины грелось заранее, а кукла — нет: её слои
+        /// начинали качаться и распаковываться в тот миг, когда меню уже
+        /// открыто. На живом запуске 01.09 это дало пять секунд ожидания —
+        /// причём не из-за сети: три места в декодере занимали полотно
+        /// (2000×1500) и ядро створа, а слои героини стояли к ним в очередь
+        /// по 1,2–5,0 с каждый.</para>
+        ///
+        /// <para>Греем ТЕМИ ЖЕ адресами, что и покажем: облик берётся из
+        /// каталога с текущими осями гардероба, а не угадывается. Прогрев
+        /// ничего не рисует — он только кладёт спрайты в кэш, чтобы показ был
+        /// мгновенным.</para>
+        /// </summary>
+        public async Task WarmActorAsync(string id)
+        {
+            if (string.IsNullOrEmpty(id) || Assets == null || Catalog == null) return;
+            try
+            {
+                var art = ResolveActorArt(id, new JObject { ["id"] = id });
+                if (art.Urls == null || art.Urls.Count == 0) return;
+                var loads = new List<Task<Sprite>>(art.Urls.Count);
+                foreach (var url in art.Urls)
+                    if (!string.IsNullOrEmpty(url))
+                        loads.Add(Assets.LoadSpriteAsync(url, _cts?.Token ?? default));
+                var sprites = await Task.WhenAll(loads);
+                int ok = 0;
+                foreach (var sp in sprites) if (sp != null) ok++;
+                LvnLog.Trace($"[lvn-warm] героиня витрины прогрета: {ok} из {art.Urls.Count} слоёв ({id})");
+            }
+            catch (System.OperationCanceledException) { }   // прогрев — не обязательство
+            catch (System.Exception e)
+            {
+                LvnLog.Trace($"[lvn-warm] героиня витрины не прогрелась ({id}): {e.Message}");
+            }
+        }
+
         public async Task WarmMenuCanvasAsync(string url)
         {
             if (string.IsNullOrEmpty(url) || Assets == null) return;

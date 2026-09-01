@@ -76,6 +76,60 @@ func newKtx2Transcoder(d *downscaler) *ktx2Transcoder {
 	return t
 }
 
+// warmAll walks the content tree at startup and queues an encode for every
+// piece of story art that has no fresh .ktx2 yet.
+//
+// КОДИРОВАТЬ НАДО ЗАРАНЕЕ, А НЕ ПО ПЕРВОМУ ЗАПРОСУ. Ленивая схема
+// («первый заход платит, остальные получают сжатое») выглядела аккуратной и
+// на деле не работала ни разу: первый заход получал 404, клиент считал его
+// окончательным, и второго захода не наступало — быстрый формат не
+// использовался почти никогда. На живом запуске 01.09 это стоило 1,2–3,7 с
+// распаковки на КАЖДЫЙ слой героини вместо 110 мс через ktx2.
+//
+// Обход идёт в фоне под nice, по одному файлу за раз — тем же работником, что
+// и раньше. Игре он не мешает: очередь просто наполняется сразу, а не по
+// капле от случайных запросов.
+func (t *ktx2Transcoder) warmAll(contentRoot string) {
+	if t.bin() == "" {
+		return // basisu нет — кодировать нечем, и это видно по первому же запросу
+	}
+	go func() {
+		queued, skipped := 0, 0
+		_ = filepath.Walk(contentRoot, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() {
+				return nil
+			}
+			low := strings.ToLower(path)
+			if !(strings.HasSuffix(low, ".png") || strings.HasSuffix(low, ".jpg")) {
+				return nil
+			}
+			// Пиксель-арт и обшивка интерфейса живут растром НАМЕРЕННО: блочное
+			// сжатие с потерями размажет пиксельную сетку и тонкие линии.
+			// Крошка-заготовка (@mini) тоже — её показывают, пока едет крупный.
+			if strings.Contains(low, "/pixel/") || strings.Contains(low, "/ui/") ||
+				strings.Contains(low, "@mini.") {
+				skipped++
+				return nil
+			}
+			if !(strings.Contains(low, "/bg/") || strings.Contains(low, "/art/") ||
+				strings.Contains(low, "/sprites/") || strings.Contains(low, "/spine/")) {
+				skipped++
+				return nil
+			}
+			out := strings.TrimSuffix(path, filepath.Ext(path)) + ".ktx2"
+			if fileExists(out) && !ktx2Stale(out) {
+				return nil
+			}
+			if t.enqueue(out) {
+				queued++
+			}
+			return nil
+		})
+		log.Printf("[ktx2] прогрев кодов: в очередь поставлено %d, пропущено %d (пиксель-арт, обшивка, крошки)",
+			queued, skipped)
+	}()
+}
+
 // enqueue schedules a background encode for ktx2Path (deduped). Returns false
 // when the queue is full — the request just 404s and a later one retries.
 func (t *ktx2Transcoder) enqueue(ktx2Path string) bool {
@@ -357,6 +411,7 @@ func abs(v int) int {
 // background for future sessions. basisu missing / no source → plain 404.
 func (s *server) withKTX2(d *downscaler, next http.Handler) http.Handler {
 	t := newKtx2Transcoder(d)
+	t.warmAll(s.content)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasSuffix(strings.ToLower(r.URL.Path), ".ktx2") {
 			next.ServeHTTP(w, r)

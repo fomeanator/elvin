@@ -38,39 +38,48 @@ namespace Lvn.Content
     /// </summary>
     public partial class ContentLoader
     {
-        // Раньше это была СЕССИОННАЯ защёлка «первый промах гасит весь тракт» —
-        // но сервер кодирует .ktx2 лениво, и один холодный файл (404 «ещё
-        // кодируется») ронял все ассеты в сырой RGBA до перезапуска (×4 по
-        // памяти). Теперь промах помечает ТОЛЬКО свой файл; тракт целиком
-        // сдаётся лишь после серии промахов подряд — так сервер без basisu
-        // по-прежнему не платит по лишнему запросу на каждый ассет.
-        private bool _ktx2Unavailable;
-        private readonly HashSet<string> _ktx2Missing = new HashSet<string>();
-        private int _ktx2MissStreak;
-        private const int Ktx2GiveUpAfterMisses = 8;
+        // ОДИН ФОРМАТ ДЛЯ АРТА ИСТОРИИ — И НИКАКОГО ТИХОГО ОТКАТА.
+        //
+        // Здесь дважды стояла защёлка «сдаёмся на растр»: сперва сессионная
+        // («первый промах гасит весь тракт»), потом счётчик восьми промахов
+        // подряд. Обе были костылём под одну и ту же беду: сервер кодирует
+        // .ktx2 ЛЕНИВО и на первый запрос честно отвечает «пока нет», а клиент
+        // читал этот ответ как «нет никогда».
+        //
+        // На холодном старте холодных файлов ровно восемь и больше — значит
+        // защёлка срабатывала ВСЕГДА, весь тракт уходил в растр, и героиня
+        // распаковывалась по 1,2–3,7 с на слой вместо 110 мс (живой лог
+        // 01.09). Быстрый формат при этом числился «сделанным»: 62 файла
+        // @2k.ktx2 в каталоге и почти ни одного показа через них.
+        //
+        // Костыль был удобнее беды: он делал поломку незаметной. Поэтому его
+        // здесь больше нет. «Ещё не закодирован» — это ПОВТОРИТЬ ПОЗЖЕ, а не
+        // «переключиться на медленный путь навсегда».
+        /// <summary>Видеокарта не рисует ktx2 — единственное честное «нельзя».
+        /// Свойство устройства: узнаётся один раз и не меняется.</summary>
+        private bool _gpuWithoutKtx2;
+
+        private readonly HashSet<string> _ktx2Cold = new HashSet<string>();
         private readonly object _ktx2Lock = new object();
 
+        /// <summary>Пропустить ktx2 для этого адреса ИМЕННО СЕЙЧАС: он холодный,
+        /// сервер его кодирует. Следующий заход спросит снова — память о холоде
+        /// живёт до первого попадания, а не до перезапуска.</summary>
         private bool Ktx2Skipped(string ktx2Url)
         {
-            lock (_ktx2Lock) return _ktx2Unavailable || _ktx2Missing.Contains(ktx2Url);
+            lock (_ktx2Lock) return _gpuWithoutKtx2 || _ktx2Cold.Contains(ktx2Url);
         }
 
         private void NoteKtx2Miss(string ktx2Url)
         {
-            lock (_ktx2Lock)
-            {
-                _ktx2Missing.Add(ktx2Url);
-                if (++_ktx2MissStreak >= Ktx2GiveUpAfterMisses && !_ktx2Unavailable)
-                {
-                    _ktx2Unavailable = true;
-                    Debug.LogWarning($"[content] ktx2: {Ktx2GiveUpAfterMisses} промахов подряд — похоже, сервер без кодов; тракт выключен до перезапуска");
-                }
-            }
+            lock (_ktx2Lock) _ktx2Cold.Add(ktx2Url);
         }
 
+        /// <summary>Код доехал — значит сервер их кодирует, и холодные адреса
+        /// стоит спросить заново: очередь кодирования движется.</summary>
         private void NoteKtx2Hit()
         {
-            lock (_ktx2Lock) _ktx2MissStreak = 0;
+            lock (_ktx2Lock) _ktx2Cold.Clear();
         }
 
 #if LVN_KTX2
@@ -126,7 +135,11 @@ namespace Lvn.Content
 #else
             var ktx2Url = Ktx2UrlFor(url);
             if (ktx2Url == null || Ktx2Skipped(ktx2Url)) return (null, 0);
-            if (!await GpuRendersKtx2Async()) { _ktx2Unavailable = true; return (null, 0); }
+            // ЕДИНСТВЕННАЯ законная причина не показывать через ktx2 —
+            // видеокарта, которая его не рисует. Это свойство устройства, а не
+            // сервера, и потому оно ПОСТОЯННОЕ: спрашивать её каждый кадр
+            // незачем.
+            if (!await GpuRendersKtx2Async()) { _gpuWithoutKtx2 = true; return (null, 0); }
 
             byte[] bytes;
             try
