@@ -295,20 +295,16 @@ func typedDefault(raw string) any {
 // match the title declaration — the partner's per-chapter boilerplate. A
 // default with a DIFFERENT value is an intentional override and stays.
 func stripDeclaredDefaults(sf *ScriptFile, typed map[string]any) {
-	ops, rewrap, ok := decodeScriptOps(sf.Data)
-	if !ok {
-		return
-	}
-	kept := ops[:0]
-	for _, op := range ops {
-		if isDeclaredDefault(op, typed) {
-			continue
+	editScript(sf, func(ops []map[string]any) ([]map[string]any, bool) {
+		kept := ops[:0]
+		for _, op := range ops {
+			if isDeclaredDefault(op, typed) {
+				continue
+			}
+			kept = append(kept, op)
 		}
-		kept = append(kept, op)
-	}
-	if b, err := json.Marshal(rewrap(kept)); err == nil {
-		sf.Data = b
-	}
+		return kept, len(kept) != len(ops)
+	})
 }
 
 func isDeclaredDefault(op map[string]any, typed map[string]any) bool {
