@@ -1204,3 +1204,61 @@ func TestSuccessAnswerIsNotDropped(t *testing.T) {
 			len(found), strings.Join(found, "\n  "))
 	}
 }
+
+// ПОДПИСКА НА СТАТИЧЕСКОЕ СОБЫТИЕ ОТПУСКАЕТСЯ.
+//
+// Событие статическое, а обработчик — метод экземпляра: подписка переживает
+// того, кто подписался. Пересозданная оболочка остаётся висеть на кошельке и
+// настройках, дёргая МЁРТВОЕ дерево интерфейса на каждое движение денег. Урок
+// записан в доме Поводка, и когда его заводили, из четырёх подписок отпускались
+// две, а пятая была лямбдой, которую отписать нечем: делегат никто не сохранил.
+//
+// Отпускание бывает двух видов, и оба честные: Поводок (владелец отпускает
+// разом) и парное `-=` в том же файле (подписка живёт ровно показ экрана).
+func TestStaticSubscriptionsAreReleased(t *testing.T) {
+	root := repoRoot(t)
+	sub := regexp.MustCompile(`\b(Lvn\w+)\.(Changed|Updated)\s*\+=\s*(\w+)`)
+
+	var found []string
+	scanned := 0
+	_ = filepath.Walk(filepath.Join(root, "unity/Packages"), func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+			return nil
+		}
+		p := filepath.ToSlash(path)
+		if strings.Contains(p, "/Tests/") {
+			return nil
+		}
+		scanned++
+		src := stripComments(string(mustRead(t, path)))
+		leashed := strings.Contains(src, "LvnLeash") || strings.Contains(src, "_leash")
+		// СТАТИКА НА СТАТИКУ ЖИВЁТ ВЕЧНО — и это норма. Дом-одиночка (шрифты,
+		// движение, переодевание) подписывается один раз за процесс, и пережить
+		// его некому: отпускать нечего и некогда. Правило про ЭКЗЕМПЛЯРЫ —
+		// экраны, которые пересобирают.
+		if regexp.MustCompile(`(?m)^\s*(?:public|internal)\s+static\s+(?:partial\s+)?class`).MatchString(src) &&
+			!regexp.MustCompile(`(?m)^\s*(?:public|internal|sealed)[\w ]*class \w+\s*:`).MatchString(src) {
+			return nil
+		}
+		for i, l := range strings.Split(src, "\n") {
+			m := sub.FindStringSubmatch(l)
+			if m == nil {
+				continue
+			}
+			// Отпускают либо Поводком (на весь файл), либо парным «-=» с тем же
+			// обработчиком.
+			if leashed || strings.Contains(src, m[1]+"."+m[2]+" -= "+m[3]) {
+				continue
+			}
+			found = append(found, fmt.Sprintf("%s:%d: %s", filepath.Base(path), i+1, strings.TrimSpace(l)))
+		}
+		return nil
+	})
+	atLeast(t, scanned, 100, "просмотренных файлов")
+	if len(found) > 0 {
+		t.Errorf("подписка на статическое событие не отпускается (%d):\n  %s\n\n"+
+			"Возьмите LvnLeash.WhileOnScreen или снимите подписку парным «-=». Иначе "+
+			"пересозданный экран продолжит дёргать мёртвое дерево на каждое событие.",
+			len(found), strings.Join(found, "\n  "))
+	}
+}
