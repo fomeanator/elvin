@@ -150,23 +150,13 @@ namespace Lvn.Tests
         }
 
         private static LvnScreenSet Набор(NovelShell об)
-        {
-            var поле = typeof(NovelShell).GetField("_screens", BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.NotNull(поле, "набор экранов у оболочки переименован — проверка ослепла");
-            var набор = поле.GetValue(об) as LvnScreenSet;
-            Assert.NotNull(набор, "оболочка держит экраны не набором — единого правила уборки больше нет");
-            return набор;
-        }
+            => Внутренности.Достать<LvnScreenSet>(об, typeof(NovelShell), "_screens",
+                "оболочка держит экраны не набором — единого правила уборки больше нет");
 
         /// <summary>Позвать уборку оболочки — ту же, что стоит на каждой
         /// навигации по меню.</summary>
-        private static void УбратьВсё(NovelShell об)
-        {
-            var метод = typeof(NovelShell).GetMethod("ShowOnly", BindingFlags.Instance | BindingFlags.NonPublic,
-                null, Type.EmptyTypes, null);
-            Assert.NotNull(метод, "уборка экранов у оболочки переименована — проверка ослепла");
-            метод.Invoke(об, null);
-        }
+        private static void УбратьВсё(NovelShell об) =>
+            Внутренности.Способ(typeof(NovelShell), "ShowOnly").Invoke(об, null);
 
         // Пересборка — обычное дело: смена языка, смена темы, новый манифест.
         // Набор обязан остаться НАБОРОМ ОДНОГО поколения, иначе уборка каждой

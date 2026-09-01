@@ -243,13 +243,8 @@ namespace Lvn.Tests
         };
 
         private static LvnScreenSet НаборОболочки(NovelShell об)
-        {
-            var поле = typeof(NovelShell).GetField("_screens", BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.NotNull(поле, "набор экранов у оболочки переименован — проверка ослепла");
-            var набор = поле.GetValue(об) as LvnScreenSet;
-            Assert.NotNull(набор, "оболочка держит экраны не набором — единого правила уборки больше нет");
-            return набор;
-        }
+            => Внутренности.Достать<LvnScreenSet>(об, typeof(NovelShell), "_screens",
+                "оболочка держит экраны не набором — единого правила уборки больше нет");
 
         // Приложение поднимается НА ЧИСТОМ: собрали дерево — на экране ничего.
         // Показывает экран тот, кто его открывает; экран, забывший спрятаться

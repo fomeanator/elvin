@@ -31,10 +31,10 @@ namespace Lvn.Tests.Runtime
 
             _actor = new GameObject("t-actor", typeof(RectTransform), typeof(CanvasGroup));
             _actor.transform.SetParent(_canvasGo.transform, false);
-            Stretch((RectTransform)_actor.transform);
+            TestStage.Stretch((RectTransform)_actor.transform);
 
-            _body = Layer(_actor.transform, Color.white);
-            _cloth = Layer(_actor.transform, Color.black);
+            _body = TestStage.Layer(_actor.transform, Color.white);
+            _cloth = TestStage.Layer(_actor.transform, Color.black);
             if (clothSmaller)
             {
                 // Одежда меньше тела и сдвинута — у слоёв РАЗНЫЕ UV-сетки.
@@ -190,19 +190,5 @@ namespace Lvn.Tests.Runtime
             TearDown();
         }
 
-        private static GameObject Layer(Transform parent, Color c)
-        {
-            var go = new GameObject("layer", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            go.transform.SetParent(parent, false);
-            Stretch((RectTransform)go.transform);
-            go.GetComponent<Image>().color = c;
-            return go;
-        }
-
-        private static void Stretch(RectTransform rt)
-        {
-            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
-            rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
-        }
     }
 }

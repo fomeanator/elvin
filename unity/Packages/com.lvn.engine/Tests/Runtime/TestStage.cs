@@ -42,6 +42,34 @@ namespace Lvn.Tests
             return go;
         }
 
+        /// <summary>СЛОЙ ФИГУРЫ во весь кадр родителя — тело, одежда, всё,
+        /// что складывается в куклу.
+        ///
+        /// <para>Три компонента и растяжка на все стороны — обряд, который
+        /// стоял дословно в двух пиксельных тестах перехода. Дословно и
+        /// значит: одинаковый набор компонентов, одинаковые якоря, одинаковое
+        /// имя объекта. Разойдись якоря — и тест сравнивал бы цвета кадра, в
+        /// котором слой стоит не там, а виноватым выглядел бы шейдер.</para>
+        /// </summary>
+        public static GameObject Layer(Transform parent, Color c)
+        {
+            var go = new GameObject("layer", typeof(RectTransform), typeof(CanvasRenderer),
+                                    typeof(UnityEngine.UI.Image));
+            go.transform.SetParent(parent, false);
+            Stretch((RectTransform)go.transform);
+            go.GetComponent<UnityEngine.UI.Image>().color = c;
+            return go;
+        }
+
+        /// <summary>Растянуть на весь родительский прямоугольник: якоря по
+        /// углам и нулевые отступы. Половина обряда — забыть её значит
+        /// получить слой размером в точку.</summary>
+        public static void Stretch(RectTransform rt)
+        {
+            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
+        }
+
         /// <summary>Отвязать и снести камеру вместе с её текстурой.</summary>
         public static void Drop(Camera cam)
         {
