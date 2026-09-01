@@ -186,10 +186,8 @@ namespace Lvn.UI.Screens
         // может показать без выдумок на любом аккаунте.
         private VisualElement ProgressLine()
         {
-            var row = ScreenUi.Row();
-            LvnChrome.Card(row);
-            LvnAir.PadX(row, LvnTokens.Space3);
-            LvnAir.PadY(row, LvnTokens.Space2);
+            var row = LvnStyler.CardRow(ScreenUi.Row());
+            LvnAir.PadX(row, LvnTokens.Space3);   // поля по горизонтали — у экрана
             row.style.marginBottom = LvnTokens.Space2;
             var ic = LvnIcons.Make(LvnIcon.Book, 22f, LvnTokens.Accent);
             ic.style.marginRight = LvnTokens.Space2;

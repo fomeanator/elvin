@@ -256,15 +256,14 @@ namespace Lvn.UI.Screens
 
         private VisualElement Row(Entry e)
         {
-            var row = ScreenUi.Row();
-            LvnAir.PadY(row, LvnTokens.Space2);
+            // Своя строка подсвечена акцентом — единственное отличие от
+            // прочих строк списка, и оно стоит прямо в вызове.
+            var row = LvnStyler.ListRow(ScreenUi.Row(),
+                e.IsYou ? UiColor.WithAlpha(LvnTokens.Accent, 0.18f) : (Color?)null);
             row.style.marginBottom = LvnTokens.Space1;
+            // Поля врозь: слева место под номер, справа — под значение.
             row.style.paddingLeft = LvnTokens.Space2;
             row.style.paddingRight = LvnTokens.Space3;
-            row.style.backgroundColor = e.IsYou
-                ? UiColor.WithAlpha(LvnTokens.Accent, 0.18f)
-                : LvnTokens.Surface;
-            LvnChrome.Round(row, LvnTokens.RadiusSm);
             if (e.IsYou)
             {
                 LvnChrome.Stripe(row);
