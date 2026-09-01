@@ -27,7 +27,7 @@ namespace Lvn.Tests
             using (await lane.EnterAsync(LvnRung.Live, CancellationToken.None))
             using (await lane.EnterAsync(LvnRung.Library, CancellationToken.None)) { }
 
-            var (live, _, background, _) = LvnLaneWatch.Take();
+            var (live, _, background, _) = LvnLaneWatch.Take("проба");
             Assert.AreEqual(2, live, "живые входы посчитаны неверно — а именно по ним "
                                    + "и видно, что фон ходит по сети как живое");
             Assert.AreEqual(1, background, "фоновые входы посчитаны неверно");
@@ -43,7 +43,7 @@ namespace Lvn.Tests
             держим.Dispose();
             (await ждун).Dispose();
 
-            var (_, worst, _, _) = LvnLaneWatch.Take();
+            var (_, worst, _, _) = LvnLaneWatch.Take("проба");
             Assert.GreaterOrEqual(worst, 40,
                 "ожидание живого не попало в замер — «бронь не работает» останется незаметным");
         }
@@ -53,9 +53,11 @@ namespace Lvn.Tests
         {
             var lane = new LvnLane("проба", width: 2, keptForLive: 0);
             using (await lane.EnterAsync(LvnRung.Live, CancellationToken.None)) { }
-            LvnLaneWatch.Take();
+            LvnLaneWatch.Take("проба");
 
-            var (live, _, background, yields) = LvnLaneWatch.Take();
+            // Своя полоса и здесь: иначе хвост соседнего испытания, долетевший
+            // между двумя съёмами, читается как «счёт не обнулился».
+            var (live, _, background, yields) = LvnLaneWatch.Take("проба");
             Assert.AreEqual(0, live + background + yields,
                 "счёт не обнулился — числа следующей главы приедут с хвостом прошлой");
         }
