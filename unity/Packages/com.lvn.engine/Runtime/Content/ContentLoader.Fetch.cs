@@ -148,6 +148,39 @@ namespace Lvn.Content
         /// в офлайне, досыпал до тридцати секунд ПОСЛЕ возвращения сети: игрок
         /// смотрел на экран загрузки, у которого связь уже была.</para>
         /// </summary>
+        /// <summary>СКОЛЬКО РАЗ ПРОБУЕМ достать файл. Стояло тремя местными
+        /// константами в трёх циклах повторов — и уже разошлось: десять, десять
+        /// и пять. Разойтись им можно молча, а объяснить игроку разницу
+        /// нечем.</summary>
+        public const int MaxAttempts = 10;
+
+        /// <summary>Столько попыток у того, что берут В ПАМЯТЬ, минуя диск
+        /// (скрипт, индекс версий): его ждут прямо сейчас, и десять кругов
+        /// отката — это минуты на экране загрузки.</summary>
+        public const int MaxAttemptsInMemory = 5;
+
+        /// <summary>
+        /// ПАУЗА ПЕРЕД СЛЕДУЮЩЕЙ ПОПЫТКОЙ — И ОДНА СТРОКА В ЛОГЕ НА ВСЕ ЦИКЛЫ.
+        ///
+        /// <para>Обряд стоял трижды: посчитать откат, написать в лог, поспать по
+        /// правилу пауз. Написать в лог все три ухитрялись ПО-РАЗНОМУ —
+        /// «attempt N, retry in Xs», «attempt N failed, resume in Xs», «failed
+        /// (was attempt N-1) … retry #N in Xs». Разница безобидна ровно до того
+        /// дня, когда по этой строке ищут причину: сегодня по ней нашлась
+        /// докачка, вечно просившая диапазон за концом файла.</para>
+        /// </summary>
+        private async Task WaitBeforeRetryAsync(string url, int attempt, string why,
+                                                CancellationToken ct, string what = null)
+        {
+            float pause = LvnBackoff.DelaySeconds(attempt);
+            Debug.LogWarning($"[content] {what}{url} attempt {attempt} failed, retry in {pause:F1}s: {why}");
+            await RetryPauseAsync(pause, ct);
+        }
+
+        /// <summary>СДАЛИСЬ — тоже одной строкой.</summary>
+        private static void NoteGaveUp(string url, int attempts, string why, string what = null)
+            => Debug.LogWarning($"[content] {what}{url} gave up after {attempts} attempts: {why}");
+
         private Task RetryPauseAsync(float seconds, CancellationToken ct)
             => !Reachable
                 ? DelayOrOnlineAsync(seconds, ct)
@@ -334,7 +367,6 @@ namespace Lvn.Content
 
             return await TrackedFetch(url, async () =>
             {
-                const int MaxAttempts = 10;
                 lock (_inflight) _attempts[url] = 1;
 
                 while (true)
@@ -427,13 +459,10 @@ namespace Lvn.Content
                         lock (_inflight) attempt = _attempts[url] = _attempts.GetValueOrDefault(url, 1) + 1;
                         if (attempt > MaxAttempts)
                         {
-                            Debug.LogWarning($"[content] {url} gave up after {MaxAttempts} attempts");
+                            NoteGaveUp(url, MaxAttempts, ex.Message);
                             throw;
                         }
-                        var backoff = LvnBackoff.DelaySeconds(attempt);
-                        Debug.LogWarning($"[content] {url} attempt {attempt} failed, resume in {backoff:F1}s: {ex.Message}");
-                        try { await RetryPauseAsync(backoff, ct); }
-                        catch (OperationCanceledException) { throw; }
+                        await WaitBeforeRetryAsync(url, attempt, ex.Message, ct);
                     }
                 }
             });
@@ -568,7 +597,6 @@ namespace Lvn.Content
             // сетевой запрос НА КАЖДУЮ реплику, где он играет.
             ThrowIfKnownMissing(url);
             lock (_inflight) _attempts[url] = 1;
-            const int MaxAttempts = 5;
             while (true)
             {
                 try
@@ -591,15 +619,12 @@ namespace Lvn.Content
                 {
                     int attempt;
                     lock (_inflight) attempt = _attempts[url] = _attempts.GetValueOrDefault(url, 1) + 1;
-                    if (attempt > MaxAttempts)
+                    if (attempt > MaxAttemptsInMemory)
                     {
-                        Debug.LogWarning($"[content] {url} gave up after {MaxAttempts} attempts: {ex.Message}");
+                        NoteGaveUp(url, MaxAttemptsInMemory, ex.Message);
                         throw;
                     }
-                    var backoff = LvnBackoff.DelaySeconds(attempt);
-                    Debug.LogWarning($"[content] {url} failed (was attempt {attempt - 1}): {ex.Message}; retry #{attempt} in {backoff:F1}s");
-                    try { await RetryPauseAsync(backoff, ct); }
-                    catch (OperationCanceledException) { throw; }
+                    await WaitBeforeRetryAsync(url, attempt, ex.Message, ct);
                 }
             }
         }
