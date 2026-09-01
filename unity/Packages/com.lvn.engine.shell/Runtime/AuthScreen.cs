@@ -152,6 +152,31 @@ namespace Lvn.UI.Screens
         /// <summary>Show the screen, kick the silent device sign-in (its result
         /// only drives the status line) and resolve with the nickname once the
         /// player taps Start. Empty string when the field is off or blank.</summary>
+        /// <summary>
+        /// ЗНАКОМСТВО — ОДИН РАЗ ЗА УСТАНОВКУ.
+        ///
+        /// <para>Обряд из четырёх частей: не знакомились ли уже, спросить,
+        /// поставить метку, посеять имя игрока. Стоял он ДВАЖДЫ — на первом
+        /// запуске оболочки и по команде <c>auth</c> из скрипта, — и обе копии
+        /// правили одну и ту же метку устройства.</para>
+        ///
+        /// <para>Порядок в нём не произвольный: метка ставится ПОСЛЕ ответа, а
+        /// не до, — иначе игрок, закрывший форму на полпути, больше никогда её
+        /// не увидит и останется безымянным навсегда. Пустое имя при этом
+        /// метку всё равно ставит: «не захотел называться» — тоже ответ, и
+        /// спрашивать снова значит не услышать его.</para>
+        ///
+        /// <para>КОГДА спрашивать — дело зовущего: у оболочки это «вводная уже
+        /// пройдена», у скрипта — авторская команда. Здесь только «как».</para>
+        /// </summary>
+        public async Task AskOnceAsync(CancellationToken ct = default)
+        {
+            if (LvnPrefs.SeenWelcome) return;
+            var nick = await AskAsync(ct);
+            LvnPrefs.SeenWelcome = true;
+            if (!string.IsNullOrEmpty(nick)) LvnPlayerName.Set(nick);
+        }
+
         public async Task<string> AskAsync(CancellationToken ct = default)
         {
             style.display = DisplayStyle.Flex;

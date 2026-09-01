@@ -432,15 +432,7 @@ namespace Lvn.UI.Screens
             try
             {
                 var auth = _shell?.Auth;
-                if (auth != null && !Lvn.UI.LvnPrefs.SeenWelcome)
-                {
-                    var nick = await auth.AskAsync(destroyCancellationToken);
-                    Lvn.UI.LvnPrefs.SeenWelcome = true;
-                    if (!string.IsNullOrEmpty(nick))
-                    {
-                        Lvn.UI.LvnPlayerName.Set(nick);   // одно хранилище на всех
-                    }
-                }
+                if (auth != null) await auth.AskOnceAsync(destroyCancellationToken);
             }
             catch (OperationCanceledException) { /* приложение закрывают — история всё равно отпускается домом */ }
         }
