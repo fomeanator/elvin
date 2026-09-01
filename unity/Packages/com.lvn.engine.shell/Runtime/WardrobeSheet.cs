@@ -300,7 +300,7 @@ namespace Lvn.UI.Screens
             _itemName.style.color = _text;
             _itemName.style.fontSize = LvnTokens.TextBase;
             _itemName.style.unityTextAlign = TextAnchor.MiddleCenter;
-            _itemName.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
+            _itemName.style.backgroundColor = LvnTokens.Veil(0.35f);
             LvnAir.PadY(_itemName, LvnTokens.Space2);
             LvnAir.MarginX(_itemName, LvnTokens.Space2);
             LvnChrome.Round(_itemName, _radius);

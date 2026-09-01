@@ -225,7 +225,7 @@ namespace Lvn.UI.Screens
             badge.name = "card-price";
             badge.style.position = Position.Absolute;
             badge.style.top = 6; badge.style.right = 6;
-            badge.style.backgroundColor = new Color(0f, 0f, 0f, 0.62f);
+            badge.style.backgroundColor = LvnTokens.Veil(0.62f);
             LvnAir.PadX(badge, LvnTokens.Space1);
             LvnAir.PadY(badge, 3);
             LvnChrome.Round(badge, LvnTokens.RadiusSm);

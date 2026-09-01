@@ -229,7 +229,7 @@ namespace Lvn.UI.Screens
             LvnAir.PadY(back, 0);
             back.style.unityTextAlign = TextAnchor.MiddleCenter;
             back.style.color = LvnTokens.Text;
-            back.style.backgroundColor = new Color(0f, 0f, 0f, 0.45f);
+            back.style.backgroundColor = LvnTokens.Veil(0.45f);
             LvnChrome.ClearBorder(back); LvnChrome.Round(back, LvnTokens.RadiusLg);
             hero.Add(back);
 

@@ -115,7 +115,7 @@ namespace Lvn.UI.Screens
                 () => LvnWords.Pick("hub.back", _cfg.back_text, "‹"));
             back.style.fontSize = LvnTokens.TextXl; back.style.minWidth = 52;
             back.style.color = _titleColor;
-            back.style.backgroundColor = new Color(1f, 1f, 1f, 0.08f);
+            back.style.backgroundColor = LvnTokens.Faint;
             LvnChrome.ClearBorder(back); LvnChrome.Round(back, _radius);
             bar.Add(back);
             title = Heading("", 30);
