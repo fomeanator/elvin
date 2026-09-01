@@ -54,8 +54,7 @@ namespace Lvn.UI
                 // нормально и должно быть видно: обрезка превратила бы его в
                 // полоску той же высоты, что дорожка.
                 tracker.style.overflow = Overflow.Visible;
-                LvnChrome.Round(tracker, LvnTokens.RadiusXs);
-                LvnChrome.ClearBorder(tracker);
+                LvnChrome.Frame(tracker, LvnTokens.RadiusXs);
                 fill = new VisualElement { pickingMode = PickingMode.Ignore };
                 fill.style.position = Position.Absolute;
                 fill.style.left = 0; fill.style.top = 0; fill.style.bottom = 0;
@@ -108,8 +107,7 @@ namespace Lvn.UI
                 // и обязан выходить за неё сверху и снизу поровну.
                 knob.style.top = -(KnobSize - TrackHeight) * 0.5f;
                 knob.style.marginLeft = -KnobSize * 0.5f;   // процент задаёт центр, а не левый край
-                LvnChrome.Round(knob, KnobSize * 0.5f);
-                LvnChrome.ClearBorder(knob);
+                LvnChrome.Frame(knob, KnobSize * 0.5f);
                 tracker.Add(knob);
             }
 

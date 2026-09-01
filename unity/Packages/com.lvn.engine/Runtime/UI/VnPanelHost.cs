@@ -45,8 +45,7 @@ namespace Lvn.UI
             _frame.style.left = t.EdgePadding;
             _frame.style.right = t.EdgePadding;
             _frame.style.bottom = t.BottomPadding;
-            LvnAir.PadX(_frame, t.PanelPaddingX);
-            LvnAir.PadY(_frame, t.PanelPaddingY);
+            LvnAir.Pad(_frame, t.PanelPaddingX, t.PanelPaddingY);
             _frame.style.minHeight = t.PanelMinHeight;
             _frame.style.backgroundColor = t.PanelColor;
             LvnChrome.Round(_frame, t.PanelCornerRadius);

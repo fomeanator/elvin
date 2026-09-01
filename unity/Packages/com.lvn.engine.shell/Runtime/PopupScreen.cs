@@ -238,8 +238,7 @@ namespace Lvn.UI.Screens
             b.style.fontSize = LvnTokens.TextSm;
             b.style.flexGrow = count > 1 ? 1 : 0;
             b.style.minWidth = 120;
-            LvnAir.PadX(b, LvnTokens.Space3);
-            LvnAir.PadY(b, LvnTokens.Space2);
+            LvnAir.Pad(b, LvnTokens.Space3, LvnTokens.Space2);
             b.style.marginLeft = index > 0 ? 8 : 0;
             LvnStyler.Plate(b, spec.Primary ? _primaryColor : _btnColor,
                 spec.Primary ? _primaryText : _btnText, _radius);

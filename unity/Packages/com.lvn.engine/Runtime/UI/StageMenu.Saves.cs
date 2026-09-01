@@ -114,8 +114,7 @@ namespace Lvn.UI
             row.style.paddingLeft = LvnTokens.Space2;
             row.style.flexDirection = FlexDirection.Row;
             row.style.alignItems = Align.Center;
-            LvnChrome.Round(row, Mathf.Max(4f, _theme.MenuCornerRadius - 4f));
-            LvnChrome.ClearBorder(row);
+            LvnChrome.Frame(row, Mathf.Max(4f, _theme.MenuCornerRadius - 4f));
             row.SetEnabled(enabled);
 
             // The saved scene's screenshot, when one exists for this slot.

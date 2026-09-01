@@ -91,8 +91,7 @@ namespace Lvn.UI
             var tint = _theme.MenuTextColor;
             b.style.fontSize = LvnTokens.TextSm;
             b.style.whiteSpace = WhiteSpace.Normal;   // крупный кегль и широкая гарнитура переносятся
-            LvnAir.PadX(b, LvnTokens.Space2);
-            LvnAir.PadY(b, LvnTokens.Space1);
+            LvnAir.Pad(b, LvnTokens.Space2, LvnTokens.Space1);
             LvnStyler.Plate(b, UiColor.WithAlpha(tint, active ? 0.28f : 0.10f),
                 tint, LvnTokens.RadiusSm);
         }
@@ -124,8 +123,7 @@ namespace Lvn.UI
             var tint = _theme.MenuTextColor;
             card.style.backgroundColor = UiColor.WithAlpha(tint, 0.06f);
             LvnChrome.Round(card, LvnTokens.RadiusSm);
-            LvnAir.PadX(card, LvnTokens.Space3);
-            LvnAir.PadY(card, LvnTokens.Space2);
+            LvnAir.Pad(card, LvnTokens.Space3, LvnTokens.Space2);
             card.style.marginBottom = LvnTokens.Space2;
             return card;
         }

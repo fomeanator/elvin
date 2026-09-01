@@ -185,8 +185,7 @@ namespace Lvn.UI
             ApplyChoiceWidth(btn);
             btn.style.minHeight = _theme.ChoiceMinHeight; // thumb-sized (market norm ~6.5% H)
             btn.style.justifyContent = Justify.Center;
-            LvnAir.PadX(btn, _theme.ChoicePaddingX);
-            LvnAir.PadY(btn, _theme.ChoicePaddingY);
+            LvnAir.Pad(btn, _theme.ChoicePaddingX, _theme.ChoicePaddingY);
             btn.style.marginBottom = _theme.ChoiceSpacing;
             // Кромка темы — до радиуса: у технической темы вариант выбора без
             // светящегося контура выпадает из экрана, на котором контур есть у

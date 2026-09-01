@@ -150,8 +150,7 @@ namespace Lvn.UI.Screens
             avatar.style.width = 56; avatar.style.height = 56;
             avatar.style.backgroundColor = _theme.SurfaceHi;
             avatar.style.marginRight = LvnTokens.Space2;
-            LvnChrome.Border(avatar, _accent, 2f);
-            LvnChrome.Round(avatar, _theme.RoundPills ? 28f : _radius);
+            LvnChrome.Frame(avatar, _theme.RoundPills ? 28f : _radius, _accent, 2f);
             profile.Add(avatar);
             var nameCol = new VisualElement();
             _playerNameLabel = new Label(); _playerNameLabel.style.color = _text;
@@ -171,7 +170,7 @@ namespace Lvn.UI.Screens
             var gift = IconButton(LvnIcon.Gift, 24f, _text, () => { if (OnDaily != null) LvnAsync.Fire(OnDaily(), "OpenDaily"); });
             gift.style.width = 44; gift.style.height = 44; gift.style.marginLeft = LvnTokens.Space2;
             gift.style.backgroundColor = LvnTokens.Faint;
-            LvnChrome.ClearBorder(gift); LvnChrome.Round(gift, LvnTokens.RadiusSm);
+            LvnChrome.Frame(gift, LvnTokens.RadiusSm);
             var dot = new Label { pickingMode = PickingMode.Ignore };
             dot.style.position = Position.Absolute; dot.style.top = 6; dot.style.right = 6;
             dot.style.width = 10; dot.style.height = 10; dot.style.backgroundColor = _accent; LvnChrome.Round(dot, LvnTokens.RadiusXs);
@@ -183,7 +182,7 @@ namespace Lvn.UI.Screens
             _settingsBtn = gear;
             gear.style.width = 44; gear.style.height = 44; gear.style.marginLeft = LvnTokens.Space2;
             gear.style.backgroundColor = LvnTokens.Faint;
-            LvnChrome.ClearBorder(gear); LvnChrome.Round(gear, LvnTokens.RadiusSm);
+            LvnChrome.Frame(gear, LvnTokens.RadiusSm);
             rightGroup.Add(gear);
             topBar.Add(rightGroup);
             _hubView.Add(topBar);

@@ -189,8 +189,7 @@ namespace Lvn.UI.Screens
             LvnChrome.Divider(_gameRow);
             ScreenUi.Row(_gameRow);
             _gameRow.style.justifyContent = Justify.SpaceAround;
-            LvnAir.PadX(_gameRow, LvnTokens.Space1);
-            LvnAir.PadY(_gameRow, LvnTokens.Space2);
+            LvnAir.Pad(_gameRow, LvnTokens.Space1, LvnTokens.Space2);
             _gameRow.style.display = DisplayStyle.None;
             _gameRow.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             // Подписи игровой панели — через словарь: зашитые по-русски, они делали
@@ -211,8 +210,7 @@ namespace Lvn.UI.Screens
         {
             var b = new VisualElement();
             b.style.alignItems = Align.Center;
-            LvnAir.PadX(b, LvnTokens.Space2);
-            LvnAir.PadY(b, LvnTokens.Space1);
+            LvnAir.Pad(b, LvnTokens.Space2, LvnTokens.Space1);
             LvnChrome.Round(b, LvnTokens.RadiusSm);
             var ic = LvnIcons.Make(icon, 28f, LvnTokens.Accent);
             ic.pickingMode = PickingMode.Ignore;

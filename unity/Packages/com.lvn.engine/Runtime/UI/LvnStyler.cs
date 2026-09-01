@@ -122,8 +122,7 @@ namespace Lvn.UI
             if (el == null) return null;
             el.style.backgroundColor = plate;
             el.style.color = ink;
-            LvnChrome.ClearBorder(el);
-            LvnChrome.Round(el, radius < 0f ? LvnTokens.Radius : radius);
+            LvnChrome.Frame(el, radius < 0f ? LvnTokens.Radius : radius);
             return el;
         }
 
@@ -146,8 +145,7 @@ namespace Lvn.UI
         {
             if (el == null) return null;
             el.style.backgroundColor = LvnTokens.Surface;
-            LvnChrome.ClearBorder(el);
-            LvnChrome.Round(el, radius < 0f ? LvnTokens.Radius : radius);
+            LvnChrome.Frame(el, radius < 0f ? LvnTokens.Radius : radius);
             LvnChrome.Edge(el);
             return el;
         }
@@ -220,8 +218,7 @@ namespace Lvn.UI
         {
             if (el == null) return null;
             el.style.backgroundColor = fill;
-            LvnAir.PadX(el, padX < 0f ? LvnTokens.Space4 : padX);
-            LvnAir.PadY(el, padY < 0f ? LvnTokens.Space4 : padY);
+            LvnAir.Pad(el, padX < 0f ? LvnTokens.Space4 : padX, padY < 0f ? LvnTokens.Space4 : padY);
             LvnChrome.Round(el, radius < 0f ? LvnTokens.Radius : radius);
             return el;
         }
@@ -250,10 +247,8 @@ namespace Lvn.UI
         {
             if (el == null) return null;
             el.style.backgroundColor = fill;
-            LvnAir.PadX(el, padX < 0f ? LvnTokens.Space2 : padX);
-            LvnAir.PadY(el, padY < 0f ? LvnTokens.Tight : padY);
-            if (edge is Color e) LvnChrome.Border(el, e, 1f);
-            LvnChrome.Round(el, radius < 0f ? LvnTokens.RadiusSm : radius);
+            LvnAir.Pad(el, padX < 0f ? LvnTokens.Space2 : padX, padY < 0f ? LvnTokens.Tight : padY);
+            if (edge is Color e) LvnChrome.Frame(el, radius < 0f ? LvnTokens.RadiusSm : radius, e, 1f);
             return el;
         }
 
@@ -264,8 +259,7 @@ namespace Lvn.UI
             if (el == null) return null;
             el.style.height = height;
             el.style.backgroundColor = LvnTokens.Faint;
-            LvnChrome.ClearBorder(el);
-            LvnChrome.Round(el, height * 0.5f);
+            LvnChrome.Frame(el, height * 0.5f);
             return el;
         }
 
@@ -283,8 +277,7 @@ namespace Lvn.UI
             if (el == null) return null;
             el.style.height = height;
             el.style.backgroundColor = tone ?? LvnTokens.Track;
-            LvnChrome.ClearBorder(el);
-            LvnChrome.Round(el, height * 0.5f);
+            LvnChrome.Frame(el, height * 0.5f);
             el.style.overflow = Overflow.Hidden; // заливка обязана обрезаться по углам
             return el;
         }
@@ -297,8 +290,7 @@ namespace Lvn.UI
         {
             if (el == null) return null;
             el.style.backgroundColor = tint ?? LvnTokens.Accent;
-            LvnChrome.ClearBorder(el);
-            LvnChrome.Round(el, radius < 0f ? LvnTokens.RadiusSm : radius);
+            LvnChrome.Frame(el, radius < 0f ? LvnTokens.RadiusSm : radius);
             return el;
         }
     }

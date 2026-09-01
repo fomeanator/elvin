@@ -142,8 +142,7 @@ namespace Lvn.UI.Screens
         {
             var plus = new Button(onPlus) { text = "+" };
             plus.style.fontSize = _look.FontSize;
-            LvnAir.PadX(plus, LvnTokens.Space2);
-            LvnAir.PadY(plus, LvnTokens.Hair);
+            LvnAir.Pad(plus, LvnTokens.Space2, LvnTokens.Hair);
             plus.style.marginLeft = LvnTokens.Space1;
             // «Плюс» — главное действие пилюли: акцент и текст на акценте.
             // Роль называет это одним словом и переживёт смену темы.

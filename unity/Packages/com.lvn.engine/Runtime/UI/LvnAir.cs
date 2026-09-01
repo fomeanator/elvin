@@ -35,6 +35,23 @@ namespace Lvn.UI
             el.style.paddingBottom = all;
         }
 
+        /// <summary>Внутренний отступ ДВУМЯ ЧИСЛАМИ: по бокам и по высоте.
+        ///
+        /// <para>Заведено 01.09 по замеру: пара <c>PadX</c> + <c>PadY</c> на
+        /// одном и том же элементе стояла 39 раз в 29 файлах — самая частая
+        /// последовательность во всей оболочке. Отступ прямоугольника — ОДНО
+        /// решение, и записывать его двумя строками значило оставлять
+        /// вызывающему шанс написать вторую с другим элементом или забыть
+        /// вовсе.</para></summary>
+        public static void Pad(VisualElement el, float x, float y)
+        {
+            if (el == null) return;
+            el.style.paddingLeft = x;
+            el.style.paddingRight = x;
+            el.style.paddingTop = y;
+            el.style.paddingBottom = y;
+        }
+
         /// <summary>Внутренний отступ по бокам: слева и справа поровну.</summary>
         public static void PadX(VisualElement el, float x)
         {

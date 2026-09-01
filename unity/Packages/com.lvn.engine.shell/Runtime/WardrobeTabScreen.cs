@@ -122,8 +122,7 @@ namespace Lvn.UI.Screens
             LvnChrome.Edge(_panel);
             LvnChrome.Round(_panel, LvnTokens.Radius);
             LvnChrome.Lid(_panel);
-            LvnAir.PadX(_panel, LvnTokens.Space3);
-            LvnAir.PadY(_panel, LvnTokens.Space2);
+            LvnAir.Pad(_panel, LvnTokens.Space3, LvnTokens.Space2);
             Add(_panel);
 
             // «Во весь рост» прячет плашку — вернуть её обязано ЛЮБОЕ касание

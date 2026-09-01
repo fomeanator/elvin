@@ -195,8 +195,7 @@ namespace Lvn.UI.Screens
                       : res1 ? LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue")
                              : LvnWords.Pick("hub.play", _cfg.play_text, "Play"));
             play.style.fontSize = LvnTokens.TextLg;
-            LvnAir.PadX(play, LvnTokens.Space4);
-            LvnAir.PadY(play, LvnTokens.Space2);
+            LvnAir.Pad(play, LvnTokens.Space4, LvnTokens.Space2);
             LvnStyler.Plate(play, _accent, _accentText, LvnTokens.RadiusSm);
             actions.Add(play);
             if (!locked && t.cost != null && t.cost.amount > 0)

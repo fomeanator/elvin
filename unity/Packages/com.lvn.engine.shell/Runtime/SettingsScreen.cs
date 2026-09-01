@@ -525,8 +525,7 @@ namespace Lvn.UI.Screens
         private void StyleValueButton(Button b, bool active)
         {
             b.style.fontSize = LvnTokens.TextSm;
-            LvnAir.PadX(b, LvnTokens.Space3);
-            LvnAir.PadY(b, LvnTokens.Space1);
+            LvnAir.Pad(b, LvnTokens.Space3, LvnTokens.Space1);
             // Роль — «один из вариантов», но палитру приносит новелла
             // (accent_color/text_color в манифесте), поэтому не Choice, а Plate.
             LvnStyler.Plate(b,

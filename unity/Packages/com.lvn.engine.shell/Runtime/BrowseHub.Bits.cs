@@ -95,8 +95,7 @@ namespace Lvn.UI.Screens
             var col = new VisualElement();
             ScreenUi.Stretch(col);
             col.style.flexDirection = FlexDirection.Column;
-            LvnAir.PadX(col, LvnEdges.PageSide);
-            LvnAir.PadY(col, LvnTokens.Space4);
+            LvnAir.Pad(col, LvnEdges.PageSide, LvnTokens.Space4);
             return col;
         }
 

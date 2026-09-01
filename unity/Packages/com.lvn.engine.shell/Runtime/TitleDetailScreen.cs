@@ -424,8 +424,7 @@ namespace Lvn.UI.Screens
 
             var cost = new VisualElement();
             cost.style.flexShrink = 0;
-            LvnAir.PadX(cost, LvnTokens.Space3);
-            LvnAir.PadY(cost, LvnTokens.Space2);
+            LvnAir.Pad(cost, LvnTokens.Space3, LvnTokens.Space2);
             cost.style.backgroundColor = LvnTokens.SurfaceHi;
             LvnChrome.Round(cost, LvnTokens.RadiusSm);
 

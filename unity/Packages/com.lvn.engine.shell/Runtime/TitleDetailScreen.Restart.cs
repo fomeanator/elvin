@@ -95,8 +95,7 @@ namespace Lvn.UI.Screens
             load.style.flexShrink = 0;
             load.style.marginLeft = LvnTokens.Space2;
             load.style.fontSize = LvnTokens.TextSm;
-            LvnAir.PadX(load, LvnTokens.Space3);
-            LvnAir.PadY(load, LvnTokens.Space2);
+            LvnAir.Pad(load, LvnTokens.Space3, LvnTokens.Space2);
             LvnStyler.Quiet(load, LvnTokens.RadiusSm);
             row.Add(load);
 
@@ -217,8 +216,7 @@ namespace Lvn.UI.Screens
         {
             var b = new Button(onClick) { text = text };
             b.style.fontSize = LvnTokens.TextSm;
-            LvnAir.PadX(b, LvnTokens.Space3);
-            LvnAir.PadY(b, LvnTokens.Space2);
+            LvnAir.Pad(b, LvnTokens.Space3, LvnTokens.Space2);
             b.style.marginTop = LvnTokens.Space2;
             b.style.whiteSpace = WhiteSpace.Normal;
             LvnStyler.Choice(b, primary, LvnTokens.RadiusSm);

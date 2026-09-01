@@ -197,6 +197,27 @@ namespace Lvn.UI
         /// момент менять было не нужно. Дом отдавал работу целиком или никак, и
         /// каждый, кому нужна была половина, отрезал её себе сам.</para>
         /// </summary>
+        /// <summary>ОГРАНКА ЦЕЛИКОМ: скругление и рамка одним решением.
+        ///
+        /// <para>Заведено 01.09 по замеру: пара «скруглить + обвести» стояла
+        /// 22 раза в двадцати файлах, в обоих порядках, — вторая по частоте
+        /// последовательность в оболочке. Радиус и рамка описывают ОДИН край
+        /// прямоугольника; порознь их держали только потому, что дом умел
+        /// каждое по отдельности и не умел вместе.</para></summary>
+        public static void Frame(VisualElement el, float r, Color color, float width)
+        {
+            Round(el, r);
+            Border(el, color, width);
+        }
+
+        /// <summary>Огранка без рамки: скруглить и снять обводку, если была.
+        /// Нужна, когда элемент переодевают — прежняя рамка иначе остаётся.</summary>
+        public static void Frame(VisualElement el, float r)
+        {
+            Round(el, r);
+            ClearBorder(el);
+        }
+
         public static void Tint(VisualElement el, Color color)
         {
             if (el == null) return;
@@ -233,8 +254,7 @@ namespace Lvn.UI
             if (input == null) return;
             input.style.backgroundColor = bg;
             input.style.color = text;
-            LvnAir.PadX(input, LvnTokens.Space3);
-            LvnAir.PadY(input, LvnTokens.Space2);
+            LvnAir.Pad(input, LvnTokens.Space3, LvnTokens.Space2);
         }
 
         /// <summary>
