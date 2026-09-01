@@ -27,7 +27,11 @@ import (
 // честные: подключить способ или подписать его словом НЕ ПОДКЛЮЧЁН с
 // объяснением, чего он ждёт.
 func TestDormantMethodsExplainThemselves(t *testing.T) {
-	const budget = 17 // 01.09: столько публичных способов домов не зовёт никто, включая тесты.
+	const budget = 13 // 01.09: столько публичных способов домов не зовёт никто, включая тесты.
+	// Счёт правился дважды: 46 → 17 (учли своих же соседей по файлу) и
+	// 17 → 13 (имя класса стали брать из КОДА, а не из имени файла — файл
+	// держит несколько классов, и LvnBackoff.DelaySeconds с четырьмя зовущими
+	// числился спящим как «LvnNetwork.DelaySeconds»).
 	// Первая версия счёта дала 46 — она исключала файл-объявитель и считала
 	// мёртвыми внутренних помощников дома. Разница в двадцать девять имён:
 	// порог, поставленный по кривому счёту, узаконивает несуществующий долг.
@@ -57,15 +61,36 @@ func TestDormantMethodsExplainThemselves(t *testing.T) {
 			return nil
 		})
 
+	// ИМЯ КЛАССА — ИЗ КОДА, А НЕ ИЗ ИМЕНИ ФАЙЛА. Первая версия брала его у
+	// файла, а файл держит несколько классов: `LvnNetwork.cs` — это
+	// LvnNetworkStatus, LvnFetchException, LvnOfflineText и LvnBackoff. Страж
+	// искал зовущих для «LvnNetwork.DelaySeconds», которого не существует, и
+	// объявлял спящим живой `LvnBackoff.DelaySeconds` с четырьмя зовущими.
+	classRe := regexp.MustCompile(`(?:public|internal)\s+(?:sealed\s+|static\s+|partial\s+|abstract\s+)*class\s+(\w+)`)
 	sig := regexp.MustCompile(`public static ([\w<>\[\],.?]+) (\w+)\s*\(([^)]*)`)
 	var dormant []string
 	for p, s := range src {
-		cls := strings.SplitN(filepath.Base(p), ".", 2)[0]
-		if !strings.HasPrefix(cls, "Lvn") {
-			continue
+		// Все объявления классов файла с их позициями: способ принадлежит
+		// ближайшему объявлению ВЫШЕ него.
+		type decl struct {
+			at   int
+			name string
 		}
-		for _, m := range sig.FindAllStringSubmatch(s, -1) {
-			name, args := m[2], m[3]
+		var decls []decl
+		for _, loc := range classRe.FindAllStringSubmatchIndex(s, -1) {
+			decls = append(decls, decl{loc[0], s[loc[2]:loc[3]]})
+		}
+		for _, m := range sig.FindAllStringSubmatchIndex(s, -1) {
+			name, args := s[m[4]:m[5]], s[m[6]:m[7]]
+			cls := ""
+			for _, d := range decls {
+				if d.at < m[0] {
+					cls = d.name
+				}
+			}
+			if !strings.HasPrefix(cls, "Lvn") {
+				continue
+			}
 			pats := []*regexp.Regexp{regexp.MustCompile(`\b` + cls + `\.` + name + `\b`)}
 			if strings.HasPrefix(strings.TrimSpace(args), "this ") {
 				pats = append(pats, regexp.MustCompile(`\.`+name+`\s*\(`))
