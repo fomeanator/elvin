@@ -18,7 +18,7 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CONTENT="${1:-$REPO/server/content}"
-PORT="${PORT:-8077}"
+PORT="${PORT:-8078}"
 
 if [ ! -d "$CONTENT" ]; then
   echo "нет папки контента: $CONTENT" >&2; exit 1
