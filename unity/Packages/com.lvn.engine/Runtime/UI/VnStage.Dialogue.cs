@@ -115,6 +115,29 @@ namespace Lvn.UI
         /// <summary>A tiny neutral beat between one card going dark and the next
         /// appearing. It is short enough not to feel like latency, but gives the
         /// dissolve a punctuation mark instead of making two panels overlap.</summary>
+        /// <summary>
+        /// СМЕНА КАРТОЧКИ: старая уходит своим ходом, и только ПОСЛЕ такта
+        /// тишины приходит новая.
+        ///
+        /// <para>Обряд стоял дважды — у реплики и у пары «реплика + выбор», —
+        /// и все четыре его части обязательны. Уход своим ходом: снять окно
+        /// сразу значит не показать уход вовсе. Проверка поколения: пока карточка
+        /// падала, могла прийти следующая команда, и опоздавший вернул бы на
+        /// экран СТАРЫЙ текст (живой репорт: варианты повисли под предыдущей
+        /// репликой). Снятие показа: иначе пустая карточка ловит нажатия. И
+        /// такт тишины: без него новая реплика наезжает на уход старой.</para>
+        /// </summary>
+        private void SwapBox(int gen, Action then)
+        {
+            int outMs = Mathf.RoundToInt(DialogueFadeSeconds() * 1000f);
+            _dialogue.DropOut(outMs, done: () =>
+            {
+                if (!BoxMine(gen)) return;
+                _dialogue.style.display = DisplayStyle.None;
+                AfterBeatPause(gen, then);
+            });
+        }
+
         private void AfterBeatPause(int generation, Action next)
         {
             if (generation != _dialogueSwapGeneration || next == null) return;
@@ -204,13 +227,7 @@ namespace Lvn.UI
                 // репорт: варианты повисли под предыдущей репликой). Реплика
                 // хранится здесь, и ShowChoice доводит её показ сам.
                 _pendingSay = (who, text, style);
-                int outMs = Mathf.RoundToInt(DialogueFadeSeconds() * 1000f);
-                _dialogue.DropOut(outMs, done: () =>
-                {
-                    if (!BoxMine(gen)) return;
-                    _dialogue.style.display = DisplayStyle.None;
-                    AfterBeatPause(gen, () => PresentSay(gen, who, text, style));
-                });
+                SwapBox(gen, () => PresentSay(gen, who, text, style));
                 return;
             }
 
