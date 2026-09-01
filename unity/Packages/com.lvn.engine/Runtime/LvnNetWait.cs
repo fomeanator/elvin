@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine.Networking;
 
-namespace Lvn.Content
+namespace Lvn
 {
     /// <summary>
     /// ДОЖДАТЬСЯ ОТВЕТА СЕТИ — цикл ожидания, один на все запросы.
@@ -29,6 +29,32 @@ namespace Lvn.Content
     /// </summary>
     public static class LvnNetWait
     {
+        /// <summary>
+        /// ДОЖДАТЬСЯ ЛЮБОЙ ОПЕРАЦИИ UNITY — по событию, без опроса.
+        ///
+        /// <para>Загрузка набора с диска (<c>AssetBundle.LoadFromFileAsync</c>)
+        /// и выемка из него объекта — тоже операции, и их тоже ждали циклом
+        /// «пока не готово — уступи кадр». Прогресса у них никто не
+        /// показывает, значит каждый оборот цикла — потраченный кадр на ровном
+        /// месте.</para>
+        ///
+        /// <para>Дом переехал в ядро: сетевые запросы шлют и продуктовые
+        /// службы, а сборки контента они не видят — оттуда и пятая копия
+        /// цикла.</para>
+        /// </summary>
+        public static async Task DoneAsync(UnityEngine.AsyncOperation op, CancellationToken ct = default)
+        {
+            if (op == null) return;
+            if (!op.isDone)
+            {
+                var tcs = new TaskCompletionSource<bool>();
+                op.completed += _ => tcs.TrySetResult(true);
+                using (ct.CanBeCanceled ? ct.Register(() => tcs.TrySetResult(false)) : default)
+                    await tcs.Task;
+            }
+            ct.ThrowIfCancellationRequested();
+        }
+
         /// <summary>
         /// Ждать, пока запрос не завершится, не замолчит или не будет отменён.
         /// </summary>

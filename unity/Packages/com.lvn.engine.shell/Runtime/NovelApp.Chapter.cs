@@ -247,8 +247,22 @@ namespace Lvn.UI.Screens
                     catch { /* self-heal covers per-file failures */ }
                 }
 
+                // ПОРЯДОК — ЧАСТЬ РАБОТЫ. Очередь без порядка забивается, и
+                // первым не доезжает как раз то, чего игрок ждёт: вводная
+                // (глава ноль) с агентом и фаворитами стояла бы за спиной у
+                // всей библиотеки просто потому, что в манифесте она не первая.
+                // Лестницу называет дом приоритетов; здесь — её верхняя
+                // ступень: сперва вводная, потом остальные.
+                var order = new System.Collections.Generic.List<LvnTitle>();
                 if (manifest?.titles != null)
+                {
                     foreach (var t in manifest.titles)
+                        if (t != null && LvnIntro.Is(t)) order.Add(t);
+                    foreach (var t in manifest.titles)
+                        if (t != null && !LvnIntro.Is(t)) order.Add(t);
+                }
+                if (order.Count > 0)
+                    foreach (var t in order)
                     {
                         if (t?.seasons == null) continue;
                         foreach (var se in t.seasons)
@@ -260,23 +274,20 @@ namespace Lvn.UI.Screens
                                 if (!string.IsNullOrEmpty(ch.script_url) && !_assets.Loader.IsScriptCached(ch.script_url))
                                     try { await _assets.Loader.DownloadScriptCached(ch.script_url); } catch { }   // разбор объявленных переменных: кривой блок не должен ронять главу
                                 if (ch.assets == null) continue;
-                                foreach (var kv in ch.assets)
+                                // Внутри главы — по ступеням: критичное (то,
+                                // что рисует первый кадр) раньше прочего.
+                                // «Критичность» ставит автор: движок не знает,
+                                // какая поза откроет сцену.
+                                foreach (var part in Lvn.Content.LvnPriority.ByRung(
+                                             Lvn.Content.LvnParts.OfChapter(ch),
+                                             pt => Lvn.Content.LvnPriority.OfChapterPart(pt, current: true)))
                                 {
                                     if (ct.IsCancellationRequested) return;
-                                    await WarmOne(kv.Key);
+                                    await WarmOne(part.Url);
                                 }
                             }
                         }
                     }
-                // АРТ КАСТА — облик героини целиком: все слои всех эмоций и
-                // нарядов плюс значки витрины. Гардероб открывают из МЕНЮ, то
-                // есть в любой момент: ждать сети там нечему, и «эмоция
-                // загружается по тапу» — это она и была.
-                foreach (var part in Lvn.Content.LvnParts.OfCast(manifest))
-                {
-                    if (ct.IsCancellationRequested) return;
-                    await WarmOne(part.Url);
-                }
                 LvnLog.Trace($"[lvn-warm] library fully cached ({warmed} fetched, {skipped} already local)");
             }
             catch (System.OperationCanceledException) { /* teardown */ }
