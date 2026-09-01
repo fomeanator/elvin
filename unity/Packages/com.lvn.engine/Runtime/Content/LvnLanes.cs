@@ -96,6 +96,7 @@ namespace Lvn.Content
                     throw;
                 }
                 var seat = new Seat { Background = true };
+                seat.Token = seat.Yield.Token;
                 lock (_seats) _seats.Add(seat);
                 return new Pass(this, seat);
             }
@@ -117,9 +118,13 @@ namespace Lvn.Content
                     if (!s.Asked) { victim = s; break; }
             if (victim == null) return;
             victim.Asked = true;
-            // Через дом отмены: Cancel в одиночку оставляет регистрации жить, а
-            // на этот признак подписан связанный источник у каждого захода.
-            Lvn.LvnCancel.Retire(victim.Yield);
+            // НАРОЧНО голый Cancel, а не дом отмены. Дом гасит И ОТПУСКАЕТ —
+            // здесь отпускать рано: на этот признак подписан связанный источник
+            // у захода, который сейчас и должен его услышать. Отпустив источник
+            // в момент просьбы, мы обрываем провод раньше сигнала — поймано
+            // прогоном 01.09 (ObjectDisposedException у двух тестов уступки).
+            // Отпускает тот, кто ВОЗВРАЩАЕТ место: см. Leave.
+            try { victim.Yield.Cancel(); } catch (ObjectDisposedException) { /* НАРОЧНО без Retire: отпускает Leave */ }
         }
 
         /// <summary>
@@ -156,6 +161,12 @@ namespace Lvn.Content
         internal sealed class Seat
         {
             public readonly CancellationTokenSource Yield = new CancellationTokenSource();
+
+            /// <summary>Признак, снятый ОДИН РАЗ при рождении. Спрашивать его у
+            /// источника каждый раз нельзя: источник отпускают при возврате
+            /// места, а признак читают и после — и тогда чтение падает вместо
+            /// честного «да, просили».</summary>
+            public CancellationToken Token;
             public bool Asked;       // место уже просили вернуть
             public bool Background;  // фоновое: только у такого просят
             public bool Left;        // уже вернули; второй возврат — не возврат
@@ -176,7 +187,7 @@ namespace Lvn.Content
             /// <summary>Срабатывает, когда место просят вернуть живому. Живое
             /// место не просят никогда — у него признак пустой.</summary>
             public CancellationToken Yield
-                => _seat != null && _seat.Background ? _seat.Yield.Token : CancellationToken.None;
+                => _seat != null && _seat.Background ? _seat.Token : CancellationToken.None;
 
             /// <summary>Место уже попросили вернуть. Отличать от отмены
             /// вызывающего обязан тот, кто ловит: уступка означает «зайти
