@@ -246,12 +246,9 @@ namespace Lvn.UI.Screens
             {
                 // ПОЛНЫЙ навбар (лого/валюты/бургер) + строка кнопок ПОД ним —
                 // ансамблем сверху; баблики на это время прячутся (дубль).
-                _miniPills.style.display = DisplayStyle.None;
-                _miniProgress.style.display = DisplayStyle.None;
-                _row.style.display = DisplayStyle.Flex;
                 _gameRow.style.top = _safeTop + RowH;
                 _gameRow.style.paddingTop = LvnTokens.Space2;
-                _gameRow.style.display = DisplayStyle.Flex;
+                ApplyBarVisibility();   // баблики — дубль бара: на это время уходят
                 _row.style.translate = new Translate(0f, -slide);
                 _gameRow.style.translate = new Translate(0f, -slide);
                 _row.experimental.animation.Start(0f, 1f, LvnMotion.Ms(LvnMotion.Calm), (r, v) =>
@@ -282,14 +279,12 @@ namespace Lvn.UI.Screens
                     _gameRow.style.translate = new Translate(0f, y);
                     if (v >= 1f)
                     {
-                        r.style.display = DisplayStyle.None;
-                        _gameRow.style.display = DisplayStyle.None;
-                        if (_inGame)
-                        {
-                            _miniPills.style.display = DisplayStyle.Flex;
-                            _miniProgress.style.display = DisplayStyle.Flex;
-                            _row.style.translate = new Translate(0f, 0f);
-                        }
+                        // Сдвиг снимается ВСЕГДА, а не только в игре: в меню ряд
+                        // остаётся видимым, и уехавший за верх экрана он выглядел
+                        // бы пропавшим — тем же, чем и был до этой правки.
+                        _row.style.translate = new Translate(0f, 0f);
+                        _gameRow.style.translate = new Translate(0f, 0f);
+                        ApplyBarVisibility();
                     }
                 });
             }
@@ -454,24 +449,45 @@ namespace Lvn.UI.Screens
             _silent = silent;
             if (silent)
             {
-                _row.style.display = DisplayStyle.None;
-                _miniPills.style.display = DisplayStyle.None;
-                _miniProgress.style.display = DisplayStyle.None;
-                _tapCatcher.style.display = DisplayStyle.None;
-                _gameRow.style.display = DisplayStyle.None;
                 _gameBarShown = false;
+                ApplyBarVisibility();
             }
             else SetInGameApply();
         }
         private bool _silent;
 
-        private void SetInGameApply()
+        /// <summary>
+        /// КТО ВИДЕН ПРЯМО СЕЙЧАС — из трёх признаков разом: тишина воронки,
+        /// игровой режим и открыт ли игровой бар.
+        ///
+        /// <para>Состав бара — пять поверхностей, а решали про них ТРИ места, и
+        /// каждое перечисляло свой набор: тишина — все пять, смена режима —
+        /// четыре, открытие/закрытие бара — по-своему в каждой ветке. Шестая
+        /// поверхность попала бы в одно место из трёх.</para>
+        ///
+        /// <para>Живой случай: выход из главы при ОТКРЫТОМ игровом баре. Смена
+        /// режима показывала верхний ряд, а через 200 мс конец анимации
+        /// скрытия прятал его обратно — и возвращал только в игре. В меню
+        /// верхняя панель просто исчезала до следующего повода её поставить.
+        /// Там же терялся сдвиг: ряд оставался уехавшим за верх экрана.</para>
+        /// </summary>
+        private void ApplyBarVisibility()
         {
-            _row.style.display = _inGame ? DisplayStyle.None : DisplayStyle.Flex;
-            _miniPills.style.display = _inGame ? DisplayStyle.Flex : DisplayStyle.None;
-            _miniProgress.style.display = _inGame ? DisplayStyle.Flex : DisplayStyle.None;
-            _tapCatcher.style.display = _inGame ? DisplayStyle.Flex : DisplayStyle.None;
+            bool bar = _gameBarShown && !_silent;      // игровой бар развёрнут
+            bool mini = _inGame && !_silent && !bar;   // баблики — дубль бара, вместе не живут
+            Vis(_row, !_silent && (bar || !_inGame));
+            Vis(_gameRow, bar);
+            Vis(_miniPills, mini);
+            Vis(_miniProgress, mini);
+            Vis(_tapCatcher, _inGame && !_silent);
         }
+
+        private static void Vis(VisualElement el, bool on)
+        {
+            if (el != null) el.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        private void SetInGameApply() => ApplyBarVisibility();
 
         /// <summary>Игровой режим (уточнение Ильи 26.08): бар в сцене
         /// ПРОПАДАЕТ целиком — вместо него мини-баблики валют (справа) и
