@@ -51,9 +51,6 @@ namespace Lvn.UI.Screens
             logo.style.width = Length.Percent(logoW * 100f);
             logo.style.top = Length.Percent(logoY * 100f - 15f);
             logo.style.height = Length.Percent(30f);
-            logo.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            logo.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
-            logo.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
             LvnPicture.Fit(logo, cover: false);
             Add(logo);
 

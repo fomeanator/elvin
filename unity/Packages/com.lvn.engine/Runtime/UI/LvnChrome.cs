@@ -120,6 +120,17 @@ namespace Lvn.UI
         public static void Round(VisualElement el) => Round(el, LvnTokens.Radius);
 
         /// <summary>
+        /// ОСТРЫЕ УГЛЫ — у картинки своя форма.
+        ///
+        /// <para>Ноль в скруглении значит не «ступень шкалы, равная нулю», а
+        /// «скругления здесь нет вовсе»: под элемент подложили арт, который
+        /// сам рисует свои края, и рамочное скругление срезало бы их поверх
+        /// собственных. Написанное числом, это неотличимо от радиуса,
+        /// подобранного на глаз, — и храповик радиусов считал его наравне.</para>
+        /// </summary>
+        public static void Sharp(VisualElement el) => Round(el, 0f);
+
+        /// <summary>
         /// СКРУГЛИТЬ ТОЛЬКО ВЕРХ (или только низ).
         ///
         /// <para>Половинчатое скругление — не украшение, а следствие: картинка,
@@ -382,11 +393,7 @@ namespace Lvn.UI
             f.style.left = -bleed; f.style.right = -bleed;
             f.style.top = -bleed; f.style.bottom = -bleed;
             f.style.backgroundImage = new StyleBackground(tex);
-            f.style.unitySliceLeft = (int)t.DialogueFrameSlice.x;
-            f.style.unitySliceRight = (int)t.DialogueFrameSlice.y;
-            f.style.unitySliceTop = (int)t.DialogueFrameSlice.z;
-            f.style.unitySliceBottom = (int)t.DialogueFrameSlice.w;
-            f.style.unitySliceScale = t.DialogueFrameScale;
+            LvnPicture.Slice(f, t.DialogueFrameSlice, t.DialogueFrameScale);
             panel.Add(f);
             f.SendToBack();
         }
@@ -408,13 +415,10 @@ namespace Lvn.UI
 
             plate.style.backgroundImage = new StyleBackground(tex);
             plate.style.backgroundColor = Color.clear;   // иначе из-под срезанных углов торчит прямоугольник
-            plate.style.unitySliceLeft = (int)t.SpeakerBubbleSlice.x;
-            plate.style.unitySliceRight = (int)t.SpeakerBubbleSlice.y;
-            plate.style.unitySliceTop = (int)t.SpeakerBubbleSlice.z;
-            plate.style.unitySliceBottom = (int)t.SpeakerBubbleSlice.w;
-            plate.style.unitySliceScale = t.DialogueFrameScale;
-            plate.style.borderTopLeftRadius = 0; plate.style.borderTopRightRadius = 0;
-            plate.style.borderBottomLeftRadius = 0; plate.style.borderBottomRightRadius = 0;
+            LvnPicture.Slice(plate, t.SpeakerBubbleSlice, t.DialogueFrameScale);
+            // Своя форма у картинки — скругление рамки снимается, иначе она
+            // срежет углы арта поверх его собственных.
+            Sharp(plate);
             plate.style.paddingLeft = t.SpeakerBubblePad.x;
             plate.style.paddingRight = t.SpeakerBubblePad.y;
             plate.style.paddingTop = t.SpeakerBubblePad.z;
