@@ -25,8 +25,31 @@ namespace Lvn.UI.World
         private RectTransform _transition;
         private CanvasGroup _group;
         private LvnActorComposite _transitionComposite;
-        private readonly Dictionary<string, Image> _layers = new Dictionary<string, Image>();
-        private readonly Dictionary<string, Sprite> _baseSprite = new Dictionary<string, Sprite>();
+        /// <summary>
+        /// СЛОЙ — ОДНА ЗАПИСЬ, А НЕ ЧЕТЫРЕ ПАМЯТИ.
+        ///
+        /// <para>Про каждый слой знали врозь: сам элемент, спрайт-основа (к
+        /// которому возвращаются после кадровой анимации), отметка «погашен за
+        /// неимением картинки» и кость, если слой ею работает. Все четыре по
+        /// одному ключу, и почти каждый обход фигуры соединял их вручную:
+        /// пройти по элементам, а основу, отметку и кость доставать
+        /// <c>TryGetValue</c> по тому же ключу.</para>
+        ///
+        /// <para>Урок записан дважды до этого — про мизансцену
+        /// (<c>WorldStage.Slot</c>) и про скелеты (<c>VnStage.Skeleton</c>), и
+        /// оба раза одинаково: уборка знала не про все памяти. Здесь пересборка
+        /// облика чистила четыре Clear подряд — пока их четыре, это верно, и
+        /// ровно поэтому незаметно, что список надо продлевать.</para>
+        /// </summary>
+        private sealed class Layer
+        {
+            public Image Img;                  // сам элемент
+            public Sprite Base;                // основа: к ней возвращаются после кадра
+            public bool Hushed;                // погашен за неимением картинки
+            public BoneSolver.RigBone Bone;    // не null — слой работает костью
+        }
+
+        private readonly Dictionary<string, Layer> _layers = new Dictionary<string, Layer>();
         private Dictionary<string, Dictionary<string, Sprite>> _frames;
         private readonly Dictionary<string, Active> _channels = new Dictionary<string, Active>();
         private readonly Dictionary<string, Queue<LvnAnim>> _queue = new Dictionary<string, Queue<LvnAnim>>(); // mode=queue pending steps
@@ -126,10 +149,10 @@ namespace Lvn.UI.World
             // героини на экране не было вовсе: погасили пять слоёв и не
             // пересобрали ни одного (живой лог Ильи 28.08). Гашение обязано
             // ЗВАТЬ лечение, а не заменять его.
-            if (_hushed.Count > 0) return true;
+            if (AnyHushed()) return true;
             foreach (var pair in _layers)
             {
-                var img = pair.Value;
+                var img = pair.Value.Img;
                 if (img == null) continue;
                 // Спрайт может пережить свою ТЕКСТУРУ: выгружается атлас, а
                 // ссылка на спрайт остаётся живой. Рисуется при этом ровно тот
@@ -157,20 +180,36 @@ namespace Lvn.UI.World
             int hushed = 0;
             foreach (var pair in _layers)
             {
-                var img = pair.Value;
+                var img = pair.Value.Img;
                 if (img == null || !img.enabled) continue;
                 if (img.sprite != null && img.sprite.texture != null) continue;
                 img.enabled = false;
-                _hushed.Add(pair.Key);   // помним: этот слой ждёт лечения
+                pair.Value.Hushed = true;   // помним: этот слой ждёт лечения
                 hushed++;
             }
             return hushed;
         }
 
-        /// <summary>Слои, погашенные за неимением картинки. Пока список не
-        /// пуст, фигура НЕ ЦЕЛА, сколько бы живых слоёв на ней ни осталось.</summary>
-        private readonly System.Collections.Generic.HashSet<string> _hushed
-            = new System.Collections.Generic.HashSet<string>();
+        /// <summary>Есть ли погашенный слой. Пока хоть один есть, фигура НЕ
+        /// ЦЕЛА, сколько бы живых слоёв на ней ни осталось.</summary>
+        private bool AnyHushed()
+        {
+            foreach (var pair in _layers) if (pair.Value.Hushed) return true;
+            return false;
+        }
+
+        /// <summary>Есть ли хоть один слой-кость.</summary>
+        private bool HasBones()
+        {
+            foreach (var pair in _layers) if (pair.Value.Bone != null) return true;
+            return false;
+        }
+
+        /// <summary>Кости фигуры — для проверки «пружины ещё качаются».</summary>
+        private IEnumerable<BoneSolver.RigBone> Bones()
+        {
+            foreach (var pair in _layers) if (pair.Value.Bone != null) yield return pair.Value.Bone;
+        }
 
         /// <summary>Что на фигуре надето — спрайты живых слоёв. Кладовщик
         /// закрепляет их заново, когда фигуру показали без пересборки.</summary>
@@ -179,7 +218,7 @@ namespace Lvn.UI.World
             System.Collections.Generic.List<Sprite> list = null;
             foreach (var pair in _layers)
             {
-                var img = pair.Value;
+                var img = pair.Value.Img;
                 if (img == null || img.sprite == null) continue;
                 (list ??= new System.Collections.Generic.List<Sprite>()).Add(img.sprite);
             }
@@ -190,11 +229,11 @@ namespace Lvn.UI.World
         /// Показать такую — значит включить её, а не собирать заново.</summary>
         public bool ArtAlive()
         {
-            if (_hushed.Count > 0) return false;   // дырявую фигуру не показываем как есть
+            if (AnyHushed()) return false;   // дырявую фигуру не показываем как есть
             bool any = false;
             foreach (var pair in _layers)
             {
-                var img = pair.Value;
+                var img = pair.Value.Img;
                 if (img == null) continue;
                 if (img.sprite == null || img.sprite.texture == null) return false;
                 any = true;
@@ -276,18 +315,20 @@ namespace Lvn.UI.World
                 // с дырой вместо погашенного слоя.
                 foreach (var pair in _layers)
                 {
-                    var img0 = pair.Value;
+                    var img0 = pair.Value.Img;
                     if (img0 == null || img0.enabled) continue;
                     if (img0.sprite == null || img0.sprite.texture == null) continue;
                     img0.enabled = true;
-                    _hushed.Remove(pair.Key);   // слой вернулся — он больше не болен
+                    pair.Value.Hushed = false;   // слой вернулся — он больше не болен
                 }
                 return;
             }
             _signature = signature;
             for (int i = _rig.childCount - 1; i >= 0; i--) Destroy(_rig.GetChild(i).gameObject);
-            _layers.Clear(); _baseSprite.Clear(); _bones.Clear();
-            _hushed.Clear();   // фигуру собирают заново — прежние жалобы неактуальны
+            // ОДНА ЗАПИСЬ — ОДНА УБОРКА. Здесь стояли четыре Clear подряд:
+            // элементы, основы, кости и жалобы. Пока их четыре, это верно, и
+            // ровно поэтому незаметно, что список надо продлевать.
+            _layers.Clear();
             if (sprites == null) { _signature = 0; return; }
             // A layer is a bone when it has bone data OR when someone attaches to it.
             HashSet<string> boneParents = null;
@@ -324,7 +365,8 @@ namespace Lvn.UI.World
                     // per-part effects survive without coupling the FX driver to
                     // the actor renderer's implementation.
                     go.name = "layer:" + lid;
-                    _layers[lid] = img; _baseSprite[lid] = sp;
+                    var layer = new Layer { Img = img, Base = sp };
+                    _layers[lid] = layer;
                     if (layerDefs != null && i < layerDefs.Count)
                     {
                         var d = layerDefs[i];
@@ -333,7 +375,7 @@ namespace Lvn.UI.World
                         {
                             var rr = r.z > 0f && r.w > 0f ? r : new Vector4(0f, 0f, 1f, 1f);
                             rt.pivot = new Vector2(d.Px, 1f - d.Py); // rotation/scale joint (uGUI y-up)
-                            _bones[lid] = new BoneSolver.RigBone
+                            layer.Bone = new BoneSolver.RigBone
                             {
                                 Parent = d.Parent,
                                 PivotBox = new Vector2(rr.x + d.Px * rr.z, rr.y + d.Py * rr.w),
@@ -388,7 +430,6 @@ namespace Lvn.UI.World
             }
         }
 
-        private readonly Dictionary<string, BoneSolver.RigBone> _bones = new Dictionary<string, BoneSolver.RigBone>();
         private float _lastTick = -1f;
 
         public Vector2 SlotBase { get { EnsureRig(); return _slotBase; } }
@@ -481,7 +522,7 @@ namespace Lvn.UI.World
             float now = LvnAnimSampler.Clock();
             bool moved = StepSlotMove(now);
             // Springs keep swinging after their driving channel ends.
-            if (_channels.Count > 0 || BoneSolver.AnySpringLive(_bones.Values)) Tick(now);
+            if (_channels.Count > 0 || BoneSolver.AnySpringLive(Bones())) Tick(now);
             else if (moved) _slot.anchoredPosition = _slotBase;
         }
 
@@ -571,13 +612,14 @@ namespace Lvn.UI.World
             // Bone layers compose through the FK chain (+ springs). The solver
             // works y-down/clockwise (the UITK convention) — flip on both ends.
             Dictionary<string, BoneSolver.Pose> bonePoses = null;
-            if (_bones.Count > 0)
+            if (HasBones())
             {
                 float bdt = _lastTick >= 0f ? Mathf.Clamp(now - _lastTick, 0f, 0.1f) : 0f;
-                var bones = new List<BoneSolver.Bone>(_bones.Count);
-                foreach (var kv in _bones)
+                var bones = new List<BoneSolver.Bone>(_layers.Count);
+                foreach (var kv in _layers)
                 {
-                    var m = kv.Value;
+                    var m = kv.Value.Bone;
+                    if (m == null) continue;
                     float[] la = layerX.TryGetValue(kv.Key, out var arr) ? arr : null;
                     bones.Add(new BoneSolver.Bone
                     {
@@ -593,7 +635,7 @@ namespace Lvn.UI.World
                 bool anySpring = false;
                 for (int i = 0; i < bones.Count; i++)
                 {
-                    var m = _bones[bones[i].Id];
+                    var m = _layers[bones[i].Id].Bone;
                     if (m.Spring <= 0f) continue;
                     m.State = BoneSolver.SpringStep(m.State, bonePoses[bones[i].Id].PivotWorld + slotNorm, bonePoses[bones[i].Id].Angle, m.Spring, m.Damping, bdt);
                     if (Mathf.Abs(m.State.Angle) > 0.01f || Mathf.Abs(m.State.Velocity) > 0.01f) anySpring = true;
@@ -606,9 +648,10 @@ namespace Lvn.UI.World
             var rigSize = _rig.rect.size;
             foreach (var pair in _layers)
             {
-                var img = pair.Value;
+                var img = pair.Value.Img;
                 var lrt = (RectTransform)img.transform;
-                if (bonePoses != null && _bones.TryGetValue(pair.Key, out var bm) && bonePoses.TryGetValue(pair.Key, out var pose))
+                var bm = pair.Value.Bone;
+                if (bonePoses != null && bm != null && bonePoses.TryGetValue(pair.Key, out var pose))
                 {
                     var dlt = pose.PivotWorld - bm.PivotBox;
                     lrt.anchoredPosition = new Vector2(dlt.x * rigSize.x, -dlt.y * rigSize.y);
@@ -623,7 +666,7 @@ namespace Lvn.UI.World
                     if (_frames != null && _frames.TryGetValue(pair.Key, out var map) && map.TryGetValue(fv, out var sp) && sp != null)
                         img.sprite = sp;
                 }
-                else if (_baseSprite.TryGetValue(pair.Key, out var bs) && bs != null) img.sprite = bs;
+                else if (pair.Value.Base != null) img.sprite = pair.Value.Base;
             }
 
             if (done != null)
@@ -657,8 +700,9 @@ namespace Lvn.UI.World
             _slot.anchoredPosition = _slotBase;
             foreach (var pair in _layers)
             {
-                ApplyRig((RectTransform)pair.Value.transform, null, 0, 0, 1, 1, 0, 1, pair.Value);
-                if (_baseSprite.TryGetValue(pair.Key, out var bs) && bs != null) pair.Value.sprite = bs;
+                var img = pair.Value.Img;
+                ApplyRig((RectTransform)img.transform, null, 0, 0, 1, 1, 0, 1, img);
+                if (pair.Value.Base != null) img.sprite = pair.Value.Base;
             }
         }
     }
