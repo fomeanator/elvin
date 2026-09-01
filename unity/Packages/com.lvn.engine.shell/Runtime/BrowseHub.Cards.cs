@@ -116,8 +116,7 @@ namespace Lvn.UI.Screens
             poster.style.height = 292;
             poster.style.overflow = Overflow.Hidden;
             poster.style.backgroundColor = _card;
-            poster.style.borderTopLeftRadius = _radius + 2f;
-            poster.style.borderTopRightRadius = _radius + 2f;
+            LvnChrome.RoundTop(poster, _radius + 2f);
 
             string art = t.CardArt();
             if (!string.IsNullOrEmpty(art))

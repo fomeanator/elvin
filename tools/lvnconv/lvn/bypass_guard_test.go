@@ -74,6 +74,11 @@ func TestHomesAreNotBypassed(t *testing.T) {
 		// всегда, и за ними не было видно настоящих ошибок.
 		// Предупреждения и ошибки сюда не входят НАРОЧНО: они звучат всегда и
 		// у дома, обход ничего не менял бы.
+		// Половинчатое скругление писали парами строк по месту, а один дом
+		// был приватным помощником окна диалога — видимым только ему.
+		{regexp.MustCompile(`border(Top|Bottom)(Left|Right)Radius`), "угол скруглён по месту",
+			"LvnChrome.Round / RoundTop / RoundBottom — иначе картинка в шапке карточки вылезает углами за её скругление",
+			regexp.MustCompile(`LvnChrome\.cs`)},
 		{regexp.MustCompile(`Debug\.Log\(`), "болтовня мимо рубильника",
 			"LvnLog.Trace — молчит в собранной игре; LvnLog.Info — если это веха, важная и в поле",
 			regexp.MustCompile(`LvnLog\.cs`)},

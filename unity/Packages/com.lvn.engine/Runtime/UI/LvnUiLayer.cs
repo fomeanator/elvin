@@ -537,8 +537,7 @@ namespace Lvn.UI
             if (n["radius"] != null)
             {
                 float r = Num(n["radius"], 0);
-                s.borderTopLeftRadius = r; s.borderTopRightRadius = r;
-                s.borderBottomLeftRadius = r; s.borderBottomRightRadius = r;
+                LvnChrome.Round(el, r);
             }
             if (n["edge"] != null)
             {
