@@ -59,10 +59,11 @@ namespace Lvn.UI
             place == 1 ? Gold : place == 2 ? Silver : place == 3 ? Bronze : Border;
 
         // Перекрытия.
-        /// <summary>Смысловые цвета: получилось и беда. Отдельны от акцента —
+        /// <summary>Смысловые цвета: получилось, внимание, беда. Отдельны от акцента —
         /// акцент это тон новеллы, а красный это исход действия.</summary>
-        public static Color Ok  => LvnTheme.Current.Ok;
-        public static Color Bad => LvnTheme.Current.Bad;
+        public static Color Ok   => LvnTheme.Current.Ok;
+        public static Color Warn => LvnTheme.Current.Warn;
+        public static Color Bad  => LvnTheme.Current.Bad;
 
         public static Color Scrim   => LvnTheme.Current.Scrim;
         public static Color PanelBg => LvnTheme.Current.PanelBg;
