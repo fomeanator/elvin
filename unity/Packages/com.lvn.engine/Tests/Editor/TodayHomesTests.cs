@@ -200,5 +200,105 @@ namespace Lvn.Tests
             }
             finally { DownloadPolicy.PreferredSuffix = was; }
         }
+        // ── Избранная героиня: имя без облика — не выбор ─────────────────────
+
+        private static LvnManifest СМастями(params string[] сОбликом)
+        {
+            var m = new LvnManifest { sprites = new System.Collections.Generic.Dictionary<string, LvnSpriteEntity>() };
+            foreach (var id in сОбликом) m.sprites[id] = new LvnSpriteEntity();
+            return m;
+        }
+
+        [Test]
+        public void ИзбраннаяБерётсяКогдаУНеёЕстьОблик()
+        {
+            var было = LvnPrefs.MenuFavorite;
+            try
+            {
+                var m = СМастями("hill", "anna");
+                LvnPrefs.MenuFavorite = "anna";
+                Assert.AreEqual("anna", Lvn.UI.Screens.LvnFavorite.Entity(m));
+            }
+            finally { LvnPrefs.MenuFavorite = было; }
+        }
+
+        [Test]
+        public void ИзбраннаяБезОбликаУступаетЗапаснойИзМанифеста()
+        {
+            var было = LvnPrefs.MenuFavorite;
+            try
+            {
+                // Выбранная ИСЧЕЗЛА из новеллы — обновился контент, сменился
+                // титул. Имя в настройках осталось, рисовать нечем.
+                var m = СМастями("hill");
+                m.ui = new LvnUiConfig { wardrobe = new WardrobeConfig { entity = "hill" } };
+                LvnPrefs.MenuFavorite = "призрак";
+                Assert.AreEqual("hill", Lvn.UI.Screens.LvnFavorite.Entity(m));
+            }
+            finally { LvnPrefs.MenuFavorite = было; }
+        }
+
+        [Test]
+        public void ЗапаснаяБезОбликаТожеНеВыбор()
+        {
+            // РАСХОЖДЕНИЕ, РАДИ КОТОРОГО ДОМ И ЗАВЕДЁН. Вкладка гардероба
+            // брала запасную из манифеста КАК ЕСТЬ и показывала пустоту, а
+            // быстрое меню в том же приложении честно отвечало «никого».
+            var было = LvnPrefs.MenuFavorite;
+            try
+            {
+                var m = СМастями("hill");
+                m.ui = new LvnUiConfig { wardrobe = new WardrobeConfig { entity = "её-тут-нет" } };
+                LvnPrefs.MenuFavorite = "";
+                Assert.IsNull(Lvn.UI.Screens.LvnFavorite.Entity(m),
+                    "имя без облика — не выбор: экран получил бы имя и нарисовал пустоту");
+            }
+            finally { LvnPrefs.MenuFavorite = было; }
+        }
+
+        // ── Медаль: место на подиуме — вопрос к теме ─────────────────────────
+
+        [Test]
+        public void МедальРазнаяУТрёхМестИНичьяЧетвёртому()
+        {
+            Assert.AreEqual(LvnTokens.Gold, LvnTokens.Medal(1));
+            Assert.AreEqual(LvnTokens.Silver, LvnTokens.Medal(2));
+            Assert.AreEqual(LvnTokens.Bronze, LvnTokens.Medal(3));
+            // Подиума дальше третьего нет: место без медали берёт тихую грань,
+            // а не золото по умолчанию.
+            Assert.AreEqual(LvnTokens.Border, LvnTokens.Medal(4));
+            Assert.AreEqual(LvnTokens.Border, LvnTokens.Medal(0));
+        }
+
+        // ── Обводка выбора: акцент выбранному, грань темы остальным ──────────
+
+        [Test]
+        public void ВыбранноеНоситАкцентИГраньПотолще()
+        {
+            var акцент = new Color(1f, 0.2f, 0.5f);
+            var el = LvnStyler.Chosen(new VisualElement(), true, акцент);
+            Assert.AreEqual(акцент, el.style.borderTopColor.value);
+            Assert.AreEqual(LvnStyler.ChosenEdge, el.style.borderTopWidth.value, 0.001f);
+        }
+
+        [Test]
+        public void НевыбранноеБерётГраньТемыАНеБелыйНавсегда()
+        {
+            var el = LvnStyler.Chosen(new VisualElement(), false, new Color(1f, 0.2f, 0.5f));
+            Assert.AreEqual(LvnTokens.Border, el.style.borderTopColor.value,
+                "невыбранное красили белым числом — в кибер-теме он чужой, в светлой невидим");
+            Assert.AreEqual(LvnStyler.QuietEdge, el.style.borderTopWidth.value, 0.001f);
+        }
+
+        [Test]
+        public void ОбводкаСтавитВсеЧетыреСтороны()
+        {
+            // Четыре стороны — обязательны все: поставь три, и на карточке
+            // останется незакрытый край, который видно только на устройстве.
+            var el = LvnStyler.Chosen(new VisualElement(), true, Color.red);
+            Assert.AreEqual(Color.red, el.style.borderRightColor.value);
+            Assert.AreEqual(Color.red, el.style.borderBottomColor.value);
+            Assert.AreEqual(Color.red, el.style.borderLeftColor.value);
+        }
     }
 }
