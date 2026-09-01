@@ -455,6 +455,7 @@ func TestDocumentedConstructsHaveAWitnessExample(t *testing.T) {
 // Проверка узкая и потому надёжная: если жанровый README называет команду
 // нерабочей, а справочник её так не называет — расхождение внутри документации.
 func TestGenreGuidesDoNotContradictTheCapabilities(t *testing.T) {
+	scanned := 0
 	root := capsRepoRoot()
 	caps, err := os.ReadFile(filepath.Join(root, capsDocPath))
 	if err != nil {
@@ -473,6 +474,7 @@ func TestGenreGuidesDoNotContradictTheCapabilities(t *testing.T) {
 		if strings.HasSuffix(path, capsDocPath) || strings.Contains(path, "CAPABILITIES") {
 			return nil // сам справочник пинится отдельно и вправе объявлять заглушки
 		}
+		scanned++
 		body, err := os.ReadFile(path)
 		if err != nil {
 			return nil
@@ -516,4 +518,7 @@ func TestGenreGuidesDoNotContradictTheCapabilities(t *testing.T) {
 			"Либо руководство отстало — поправьте его, либо команда правда мертва — тогда скажите это и в CAPABILITIES.",
 			len(clashes), strings.Join(clashes, "\n  "))
 	}
+	// Порог пустоты: обход, не нашедший ни одного файла, зеленеет ни о чём.
+	atLeast(t, scanned, 5, "разобранных руководств")
+
 }

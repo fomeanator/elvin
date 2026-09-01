@@ -27,6 +27,7 @@ import (
 //     репозитории нет и не будет: 430 ссылок, все законные. Их пропускаем
 //     явно — иначе страж утонет в шуме и будет выключен целиком.
 func TestScriptAssetsExist(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 	base := filepath.Join(root, "server", "content")
 	if _, err := os.Stat(base); err != nil {
@@ -57,6 +58,7 @@ func TestScriptAssetsExist(t *testing.T) {
 		if err != nil {
 			return err
 		}
+		scanned++
 		var doc struct {
 			Script []map[string]any `json:"script"`
 		}
@@ -89,4 +91,7 @@ func TestScriptAssetsExist(t *testing.T) {
 			"ни валидатор её не видят, потому что форма правильная",
 			strings.Join(missing, "\n  "))
 	}
+	// Порог пустоты: обход, не нашедший ни одного файла, зеленеет ни о чём.
+	atLeast(t, scanned, 5, "проверенных скриптов")
+
 }

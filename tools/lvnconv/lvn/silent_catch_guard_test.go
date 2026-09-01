@@ -26,6 +26,7 @@ func TestEveryEmptyCatchExplainsItself(t *testing.T) {
 	root := capsRepoRoot()
 	var offenders []string
 
+	scanned := 0
 	for _, rel := range dupRoots {
 		dir := filepath.Join(root, rel)
 		if _, err := os.Stat(dir); err != nil {
@@ -35,6 +36,7 @@ func TestEveryEmptyCatchExplainsItself(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return nil
 			}
+				scanned++
 			data, rerr := os.ReadFile(path)
 			if rerr != nil {
 				return nil
@@ -59,6 +61,9 @@ func TestEveryEmptyCatchExplainsItself(t *testing.T) {
 		})
 	}
 	sort.Strings(offenders)
+
+	// Порог пустоты: обход, не нашедший ни одного файла, зеленеет ни о чём.
+	atLeast(t, scanned, 150, "просмотренных файлов")
 
 	for _, o := range offenders {
 		t.Errorf("молчаливый catch без объяснения — %s\n"+
@@ -100,6 +105,7 @@ func TestBackgroundTasksAreWatched(t *testing.T) {
 	root := capsRepoRoot()
 	var offenders []string
 
+	scanned := 0
 	for _, rel := range dupRoots {
 		dir := filepath.Join(root, rel)
 		if _, err := os.Stat(dir); err != nil {
@@ -109,6 +115,7 @@ func TestBackgroundTasksAreWatched(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return nil
 			}
+				scanned++
 			data, rerr := os.ReadFile(path)
 			if rerr != nil {
 				return nil
@@ -123,6 +130,9 @@ func TestBackgroundTasksAreWatched(t *testing.T) {
 		})
 	}
 	sort.Strings(offenders)
+
+	// Порог пустоты: обход, не нашедший ни одного файла, зеленеет ни о чём.
+	atLeast(t, scanned, 150, "просмотренных файлов")
 
 	for _, o := range offenders {
 		t.Errorf("задача запущена без присмотра — %s\n"+

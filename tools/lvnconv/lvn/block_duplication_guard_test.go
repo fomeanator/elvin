@@ -36,6 +36,7 @@ import (
 // (хвост отступов одного блока плюс начало другого), семь чисты, восьмая —
 // запас. Пустые строки, комментарии, скобки и `using` не в счёт.
 func TestНетПовторовБлоковМеждуФайлами(t *testing.T) {
+	scanned := 0
 	const window = 8
 	root := capsRepoRoot()
 
@@ -64,6 +65,7 @@ func TestНетПовторовБлоковМеждуФайлами(t *testing.T
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return nil
 			}
+			scanned++
 			data, rerr := os.ReadFile(path)
 			if rerr != nil {
 				return nil
@@ -128,6 +130,9 @@ func TestНетПовторовБлоковМеждуФайлами(t *testing.T
 		}
 		found = append(found, strings.Join(where, " ↔ "))
 	}
+
+	// Порог пустоты: обход, не нашедший ни одного файла, зеленеет ни о чём.
+	atLeast(t, scanned, 150, "просмотренных файлов")
 
 	if len(found) > 0 {
 		sort.Strings(found)

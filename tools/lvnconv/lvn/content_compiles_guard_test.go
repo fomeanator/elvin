@@ -29,6 +29,7 @@ import (
 // но и не исчезает из виду; новый файл сюда не добавляется молча, потому что
 // для этого надо написать причину.
 func TestRepositoryScriptsCompile(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 
 	known := map[string]string{
@@ -58,6 +59,7 @@ func TestRepositoryScriptsCompile(t *testing.T) {
 			if err != nil {
 				return err
 			}
+			scanned++
 			_ = src
 			// Через тот же путь, что и CLI: у ConvertFile есть каталог для
 			// include, у Convert — нет, и половина скриптов без него не соберётся.
@@ -105,4 +107,7 @@ func TestRepositoryScriptsCompile(t *testing.T) {
 		t.Fatalf("эти скрипты уже собираются — уберите их из known:\n  %s",
 			strings.Join(healed, "\n  "))
 	}
+	// Порог пустоты: обход, не нашедший ни одного файла, зеленеет ни о чём.
+	atLeast(t, scanned, 5, "скомпилированных скриптов")
+
 }

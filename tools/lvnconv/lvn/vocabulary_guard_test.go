@@ -78,6 +78,7 @@ func TestСловарьЦветаОдинВездеГдеЕгоПишут(t *tes
 // пакета, но их не гоняет ни run-all, ни CI движка.
 
 func TestАдресРазбираетДомАНеМестоВызова(t *testing.T) {
+	scanned := 0
 	roots := []string{
 		filepath.Join(repoRoot(t), "unity", "Packages", "com.lvn.engine", "Runtime"),
 		filepath.Join(repoRoot(t), "unity", "Packages", "com.lvn.engine.shell", "Runtime"),
@@ -94,6 +95,7 @@ func TestАдресРазбираетДомАНеМестоВызова(t *testi
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return err
 			}
+			scanned++
 			if strings.HasSuffix(path, "LvnUrl.cs") {
 				return nil // дом и есть место, где правило записано
 			}
@@ -119,6 +121,9 @@ func TestАдресРазбираетДомАНеМестоВызова(t *testi
 			t.Fatal(err)
 		}
 	}
+	// Порог пустоты: обход, не нашедший ни одного файла, зеленеет ни о чём.
+	atLeast(t, scanned, 100, "просмотренных файлов")
+
 }
 
 // Веб-плеер знает те же слова цвета, что и движок.
@@ -211,6 +216,7 @@ func TestВебПлеерЗнаетТеЖеСловаЦвета(t *testing.T) {
 // действующей темы, а она в этот момент ещё строится).
 
 func TestАвторскийЦветЧитаютСловарём(t *testing.T) {
+	scanned := 0
 	allowed := map[string]string{
 		"LvnTheme.cs":          "строит саму тему — словарь спросил бы у неё же",
 		"LvnSpriteFxDriver.cs": "Html() зовут только литералами палитры эффектов",
@@ -222,6 +228,7 @@ func TestАвторскийЦветЧитаютСловарём(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return err
 			}
+			scanned++
 			if _, ok := allowed[filepath.Base(path)]; ok {
 				return nil
 			}
@@ -240,6 +247,9 @@ func TestАвторскийЦветЧитаютСловарём(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	// Порог пустоты: обход, не нашедший ни одного файла, зеленеет ни о чём.
+	atLeast(t, scanned, 100, "просмотренных файлов")
+
 }
 
 // Словарь именованных мест один — во всех, кто на него отвечает.

@@ -48,6 +48,7 @@ var dupRoots = []string{
 type dupSite struct{ file, method string }
 
 func TestNoDuplicatedMethodBodies(t *testing.T) {
+	scanned := 0
 	root := capsRepoRoot()
 	bodies := map[string][]dupSite{}
 
@@ -60,6 +61,7 @@ func TestNoDuplicatedMethodBodies(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return nil
 			}
+			scanned++
 			data, rerr := os.ReadFile(path)
 			if rerr != nil {
 				return nil
@@ -84,6 +86,9 @@ func TestNoDuplicatedMethodBodies(t *testing.T) {
 			t.Fatalf("обход %s: %v", rel, err)
 		}
 	}
+
+	// Порог пустоты: обход, не нашедший ни одного файла, зеленеет ни о чём.
+	atLeast(t, scanned, 150, "просмотренных файлов")
 
 	var offenders []string
 	for _, sites := range bodies {
