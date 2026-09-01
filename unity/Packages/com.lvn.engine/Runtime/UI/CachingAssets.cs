@@ -67,6 +67,29 @@ namespace Lvn.UI
         public int LivePressure => _livePressure;
         private int _livePressure;
 
+        /// <summary>
+        /// «Я ЖИВОЙ — УСТУПИТЕ» вокруг одной загрузки.
+        ///
+        /// <para>Фоновый прогрев ждёт, пока это число не станет нулём: пока
+        /// поверхность чего-то ждёт, библиотека не имеет права занимать
+        /// полосу. Правило поднимали ПО МЕСТУ, и подняли только у двух дверей
+        /// из семи — спрайта и звука. Скрипт главы, префаб, объёмный набор и
+        /// файл на диск шли мимо счёта, и прогрев им не уступал.</para>
+        ///
+        /// <para>Живой случай 01.09: первый запуск вставал. Вводной нужен был
+        /// её СКРИПТ — а он грузится дверью, которой гейт не видел, и ждал
+        /// позади сотни фоновых картинок.</para>
+        ///
+        /// <para>Пакетная предзагрузка сюда НЕ входит нарочно: она сама и есть
+        /// фон, и уступать ей — значит остановить прогрев его же руками.</para>
+        /// </summary>
+        private async Task<T> LiveAsync<T>(System.Func<Task<T>> work)
+        {
+            System.Threading.Interlocked.Increment(ref _livePressure);
+            try { return await work(); }
+            finally { System.Threading.Interlocked.Decrement(ref _livePressure); }
+        }
+
         private IReadOnlyDictionary<string, Lvn3DSet> _sets3d;
         private readonly Dictionary<string, Task<SetBundle>> _setLoads
             = new Dictionary<string, Task<SetBundle>>();
@@ -89,10 +112,8 @@ namespace Lvn.UI
         public void Set3DSetCatalog(IReadOnlyDictionary<string, Lvn3DSet> sets) =>
             _sets3d = sets;
 
-        public async Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct)
-        {
-            System.Threading.Interlocked.Increment(ref _livePressure);
-            try
+        public Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct)
+            => LiveAsync(async () =>
             {
                 // Large story art prefers the server's @2k variant (same trick the
                 // Spine pages use): the Go server resizes on demand to fit 2048² —
@@ -112,9 +133,7 @@ namespace Lvn.UI
                     if (s != null) return s;
                 }
                 return await Loader.DownloadSpriteAsync(url, ct);
-            }
-            finally { System.Threading.Interlocked.Decrement(ref _livePressure); }
-        }
+            });
 
         /// <summary>The "@2k" downscale-variant url for large story art (see
         /// <see cref="DownloadPolicy.DownscaleVariant"/> — shared with the chapter
@@ -128,7 +147,7 @@ namespace Lvn.UI
         // refetching a 1 MB skeleton JSON on every cold show blocked the first
         // render on the wire, and offline play lost Spine scenes entirely.
         public Task<string> LoadTextAsync(string url, System.Threading.CancellationToken ct)
-            => Loader.DownloadScriptCached(url, ct);
+            => LiveAsync(() => Loader.DownloadScriptCached(url, ct));
 
         /// <summary>Compatibility path for custom code written before leased
         /// remote sets. It deliberately resolves only the bundled fallback;
@@ -337,12 +356,8 @@ namespace Lvn.UI
             loaded.Prefab = null;
         }
 
-        public async Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct)
-        {
-            System.Threading.Interlocked.Increment(ref _livePressure);
-            try { return await Loader.DownloadAudioClipAsync(url, ct); }
-            finally { System.Threading.Interlocked.Decrement(ref _livePressure); }
-        }
+        public Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct)
+            => LiveAsync(() => Loader.DownloadAudioClipAsync(url, ct));
 
         /// <summary>Batch-warm a set of urls. Sprite-kind urls go through the
         /// pipelined preload batch (overlapping each disk write with the next
@@ -379,7 +394,7 @@ namespace Lvn.UI
         /// the cache when needed) — for consumers that need a real path, e.g.
         /// runtime fonts. Null when unavailable (offline and not cached).</summary>
         public Task<string> EnsureCachedFileAsync(string url, CancellationToken ct = default)
-            => Loader.EnsureCachedFile(url, ct);
+            => LiveAsync(() => Loader.EnsureCachedFile(url, ct));
 
         public void Unload(string url) => Loader.Unload(url);
 
