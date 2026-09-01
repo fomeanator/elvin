@@ -327,15 +327,15 @@ namespace Lvn.Content
         {
             // Ждёт ДОМ; здесь остаётся только то, что принадлежит очереди
             // загрузок: сколько байт пришло и сколько их всего.
-            lock (_inflight) { _bytesReceived[url] = 0; _bytesExpected[url] = 0; }
+            lock (_inflight) { var f = Progress(url); f.Received = 0; f.Expected = 0; }
             return await GetBytesAsync(url, ct, r =>
             {
-                lock (_inflight) _bytesReceived[url] = (long)r.downloadedBytes;
-                if (_bytesExpected.GetValueOrDefault(url) == 0)
+                lock (_inflight) Progress(url).Received = (long)r.downloadedBytes;
+                if (ExpectedOf(url) == 0)
                 {
                     var cl = r.GetResponseHeader("Content-Length");
                     if (cl != null && long.TryParse(cl, out var sz) && sz > 0)
-                        lock (_inflight) _bytesExpected[url] = sz;
+                        lock (_inflight) Progress(url).Expected = sz;
                 }
             });
         }
@@ -368,7 +368,7 @@ namespace Lvn.Content
 
             return await TrackedFetch(url, async () =>
             {
-                lock (_inflight) _attempts[url] = 1;
+                lock (_inflight) Progress(url).Attempt = 1;
 
                 while (true)
                 {
@@ -395,7 +395,7 @@ namespace Lvn.Content
                                 "sha256 mismatch for " + url + " — refetching");
                         }
 
-                        lock (_inflight) _attempts.Remove(url);
+                        lock (_inflight) Progress(url).Attempt = 0;
 
                         if (File.Exists(path)) File.Delete(path);
                         File.Move(partPath, path);
@@ -429,9 +429,10 @@ namespace Lvn.Content
                             LvnLog.Trace($"[content] {url}: кусок уже полон — забираем его без сети");
                             lock (_inflight)
                             {
-                                _attempts.Remove(url);
-                                _bytesReceived[url] = whole.Length;
-                                _bytesExpected[url] = whole.Length;
+                                var done = Progress(url);
+                                done.Attempt = 0;
+                                done.Received = whole.Length;
+                                done.Expected = whole.Length;
                             }
                             if (File.Exists(path)) File.Delete(path);
                             File.Move(partPath, path);
@@ -443,7 +444,9 @@ namespace Lvn.Content
                         // сможет.
                         Debug.LogWarning($"[content] {url}: кусок не сходится с сервером — качаем заново");
                         LvnQuiet.Try(() => File.Delete(partPath));
-                        lock (_inflight) { _bytesReceived[url] = 0; _bytesExpected.Remove(url); }
+                        // «Забыть ожидаемое» и «обнулить» для суммы одно и то же —
+                        // и теперь это видно, а не спрятано в разных вызовах.
+                        lock (_inflight) { var f = Progress(url); f.Received = 0; f.Expected = 0; }
                     }
                     catch (LvnFetchException ex) when (ex.Code == "network" && LvnNetworkStatus.IsOffline)
                     {
@@ -457,7 +460,7 @@ namespace Lvn.Content
                     catch (Exception ex)
                     {
                         int attempt;
-                        lock (_inflight) attempt = _attempts[url] = _attempts.GetValueOrDefault(url, 1) + 1;
+                        lock (_inflight) { var f = Progress(url); attempt = f.Attempt = (f.Attempt == 0 ? 1 : f.Attempt) + 1; }
                         if (attempt > MaxAttempts)
                         {
                             NoteGaveUp(url, MaxAttempts, ex.Message);
@@ -474,16 +477,16 @@ namespace Lvn.Content
         // request per file — no chunk loop, no extra round-trips.
         private async Task<byte[]> FetchResumable(string url, string partPath, long resumeFrom, CancellationToken ct)
         {
-            lock (_inflight) { _bytesReceived[url] = resumeFrom; }
+            lock (_inflight) Progress(url).Received = resumeFrom;
             var got = await GetAsync(url, ct,
                 r =>
                 {
-                    lock (_inflight) _bytesReceived[url] = resumeFrom + (long)r.downloadedBytes;
-                    if (_bytesExpected.GetValueOrDefault(url) <= resumeFrom)
+                    lock (_inflight) Progress(url).Received = resumeFrom + (long)r.downloadedBytes;
+                    if (ExpectedOf(url) <= resumeFrom)
                     {
                         var cl = r.GetResponseHeader("Content-Length");
                         if (cl != null && long.TryParse(cl, out var sz) && sz > 0)
-                            lock (_inflight) _bytesExpected[url] = resumeFrom + sz;
+                            lock (_inflight) Progress(url).Expected = resumeFrom + sz;
                     }
                 },
                 r => { if (resumeFrom > 0) r.SetRequestHeader("Range", $"bytes={resumeFrom}-"); });
@@ -496,8 +499,9 @@ namespace Lvn.Content
             lock (_inflight)
             {
                 var total = resumeFrom + got.Body.Length;
-                _bytesReceived[url] = total;
-                _bytesExpected[url] = total;
+                var fin = Progress(url);
+                fin.Received = total;
+                fin.Expected = total;
             }
             return await ReadAllBytesAsync(partPath, ct);
         }
@@ -597,13 +601,13 @@ namespace Lvn.Content
             // вовсе: новелла с битым адресом повторяющегося звука делала
             // сетевой запрос НА КАЖДУЮ реплику, где он играет.
             ThrowIfKnownMissing(url);
-            lock (_inflight) _attempts[url] = 1;
+            lock (_inflight) Progress(url).Attempt = 1;
             while (true)
             {
                 try
                 {
                     var bytes = await FetchOnce(url, ct);
-                    lock (_inflight) _attempts.Remove(url);
+                    lock (_inflight) Progress(url).Attempt = 0;
                     return bytes;
                 }
                 catch (OperationCanceledException) { throw; }
@@ -619,7 +623,7 @@ namespace Lvn.Content
                 catch (Exception ex)
                 {
                     int attempt;
-                    lock (_inflight) attempt = _attempts[url] = _attempts.GetValueOrDefault(url, 1) + 1;
+                    lock (_inflight) { var f = Progress(url); attempt = f.Attempt = (f.Attempt == 0 ? 1 : f.Attempt) + 1; }
                     if (attempt > MaxAttemptsInMemory)
                     {
                         NoteGaveUp(url, MaxAttemptsInMemory, ex.Message);
@@ -634,9 +638,9 @@ namespace Lvn.Content
         // text (scripts, version index) and on-demand bytes not worth persisting.
         private Task<byte[]> FetchOnce(string url, CancellationToken ct)
         {
-            lock (_inflight) { _bytesReceived[url] = 0; }
+            lock (_inflight) Progress(url).Received = 0;
             return GetBytesAsync(url, ct,
-                r => { lock (_inflight) _bytesReceived[url] = (long)r.downloadedBytes; });
+                r => { lock (_inflight) Progress(url).Received = (long)r.downloadedBytes; });
         }
     }
 }

@@ -51,11 +51,14 @@ namespace Lvn.UI.Screens
                     armed = true;
                     Lvn.UI.LvnRedress.Refresh(btn);
                     disarm?.Pause();
+                    // ExecuteLater ничего не возвращает — срок ставится ОТДЕЛЬНО,
+                    // иначе в disarm попадёт void и разоружать будет нечем.
                     disarm = btn.schedule.Execute(() =>
                     {
                         armed = false;
                         Lvn.UI.LvnRedress.Refresh(btn);
-                    }).ExecuteLater(LvnMotion.Ms(LvnMotion.Notice) * 3);
+                    });
+                    disarm.ExecuteLater(LvnMotion.Ms(LvnMotion.Notice) * 3);
                     return;
                 }
                 disarm?.Pause();

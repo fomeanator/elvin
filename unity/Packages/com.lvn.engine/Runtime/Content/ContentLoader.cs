@@ -135,7 +135,6 @@ namespace Lvn.Content
 
         // Retry count per url (1 = first try, 2+ = previous attempts failed).
         // Surfaced to the HUD so it can show "attempt N" on a flaky network.
-        private readonly Dictionary<string, int> _attempts = new();
 
         // Session-scoped sprite cache. Sprites are keyed by URL so the same
         // background or portrait is decoded once — and BOUNDED: full-res RGBA32
@@ -192,18 +191,60 @@ namespace Lvn.Content
         // Per-url byte progress, updated each frame while a fetch runs. Lets the
         // HUD show byte-level progress instead of file-count progress, which
         // feels stuck when a single file downloads for many seconds.
-        private readonly Dictionary<string, long> _bytesExpected = new();
-        private readonly Dictionary<string, long> _bytesReceived = new();
+        /// <summary>
+        /// КАК ИДЁТ ОДНА ЗАГРУЗКА — одна запись на адрес.
+        ///
+        /// <para>Имя «Underway», а не «Fetch»: «Fetch» в этом же классе уже
+        /// занято способом «сходи и принеси». Тип и глагол с одним именем
+        /// компилятор не пускает, и правильно — читателю они тоже мешали бы.</para>
+        ///
+        /// <para>Памятей было три, и все под одним замком (<c>_inflight</c>):
+        /// сколько байт ждём, сколько получили, какая попытка. Замок, названный
+        /// именем ОДНОЙ из них, и есть признак — их три, а факт один.</para>
+        ///
+        /// <para>Разъезд уже случился и стоил вранья на экране. Очистка написана
+        /// в двух местах и очищает РАЗНОЕ: сброс итогов пакета убирает все три,
+        /// старт пакета — только байты. А до того «мусор одиночных закачек
+        /// въезжал в прогресс батча» и давал «Скачано 131 из 135» при пустой
+        /// очереди — починили добавлением ещё одной очистки, то есть залатали
+        /// МЕСТО, а не форму.</para>
+        ///
+        /// <para>«Ноль» и «записи нет» здесь теперь одно и то же для байтов
+        /// (сумма от этого не меняется) и РАЗНОЕ для попытки: ноль означает
+        /// «эта закачка ещё не начинала считать повторы».</para>
+        /// </summary>
+        private sealed class Underway
+        {
+            public long Received;
+            public long Expected;
+            public int  Attempt;   // 0 — повторов ещё не считали
+        }
+
+        private readonly Dictionary<string, Underway> _fetch = new();
+
+        /// <summary>Запись о загрузке по адресу; заводится по первому
+        /// обращению. ЗВАТЬ ТОЛЬКО ПОД <c>lock (_inflight)</c> — тем же, что
+        /// держал прежние три словаря.</summary>
+        private Underway Progress(string url)
+        {
+            if (!_fetch.TryGetValue(url, out var f)) _fetch[url] = f = new Underway();
+            return f;
+        }
+
+        /// <summary>Сколько байт числится за адресом сейчас (0, если о нём
+        /// ещё ничего не знают).</summary>
+        private long ExpectedOf(string url)
+            => _fetch.TryGetValue(url, out var f) ? f.Expected : 0L;
 
         // Label of the file currently being fetched (alias or short name).
         public string CurrentFileLabel { get; private set; }
         public long BatchBytesExpected
         {
-            get { lock (_inflight) { long s = 0; foreach (var v in _bytesExpected.Values) s += v; return s; } }
+            get { lock (_inflight) { long s = 0; foreach (var f in _fetch.Values) s += f.Expected; return s; } }
         }
         public long BatchBytesReceived
         {
-            get { lock (_inflight) { long s = 0; foreach (var v in _bytesReceived.Values) s += v; return s; } }
+            get { lock (_inflight) { long s = 0; foreach (var f in _fetch.Values) s += f.Received; return s; } }
         }
 
         /// <summary>Единый снимок сетевой активности для глобального индикатора
@@ -225,8 +266,7 @@ namespace Lvn.Content
                     firstUrl ??= k;
                 }
                 long rec = 0, exp = 0;
-                foreach (var v in _bytesReceived.Values) rec += v;
-                foreach (var v in _bytesExpected.Values) exp += v;
+                foreach (var f in _fetch.Values) { rec += f.Received; exp += f.Expected; }
                 // Имя для полной карточки индикатора: алиас текущего файла
                 // батча, иначе короткое имя первого файла в полёте.
                 string label = CurrentFileLabel;

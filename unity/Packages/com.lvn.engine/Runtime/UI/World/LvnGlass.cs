@@ -62,8 +62,7 @@ namespace Lvn.UI.World
         private float _lastRefresh = -1f;
 
         private RenderTexture _rt;
-        private Material _mat;
-        private bool _shaderMissing;
+        private LvnShaderSlot _slot;   // материал эффекта: одна попытка, один ответ
         private int _users;
 
         /// <summary>Стекло на камере <paramref name="cam"/> (создаётся при первом
@@ -107,14 +106,11 @@ namespace Lvn.UI.World
                 return;
             }
 
-            if (_mat == null && !_shaderMissing)
-            {
-                // Через LvnShaders: пропажу шейдера он объясняет вслух, а
-                // прежде здесь молча поднимался флаг — и эффекта просто не было.
-                _mat = LvnShaders.Material("LvnBlur");
-                if (_mat == null) _shaderMissing = true;
-            }
-            if (_shaderMissing) { Graphics.Blit(src, dst); return; }
+            // Материал берёт ЯЧЕЙКА: одна попытка за жизнь, жалобу про
+            // пропавший шейдер дом уже произнёс. Прежде здесь стояли две
+            // памяти и обряд из четырёх строк — слово в слово в трёх эффектах.
+            var _mat = _slot.Of("LvnBlur");
+            if (_slot.Missing) { Graphics.Blit(src, dst); return; }
 
             int w = Mathf.Max(8, src.width / Downscale);
             int h = Mathf.Max(8, src.height / Downscale);
@@ -175,7 +171,7 @@ namespace Lvn.UI.World
         private void OnDestroy()
         {
             ReleaseTarget();
-            if (_mat != null) Destroy(_mat);
+            _slot.Release();   // материал завёл слот — он же и уберёт
             if (Current == this) Current = null;
         }
     }

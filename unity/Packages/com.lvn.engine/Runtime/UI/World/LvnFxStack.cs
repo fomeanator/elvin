@@ -24,8 +24,7 @@ namespace Lvn.UI.World
     /// </summary>
     public sealed class LvnFxStack : MonoBehaviour
     {
-        private Material _mat;
-        private bool _shaderMissing;
+        private LvnShaderSlot _slot;   // материал эффекта: одна попытка, один ответ
 
         private float _vignette, _cinematic, _chromatic, _scanlines, _pixelate,
                       _glitch, _bloom, _rays, _distort, _frost, _blink, _invert,
@@ -317,17 +316,14 @@ namespace Lvn.UI.World
 
         private void OnRenderImage(RenderTexture src, RenderTexture dst)
         {
-            if (_mat == null && !_shaderMissing)
-            {
-                // Через LvnShaders: пропажу шейдера он объясняет вслух, а
-                // прежде здесь молча поднимался флаг — и эффекта просто не было.
-                _mat = LvnShaders.Material("LvnFx");
-                if (_mat == null) _shaderMissing = true;
-            }
+            // Материал берёт ЯЧЕЙКА: одна попытка за жизнь, жалобу про
+            // пропавший шейдер дом уже произнёс. Прежде здесь стояли две
+            // памяти и обряд из четырёх строк — слово в слово в трёх эффектах.
+            var _mat = _slot.Of("LvnFx");
             Advance();
-            if (_shaderMissing || !Active)
+            if (_slot.Missing || !Active)
             {
-                if (_shaderMissing) Debug.LogWarning("[LvnFx] шейдер LvnFx не найден/не поддержан — эффекты выключены");
+                if (_slot.Missing) Debug.LogWarning("[LvnFx] шейдер LvnFx не найден/не поддержан — эффекты выключены");
                 Graphics.Blit(src, dst);
                 if (!Active) enabled = false; // всё выключено — не платим за хук
                 return;
@@ -408,7 +404,7 @@ namespace Lvn.UI.World
 
         private void OnDestroy()
         {
-            if (_mat != null) Destroy(_mat);
+            _slot.Release();   // материал завёл слот — он же и уберёт
         }
     }
 }
