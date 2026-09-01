@@ -94,7 +94,7 @@ namespace Lvn.Content
         /// warm/read the SAME cached file.</summary>
         /// <summary>Бокс показа: "@2k" (высокое) или "@1k" (экономия трафика —
         /// ручка «Качество арта»). Хост синхронизирует с настройкой игрока.</summary>
-        public static string PreferredSuffix = "@2k";
+        public static string PreferredSuffix = Q2k;
 
         /// <summary>
         /// СКОЛЬКО ВЕСИТ ФАЙЛ, О КОТОРОМ МЫ НЕ ЗНАЕМ — скромная оценка для
@@ -125,15 +125,37 @@ namespace Lvn.Content
             return url;
         }
 
+        // ЛЕСТНИЦА СТУПЕНЕЙ АРТА — одним объявлением. Сами слова стояли
+        // ЧЕТЫРЬМЯ списками и умолчаниями: «все варианты», «варианты показа»,
+        // бокс показа и предпочитаемый суффикс. Добавить ступень значило
+        // вспомнить все четыре, а забытый список молча оставлял бы новый бокс
+        // недосягаемым.
+        public const string Q2k = "@2k";
+        public const string Q1440 = "@1440";
+        public const string Q1k = "@1k";
+        public const string QMini = "@mini";
+
         /// <summary>Все суффиксы вариантов, которые встречаются в контенте.</summary>
-        public static readonly string[] Variants = { "@2k", "@1440", "@1k", "@mini" };
+        public static readonly string[] Variants = { Q2k, Q1440, Q1k, QMini };
 
         /// <summary>ИМЯ КРУПНОГО ВАРИАНТА — «@2k». Одно слово, но зашито оно
         /// было в четырёх местах: спайн лепил суффикс своей строкой, разбор
         /// имени файла на диске сравнивал с литералом, уборка чужих боксов
         /// перечисляла варианты списком. Стоит серверу переименовать бокс — и
         /// расходятся ровно те места, которые никто не свяжет.</summary>
-        public const string DisplayVariant = "@2k";
+        public const string DisplayVariant = Q2k;
+
+        /// <summary>
+        /// СУФФИКС ВАРИАНТА ПО ИМЕНИ СТУПЕНИ: «2k» → «@2k».
+        ///
+        /// <para>Конвенция «вариант пишется через собаку» жила в ОБОЛОЧКЕ —
+        /// настройка качества склеивала суффикс сама (<c>"@" + качество</c>).
+        /// Пока склейка снаружи, переименовать разделитель нельзя: сервер и
+        /// клиент разойдутся молча, а выглядеть это будет как «арт не
+        /// качается».</para>
+        /// </summary>
+        public static string SuffixFor(string quality)
+            => string.IsNullOrEmpty(quality) ? DisplayVariant : "@" + quality.TrimStart('@');
 
         /// <summary>
         /// ИСХОДНАЯ КАРТИНКА — та, из которой контент делает другие.
@@ -184,7 +206,7 @@ namespace Lvn.Content
 
         /// <summary>Варианты ПОКАЗА (без «@mini»): их держит на диске центр
         /// загрузок, между ними переключается настройка качества.</summary>
-        public static readonly string[] QualityVariants = { "@2k", "@1440", "@1k" };
+        public static readonly string[] QualityVariants = { Q2k, Q1440, Q1k };
 
         public static string DownscaleVariant(string url)
         {
@@ -226,7 +248,7 @@ namespace Lvn.Content
         public static string MiniVariant(string url)
         {
             var v = DownscaleVariant(url);
-            v = v?.Replace(PreferredSuffix, "@mini");
+            v = v?.Replace(PreferredSuffix, QMini);
             // МИНИ — ВСЕГДА PNG: при ktx2-тракте вариант наследовал «.ktx2»,
             // которого сервер для крошек не кодирует — витрина гардероба и
             // силуэт-заготовки ловили сплошные 404 (живой скрин «одни

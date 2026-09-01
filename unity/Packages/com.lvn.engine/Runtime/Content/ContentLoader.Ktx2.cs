@@ -269,7 +269,7 @@ namespace Lvn.Content
         internal static string Ktx2UrlFor(string url)
         {
             if (string.IsNullOrEmpty(url)) return null;
-            var basis = url.Contains("@2k") ? url : DownloadPolicy.DownscaleVariant(url);
+            var basis = url.Contains(DownloadPolicy.DisplayVariant) ? url : DownloadPolicy.DownscaleVariant(url);
             if (basis == null) return null;
             return DownloadPolicy.SplitSourceImage(basis, out var stem, out _) ? stem + ".ktx2" : null;
         }

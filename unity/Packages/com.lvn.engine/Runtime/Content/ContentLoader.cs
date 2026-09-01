@@ -607,10 +607,10 @@ namespace Lvn.Content
             if (v != null)
             {
                 // Все ступени живые: игрок может переключать «Качество арта».
-                Add(v.Replace(DownloadPolicy.PreferredSuffix, "@2k"));
-                Add(v.Replace(DownloadPolicy.PreferredSuffix, "@1440"));
-                Add(v.Replace(DownloadPolicy.PreferredSuffix, "@1k"));
-                Add(v.Replace(DownloadPolicy.PreferredSuffix, "@mini"));
+                Add(v.Replace(DownloadPolicy.PreferredSuffix, DownloadPolicy.DisplayVariant));
+                Add(v.Replace(DownloadPolicy.PreferredSuffix, DownloadPolicy.Q1440));
+                Add(v.Replace(DownloadPolicy.PreferredSuffix, DownloadPolicy.Q1k));
+                Add(v.Replace(DownloadPolicy.PreferredSuffix, DownloadPolicy.QMini));
                 Add(Ktx2UrlFor(url));
             }
         }
