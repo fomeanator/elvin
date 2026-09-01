@@ -63,13 +63,9 @@ func (s *DailyService) load(userID string) (*dailyDoc, error) {
 }
 
 func (s *DailyService) save(userID string, doc *dailyDoc) error {
-	path, err := userFilePath(s.dir, userID)
-	if err != nil {
-		return err
-	}
 	data, _ := json.Marshal(doc)
 	// Через дом (см. leaderboard.save): своя схема не синхронизировала запись.
-	return atomicWrite(path, data, 0o600)
+	return writeUserFile(s.dir, userID, data)
 }
 
 func (s *DailyService) rewardFor(streak int) dailyReward {

@@ -342,12 +342,9 @@ func (s *WalletService) save(userID string, doc *walletDoc) error {
 	if len(doc.History) > 100 {
 		doc.History = doc.History[len(doc.History)-100:]
 	}
+	// С ОТСТУПАМИ: этот файл читают глазами, когда разбирают спорную покупку.
 	data, _ := json.MarshalIndent(doc, "", "  ")
-	path, err := userFilePath(s.dir, userID)
-	if err != nil {
-		return err
-	}
-	return atomicWrite(path, data, 0o600)
+	return writeUserFile(s.dir, userID, data)
 }
 
 func (s *WalletService) user(w http.ResponseWriter, r *http.Request) (string, bool) {

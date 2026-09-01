@@ -248,10 +248,6 @@ func (s *AdsService) loadUser(userID string) (*adsUserDoc, error) {
 }
 
 func (s *AdsService) saveUser(userID string, doc *adsUserDoc) error {
-	path, err := userFilePath(s.dir, userID)
-	if err != nil {
-		return err
-	}
 	data, _ := json.Marshal(doc)
-	return atomicWrite(path, data, 0o600)
+	return writeUserFile(s.dir, userID, data)
 }
