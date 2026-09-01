@@ -18,6 +18,7 @@ import (
 // Пока причина не написана, отличить их нельзя, а значит нельзя и заметить,
 // когда «не умеет» превратится в «уже умеет, но никто не включил».
 func TestCasesOutsideBrowserExplainThemselves(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 	dir := filepath.Join(root, "conformance", "cases")
 	entries, err := os.ReadDir(dir)
@@ -26,6 +27,7 @@ func TestCasesOutsideBrowserExplainThemselves(t *testing.T) {
 	}
 	var mute []string
 	for _, e := range entries {
+	scanned++
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
 			continue
 		}
@@ -56,4 +58,7 @@ func TestCasesOutsideBrowserExplainThemselves(t *testing.T) {
 			" и без причины не заметить, когда первое станет вторым.",
 			strings.Join(mute, "\n  "))
 	}
+	// Порог пустоты: обход, не нашедший ни одного файла, зеленеет ни о чём.
+	atLeast(t, scanned, 20, "разобранных случаев")
+
 }

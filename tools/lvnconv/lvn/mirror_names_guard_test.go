@@ -24,6 +24,7 @@ import (
 // прочих — она обнаруживается не в сборке, а через полгода, когда чей-то
 // проект не найдёт пакет.
 func TestPackageMirrorNames(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 	dir := filepath.Join(root, "unity", "Packages")
 	entries, err := os.ReadDir(dir)
@@ -38,6 +39,7 @@ func TestPackageMirrorNames(t *testing.T) {
 
 	var packages []string
 	for _, e := range entries {
+	scanned++
 		if e.IsDir() && strings.HasPrefix(e.Name(), "com.lvn.") {
 			packages = append(packages, e.Name())
 		}
@@ -79,4 +81,7 @@ func TestPackageMirrorNames(t *testing.T) {
 		t.Error("публикация UPM-пакетов снова идёт по рукописному списку — новый пакет молча не поедет; " +
 			"обходите unity/Packages/com.lvn.*, как это делают пакеты языка ниже в том же файле")
 	}
+	// Порог пустоты: обход, не нашедший ни одного файла, зеленеет ни о чём.
+	atLeast(t, scanned, 3, "проверенных пакетов")
+
 }

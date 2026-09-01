@@ -17,6 +17,7 @@ import (
 // Папки `Samples~` исключены намеренно: тильда в имени говорит Unity не
 // импортировать их, поэтому .meta им не нужны.
 func TestEveryImportedFileHasMeta(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 	var naked []string
 	err := filepath.Walk(filepath.Join(root, "unity", "Packages"),
@@ -24,6 +25,7 @@ func TestEveryImportedFileHasMeta(t *testing.T) {
 			if err != nil {
 				return err
 			}
+			scanned++
 			if info.IsDir() {
 				if strings.Contains(info.Name(), "~") {
 					return filepath.SkipDir
@@ -47,4 +49,7 @@ func TestEveryImportedFileHasMeta(t *testing.T) {
 			" и ссылки на них потеряются у следующего, кто склонирует репозиторий.",
 			strings.Join(naked, "\n  "))
 	}
+	// Порог пустоты: обход, не нашедший ни одного файла, зеленеет ни о чём.
+	atLeast(t, scanned, 300, "просмотренных файлов")
+
 }

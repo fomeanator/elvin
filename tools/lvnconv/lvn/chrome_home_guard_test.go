@@ -107,6 +107,7 @@ func TestFullRoundingGoesThroughChrome(t *testing.T) {
 // три нуля из четырёх, и полоса на дне экрана не доставала до края — заметить
 // это можно было только глазами и только на нужном разрешении.
 func TestРастяжкаИдётЧерезДом(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 
 	side := regexp.MustCompile(`(?:([A-Za-z_]\w*)\.)?style\.(left|right|top|bottom)\s*=\s*0\s*;`)
@@ -121,6 +122,7 @@ func TestРастяжкаИдётЧерезДом(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return err
 			}
+			scanned++
 			base := filepath.Base(path)
 			if base == "LvnChrome.cs" {
 				return nil // сам дом
@@ -157,6 +159,9 @@ func TestРастяжкаИдётЧерезДом(t *testing.T) {
 			t.Fatalf("обход %s: %v", pkg, err)
 		}
 	}
+
+	// Порог пустоты: обход, не нашедший ни одного файла, зеленеет ни о чём.
+	atLeast(t, scanned, 100, "просмотренных файлов")
 
 	if len(found) > 0 {
 		sort.Strings(found)
