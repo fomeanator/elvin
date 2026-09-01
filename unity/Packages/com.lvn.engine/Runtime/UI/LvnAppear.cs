@@ -140,7 +140,7 @@ namespace Lvn.UI
             // Уход короче прихода: приход рассказывает, уход убирает. Равные
             // длительности читаются как задержка отклика.
             if (ms <= 0)
-                ms = VnTheme.MotionMs((appearing ? t.AppearMs : t.DisappearMs) / 1000f);
+                ms = VnTheme.MotionMs(seconds: (appearing ? t.AppearMs : t.DisappearMs) / 1000f);
 
             float shift = t.AppearShift;
             float scale = t.AppearScale;

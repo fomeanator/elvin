@@ -160,7 +160,7 @@ namespace Lvn.UI
         private void AfterBeatPause(int generation, Action next)
         {
             if (generation != _dialogueSwapGeneration || next == null) return;
-            int ms = VnTheme.MotionMs(Mathf.Max(0f, Theme?.BeatPause ?? 0.06f));
+            int ms = VnTheme.MotionMs(seconds: Mathf.Max(0f, Theme?.BeatPause ?? 0.06f));
             if (ms <= 0 || _dialogue == null) { next(); return; }
             _dialogue.schedule.Execute(() =>
             {

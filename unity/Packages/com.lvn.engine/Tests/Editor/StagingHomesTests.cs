@@ -44,7 +44,7 @@ namespace Lvn.Tests
             LvnMotion.Tempo = 0.5f;
             Assert.AreEqual(0.4f * scale * 0.5f, VnTheme.Motion(0.4f), 1e-4f,
                 "общая ручка действует поверх сценической");
-            Assert.AreEqual(VnTheme.MotionMs(0.4f), (int)System.Math.Round(VnTheme.Motion(0.4f) * 1000f),
+            Assert.AreEqual(VnTheme.MotionMs(seconds: 0.4f), (int)System.Math.Round(VnTheme.Motion(0.4f) * 1000f),
                 "миллисекунды — та же величина");
         }
 
