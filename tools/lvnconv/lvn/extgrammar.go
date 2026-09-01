@@ -21,6 +21,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/nearest"
 	"os"
 	"path/filepath"
 	"sort"
@@ -145,7 +146,7 @@ func checkExtOp(i int, c Cmd, op string, spec ExtOp, addErr, addWarn func(int, s
 	sort.Strings(bad)
 	for _, k := range bad {
 		msg := fmt.Sprintf("unknown field %q for host op %q", k, op)
-		if s := suggest(k, fields); s != "" {
+		if s := nearest.Of(k, fields, 2); s != "" {
 			msg += fmt.Sprintf(" — did you mean %q?", s)
 		}
 		addWarn(i, op, msg)
@@ -169,7 +170,7 @@ func checkExtOp(i int, c Cmd, op string, spec ExtOp, addErr, addWarn func(int, s
 		}
 		if !ok {
 			msg := fmt.Sprintf("host op %q: %s=%q is outside its declared set", op, field, v)
-			if s := suggest(v, set); s != "" {
+			if s := nearest.Of(v, set, 2); s != "" {
 				msg += fmt.Sprintf(" — did you mean %q?", s)
 			}
 			addWarn(i, op, msg)

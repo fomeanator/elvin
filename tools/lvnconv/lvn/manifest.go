@@ -3,7 +3,10 @@ package lvn
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/nearest"
+	"maps"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -116,7 +119,7 @@ func ValidateManifest(data []byte) []Issue {
 					t, known := fields[k]
 					if !known {
 						msg := fmt.Sprintf("%s — такого поля нет, оно будет пропущено", here)
-						if sg := suggest(k, keysOf(fields)); sg != "" {
+						if sg := nearest.Of(k, slices.Sorted(maps.Keys(fields)), 2); sg != "" {
 							msg += fmt.Sprintf(" — может быть %q?", sg)
 						}
 						out = append(out, Issue{Index: -1, Op: "manifest", Sev: SevWarning, Msg: msg})
@@ -142,14 +145,6 @@ func ValidateManifest(data []byte) []Issue {
 	return out
 }
 
-func keysOf(m map[string]string) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	return out
-}
-
 var reHex = regexp.MustCompile(`^#?[0-9a-fA-F]{3,8}$`)
 
 func checkManifestValue(out *[]Issue, path, field, value string) {
@@ -163,7 +158,7 @@ func checkManifestValue(out *[]Issue, path, field, value string) {
 			return
 		}
 		msg := fmt.Sprintf("%s=%q — не цвет: ни слово словаря, ни шестнадцатеричная запись; экран возьмёт умолчание", path, value)
-		if sg := suggest(v, ColorWords); sg != "" {
+		if sg := nearest.Of(v, ColorWords, 2); sg != "" {
 			msg += fmt.Sprintf(" — может быть %q?", sg)
 		}
 		*out = append(*out, Issue{Index: -1, Op: "manifest", Sev: SevWarning, Msg: msg})
@@ -179,7 +174,7 @@ func checkManifestValue(out *[]Issue, path, field, value string) {
 		}
 		msg := fmt.Sprintf("%s=%q — такого значения нет, будет умолчание (известны: %s)",
 			path, value, strings.Join(known, ", "))
-		if sg := suggest(v, known); sg != "" {
+		if sg := nearest.Of(v, known, 2); sg != "" {
 			msg += fmt.Sprintf(" — может быть %q?", sg)
 		}
 		*out = append(*out, Issue{Index: -1, Op: "manifest", Sev: SevWarning, Msg: msg})

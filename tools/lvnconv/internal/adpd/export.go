@@ -3,6 +3,7 @@ package adpd
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/textcut"
 	"math"
 	"sort"
 )
@@ -136,7 +137,7 @@ func emitModels(fl flow, reach []uint32, seen map[uint32]bool, entries []uint32,
 				speakers[sp] = true
 			}
 			text, menu := fl.text[o], fl.text[o]
-			menu = truncateRunes(menu, 80)
+			menu = textcut.Runes(menu, 80)
 			// StableId is the fragment's articy GUID — a key that survives reimport,
 			// so saves, analytics and localization catalogs stay valid across content
 			// edits. The back-end carries it onto the say/option for the importer's
@@ -198,13 +199,6 @@ func emitModels(fl flow, reach []uint32, seen map[uint32]bool, entries []uint32,
 
 // truncateRunes caps s at n runes (not bytes), appending "…" when it trims, so
 // multi-byte text (Cyrillic, CJK) is never cut mid-character into mojibake.
-func truncateRunes(s string, n int) string {
-	r := []rune(s)
-	if len(r) <= n {
-		return s
-	}
-	return string(r[:n]) + "…"
-}
 
 // conditionPins splits a condition's outgoing edges into two pins (true/false)
 // by source pin id, padding to the two pins convert.go expects.

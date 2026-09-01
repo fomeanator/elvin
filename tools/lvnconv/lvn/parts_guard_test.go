@@ -1165,13 +1165,6 @@ func TestAuthorWordsHaveAnElseBranch(t *testing.T) {
 	}
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // ОТВЕТ «ПОЛУЧИЛОСЬ ЛИ» НЕ БРОСАЮТ В ФОН.
 //
 // Операция, которая возвращает Task<bool>, отвечает на вопрос: списалось,

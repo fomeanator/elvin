@@ -36,7 +36,7 @@ func TestEveryEmptyCatchExplainsItself(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return nil
 			}
-				scanned++
+			scanned++
 			data, rerr := os.ReadFile(path)
 			if rerr != nil {
 				return nil
@@ -115,7 +115,7 @@ func TestBackgroundTasksAreWatched(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return nil
 			}
-				scanned++
+			scanned++
 			data, rerr := os.ReadFile(path)
 			if rerr != nil {
 				return nil

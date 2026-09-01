@@ -1,7 +1,8 @@
 package importer
 
 import (
-	"sort"
+	"maps"
+	"slices"
 
 	"github.com/fomeanator/elvin/tools/lvnconv/internal/articy"
 )
@@ -74,8 +75,8 @@ func BuildCatalog(doc *articy.Doc) (map[string]any, []ArtFile) {
 		entity := map[string]any{"name": id, "layers": []any{layer}}
 		if len(e.axes) > 0 {
 			axes := map[string]any{}
-			for _, ax := range sortedKeys(e.axes) {
-				vals := sortedSet(e.axes[ax])
+			for _, ax := range slices.Sorted(maps.Keys(e.axes)) {
+				vals := slices.Sorted(maps.Keys(e.axes[ax]))
 				arr := make([]any, len(vals))
 				for i, v := range vals {
 					arr[i] = v
@@ -87,22 +88,4 @@ func BuildCatalog(doc *articy.Doc) (map[string]any, []ArtFile) {
 		sprites[id] = entity
 	}
 	return sprites, extra
-}
-
-func sortedKeys(m map[string]map[string]bool) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
-}
-
-func sortedSet(m map[string]bool) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
 }

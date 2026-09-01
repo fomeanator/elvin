@@ -1,6 +1,7 @@
 package lvn
 
 import (
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/nearest"
 	"strings"
 	"testing"
 	"time"
@@ -1205,7 +1206,7 @@ func TestПрицельнаяПодсказкаНеСпоритСБуквенн�
 			t.Fatalf("%q стоит и в подсказках, и в словаре свойств — жалобы не будет вовсе, "+
 				"а подсказка станет мёртвой", промах)
 		}
-		if s := suggest(промах, AnimProps); s != "" {
+		if s := nearest.Of(промах, AnimProps, 2); s != "" {
 			t.Fatalf("для %q буквенное сравнение уже советует %q — прицельная подсказка спорит с ним; "+
 				"оставь что-то одно", промах, s)
 		}

@@ -95,10 +95,9 @@ namespace Lvn.Content
             lock (_lock)
             {
                 int live = 0, worst = 0, back = 0, yields = 0;
-                var keep = new List<(string, LvnRung)>();
                 foreach (var kv in _tally)
                 {
-                    if (lane != null && kv.Key.Item1 != lane) { keep.Add(kv.Key); continue; }
+                    if (lane != null && kv.Key.Item1 != lane) continue;
                     var t = kv.Value;
                     yields += t.Yields;
                     if (t.Rung == LvnRung.Live) { live += t.Entries; if (t.WorstMs > worst) worst = t.WorstMs; }

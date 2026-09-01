@@ -1,6 +1,7 @@
 package importer
 
 import (
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/textcut"
 	"sort"
 	"strings"
 
@@ -128,7 +129,7 @@ func (p *colorProbe) scan(doc *articy.Doc) {
 			if who != "" {
 				sample = who + ": " + text
 			}
-			a = &colorAcc{emotion: emo, sample: truncRunes(strings.TrimSpace(sample), 60)}
+			a = &colorAcc{emotion: emo, sample: textcut.Runes(strings.TrimSpace(sample), 60)}
 			p.seen[key] = a
 			p.order = append(p.order, key)
 		}
@@ -154,10 +155,3 @@ func (p *colorProbe) stats() []ColorStat {
 }
 
 // truncRunes caps s at n runes on a rune boundary (Cyrillic-safe), appending "…".
-func truncRunes(s string, n int) string {
-	r := []rune(s)
-	if len(r) <= n {
-		return s
-	}
-	return string(r[:n]) + "…"
-}

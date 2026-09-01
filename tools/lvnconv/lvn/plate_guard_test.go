@@ -48,4 +48,3 @@ func TestPlateIsBuiltByTheStyler(t *testing.T) {
 			len(offenders), strings.Join(offenders, ", "))
 	}
 }
-
