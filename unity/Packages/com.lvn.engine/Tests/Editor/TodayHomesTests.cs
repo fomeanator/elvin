@@ -300,5 +300,45 @@ namespace Lvn.Tests
             Assert.AreEqual(Color.red, el.style.borderBottomColor.value);
             Assert.AreEqual(Color.red, el.style.borderLeftColor.value);
         }
+        // ── Картинка из байтов: или текстура, или ничего, но без следа ───────
+
+        [Test]
+        public void ПустыеБайтыДаютНичего()
+        {
+            Assert.IsNull(AssetMemory.Decode(null));
+            Assert.IsNull(AssetMemory.Decode(new byte[0]));
+        }
+
+        [Test]
+        public void БитыеБайтыДаютНичегоАНеПустуюТекстуру()
+        {
+            // Здесь и была утечка: одна из четырёх копий обряда возвращала
+            // null, НЕ уничтожив заведённую текстуру. Битый файл оставлял
+            // пустую текстуру в памяти при каждой попытке — без ошибки и без
+            // строки в логе.
+            var мусор = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+            Assert.IsNull(AssetMemory.Decode(мусор),
+                "неразобранные байты обязаны дать ничего, а не пустую текстуру");
+        }
+
+        [Test]
+        public void НастоящаяКартинкаСтановитсяТекстуройСвоегоРазмера()
+        {
+            var исходник = new Texture2D(4, 3, TextureFormat.RGBA32, false);
+            var пиксели = new Color32[12];
+            for (int i = 0; i < пиксели.Length; i++) пиксели[i] = new Color32(200, 30, 90, 255);
+            исходник.SetPixels32(пиксели); исходник.Apply();
+            var png = исходник.EncodeToPNG();
+            Object.DestroyImmediate(исходник);
+
+            var tex = AssetMemory.Decode(png);
+            try
+            {
+                Assert.NotNull(tex, "настоящий PNG обязан разобраться");
+                Assert.AreEqual(4, tex.width);
+                Assert.AreEqual(3, tex.height);
+            }
+            finally { if (tex != null) Object.DestroyImmediate(tex); }
+        }
     }
 }
