@@ -29,35 +29,24 @@ namespace Lvn.UI
         private const int SpineLiveCap = 4;
         private readonly List<string> _spineMru = new List<string>();
 
-        // Page textures pinned in the sprite LRU per live skeleton (see PinSpinePages).
-        private readonly Dictionary<string, List<Sprite>> _spinePages = new Dictionary<string, List<Sprite>>();
+        // Страницы атласа живого скелета держит та же доска, что и арт сцены.
+        // Отпускаем СРАЗУ: у скелета нет прокси-кроссфейда, под которым старые
+        // страницы ещё видны, — его показ и уход мгновенны.
+        //
+        // Здесь эта доска чинит и старую ошибку порядка: пересборка снимала
+        // прежний набор ДО того, как прикрепить новый, а наборы пересекаются —
+        // страницы атласа у перестроенного скелета обычно те же самые. Общая
+        // страница на мгновение доходила до нуля держателей, и окно вправе
+        // было забрать текстуру именно в этот момент (скелет становится
+        // чёрно-розовым без шанса восстановиться иначе как полной пересборкой).
+        private readonly LvnPinBoard<string> _spinePages = new LvnPinBoard<string>();
 
         private void PinSpinePages(string id, List<Sprite> pages)
-        {
-            var loader = (Assets as CachingAssets)?.Loader;
-            if (loader == null || pages == null || pages.Count == 0) return;
-            UnpinSpinePages(id); // a rebuild of the same id replaces the old pin set
-            foreach (var s in pages) loader.PinSprite(s, true);
-            _spinePages[id] = pages;
-        }
+            => _spinePages.Hold(id, (Assets as CachingAssets)?.Loader, pages);
 
-        private void UnpinSpinePages(string id)
-        {
-            if (!_spinePages.TryGetValue(id, out var pages)) return;
-            _spinePages.Remove(id);
-            var loader = (Assets as CachingAssets)?.Loader;
-            if (loader != null)
-                foreach (var s in pages) loader.PinSprite(s, false);
-        }
+        private void UnpinSpinePages(string id) => _spinePages.Release(id);
 
-        private void UnpinAllSpinePages()
-        {
-            var loader = (Assets as CachingAssets)?.Loader;
-            if (loader != null)
-                foreach (var pages in _spinePages.Values)
-                    foreach (var s in pages) loader.PinSprite(s, false);
-            _spinePages.Clear();
-        }
+        private void UnpinAllSpinePages() => _spinePages.ReleaseAll();
 
         private void TouchSpine(string id)
         {

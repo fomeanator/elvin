@@ -26,7 +26,7 @@ namespace Lvn.Content
     /// prioritize a chapter's release set; <c>NetworkAssets</c> adapts it to the
     /// engine's <c>ILvnAssets</c> seam.
     /// </summary>
-    public partial class ContentLoader : System.IDisposable
+    public partial class ContentLoader : System.IDisposable, ILvnPinLedger
     {
         private readonly string _baseUrl;
         // True when the content origin is a local bundle (file:// on desktop, or

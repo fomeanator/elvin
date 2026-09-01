@@ -100,32 +100,20 @@ namespace Lvn.UI
         {
             var loader = (assets as CachingAssets)?.Loader;
             if (el == null || loader == null || sprite == null) return;
-            if (_pins.TryGetValue(el, out var old))
-            {
-                if (ReferenceEquals(old.sprite, sprite)) return;
-                old.loader?.PinSprite(old.sprite, false);
-                loader.PinSprite(sprite, true);
-                _pins[el] = (loader, sprite);
-                return;
-            }
-            loader.PinSprite(sprite, true);
-            _pins[el] = (loader, sprite);
-            el.RegisterCallback<DetachFromPanelEvent>(_ =>
-            {
-                // Guard по словарю: дубль-колбэк после повторного Attach
-                // становится no-op — пин снимается ровно один раз.
-                if (_pins.TryGetValue(el, out var cur))
-                {
-                    cur.loader?.PinSprite(cur.sprite, false);
-                    _pins.Remove(el);
-                }
-            });
+            bool wasHeld = _pins.Holds(el);
+            _pins.Hold(el, loader, new[] { sprite });
+            if (wasHeld) return;   // подписку вешаем ровно один раз на элемент
+            el.RegisterCallback<DetachFromPanelEvent>(_ => _pins.Release(el));
         }
 
-        private static readonly System.Collections.Generic.Dictionary<
-            VisualElement, (Lvn.Content.ContentLoader loader, Sprite sprite)> _pins
-            = new System.Collections.Generic.Dictionary<
-                VisualElement, (Lvn.Content.ContentLoader, Sprite)>();
+        // Ключ — сам элемент: пин живёт ровно столько, сколько картинка висит в
+        // панели. Механизм общий со сценой и скелетами (LvnPinBoard); своё
+        // здесь — только ключ и то, что отпускание вешается на уход из панели.
+        //
+        // Дубль-подписка после повторного Attach безвредна: Release по
+        // отсутствующему ключу ничего не делает.
+        private static readonly LvnPinBoard<VisualElement> _pins
+            = new LvnPinBoard<VisualElement>();
 
         /// <summary>
         /// ФОТОГРАФИЯ: обложка, фон главы, аватар, кадр галереи. Вписывается в
