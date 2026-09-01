@@ -424,6 +424,8 @@ namespace Lvn.UI
         // the current chapter's glyph corpus so the late arrival doesn't hitch.
         private void OnDisable()
         {
+            // НАРОЧНО только гасим: в полёте кто-то ещё читает токен, а
+            // освобождает следующий OnEnable (или OnDestroy, если его не будет).
             _cts?.Cancel();
             LvnScreenDirector.Current.Changed -= ApplyChromeVisibility;
             if (_player != null) _player.OnSay -= RecordSay;
@@ -469,6 +471,14 @@ namespace Lvn.UI
 
         private void OnDestroy()
         {
+            // Снос — единственный выход, после которого включения не будет, и
+            // единственное место, где источник отмены надо ОТПУСТИТЬ. OnDisable
+            // его только гасит (в полёте кто-то ещё читает токен), а освобождал
+            // прежний OnEnable — которого при сносе не случится. Без этого
+            // источник уходил в мусор живым, вместе с регистрациями отмены,
+            // и так на каждую снесённую сцену.
+            Lvn.LvnCancel.Retire(_cts);
+            _cts = null;
             ReleaseActive3DSet();
             Assets?.UnloadAll();
             // The spine integration's static cache holds SkeletonData/materials

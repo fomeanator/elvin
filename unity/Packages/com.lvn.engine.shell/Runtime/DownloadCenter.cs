@@ -61,7 +61,9 @@ namespace Lvn.UI.Screens
         public void Remove(Entry e)
         {
             if (e == null) return;
-            if (e.Active) _entryCts?.Cancel(); // RunAsync снимет и вычтет сам
+            // НАРОЧНО только гасим: источником владеет RunAsync — он снимет,
+            // вычтет и освободит сам.
+            if (e.Active) _entryCts?.Cancel();
             else if (_queue.Remove(e))
             {
                 _totalBytes -= e.Bytes;
