@@ -172,7 +172,6 @@ namespace Lvn.Content
                 CurrentFileLabel = AliasOf(asset.Url);
                 LastStartedUrl   = asset.Url;
 
-                const int MaxRetries = 10;
                 byte[] body = null;
                 int attempt = 1;
                 while (true)
@@ -244,18 +243,16 @@ namespace Lvn.Content
                     catch (Exception ex)
                     {
                         attempt++;
-                        if (attempt > MaxRetries)
+                        if (attempt > MaxAttempts)
                         {
-                            Debug.LogWarning($"[content] preload {asset.Url} gave up after {MaxRetries} attempts");
+                            NoteGaveUp(asset.Url, MaxAttempts, ex.Message, what: "preload ");
                             if (prefetchUrl == "") prefetchUrl = null;
                             break;
                         }
-                        var backoff = LvnBackoff.DelaySeconds(attempt);
-                        Debug.LogWarning($"[content] preload {asset.Url} attempt {attempt}, retry in {backoff:F1}s: {ex.Message}");
-                        // Правило паузы — у RetryPauseAsync: пока флаг говорит
-                        // «офлайн», ждём смены состояния, а не часов.
-                        try { await RetryPauseAsync(backoff, ct); }
-                        catch (OperationCanceledException) { throw; }
+                        // Пауза и строка в логе — у общего обряда: правило пауз
+                        // (в офлайне ждём смены состояния, а не часов) и слова
+                        // одни на все три цикла повторов.
+                        await WaitBeforeRetryAsync(asset.Url, attempt, ex.Message, ct, what: "preload ");
                     }
                 }
 
