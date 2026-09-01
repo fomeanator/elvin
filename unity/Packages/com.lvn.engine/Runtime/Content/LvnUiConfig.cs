@@ -506,7 +506,6 @@ namespace Lvn.Content
 
         public float? chars_per_second;  // word-reveal pace basis; default 72 chars/s (~12 words/s)
         public int? initial_characters;  // visible immediately; default 40
-        public float? fade_width;        // soft per-glyph fade, trailing chars; default 5
 
         public string font;              // Resources path to a Font (e.g. "Fonts/Serif")
         public bool? nvl;                // NVL mode: tall full-screen text panel; default false

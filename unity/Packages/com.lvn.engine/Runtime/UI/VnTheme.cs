@@ -193,7 +193,6 @@ namespace Lvn.UI
         [Tooltip("Visible characters placed on screen immediately; only the remainder is typed.")]
         public int InitialVisibleCharacters = 40;
         [Tooltip("Soft per-glyph fade-in width, in trailing characters.")]
-        public float FadeWidth = 5f;
 
         [Header("Choices")]
         public Color ChoiceColor = LvnTokens.Surface;
