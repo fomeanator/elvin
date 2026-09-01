@@ -79,9 +79,22 @@ namespace Lvn.UI.Screens
         /// это целиком.</summary>
         private void WarmMenuCanvas()
         {
+            if (Stage == null) return;
             var canvas = _manifest?.ui?.browse?.canvas;
-            if (Stage == null || string.IsNullOrEmpty(canvas)) return;
-            LvnAsync.Fire(Stage.WarmMenuCanvasAsync(canvas), "WarmMenuCanvas");
+            if (!string.IsNullOrEmpty(canvas))
+                LvnAsync.Fire(Stage.WarmMenuCanvasAsync(canvas), "WarmMenuCanvas");
+
+            // ГЕРОИНЯ ГРЕЕТСЯ ВМЕСТЕ С ПОЛОТНОМ, А НЕ ПОСЛЕ НЕГО. Полотно
+            // прогревали заранее, куклу — нет: её слои начинали качаться и
+            // распаковываться в тот миг, когда витрина уже открыта. Живой
+            // запуск 01.09 дал пять секунд ожидания, и не из-за сети: три
+            // места в декодере занимали полотно (2000×1500) и ядро створа, а
+            // пять слоёв героини стояли к ним в очередь по 1,2–5,0 с каждый.
+            //
+            // Кукла — не «про запас», она первый кадр витрины наравне с фоном.
+            var fav = MenuFavoriteEntity();
+            if (!string.IsNullOrEmpty(fav))
+                LvnAsync.Fire(Stage.WarmActorAsync(fav), "WarmMenuHeroine");
         }
 
         /// <summary>
