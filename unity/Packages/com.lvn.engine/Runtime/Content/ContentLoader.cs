@@ -422,8 +422,7 @@ namespace Lvn.Content
 
         private static bool IsTranscodeUrl(string url) =>
             !string.IsNullOrEmpty(url) &&
-            (url.EndsWith(".ktx2", StringComparison.OrdinalIgnoreCase) ||
-             url.EndsWith(".astc", StringComparison.OrdinalIgnoreCase));
+            url.EndsWith(".ktx2", StringComparison.OrdinalIgnoreCase);
 
         // Version for INTEGRITY checks: exact index entries only. A derived
         // variant inherits its source's version (see Lookup) — right for cache
@@ -449,8 +448,7 @@ namespace Lvn.Content
             var afterContent = LvnAssetPath.Relative(p);                  // bg/...
             if (map.TryGetValue(afterContent, out var v)) return v;
             if (map.TryGetValue(p, out var v2)) return v2;
-            // Derived display variants ("X@2k.png" downscales, "X.ktx2"/"X.astc"
-            // transcodes) are deliberately absent from the index: they appear on
+            // Derived display variants ("X@2k.png" downscales, "X.ktx2" codes) are deliberately absent from the index: they appear on
             // the server lazily and versioning them made first visits reload
             // chapters mid-play. They must inherit the version OF THE SOURCE
             // IMAGE instead — a versionless variant gets a permanent cache key,
@@ -472,13 +470,13 @@ namespace Lvn.Content
             if (dot <= 0) yield break;
             var ext = path.Substring(dot).ToLowerInvariant();
             var stem = path.Substring(0, dot);
-            bool transcoded = ext == ".ktx2" || ext == ".astc";
+            bool transcoded = ext == ".ktx2";
             bool downscaled = stem.EndsWith(DownloadPolicy.DisplayVariant, StringComparison.Ordinal);
             if (!transcoded && !downscaled) yield break;
             if (downscaled) stem = stem.Substring(0, stem.Length - DownloadPolicy.DisplayVariant.Length);
             if (!transcoded) { yield return stem + ext; yield break; }
             // A transcode hides the source's extension — try the same set the
-            // server's encoder probes (server/astc.go sourceExts).
+            // server's encoder probes (server/derived.go sourceExts).
             yield return stem + ".png";
             yield return stem + ".jpg";
             yield return stem + ".jpeg";

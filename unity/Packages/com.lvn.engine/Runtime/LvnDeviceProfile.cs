@@ -39,11 +39,6 @@ namespace Lvn
         /// склеить между собой логи, жалобу и сессию одного человека.</summary>
         public static string DeviceId => SystemInfo.deviceUniqueIdentifier;
 
-        /// <summary>Тянет ли устройство такой формат текстуры. Вопрос к железу,
-        /// а не решение: ВКЛЮЧАТЬ ли формат — отдельное правило, и живёт оно у
-        /// того, кто грузит картинки.</summary>
-        public static bool SupportsFormat(UnityEngine.TextureFormat format)
-            => SystemInfo.SupportsTextureFormat(format);
 
         /// <summary>Язык системы кодом ISO ("ru", "en", …); "" — не определён.</summary>
         public static string SystemLocale

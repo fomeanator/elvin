@@ -11,9 +11,12 @@ using Unity.Collections;
 namespace Lvn.Content
 {
     /// <summary>
-    /// The KTX2 (Basis Universal / UASTC) texture path — the successor to the
-    /// raw-.astc experiment in <c>ContentLoader.Astc.cs</c> (kill-switched: raw
-    /// block upload broke on non-block-aligned sizes). A sprite load first asks
+    /// ЕДИНСТВЕННЫЙ формат арта истории: KTX2 (Basis Universal / UASTC).
+    /// Предшественника — сырой .astc — сняли 01.09: он лежал выключенным с
+    /// 06.07 (блочная выгрузка ломалась на невыровненных размерах), а этот
+    /// умеет то же самое и везде. Второго формата нет намеренно: пока их
+    /// было два, «который из них не работает» никто не спрашивал.
+    /// A sprite load first asks
     /// the server for the "@2k.ktx2" variant (server/ktx2.go encodes it on
     /// demand and caches to disk) and, on success, transcodes it IN A JOB
     /// THREAD to whatever this GPU speaks — ASTC on modern phones, BC7 on
