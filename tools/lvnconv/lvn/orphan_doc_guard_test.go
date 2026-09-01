@@ -21,7 +21,7 @@ import (
 // Двух `<summary>` у одного члена не бывает по определению — значит, порог
 // здесь не «сколько допустимо», а «сколько ещё не разобрано».
 func TestNoExplanationLostItsSubject(t *testing.T) {
-	const budget = 14 // только вниз
+	const budget = 0 // только вниз
 
 	root := repoRoot(t)
 	var found []string

@@ -94,9 +94,6 @@ namespace Lvn.UI.Screens
         /// («звук, язык, загрузка»), это ближайшее место, где их ищут.</summary>
         public System.Action OnOpenSettings;
 
-        /// <summary>Кошелёк игрока: реальные балансы валют, плитками. Пустой
-        /// список прячет секцию. Показывается и в Minimal — это живые данные,
-        /// а не демо (жалоба «в настройках больше данных, чем в профиле»).</summary>
         /// <summary>НЕ ПОКАЗЫВАЕТСЯ. Балансы живут в шапке; поле оставлено,
         /// чтобы не ломать хосты, которые его заполняют.</summary>
         public List<Stat> Wallet = new List<Stat>();
@@ -144,8 +141,6 @@ namespace Lvn.UI.Screens
         // бы вечную заглушку (класс бага «пустых настроек», зеркальный).
         protected override void OnOpening() => Rebuild();
 
-        /// <summary>Tear down and rebuild the whole body from the current model.
-        /// Cheap enough to call after mutating any of the public fields.</summary>
         /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
 
         public override void Rebuild()

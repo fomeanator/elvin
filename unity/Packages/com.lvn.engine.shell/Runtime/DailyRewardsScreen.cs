@@ -168,8 +168,6 @@ namespace Lvn.UI.Screens
             Close();
         }
 
-        /// <summary>Re-render the subtitle, the seven cells, and the claim button
-        /// from the current streak state. Safe to call any number of times.</summary>
         /// <summary>Слова, шрифт или размеры сменились — перечитать их.</summary>
 
         public override void Rebuild()

@@ -103,7 +103,7 @@ namespace Lvn.UI.Screens
         [Tooltip("Live content sync: poll the server's version endpoint this often (seconds). " +
                  "Edit a .lvn or the manifest on the server and the app reloads within one interval. " +
                  "0 disables polling.")]
-        public float SyncInterval = 2f;
+        public float SyncInterval = Lvn.Content.ContentSync.DefaultIntervalSeconds;
 
         private CachingAssets _assets;
         private NovelShell _shell;
