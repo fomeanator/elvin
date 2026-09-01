@@ -161,15 +161,39 @@ namespace Lvn.UI
         /// экрану: они про его поля, а не про саму строку, и у разных списков
         /// честно разные.</para>
         /// </summary>
-        public static T ListRow<T>(T el) where T : VisualElement
+        public static T ListRow<T>(T el, Color? fill = null) where T : VisualElement
         {
             if (el == null) return null;
             el.style.flexShrink = 0;
             el.style.flexDirection = FlexDirection.Row;
             el.style.alignItems = Align.Center;
-            el.style.backgroundColor = LvnTokens.Surface;
+            el.style.backgroundColor = fill ?? LvnTokens.Surface;
             LvnChrome.Round(el, LvnTokens.RadiusSm);
             LvnAir.PadY(el, LvnTokens.Space2);
+            return el;
+        }
+
+        /// <summary>
+        /// СТРОКА-КАРТОЧКА: та же строка списка, но с мягкой кромкой.
+        ///
+        /// <para>Ролей две, потому что разница ЕСТЬ и она осмысленная: строки
+        /// глав и сейвов идут плотным списком, где кромка у каждой давала бы
+        /// сетку; строки профиля стоят вразбивку, и кромка отделяет их от
+        /// пустого фона. Слить их в одну роль значило бы принять решение за
+        /// художника, а не за уборщика.</para>
+        ///
+        /// <para><b>Дом строки списка был жив, проверен и почти никому не
+        /// известен.</b> Его звали два экрана из шести: остальные четыре
+        /// собирали ту же плитку руками — <c>Card</c>, отступ, скругление, — и
+        /// половина из них при этом не знала, что у неё получается кромка, а у
+        /// соседа нет. Это не отсутствие дома, а незнание о нём: находится
+        /// только тем, что ищут не «где нет дома», а «где его не позвали».</para>
+        /// </summary>
+        public static T CardRow<T>(T el, Color? fill = null) where T : VisualElement
+        {
+            if (el == null) return null;
+            ListRow(el, fill);
+            LvnChrome.BorderSoft(el, LvnChrome.CardBorderStrength);
             return el;
         }
 
