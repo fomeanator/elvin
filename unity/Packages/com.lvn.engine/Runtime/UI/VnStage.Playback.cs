@@ -328,7 +328,7 @@ namespace Lvn.UI
             }
             catch (System.OperationCanceledException) { return; }
             catch { /* warmup is best-effort; the show path reloads what it needs */ }
-            if (_player == player && _startGen == gen) player.Advance();
+            if (RunCurrent(player, gen)) player.Advance();
         }
 
         /// <summary>
