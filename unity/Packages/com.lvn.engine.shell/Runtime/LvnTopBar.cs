@@ -30,6 +30,21 @@ namespace Lvn.UI.Screens
         /// навбаром» (колонка эмоций гардероба), считают от неё.</summary>
         public const float RowH = 76f;
 
+        /// <summary>ГДЕ КОНЧАЕТСЯ ШАПКА — один ответ всем, кто строится под ней.
+        ///
+        /// <para>Сумму «безопасный верх плюс высота ряда» складывали втроём:
+        /// дважды сама панель (въезд и второй ряд) и лист гардероба, который для
+        /// этого тянулся к чужому экрану — единственная такая связь во всей
+        /// оболочке. Нижний край панели знает панель, и спрашивать его надо у
+        /// неё.</para>
+        ///
+        /// <para>Безопасный верх зависит от устройства и меняется на повороте,
+        /// поэтому ответ считается на месте, а не запоминается.</para></summary>
+        public static float BottomEdge(float safeTop) => safeTop + RowH;
+
+        /// <summary>То же, когда безопасный верх ещё не спрошен.</summary>
+        public static float BottomEdge(VisualElement ctx) => BottomEdge(ScreenUi.SafeTop(ctx));
+
         /// <summary>Валюты пилюль (id кошелька), порядок = порядок на баре.</summary>
         public List<string> Currencies = new List<string>();
         /// <summary>Тап по пилюле валюты — хост открывает магазин.</summary>
@@ -238,12 +253,12 @@ namespace Lvn.UI.Screens
             // Закрылись — отсчёт больше не нужен: он разбудится при следующем
             // открытии. Иначе он доживёт до конца и закроет уже чужое открытие.
             if (!show) _barAutoHide?.Pause();
-            float slide = RowH + _safeTop + 150f;
+            float slide = BottomEdge(_safeTop) + 150f;
             if (show)
             {
                 // ПОЛНЫЙ навбар (лого/валюты/бургер) + строка кнопок ПОД ним —
                 // ансамблем сверху; баблики на это время прячутся (дубль).
-                _gameRow.style.top = _safeTop + RowH;
+                _gameRow.style.top = BottomEdge(_safeTop);
                 _gameRow.style.paddingTop = LvnTokens.Space2;
                 ApplyBarVisibility();   // баблики — дубль бара: на это время уходят
                 _row.style.translate = new Translate(0f, -slide);

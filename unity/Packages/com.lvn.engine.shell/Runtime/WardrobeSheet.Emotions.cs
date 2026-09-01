@@ -104,8 +104,10 @@ namespace Lvn.UI.Screens
             if (_emotions == null || panel == null) return;
             float sheetTop = worldBound.yMin;
             if (float.IsNaN(sheetTop) || sheetTop <= 0f) return;
-            float safeTop = ScreenUi.SafeTop(this);
-            float navBottom = safeTop + LvnTopBar.RowH + 10f;
+            // Нижний край шапки спрашиваем у самой шапки: складывать его из
+            // безопасного верха и высоты ряда значило бы держать третью копию
+            // одной суммы. Десятка сверху — воздух между панелью и листом.
+            float navBottom = LvnTopBar.BottomEdge(this) + 10f;
             float gap = Mathf.Max(0f, sheetTop - navBottom - 12f);
             // Отступ от навбара — десятая доля зазора (Илья 26.08: «чуть ниже
             // на 10 процентов»), высота — та же половина зазора плюс 15%.
