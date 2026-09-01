@@ -26,6 +26,7 @@ import (
 // Поэтому обряд живёт в `Lvn.LvnOps.Awaiting`, где его нельзя недописать, а
 // прямых `ctx.Hold()` в рантайме не остаётся.
 func TestStoryHoldGoesThroughItsHome(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 	hold := regexp.MustCompile(`\bctx\.Hold\(\)`)
 
@@ -39,6 +40,7 @@ func TestStoryHoldGoesThroughItsHome(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return err
 			}
+			scanned++
 			// Сам дом и его документация — единственное законное место.
 			if filepath.Base(path) == "LvnOps.cs" {
 				return nil
@@ -63,6 +65,8 @@ func TestStoryHoldGoesThroughItsHome(t *testing.T) {
 			t.Fatalf("обход %s: %v", pkg, err)
 		}
 	}
+
+	atLeast(t, scanned, 60, "просмотренных файлов")
 
 	if len(found) > 0 {
 		sort.Strings(found)

@@ -16,6 +16,13 @@ namespace Lvn.UI.Screens
     /// </summary>
     public sealed partial class BrowseHub
     {
+        /// <summary>
+        /// Круглая/квадратная кнопка с векторной иконкой вместо надписи.
+        ///
+        /// <para>Текст у кнопки пустой намеренно: иконка — отдельный ребёнок, и
+        /// потому её цвет, толщина линии и свечение живут своей жизнью, а не
+        /// наследуются от стиля текста, у которого для этого нет свойств.</para>
+        /// </summary>
         private Button IconButton(LvnIcon icon, float size, Color color, System.Action onTap)
         {
             var b = new Button(onTap) { text = "" };

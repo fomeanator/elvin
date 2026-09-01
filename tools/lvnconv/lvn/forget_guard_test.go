@@ -22,6 +22,7 @@ import (
 // который пишет личное в записную книжку устройства, обязан быть назван в
 // LvnForget.cs: либо он забывается, либо там сказано, почему нет.
 func TestPersonalDataIsForgettable(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 
 	home := filepath.Join(root, "unity", "Packages", "com.lvn.engine", "Runtime", "UI", "LvnForget.cs")
@@ -65,6 +66,7 @@ func TestPersonalDataIsForgettable(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return err
 			}
+			scanned++
 			b, err := os.ReadFile(path)
 			if err != nil {
 				return err
@@ -90,6 +92,8 @@ func TestPersonalDataIsForgettable(t *testing.T) {
 	}
 
 	sort.Strings(missing)
+	atLeast(t, scanned, 60, "просмотренных файлов")
+
 	if len(missing) > 0 {
 		t.Fatalf("пишут личное в записную книжку, но забвение о них не знает: %s\n"+
 			"назовите хранилище в LvnForget.cs (или, если это не личное игрока, "+
