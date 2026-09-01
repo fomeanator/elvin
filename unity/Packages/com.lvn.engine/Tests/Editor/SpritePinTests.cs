@@ -37,6 +37,7 @@ namespace Lvn.Tests
         [TearDown]
         public void TearDown()
         {
+            _loader?.Dispose();   // иначе подписка на lowMemory переживёт весь прогон
             if (_sprite != null)
             {
                 if (_sprite.texture != null) UnityEngine.Object.DestroyImmediate(_sprite.texture);

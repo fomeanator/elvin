@@ -109,7 +109,12 @@ namespace Lvn.UI.Screens
             {
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 cts.CancelAfter(TimeSpan.FromSeconds(ProbeTimeoutSeconds));
-                var loader = new ContentLoader(url);
+                // using: загрузчик здесь ОДНОРАЗОВЫЙ — живёт ради одного
+                // healthz. Без отпускания каждая проба навсегда оставалась бы
+                // подписчиком Application.lowMemory: адресов в списке пятеро,
+                // экран открывают не раз, и на нехватку памяти отзывался бы
+                // хвост мёртвых загрузчиков.
+                using var loader = new ContentLoader(url);
                 bool ok = await loader.HealthzAsync(ct: cts.Token);
                 return (ok, url);
             }
