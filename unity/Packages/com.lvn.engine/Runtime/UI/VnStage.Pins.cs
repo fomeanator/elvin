@@ -31,41 +31,15 @@ namespace Lvn.UI
         // окна считается от последнего ЗАПРОСА, а показанному давно арту
         // запросы не приходят. Всё, что сцена сейчас рисует, пиннится в
         // лоадере; замена или уход снимает пин. Слоты: "bg", "actor:<id>".
-        private readonly Dictionary<string, List<Sprite>> _scenePins
-            = new Dictionary<string, List<Sprite>>();
+        // Механизм — у доски (LvnPinBoard); здесь остаётся ПРАВИЛО: две
+        // секунды до отпускания прежнего набора. Столько живёт прокси смены
+        // облика: он показывает старые слои весь кроссфейд, и отпустив их
+        // сразу, мы отдавали их окну прямо под ним — актёр вставал белым
+        // прямоугольником (живой скрин 27.08).
+        private readonly LvnPinBoard<string> _scenePins = new LvnPinBoard<string>(2f);
 
         private void RepinSceneSprites(string slot, IReadOnlyList<Sprite> next)
-        {
-            var cl = (Assets as CachingAssets)?.Loader;
-            if (cl == null) return;
-            List<Sprite> keep = null;
-            if (next != null && next.Count > 0)
-            {
-                keep = new List<Sprite>(next.Count);
-                foreach (var s in next)
-                    // pin ДО unpin прежних: общий слой переживает замену
-                    if (s != null) { cl.PinSprite(s, true); keep.Add(s); }
-            }
-            if (_scenePins.TryGetValue(slot, out var prev) && prev != null)
-            {
-                // Анпин ПРЕЖНИХ — С ЗАДЕРЖКОЙ: прокси смены облика ещё
-                // показывает старые слои весь кроссфейд, и мгновенный анпин
-                // отдавал их LRU прямо под ним — актёр вставал БЕЛЫМ
-                // прямоугольником (живой скрин 27.08). Две секунды покрывают
-                // самый длинный своп с запасом.
-                LvnAsync.Fire(UnpinLaterAsync(prev), "UnpinLater");
-            }
-            if (keep == null) _scenePins.Remove(slot);
-            else _scenePins[slot] = keep;
-        }
-
-        private async Task UnpinLaterAsync(List<Sprite> sprites)
-        {
-            await Task.Delay(2000);
-            var cl = (Assets as CachingAssets)?.Loader;
-            if (cl == null) return;
-            foreach (var s in sprites) cl.PinSprite(s, false);
-        }
+            => _scenePins.Hold(slot, (Assets as CachingAssets)?.Loader, next);
 
         /// <summary>Актёр, чьи слои НЕ отпускаются при уборке сцены. Кукла меню
         /// стоит между главами всё время, и выгружать её арт на вход в главу
@@ -158,21 +132,19 @@ namespace Lvn.UI
 
         private void UnpinAllSceneSprites()
         {
-            var cl = (Assets as CachingAssets)?.Loader;
             string keep = string.IsNullOrEmpty(KeepActorAlive) ? null : "actor:" + KeepActorAlive;
-            List<string> drop = null;
-            foreach (var kv in _scenePins)
+            foreach (var slot in _scenePins.Keys())
             {
                 // Полотно витрины греется на весь запуск: его показывают после
                 // КАЖДОЙ главы, и отпустить его на уборке значит купить чёрную
                 // витрину на каждом выходе.
-                if (kv.Key == MenuCanvasSlot) continue;
+                if (slot == MenuCanvasSlot) continue;
                 // СТВОР ПЕРЕЖИВАЕТ УБОРКУ — и его ядро тоже. Картинка ядра
                 // нужна ровно там, где сцену чистят: на уходе в главу и на
                 // возвращении. Сняв пин, мы отдаём её кэшу ровно перед тем,
                 // как она понадобится, — отсюда «иногда шар портала пропадает»
                 // (живой репорт Ильи 28.08).
-                if (kv.Key == PortalCoreSlot) continue;
+                if (slot == PortalCoreSlot) continue;
                 // ПОЛОТНО НЕ ОТПУСКАЕМ. Оно ОСТАЁТСЯ на экране до нового bg —
                 // так задумано и так написано у обоих мест вызова, — а пин с
                 // него всё-таки снимался. Кэш забирал текстуру прямо из-под
@@ -182,12 +154,10 @@ namespace Lvn.UI
                 // (лог Ильи, 27.08). Тот же промах заставлял заново качать и
                 // декодировать фоны, скачанные десять раз до этого.
                 // Слот один, и следующий bg сам заменит его содержимое.
-                if (kv.Key == "bg") continue;
-                if (keep != null && kv.Key == keep) continue; // этот облик остаётся жить
-                if (cl != null) foreach (var s in kv.Value) cl.PinSprite(s, false);
-                (drop ??= new List<string>()).Add(kv.Key);
+                if (slot == "bg") continue;
+                if (keep != null && slot == keep) continue; // этот облик остаётся жить
+                _scenePins.Release(slot);
             }
-            if (drop != null) foreach (var k in drop) _scenePins.Remove(k);
         }
     }
 }
