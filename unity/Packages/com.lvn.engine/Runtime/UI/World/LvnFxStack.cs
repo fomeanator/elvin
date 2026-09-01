@@ -112,7 +112,7 @@ namespace Lvn.UI.World
             float dur = LvnNum.Parse(cmd["dur"], 0f);
             _speed = dur > 0f ? 1f / dur : 0f;
 
-            if (cmd["off"] != null || cmd["reset"] != null)
+            if (Lvn.LvnBool.Flag(cmd["off"]) || Lvn.LvnBool.Flag(cmd["reset"]))
             {
                 _tVignette = _tCinematic = _tChromatic = _tScanlines = _tPixelate =
                     _tGlitch = _tBloom = _tRays = _tDistort = _tFrost = _tBlink =
@@ -195,7 +195,7 @@ namespace Lvn.UI.World
             // стека и рисует ли стек кадр. Первое видно здесь, второе — в
             // OnRenderImage ниже. Пока эти два факта неизвестны, любая правка
             // перехода — гадание.
-            if (cmd["portal"] != null || cmd["off"] != null || cmd["reset"] != null)
+            if (cmd["portal"] != null || Lvn.LvnBool.Flag(cmd["off"]) || Lvn.LvnBool.Flag(cmd["reset"]))
                 Lvn.LvnLog.Trace($"[lvn-fx] портал ← {_tPortal:0.00} (было {_portal:0.00}), "
                                   + $"радиус={_portalRadius:0.00}, центр=({_portalCenter.x:0.00},{_portalCenter.y:0.00}), "
                                   + $"dur={(_speed > 0f ? 1f / _speed : 0f):0.00}");

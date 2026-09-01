@@ -144,7 +144,7 @@ namespace Lvn
                     if (string.IsNullOrEmpty(id)) return false;
                     Actors.TryGetValue(id, out var a);
                     // Полное `off` снимает грим, а не становится им.
-                    bool off = cmd["off"] != null && string.IsNullOrEmpty((string)cmd["part"]);
+                    bool off = Lvn.LvnBool.Flag(cmd["off"]) && string.IsNullOrEmpty((string)cmd["part"]);
                     a.Fx = off ? null : (JObject)cmd.DeepClone();
                     Actors[id] = a;
                     return true;

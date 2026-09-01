@@ -87,7 +87,7 @@ namespace Lvn.UI.World
 
             // `off` без part остаётся привычным полным сбросом и заодно снимает
             // независимые материалы с body/weapon, если автор их комбинировал.
-            if (cmd["off"] != null && string.IsNullOrEmpty(part))
+            if (Lvn.LvnBool.Flag(cmd["off"]) && string.IsNullOrEmpty(part))
             {
                 var all = actorGo.GetComponentsInChildren<LvnSpriteFxDriver>(true);
                 if (all.Length == 0)
@@ -226,7 +226,7 @@ namespace Lvn.UI.World
 
         private void ApplyCmd(JObject cmd)
         {
-            if (cmd["off"] != null)
+            if (Lvn.LvnBool.Flag(cmd["off"]))
             {
                 _tOutline = _tGlow = _tDissolve = _tFlash = _tDark = _tTintFx =
                     _tGhost = _tPetrify = _tHologram = _tBurn = _tRim = _tShake =
