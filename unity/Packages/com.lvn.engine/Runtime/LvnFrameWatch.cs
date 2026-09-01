@@ -39,7 +39,7 @@ namespace Lvn
             if (dt <= HitchSeconds || frameCount <= WarmupFrames) return;
             _hitches++;
             if (dt > _worst) _worst = dt;
-            UnityEngine.Debug.Log($"[lvn-perf] FRAME HITCH {(dt * 1000f):F0}ms at frame {frameCount}"
+            LvnLog.Trace($"[lvn-perf] FRAME HITCH {(dt * 1000f):F0}ms at frame {frameCount}"
                                   + (note != null ? note() : ""));
         }
 

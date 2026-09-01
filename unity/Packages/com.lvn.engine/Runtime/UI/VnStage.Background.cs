@@ -39,7 +39,7 @@ namespace Lvn.UI
                     var s = await Assets.LoadSpriteAsync(url, _cts.Token);
                     if (s != null)
                     {
-                        if (attempt > 1) Debug.Log($"[stage] {what} {url} recovered (attempt {attempt})");
+                        if (attempt > 1) LvnLog.Trace($"[stage] {what} {url} recovered (attempt {attempt})");
                         return s;
                     }
                     lastErr = "no data (404 or decode failed)";
@@ -303,7 +303,7 @@ namespace Lvn.UI
                     _active3DSetId = id;
                     old?.Dispose();
                     HasBackdrop = true;
-                    Debug.Log($"[stage] 3D set '{id}' ready ({(loaded.Remote ? "server/cache" : "bundled fallback")})");
+                    LvnLog.Trace($"[stage] 3D set '{id}' ready ({(loaded.Remote ? "server/cache" : "bundled fallback")})");
                 }
             }
 

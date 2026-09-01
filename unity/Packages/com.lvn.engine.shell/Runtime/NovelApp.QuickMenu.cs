@@ -524,7 +524,7 @@ namespace Lvn.UI.Screens
 #else
                 // iOS требует пакет Mobile Notifications — подключим, когда
                 // появится iOS-сборка; в редакторе и на десктопе просить нечего.
-                Debug.Log("[novelapp] push_ask: платформа без запроса — пропускаю");
+                LvnLog.Trace("[novelapp] push_ask: платформа без запроса — пропускаю");
                 await Task.CompletedTask;
 #endif
             }

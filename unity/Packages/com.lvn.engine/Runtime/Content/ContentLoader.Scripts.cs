@@ -89,7 +89,7 @@ namespace Lvn.Content
                 var bytes = await FetchOnce(scriptUrl, CancellationToken.None);
                 await WriteAllBytesAsync(path, bytes, CancellationToken.None);
                 await WriteScriptUrlSidecar(path, scriptUrl, CancellationToken.None);
-                Debug.Log($"[content] script cache refreshed: {scriptUrl}");
+                LvnLog.Trace($"[content] script cache refreshed: {scriptUrl}");
             }
             catch { /* best-effort background refresh */ }
         }

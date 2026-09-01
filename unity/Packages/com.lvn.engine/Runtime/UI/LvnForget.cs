@@ -86,7 +86,7 @@ namespace Lvn.UI
                 foreach (var k in _registered)
                     if (k.Title != null) Safe(k.What, () => k.Title(titleId));
             }
-            Debug.Log($"[lvn-forget] новелла «{titleId}» забыта");
+            LvnLog.Info($"[lvn-forget] новелла «{titleId}» забыта");
         }
 
         /// <summary>Забыть игрока целиком: удаление аккаунта. Названные новеллы
@@ -125,7 +125,7 @@ namespace Lvn.UI
                 foreach (var k in _registered)
                     if (k.All != null) Safe(k.What, k.All);
             }
-            Debug.Log("[lvn-forget] игрок забыт — личные данные на устройстве стёрты");
+            LvnLog.Info("[lvn-forget] игрок забыт — личные данные на устройстве стёрты");
         }
 
         // Одно упавшее хранилище не имеет права остановить забвение: игрок

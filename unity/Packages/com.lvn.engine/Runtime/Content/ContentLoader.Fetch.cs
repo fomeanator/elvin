@@ -425,7 +425,7 @@ namespace Lvn.Content
                         if (whole != null && want != null && Sha256Matches(whole, want))
                         {
                             // Файл целиком у нас — не хватало переименования.
-                            Debug.Log($"[content] {url}: кусок уже полон — забираем его без сети");
+                            LvnLog.Trace($"[content] {url}: кусок уже полон — забираем его без сети");
                             lock (_inflight)
                             {
                                 _attempts.Remove(url);
@@ -584,7 +584,7 @@ namespace Lvn.Content
                 first = !_notFound.ContainsKey(url);
                 _notFound[url] = Lvn.LvnClock.Wall();
             }
-            if (first) Debug.Log($"[content] {url} permanent {status} (silenced for this session)");
+            if (first) LvnLog.Warn($"[content] {url} permanent {status} (silenced for this session)");
         }
 
         // Retries with exponential backoff until the asset arrives or the token

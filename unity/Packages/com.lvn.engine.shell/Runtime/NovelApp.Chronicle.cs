@@ -122,7 +122,7 @@ namespace Lvn.UI.Screens
             LvnSaveStore.Delete(title?.id, LvnSaveStore.AutoSlot);
             await Lvn.Content.LvnGlobalStats.OverlayAsync(_state, Stage.SeedVars);
             await SaveScopedVarsAsync(title?.id, Stage.SeedVars);
-            Debug.Log($"[novelapp] restarting '{chapter.id}' from its entry checkpoint");
+            LvnLog.Info($"[novelapp] restarting '{chapter.id}' from its entry checkpoint");
             return true;
         }
 
@@ -261,7 +261,7 @@ namespace Lvn.UI.Screens
             }
             if (resuming)
             {
-                Debug.Log($"[novelapp] resuming '{chapter.id}' from autosave (@{autosave.Snap.Index})");
+                LvnLog.Info($"[novelapp] resuming '{chapter.id}' from autosave (@{autosave.Snap.Index})");
                 // The snapshot carries the GLOBAL stats as they were at save time —
                 // another novel may have moved them since. Load the live ones FIRST:
                 // the overlay below then runs before any of the restore's async

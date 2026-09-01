@@ -43,7 +43,7 @@ namespace Lvn.UI.Screens
         {
             if (!Is(title)) return;
             LvnPrefs.IntroDone = true;
-            Debug.Log("[lvn-intro] вводная доиграна до конца — витрина открыта");
+            LvnLog.Trace("[lvn-intro] вводная доиграна до конца — витрина открыта");
         }
 
         /// <summary>
@@ -55,7 +55,7 @@ namespace Lvn.UI.Screens
         {
             if (Done)
             {
-                Debug.Log("[lvn-intro] ворота: IntroDone=true (метка устройства) — витрина");
+                LvnLog.Trace("[lvn-intro] ворота: IntroDone=true (метка устройства) — витрина");
                 return null;
             }
             if (manifest?.titles == null) return null;
@@ -63,12 +63,12 @@ namespace Lvn.UI.Screens
                 if (Is(t))
                 {
                     bool done = LvnProgress.Finished(t);
-                    Debug.Log($"[lvn-intro] ворота: '{t.id}' reached={LvnProgress.Reached(t)} "
+                    LvnLog.Trace($"[lvn-intro] ворота: '{t.id}' reached={LvnProgress.Reached(t)} "
                         + $"current={(LvnProgress.Current(t)?.id ?? "-")} → "
                         + (done ? "пройдена, витрина" : "играем воронку"));
                     return done ? null : t;
                 }
-            Debug.Log("[lvn-intro] ворота: intro-тайтла в манифесте нет — витрина");
+            LvnLog.Trace("[lvn-intro] ворота: intro-тайтла в манифесте нет — витрина");
             return null;
         }
     }

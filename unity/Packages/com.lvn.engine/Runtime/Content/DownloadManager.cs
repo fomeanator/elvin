@@ -248,7 +248,7 @@ namespace Lvn.Content
                     n++;
                 }
             }
-            Debug.Log($"[downloads] next chapter '{next.id}' prefetch: {n} required file(s)");
+            LvnLog.Trace($"[downloads] next chapter '{next.id}' prefetch: {n} required file(s)");
         }
 
         /// <summary>The chapter the shell should auto-continue into after

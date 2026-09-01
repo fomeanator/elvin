@@ -39,7 +39,7 @@ namespace Lvn.Content
             if (string.Equals(a, b, StringComparison.Ordinal)) return true;   // горячий путь
             bool same = string.Equals(Canonical(a), Canonical(b), StringComparison.Ordinal);
             if (same)
-                Debug.Log($"[lvn-save] адрес записан иначе, но это один скрипт: «{a}» ≡ «{b}»");
+                LvnLog.Trace($"[lvn-save] адрес записан иначе, но это один скрипт: «{a}» ≡ «{b}»");
             return same;
         }
 

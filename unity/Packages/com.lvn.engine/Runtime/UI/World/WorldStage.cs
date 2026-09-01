@@ -329,7 +329,7 @@ namespace Lvn.UI.World
             else
             {
                 _pendingSfx[id] = (JObject)cmd.DeepClone();
-                Debug.Log($"[lvn-sfx] {id}: актёра ещё нет — эффект ждёт рождения");
+                LvnLog.Trace($"[lvn-sfx] {id}: актёра ещё нет — эффект ждёт рождения");
             }
             return true;
         }
@@ -369,7 +369,7 @@ namespace Lvn.UI.World
             {
                 _pendingSfx.Remove(id);
                 LvnSpriteFxDriver.Apply(go, queued);
-                Debug.Log($"[lvn-sfx] {id}: эффект дождался рождения актёра — доставлен");
+                LvnLog.Trace($"[lvn-sfx] {id}: эффект дождался рождения актёра — доставлен");
             }
             return a;
         }

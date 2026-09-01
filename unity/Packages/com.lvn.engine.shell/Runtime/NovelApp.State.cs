@@ -78,7 +78,7 @@ namespace Lvn.UI.Screens
             EnterChapterContext(title ?? _currentTitle, chapter);
             _currentScriptJson = json;
             LvnProgress.ResumeFromSave(_currentTitle, chapter); // continue follows the jump
-            Debug.Log($"[novelapp] loaded save into '{chapter.id}' (@{slot.Snap.Index})");
+            LvnLog.Trace($"[novelapp] loaded save into '{chapter.id}' (@{slot.Snap.Index})");
             return true;
         }
 
@@ -96,7 +96,7 @@ namespace Lvn.UI.Screens
             // перечислялись сейвы и статы, а галерея с прочитанным оставались.
             Lvn.UI.LvnForget.Title(title.id);
             await WipeServerVarsAsync(title.id);
-            Debug.Log($"[novelapp] restarted expedition '{title.id}' — stats & saves cleared");
+            LvnLog.Info($"[novelapp] restarted expedition '{title.id}' — stats & saves cleared");
             SyncProgressVault(); // the wipe is progress too — all homes agree
         }
 

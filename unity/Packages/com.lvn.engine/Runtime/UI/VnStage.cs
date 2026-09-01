@@ -251,7 +251,7 @@ namespace Lvn.UI
             if (root == null) return; // panel not ready yet — Start will retry
             _uiRoot = root;
             _built = true;
-            LvnPlayer.Log = m => Debug.Log("[LVN] " + m); // full step trace to the console
+            LvnPlayer.Log = m => LvnLog.Trace("[LVN] " + m); // full step trace to the console
 
             if (Assets == null && !string.IsNullOrEmpty(ContentRoot))
                 Assets = new DirectoryAssets(ContentRoot);

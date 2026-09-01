@@ -566,7 +566,7 @@ namespace Lvn.UI.Screens
             if (found == 0)
                 sb.AppendLine("  — ничего светлого НЕ найдено: белое рисует сцена, а не оболочка");
             if (TopBar != null) sb.AppendLine($"  верхний бар: {TopBar.DebugState}");
-            Debug.Log(sb.ToString());
+            LvnLog.Trace(sb.ToString());
         }
 
 
@@ -582,7 +582,7 @@ namespace Lvn.UI.Screens
         public async Task RevealFromLoadingAsync(CancellationToken ct = default)
         {
             bool visible = Loading != null && Loading.resolvedStyle.display != DisplayStyle.None;
-            Debug.Log($"[shell] reveal: loader visible={visible} fade={Transitions?.screen_fade ?? 0.35f}s");
+            LvnLog.Trace($"[shell] reveal: loader visible={visible} fade={Transitions?.screen_fade ?? 0.35f}s");
             if (visible)
             {
                 await Loading.FadeOutAsync(Transitions?.screen_fade ?? 0.35f, ct);

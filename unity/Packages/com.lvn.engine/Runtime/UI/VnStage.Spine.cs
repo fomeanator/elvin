@@ -330,7 +330,7 @@ namespace Lvn.UI
                     if (slot == null) return;
                     var go = LvnSpineBridge.Create(slot, json, atlasText, pageArr, sp.scale, bgTex);
                     lap("mesh");
-                    Debug.Log(perf.Append(" total=").Append(sw.ElapsedMilliseconds).Append("ms").ToString());
+                    LvnLog.Trace(perf.Append(" total=").Append(sw.ElapsedMilliseconds).Append("ms").ToString());
                     if (go == null) return;
                     _spineActors[id] = go;
                     // Pin the page textures for as long as this skeleton is alive:

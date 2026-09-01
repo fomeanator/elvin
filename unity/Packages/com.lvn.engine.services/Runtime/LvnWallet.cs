@@ -129,7 +129,7 @@ namespace Lvn.Services
             if (prev == userId) return;
             if (!string.IsNullOrEmpty(prev))
             {
-                UnityEngine.Debug.Log($"[lvn-wallet] account switched ({prev} → {userId}) — local mirror and {_queue.Count} queued op(s) discarded");
+                LvnLog.Info($"[lvn-wallet] account switched ({prev} → {userId}) — local mirror and {_queue.Count} queued op(s) discarded");
                 ResetLocal();
                 Changed?.Invoke();
             }
