@@ -27,7 +27,7 @@ func TestCasesOutsideBrowserExplainThemselves(t *testing.T) {
 	}
 	var mute []string
 	for _, e := range entries {
-	scanned++
+		scanned++
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
 			continue
 		}

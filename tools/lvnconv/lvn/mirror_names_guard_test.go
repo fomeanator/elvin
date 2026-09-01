@@ -39,7 +39,7 @@ func TestPackageMirrorNames(t *testing.T) {
 
 	var packages []string
 	for _, e := range entries {
-	scanned++
+		scanned++
 		if e.IsDir() && strings.HasPrefix(e.Name(), "com.lvn.") {
 			packages = append(packages, e.Name())
 		}

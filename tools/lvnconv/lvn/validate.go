@@ -2,6 +2,7 @@ package lvn
 
 import (
 	"fmt"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/nearest"
 	"regexp"
 	"sort"
 	"strings"
@@ -482,7 +483,7 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 				}
 			}
 			msg := fmt.Sprintf("unknown op %q — a typo, or host-defined (needs LvnOps.Register in the game; declare it in ext-grammar.json to validate its fields)", op)
-			if s := suggest(op, ext.OpNames()); s != "" {
+			if s := nearest.Of(op, ext.OpNames(), 2); s != "" {
 				msg = fmt.Sprintf("unknown op %q — did you mean the declared host op %q?", op, s)
 			}
 			addWarn(i, op, msg)
@@ -505,7 +506,7 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 			sort.Strings(bad)
 			for _, k := range bad {
 				msg := fmt.Sprintf("unknown field %q for op %q", k, op)
-				if s := suggest(k, fields); s != "" {
+				if s := nearest.Of(k, fields, 2); s != "" {
 					msg += fmt.Sprintf(" — did you mean %q?", s)
 				} else if KnownOps[k] {
 					// ТЁЗКА. Три слова языка работают и командой, и полем чужой
@@ -546,7 +547,7 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 				if known[k] || len([]rune(k)) < 4 {
 					continue
 				}
-				if s := suggest(k, fields); s != "" && levenshtein(k, s) <= 2 {
+				if s := nearest.Of(k, fields, 2); s != "" {
 					suspect = append(suspect, k+"\x00"+s)
 				}
 			}
@@ -598,7 +599,7 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 				}
 				if !inSet(allowed, val) {
 					msg := fmt.Sprintf("%s=%q is not a known value (expected: %s)", field, val, strings.Join(nonEmpty(allowed), ", "))
-					if s := suggest(val, allowed); s != "" {
+					if s := nearest.Of(val, allowed, 2); s != "" {
 						msg += fmt.Sprintf(" — did you mean %q?", s)
 					}
 					addWarn(i, op, msg)
@@ -626,7 +627,7 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 				if kind, _ := node["kind"].(string); kind != "" && !inSet(UiNodeKinds, kind) {
 					msg := fmt.Sprintf("узел kind=%q — такого вида нет, будет пустая панель (есть: %s)",
 						kind, strings.Join(UiNodeKinds, ", "))
-					if sg := suggest(kind, UiNodeKinds); sg != "" {
+					if sg := nearest.Of(kind, UiNodeKinds, 2); sg != "" {
 						msg += fmt.Sprintf(" — может быть %q?", sg)
 					}
 					addWarn(i, op, msg)
@@ -687,7 +688,7 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 						// перечень из десяти имён ей не помогает.
 						if hint, ok := AnimPropHints[prop]; ok {
 							msg += fmt.Sprintf(" — %s", hint)
-						} else if sg := suggest(prop, AnimProps); sg != "" {
+						} else if sg := nearest.Of(prop, AnimProps, 2); sg != "" {
 							msg += fmt.Sprintf(" — может быть %q?", sg)
 						}
 						addWarn(i, op, msg)
@@ -752,7 +753,7 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 				if word := commandLike(c.Str("text")); word != "" {
 					if KnownOps[word] {
 						addErr(i, op, fmt.Sprintf("это команда %q, но её синтаксис не разобрался — строка стала репликой и покажется игроку", word))
-					} else if s := suggest(word, knownOpNames()); s != "" {
+					} else if s := nearest.Of(word, knownOpNames(), 2); s != "" {
 						// A near-miss of a real op name (`actro id=…`, `bbg /x.jpg`).
 						addErr(i, op, fmt.Sprintf("похоже на команду с опечаткой: %q — может быть, %q? (строка стала репликой и покажется игроку)", word, s))
 					}
@@ -1012,7 +1013,7 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 				if ExprFuncs[fn] {
 					continue
 				}
-				if s := suggest(fn, exprFuncNames); s != "" {
+				if s := nearest.Of(fn, exprFuncNames, 2); s != "" {
 					addWarn(i, c.Op(), fmt.Sprintf("unknown function %s() in expression — did you mean %s()?", fn, s))
 					continue
 				}
@@ -1049,7 +1050,7 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 				if setVars[id] {
 					continue
 				}
-				if s := suggest(id, definedList); s != "" && len(s) >= 4 && s != id {
+				if s := nearest.Of(id, definedList, 2); s != "" && len(s) >= 4 && s != id {
 					addWarn(i, op, fmt.Sprintf("variable %q is read but never set — did you mean %q?", id, s))
 				}
 			}
@@ -1352,52 +1353,6 @@ func knownOpNames() []string {
 		names = append(names, op)
 	}
 	return names
-}
-
-func suggest(bad string, options []string) string {
-	best, bestD := "", 3
-	for _, o := range options {
-		if o == "" {
-			continue
-		}
-		d := levenshtein(bad, o)
-		if d < bestD {
-			best, bestD = o, d
-		}
-	}
-	return best
-}
-
-// levenshtein is the classic edit distance, for typo suggestions.
-func levenshtein(a, b string) int {
-	ra, rb := []rune(a), []rune(b)
-	prev := make([]int, len(rb)+1)
-	for j := range prev {
-		prev[j] = j
-	}
-	for i := 1; i <= len(ra); i++ {
-		cur := make([]int, len(rb)+1)
-		cur[0] = i
-		for j := 1; j <= len(rb); j++ {
-			cost := 1
-			if ra[i-1] == rb[j-1] {
-				cost = 0
-			}
-			cur[j] = min3(cur[j-1]+1, prev[j]+1, prev[j-1]+cost)
-		}
-		prev = cur
-	}
-	return prev[len(rb)]
-}
-
-func min3(a, b, c int) int {
-	if b < a {
-		a = b
-	}
-	if c < a {
-		a = c
-	}
-	return a
 }
 
 // braceIssue reports an unbalanced-brace problem in interpolated text, or "" if

@@ -306,7 +306,12 @@ namespace Lvn.UI
             var fill = Fill(new VisualElement(), height * 0.5f, tint);
             fill.style.height = Length.Percent(100f);
             track.Add(fill);
-            BarSet(track, frac);
+            // ШКАЛА РОЖДАЕТСЯ БЕЗ ПЕРЕХОДА. Ставить его здесь значило бы
+            // выбрать за вызывающего, КАК она будет ходить: `BarSet` вешает
+            // сглаживание сам, а `BarAdvance` обещает «назад — сразу», и
+            // постоянный переход это обещание отменял бы — откат полз бы
+            // 220 мс вопреки правилу. Начальная доля ставится напрямую.
+            if (fill.childCount == 0) fill.style.width = Length.Percent(Mathf.Clamp01(frac) * 100f);
             return track;
         }
 

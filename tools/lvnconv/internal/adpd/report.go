@@ -2,6 +2,7 @@ package adpd
 
 import (
 	"fmt"
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/textcut"
 	"sort"
 	"strings"
 )
@@ -84,7 +85,7 @@ func (rep *LinearizeReport) connectivity(fl flow, scopes []scopeDef) {
 		if len(emit)-reached > 0 {
 			rep.Warnings = append(rep.Warnings, fmt.Sprintf(
 				"%s: поток articy сам доходит до %d из %d реплик — остальные %d линеаризатор дотягивает синтетическим переходом (первая: %q)",
-				sc.name, reached, len(emit), len(emit)-reached, trunc(fl.text[worst], 60)))
+				sc.name, reached, len(emit), len(emit)-reached, textcut.Runes(fl.text[worst], 60)))
 		}
 	}
 	// Сироты: реплика с текстом, не попавшая ни в один scope, в экспорт не
@@ -100,7 +101,7 @@ func (rep *LinearizeReport) connectivity(fl flow, scopes []scopeDef) {
 	if len(orphans) > 0 {
 		rep.Warnings = append(rep.Warnings, fmt.Sprintf(
 			"ПОТЕРЯ: %d реплик(и) не принадлежат ни одной главе и в экспорт не попали — у их контейнера не раскодирован узел. Первая: узел %d %q",
-			len(orphans), orphans[0], trunc(fl.text[orphans[0]], 60)))
+			len(orphans), orphans[0], textcut.Runes(fl.text[orphans[0]], 60)))
 	}
 	if rep.Jumps > rep.JumpsResolved {
 		rep.Warnings = append(rep.Warnings, fmt.Sprintf(
@@ -157,18 +158,6 @@ func rawReach(fl flow, root uint32, allowed map[uint32]bool) (emit []uint32, rea
 		}
 	}
 	return emit, reached, worst
-}
-
-func trunc(s string, n int) string {
-	s = strings.TrimSpace(s)
-	if len(s) <= n {
-		return s
-	}
-	r := []rune(s)
-	if len(r) <= n {
-		return s
-	}
-	return string(r[:n]) + "…"
 }
 
 // pinFlowDiag builds the raw forward pin-flow over emittable nodes (no

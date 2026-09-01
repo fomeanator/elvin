@@ -84,7 +84,8 @@ namespace Lvn.UI
         private async Task FadeDialogueAsync(bool faded)
         {
             float to = faded ? 0f : 1f;
-            float seconds = VnTheme.Motion(0.18f);
+            float seconds = 0.18f;  // темп применит дом гашения — здесь сырая длительность,
+                                  // иначе он множится дважды (0.35² ≈ мгновенно)
             // The story panel OWNS the screen while it's up (the genre rule):
             // the quick-menu chrome hides with the dialogue — no burger over
             // the wardrobe, no half-working Exit under a held story.

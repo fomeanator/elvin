@@ -1,7 +1,10 @@
 package lvns
 
 import (
+	"github.com/fomeanator/elvin/tools/lvnconv/internal/nearest"
 	"golang.org/x/text/unicode/norm"
+	"maps"
+	"slices"
 
 	"fmt"
 	"regexp"
@@ -25,7 +28,7 @@ type Doc struct {
 }
 
 var KnownOps = map[string]bool{
-	"ui": true,
+	"ui":  true,
 	"say": true, "choice": true, "bg": true, "bg3d": true, "actor": true, "obj": true,
 	// A bare `clear` on its own line takes the whole cast off stage. It needs no
 	// parse branch of its own — the generic fieldless path below turns a known
@@ -48,7 +51,7 @@ var KnownOps = map[string]bool{
 	// Кадр без интерфейса: cutscene on=1 zoom=1.1 dur=3 / cutscene off=1.
 	// Прячет реплику, выборы, метки, меню и деревья `ui` разом.
 	"cutscene": true,
-	"audio": true, "wait": true, "input": true, "preload": true, "text_pace": true,
+	"audio":    true, "wait": true, "input": true, "preload": true, "text_pace": true,
 	"voice": true,               // compile-time prefix: voices the NEXT say line
 	"text":  true,               // reactive HUD/stat label
 	"save":  true, "load": true, // snapshot save/load (func is lowered away by expandLoops)
@@ -60,7 +63,7 @@ var KnownOps = map[string]bool{
 	// Заводить второй оп с тем же именем нельзя: у него уже есть владелец,
 	// обработчик в веб-плеере и записи в howto.
 	"track": true,
-	"call": true, "return": true,
+	"call":  true, "return": true,
 	// Script-driven animation: `anim` tweens any prop of an entity/layer over
 	// time; `move` is sugar for a screen-space path. Both compile to an "anim"
 	// command carrying an LvnAnim payload (see buildAnimCmd). `defanim` names a
@@ -1808,7 +1811,9 @@ func expandLoops(srcLines []string) (string, error) {
 		if len(stack) > 0 && stack[len(stack)-1].kind == "opt" {
 			if det == "}" {
 				stack = stack[:len(stack)-1]
-				if len(openedAt) > 0 { openedAt = openedAt[:len(openedAt)-1] }
+				if len(openedAt) > 0 {
+					openedAt = openedAt[:len(openedAt)-1]
+				}
 				out = append(out, raw)
 				lastStmt = ""
 				continue
@@ -1941,7 +1946,9 @@ func expandLoops(srcLines []string) (string, error) {
 			}
 			f := stack[len(stack)-1]
 			stack = stack[:len(stack)-1]
-			if len(openedAt) > 0 { openedAt = openedAt[:len(openedAt)-1] }
+			if len(openedAt) > 0 {
+				openedAt = openedAt[:len(openedAt)-1]
+			}
 			switch f.kind {
 			case "for":
 				out = append(out, fmt.Sprintf("set key=%s expr=%q", f.idxVar, fmt.Sprintf("%s + 1", f.idxVar)), "goto "+f.loopLbl, ":"+f.endLbl)
@@ -1975,7 +1982,9 @@ func expandLoops(srcLines []string) (string, error) {
 
 	if len(stack) > 0 {
 		at := 0
-		if len(openedAt) > 0 { at = openedAt[len(openedAt)-1] }
+		if len(openedAt) > 0 {
+			at = openedAt[len(openedAt)-1]
+		}
 		if stack[len(stack)-1].kind == "opt" {
 			return "", fmt.Errorf("line %d: unclosed choice option body (missing '}')", at)
 		}
@@ -2327,44 +2336,7 @@ func looksLikeCommand(words []string) bool {
 
 // nearestOp: the known op within edit distance 2 of s, or "".
 func nearestOp(s string) string {
-	best, bestD := "", 3
-	for op := range KnownOps {
-		if d := editDistance(s, op); d < bestD {
-			best, bestD = op, d
-		}
-	}
-	return best
-}
-
-func editDistance(a, b string) int {
-	ra, rb := []rune(a), []rune(b)
-	prev := make([]int, len(rb)+1)
-	cur := make([]int, len(rb)+1)
-	for j := range prev {
-		prev[j] = j
-	}
-	for i := 1; i <= len(ra); i++ {
-		cur[0] = i
-		for j := 1; j <= len(rb); j++ {
-			cost := 1
-			if ra[i-1] == rb[j-1] {
-				cost = 0
-			}
-			cur[j] = min3(prev[j]+1, cur[j-1]+1, prev[j-1]+cost)
-		}
-		prev, cur = cur, prev
-	}
-	return prev[len(rb)]
-}
-
-func min3(a, b, c int) int {
-	if b < a {
-		a = b
-	}
-	if c < a {
-		a = c
-	}
-	return a
+	return nearest.Of(s, slices.Sorted(maps.Keys(KnownOps)), 2)
 }
 
 // chevronDelta counts the net «/» balance of a line, IGNORING guillemets that

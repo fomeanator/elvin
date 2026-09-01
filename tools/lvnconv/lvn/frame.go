@@ -80,7 +80,14 @@ func (f *Frame) absorb(c Cmd) bool {
 		}
 		a := f.Actors[id]
 		// Полное `off` снимает грим, а не становится им.
-		if _, off := c["off"]; off && c.Str("part") == "" {
+		//
+		// ЧИТАЕМ КАК РАНТАЙМ, А НЕ «ЕСТЬ ЛИ КЛЮЧ». Признак считается
+		// поднятым, когда поле есть И слово в нём его не отменяет: рукописный
+		// `"off": false` означает «не снимать». Раньше здесь стояла проверка
+		// на присутствие ключа, и повтор кадра расходился с плеером — то есть
+		// проверка сертифицировала не то поведение, которое увидит игрок.
+		// Зеркало C#: Lvn.LvnBool.Flag.
+		if flagOn(c["off"]) && c.Str("part") == "" {
 			a.Fx = nil
 		} else {
 			a.Fx = c
@@ -529,4 +536,28 @@ func (r FrameReport) FrameSummary() string {
 		fmt.Fprintf(&b, ", находок %d", len(r.Issues))
 	}
 	return b.String()
+}
+
+// flagOn — поле-признак: присутствует и не отменено словом.
+//
+// Зеркало `Lvn.LvnBool.Flag` из рантайма. Словарь отказа взят тот же, что у
+// него: без совпадения повтор кадра и живой показ расходятся на рукописном
+// `.lvn`, а расхождение C#↔Go — главный структурный риск движка.
+func flagOn(v any) bool {
+	switch x := v.(type) {
+	case nil:
+		return false
+	case bool:
+		return x
+	case float64:
+		return x != 0
+	case string:
+		switch strings.ToLower(strings.TrimSpace(x)) {
+		case "0", "false", "no", "off", "нет", "":
+			return false
+		}
+		return true
+	default:
+		return true
+	}
 }
