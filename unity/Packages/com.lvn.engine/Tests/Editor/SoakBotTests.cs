@@ -203,6 +203,23 @@ namespace Lvn.Tests
                 player.ApplyDefaults(decl["chapter"] as JObject);
             }
             var rng = new System.Random(seed);
+
+            // СИД ДОЛЖЕН РЕШАТЬ ВСЁ, ИНАЧЕ ЭТО НЕ СИД.
+            //
+            // Бот выбирал варианты по сиду, а броски САМОГО КОНТЕНТА
+            // (rand()/chance() в выражениях) шли из общего потока движка,
+            // который никто не сеял. Один и тот же сид давал разные прогоны:
+            // упавший тест переигрывался «примерно похожим» проходом, и
+            // таблица флейков не отличала «иногда падает» от «контент выбросил
+            // другое число».
+            //
+            // Об этом прямо написано в qa/stability.sh — как о том, чего НЕТ.
+            // Соук, находящий баг и теряющий путь к нему, стоит меньше, чем
+            // кажется: он сообщает, что беда есть, и не даёт её повторить.
+            var contentRng = Lvn.LvnExpression.Random;
+            Lvn.LvnExpression.Random = new Lvn.LvnRandom((ulong)seed);
+            try
+            {
             int pauses = 0;
 
             player.Advance();
@@ -249,6 +266,8 @@ namespace Lvn.Tests
             Debug.Log(player.Finished
                 ? $"[soak] {name} seed {seed}: finished after {pauses} pauses"
                 : $"[soak] {name} seed {seed}: pause budget {PauseBudget} exhausted (loops are legal — run stayed clean)");
+            }
+            finally { Lvn.LvnExpression.Random = contentRng; }
         }
     }
 }
