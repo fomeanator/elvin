@@ -24,13 +24,30 @@ namespace Lvn.UI
         private static bool IsCharacterCommand(JObject cmd)
             => !string.Equals((string)cmd?["op"], "obj", StringComparison.OrdinalIgnoreCase);
 
+        /// <summary>ВИДЕН ЛИ ПЕРЕХОД У ЭТОЙ КОМАНДЫ — один вопрос, два
+        /// потребителя.
+        ///
+        /// <para>Спрашивают об этом двое и делают разное: один удлиняет
+        /// переход, другой держит ввод на его время. Формула стояла у обоих
+        /// своей копией, а расходиться им нельзя ни на волос: разойдись —
+        /// и ввод откроется РАНЬШЕ, чем героиня доехала, либо будет ждать
+        /// перехода, которого нет. Оба случая игрок видит, а лог молчит.</para>
+        ///
+        /// <para>Четыре условия и все обязательны: видимость и правда
+        /// поменялась, команда про фигуру (у фона свои правила), длительность
+        /// не нулевая, и переход назван словом, а не <c>None</c>.</para>
+        /// </summary>
+        private static bool ShowsVisibleTransition(JObject cmd, bool visibilityChanged, Placement p)
+        {
+            if (!visibilityChanged || !IsCharacterCommand(cmd) || p.TransitionDuration <= 0.001f)
+                return false;
+            return (p.Show ? p.EnterTransition : p.ExitTransition) != TransitionType.None;
+        }
+
         private static void LengthenCharacterVisibility(JObject cmd, bool visibilityChanged,
                                                          ref Placement p)
         {
-            if (!visibilityChanged || !IsCharacterCommand(cmd) || p.TransitionDuration <= 0.001f)
-                return;
-            var transition = p.Show ? p.EnterTransition : p.ExitTransition;
-            if (transition == TransitionType.None) return;
+            if (!ShowsVisibleTransition(cmd, visibilityChanged, p)) return;
             p.TransitionDuration *= ActorVisibilityDurationScale;
         }
 

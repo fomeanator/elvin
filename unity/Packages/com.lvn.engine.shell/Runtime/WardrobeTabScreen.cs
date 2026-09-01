@@ -78,10 +78,9 @@ namespace Lvn.UI.Screens
         {
             get
             {
-                var fav = LvnPrefs.MenuFavorite;
-                if (!string.IsNullOrEmpty(fav) && _manifest?.sprites != null
-                    && _manifest.sprites.ContainsKey(fav)) return fav;
-                return _manifest?.ui?.wardrobe?.entity;
+                // Строже прежнего: имя без облика — не выбор. Здесь запасную
+                // брали как есть, и новелла без её облика давала пустоту.
+                return LvnFavorite.Entity(_manifest);
             }
         }
 
