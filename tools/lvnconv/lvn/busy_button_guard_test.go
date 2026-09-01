@@ -22,6 +22,7 @@ import (
 // Признак: SetEnabled(false) и await в одном блоке. Либо рядом finally (кто-то
 // уже платил за этот урок), либо работа идёт через LvnBusy.
 func TestWaitingButtonReleasesItself(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 
 	// Не кнопка ожидания: гашение ввода на время хореографии, где включение
@@ -43,6 +44,7 @@ func TestWaitingButtonReleasesItself(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return err
 			}
+			scanned++
 			base := filepath.Base(path)
 			if _, ok := allowed[base]; ok {
 				return nil
@@ -90,6 +92,8 @@ func TestWaitingButtonReleasesItself(t *testing.T) {
 	}
 
 	sort.Strings(found)
+	atLeast(t, scanned, 60, "просмотренных файлов")
+
 	if len(found) > 0 {
 		t.Fatalf("кнопка выключена на время ожидания без страховки: %s\n"+
 			"возьмите LvnBusy.OnClick/RunAsync — он отпускает кнопку при провале "+

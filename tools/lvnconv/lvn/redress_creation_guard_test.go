@@ -30,6 +30,7 @@ import (
 // LvnRedress.Refresh — это ещё и чинит рассинхрон, при котором смена языка
 // возвращала взведённой кнопке невзведённый вид.
 func TestИсточникОтдаётсяПриСоздании(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 
 	// Бут идёт до загрузки словаря — там ещё нечего перечитывать.
@@ -51,6 +52,7 @@ func TestИсточникОтдаётсяПриСоздании(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return err
 			}
+			scanned++
 			base := filepath.Base(path)
 			if allowed[base] {
 				return nil
@@ -73,6 +75,8 @@ func TestИсточникОтдаётсяПриСоздании(t *testing.T) {
 			t.Fatalf("обход %s: %v", pkg, err)
 		}
 	}
+
+	atLeast(t, scanned, 60, "просмотренных файлов")
 
 	if len(found) > 0 {
 		sort.Strings(found)

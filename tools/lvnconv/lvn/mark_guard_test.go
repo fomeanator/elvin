@@ -18,6 +18,7 @@ import (
 // Страж ловит возврат к ручной выдаче: Guid, превращённый в строку без
 // разделителей, — это всегда метка, а метки живут у Lvn.LvnMark.
 func TestМеткиВыдаётПаспортист(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 	pkgs := filepath.Join(root, "unity", "Packages")
 
@@ -26,6 +27,7 @@ func TestМеткиВыдаётПаспортист(t *testing.T) {
 		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 			return nil
 		}
+		scanned++
 		// Сам дом и его тесты — единственные, кому метку порождать положено.
 		if strings.HasSuffix(path, "LvnMark.cs") || strings.Contains(path, "/Tests/") {
 			return nil
@@ -45,6 +47,8 @@ func TestМеткиВыдаётПаспортист(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	atLeast(t, scanned, 60, "просмотренных файлов")
+
 	if len(bad) > 0 {
 		t.Errorf("метка выдана мимо паспортиста (%d):\n  %s\n\n"+
 			"Метку на запуск берут у Lvn.LvnMark.Run — она ОДНА, иначе событие\n"+

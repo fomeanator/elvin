@@ -22,6 +22,7 @@ import (
 // Теперь глагол называет вид: Photo (вписывается), Skin (тянется), Frame
 // (девятислойка). Страж следит, чтобы показ не вернулся к безымянному.
 func TestКартинкаНазываетСебя(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 	pkgs := filepath.Join(root, "unity", "Packages")
 
@@ -37,6 +38,7 @@ func TestКартинкаНазываетСебя(t *testing.T) {
 		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 			return nil
 		}
+		scanned++
 		base := filepath.Base(path)
 		switch {
 		case base == "LvnPicture.cs", // дом
@@ -69,6 +71,8 @@ func TestКартинкаНазываетСебя(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	atLeast(t, scanned, 60, "просмотренных файлов")
+
 	if len(bad) > 0 {
 		t.Errorf("картинка поставлена мимо дома (%d):\n  %s\n\n"+
 			"Показывай через Lvn.UI.LvnPicture: Photo — обложка, фон, аватар (вписывается\n"+

@@ -24,6 +24,7 @@ import (
 // Страж смотрит на конструкцию `new Label(LvnWords…)`: это ровно тот случай,
 // когда источник известен в момент создания и теряется сразу после.
 func TestDictionaryLabelsRememberTheirSource(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 
 	// Подпись, которая не переживает смены языка по своей природе.
@@ -45,6 +46,7 @@ func TestDictionaryLabelsRememberTheirSource(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return err
 			}
+			scanned++
 			base := filepath.Base(path)
 			if _, ok := allowed[base]; ok {
 				return nil
@@ -66,6 +68,8 @@ func TestDictionaryLabelsRememberTheirSource(t *testing.T) {
 	}
 
 	sort.Strings(found)
+	atLeast(t, scanned, 60, "просмотренных файлов")
+
 	if len(found) > 0 {
 		t.Fatalf("подпись из словаря не помнит источник: %s\n"+
 			"оберните её: LvnRedress.Bind(new Label(), () => LvnWords.Of(…)) — "+
@@ -94,6 +98,7 @@ func TestDictionaryLabelsRememberTheirSource(t *testing.T) {
 // (WardrobeSheet.Strip.cs → WardrobeSheet): у листа гардероба Redress лежит в
 // одном файле, а подписи — в другом, и пофайловая проверка обвинила бы его зря.
 func TestFrozenLabelsOnlyWhereSomethingRedresses(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 
 	// text = LvnWords.… — присваивание или инициализатор, всё равно строка.
@@ -109,6 +114,7 @@ func TestFrozenLabelsOnlyWhereSomethingRedresses(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return err
 			}
+			scanned++
 			base := filepath.Base(path)
 			cls := strings.SplitN(base, ".", 2)[0]
 			byClass[cls] = append(byClass[cls], path)
@@ -146,6 +152,8 @@ func TestFrozenLabelsOnlyWhereSomethingRedresses(t *testing.T) {
 	}
 
 	sort.Strings(found)
+	atLeast(t, scanned, 60, "просмотренных файлов")
+
 	if len(found) > 0 {
 		t.Fatalf("подпись из словаря застынет — класс не умеет переодеваться: %s\n"+
 			"либо привяжите её (LvnRedress.Bind), либо дайте классу Redress(), "+

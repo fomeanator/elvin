@@ -20,6 +20,7 @@ import (
 // Страж смотрит только на то, что становится НАДПИСЬЮ. Диагностика на русском —
 // законна и нарочна: её читает разработчик, а не игрок.
 func TestShellLabelsGoThroughTheWordBook(t *testing.T) {
+	scanned := 0
 	root := repoRoot(t)
 	// Строка попадает на экран: её отдают в конструктор надписи или кладут в text.
 	makers := regexp.MustCompile(`\btext\s*[:=]|Label\(|Button\(|ModalButton|GameButton|` +
@@ -40,6 +41,7 @@ func TestShellLabelsGoThroughTheWordBook(t *testing.T) {
 			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
 				return err
 			}
+			scanned++
 			b, err := os.ReadFile(path)
 			if err != nil {
 				return err
@@ -61,6 +63,8 @@ func TestShellLabelsGoThroughTheWordBook(t *testing.T) {
 			t.Fatalf("обход %s: %v", pkg, err)
 		}
 	}
+	atLeast(t, scanned, 60, "просмотренных файлов")
+
 	if len(hard) > 0 {
 		t.Fatalf("надписи вписаны в код по-русски:\n  %s\n\nБерите слово из LvnWords.Of(ключ, английское умолчание)"+
 			" и кладите русское в ui.words манифеста — иначе новелла на другом языке получит эти слова насильно.",
