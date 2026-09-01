@@ -102,8 +102,8 @@ namespace Lvn.UI
 
         private void RememberAuthored(string channel, float v)
         {
-            if (channel == "music") _authMusic = v;
-            else if (channel == "ambient") _authAmbient = v;
+            if (channel == LvnVolumes.Music) _authMusic = v;
+            else if (channel == LvnVolumes.Ambient) _authAmbient = v;
             else _authSfx = v;
         }
 
@@ -163,14 +163,33 @@ namespace Lvn.UI
         {
             StopVoice();
             StopTypingLoop();
-            Silence("music", fade);
-            Silence("ambient", fade);
-            Silence("sfx", 0f);   // короткий звук доигрывать нечему — обрываем
+            Silence(LvnVolumes.Music, fade);
+            Silence(LvnVolumes.Ambient, fade);
+            Silence(LvnVolumes.Sfx, 0f);   // короткий звук доигрывать нечему — обрываем
         }
+
+        /// <summary>
+        /// КАКОЙ ИСТОЧНИК ВЕДЁТ ЭТОТ КАНАЛ. Соответствие стояло дважды, слово в
+        /// слово, и оба раза литералами — при том что имена каналов объявлены
+        /// домом громкостей и сопровождены там прямым напоминанием: «те же, что
+        /// в авторских командах звука».
+        ///
+        /// <para>Таблица каналов сцены уже расходилась с той: канал озвучки в
+        /// ней просто забыли, и голос звучал мимо своего ползунка. Пока
+        /// соответствие пишут по месту, забыть его снова ничего не мешает.</para>
+        ///
+        /// <para>Неизвестный канал — эффект, то же правило, что у громкости:
+        /// новая команда звука не должна звучать мимо настроек только потому,
+        /// что её не внесли в таблицу.</para>
+        /// </summary>
+        private AudioSource SourceOf(string channel)
+            => channel == LvnVolumes.Music ? _music
+             : channel == LvnVolumes.Ambient ? _ambient
+             : _sfx;
 
         private void Silence(string channel, float fade)
         {
-            var src = channel == "music" ? _music : channel == "ambient" ? _ambient : _sfx;
+            var src = SourceOf(channel);
             if (src == null) return;
             BumpChannel(channel);        // команда в полёте теряет право на канал
             _playingUrl.Remove(channel);
@@ -253,8 +272,8 @@ namespace Lvn.UI
         /// in-flight clip load with the chapter.</summary>
         public async Task ApplyAsync(JObject cmd, ILvnAssets assets, CancellationToken ct)
         {
-            var channel = (string)cmd["channel"] ?? "sfx";
-            var src = channel == "music" ? _music : channel == "ambient" ? _ambient : _sfx;
+            var channel = (string)cmd["channel"] ?? LvnVolumes.Sfx;
+            var src = SourceOf(channel);
             float fade = NumOr(cmd["fade"], 0f);
             int gen = BumpChannel(channel); // this command now owns the channel
 
@@ -275,7 +294,7 @@ namespace Lvn.UI
 
             // Idempotent for looping channels: the same track already playing (a
             // load/rollback replay) keeps its position — only the volume updates.
-            if (channel != "sfx" && src.isPlaying
+            if (channel != LvnVolumes.Sfx && src.isPlaying
                 && _playingUrl.TryGetValue(channel, out var cur) && cur == url)
             {
                 src.volume = effective;
@@ -299,7 +318,7 @@ namespace Lvn.UI
             // plays last and the wrong track ends up on screen.
             if (!_channelGen.TryGetValue(channel, out var g2) || g2 != gen) return;
 
-            if (channel != "sfx")
+            if (channel != LvnVolumes.Sfx)
             {
                 src.loop = BoolOr(cmd["loop"], true);
                 _playingUrl[channel] = url;
