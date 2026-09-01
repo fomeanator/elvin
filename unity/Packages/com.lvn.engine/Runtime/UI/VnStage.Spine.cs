@@ -10,17 +10,66 @@ namespace Lvn.UI
     public sealed partial class VnStage
     {
         // ── spine actors (the optional spine-unity runtime) ─────────────────
-        private readonly Dictionary<string, GameObject> _spineActors = new Dictionary<string, GameObject>();
-        // Replays fire actor commands in a burst while the first build is still
-        // awaiting its file loads — reserve the id or every call builds its own
-        // skeleton (the shadow-clone army). Plays requested mid-load apply after.
-        private readonly HashSet<string> _spineLoading = new HashSet<string>();
+
+        /// <summary>
+        /// СКЕЛЕТ — ОДНА ЗАПИСЬ, А НЕ ЧЕТЫРЕ ПАМЯТИ.
+        ///
+        /// <para>Про каждый скелет знали врозь: построенный объект, отметка
+        /// «строится», отложенный проигрыш и место в порядке давности. Уборка
+        /// по вытеснению знала про три из четырёх — отложенный проигрыш она не
+        /// трогала, и он оставался лежать после неудавшейся сборки, чтобы
+        /// однажды примениться к скелету, построенному через полглавы.</para>
+        ///
+        /// <para>Тот же урок уже записан про мизансцену
+        /// (<c>WorldStage.Slot</c>): пять памятей по одному ключу и уборка,
+        /// делящая их на группы вручную. Список ломается не сегодня — он
+        /// ломается на следующей памяти, которую в него забудут внести.</para>
+        ///
+        /// <para>Давность (MRU) осталась списком снаружи: это порядок МЕЖДУ
+        /// скелетами, а не свойство одного из них.</para>
+        /// </summary>
+        private sealed class Skeleton
+        {
+            public GameObject Go;                       // построен; null — ещё нет
+            public bool Building;                       // сборка в полёте
+            public (string name, bool loop)? Pending;   // проигрыш, пришедший во время сборки
+        }
+
+        private readonly Dictionary<string, Skeleton> _skeletons = new Dictionary<string, Skeleton>();
+
+        /// <summary>Запись, если она есть. Отсутствие — не ошибка: про
+        /// большинство актёров скелетный дом ничего не знает.</summary>
+        private Skeleton Skel(string id)
+            => id != null && _skeletons.TryGetValue(id, out var sk) ? sk : null;
+
+        /// <summary>Занять имя. Повторы сыплются пачкой, пока первая сборка
+        /// ждёт файлы: не займи мы имя, каждый вызов строил бы свой скелет —
+        /// армия клонов вместо одного актёра.</summary>
+        private Skeleton Reserve(string id)
+        {
+            if (!_skeletons.TryGetValue(id, out var sk)) _skeletons[id] = sk = new Skeleton();
+            return sk;
+        }
+
+        /// <summary>Забыть скелет ЦЕЛИКОМ. Одна дверь вместо трёх строк, из
+        /// которых одну всегда забывают.</summary>
+        private void ForgetSkeleton(string id)
+        {
+            _skeletons.Remove(id);
+            _spineMru.Remove(id);
+            UnpinSpinePages(id);
+        }
+
+        /// <summary>Кто сейчас строится — для диагностики рывка кадра.</summary>
+        private IEnumerable<string> BuildingSkeletons()
+        {
+            foreach (var kv in _skeletons) if (kv.Value.Building) yield return kv.Key;
+        }
+
         // Every in-flight cold build, so chapter entry can AWAIT the stage
         // settling (see StartWithSpineWarmup / RestoreSnapshot) instead of
         // letting the reveal race the typewriter.
         private readonly List<Task> _spineBuilds = new List<Task>();
-        private readonly Dictionary<string, (string name, bool loop)> _spinePendingPlay
-            = new Dictionary<string, (string, bool)>();
         // Live skeletons cost real memory (meshes + big atlas textures). Keep only
         // the most-recently-used few resident; when a new one is built, destroy the
         // oldest HIDDEN skeleton past the cap ("passed" scenes leave memory). The
@@ -55,13 +104,12 @@ namespace Lvn.UI
             for (int i = 0; i < _spineMru.Count - SpineLiveCap; )
             {
                 var victim = _spineMru[i];
+                var go = Skel(victim)?.Go;
                 // Evict only a hidden skeleton; keep scanning if the oldest is on
                 // screen (don't destroy what the player is looking at).
-                if (_spineActors.TryGetValue(victim, out var go) && go != null && go.activeSelf) { i++; continue; }
+                if (go != null && go.activeSelf) { i++; continue; }
                 if (go != null) UnityEngine.Object.Destroy(go);
-                UnpinSpinePages(victim); // its pages may now be evicted like any art
-                _spineActors.Remove(victim);
-                _spineMru.RemoveAt(i);
+                ForgetSkeleton(victim);   // объект, отметки, страницы и место — разом
             }
         }
 
@@ -214,7 +262,8 @@ namespace Lvn.UI
                 return;
             }
 
-            bool alreadyBuilt = _spineActors.TryGetValue(id, out var existing) && existing != null;
+            var existing = Skel(id)?.Go;
+            bool alreadyBuilt = existing != null;
 
             // Fast hide: an already-built skeleton just toggles off. But a
             // NEVER-built one with show=false is WARMED below — created hidden so
@@ -236,9 +285,10 @@ namespace Lvn.UI
 
             // Build once — for a real show OR a warm (show=false, never built).
             // The reveal frame never pays the skeleton-parse + mesh cost.
-            if (!alreadyBuilt && !_spineLoading.Contains(id))
+            if (!alreadyBuilt && Skel(id)?.Building != true)
             {
-                _spineLoading.Add(id);
+                var sk = Reserve(id);
+                sk.Building = true;
                 var buildDone = new TaskCompletionSource<bool>();
                 _spineBuilds.RemoveAll(t => t.IsCompleted);
                 _spineBuilds.Add(buildDone.Task);
@@ -324,7 +374,7 @@ namespace Lvn.UI
                     lap("mesh");
                     LvnLog.Trace(perf.Append(" total=").Append(sw.ElapsedMilliseconds).Append("ms").ToString());
                     if (go == null) return;
-                    _spineActors[id] = go;
+                    sk.Go = go;
                     // Pin the page textures for as long as this skeleton is alive:
                     // its atlas/material reference them directly, and the sprite
                     // LRU would otherwise destroy them after the grace window in a
@@ -332,21 +382,21 @@ namespace Lvn.UI
                     PinSpinePages(id, pageSprites);
                     TouchSpine(id); // MRU + evict passed skeletons past the cap
                     existing = go;
-                    if (_spinePendingPlay.TryGetValue(id, out var pend))
+                    if (sk.Pending is { } pend)
                     {
-                        _spinePendingPlay.Remove(id);
+                        sk.Pending = null;
                         LvnSpineBridge.Play(go, pend.name, pend.loop);
                     }
                     else if (!string.IsNullOrEmpty(sp.auto)) LvnSpineBridge.Play(go, sp.auto, true);
                 }
-                finally { _spineLoading.Remove(id); buildDone.TrySetResult(true); }
+                finally { sk.Building = false; buildDone.TrySetResult(true); }
             }
 
             // Visibility follows show; a warm build stays inactive until the
             // later show=true flips it on with zero build cost. Read the FRESH
             // placement, not this call's local one: a `show=true` that arrived
             // while our warm build was awaiting skipped the build (dedup via
-            // _spineLoading) and updated _placements — applying the stale local
+            // Skeleton.Building) and updated _placements — applying the stale local
             // Show=false here would hide an actor the script just revealed.
             if (existing != null)
             {
@@ -362,10 +412,11 @@ namespace Lvn.UI
             var play = (string)cmd["play"];
             if (!string.IsNullOrEmpty(play))
             {
-                if (_spineActors.TryGetValue(id, out var g) && g != null)
+                var g = Skel(id)?.Go;
+                if (g != null)
                     LvnSpineBridge.Play(g, play, BoolOr(cmd["loop"], false));
                 else
-                    _spinePendingPlay[id] = (play, BoolOr(cmd["loop"], false)); // lands after the build
+                    Reserve(id).Pending = (play, BoolOr(cmd["loop"], false)); // ляжет после сборки
             }
 
             // Костяная фигура тащится наравне с любым предметом: перетаскивание

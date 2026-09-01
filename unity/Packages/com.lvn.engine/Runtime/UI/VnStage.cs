@@ -236,8 +236,11 @@ namespace Lvn.UI
             // уже рывок?» жили здесь строкой, и ответ был только в логе. Сцена
             // добавляет к нему то, что знает только она: чем движок был занят.
             Lvn.LvnFrameWatch.Frame(Time.unscaledDeltaTime, Time.frameCount,
-                () => _spineLoading.Count > 0
-                    ? $" (spine builds in flight: {string.Join(",", _spineLoading)})" : "");
+                () =>
+                {
+                    var busy = string.Join(",", BuildingSkeletons());
+                    return busy.Length > 0 ? $" (spine builds in flight: {busy})" : "";
+                });
 
             if (_renderer is CanvasSceneRenderer csr)
             {

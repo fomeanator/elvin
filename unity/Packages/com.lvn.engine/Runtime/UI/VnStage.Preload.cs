@@ -69,7 +69,7 @@ namespace Lvn.UI
                             // one-per-pass slot — otherwise the pause before
                             // the NEXT scene warms nothing and its build lands
                             // cold in the reveal frame.
-                            if (_spineActors.TryGetValue(spineId, out var builtGo) && builtGo != null)
+                            if (Skel(spineId)?.Go != null)
                             {
                                 _prefetched.Add("spine:" + spineId);
                                 continue;
