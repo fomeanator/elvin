@@ -182,7 +182,7 @@ namespace Lvn.UI
             LvnChrome.Round(track, LvnTokens.Radius);
             track.style.flexDirection = FlexDirection.Row;
             track.style.alignItems = Align.Center;
-            LvnAir.PadX(track, 4);
+            LvnAir.PadX(track, LvnTokens.Tight);
             var knob = new VisualElement();
             knob.style.width = 28; knob.style.height = 28;
             LvnChrome.Round(knob, LvnTokens.Radius);

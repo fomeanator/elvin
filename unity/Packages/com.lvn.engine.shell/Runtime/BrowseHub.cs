@@ -131,7 +131,7 @@ namespace Lvn.UI.Screens
             // that fill the height. Cards get texture gradients for real depth
             // (UITK inline styles can't do gradients/shadows any other way).
             _hubView = Column();
-            _hubView.style.paddingTop = 52; // clear the status bar / notch
+            _hubView.style.paddingTop = LvnEdges.HomeTopMin; // до первой кромки — минимум дома
             // Мягкое свечение сверху — но ТОЛЬКО если тема не принесла своего
             // фона: сплошной градиент во весь экран закрыл бы собой и сетку, и
             // виньетку, то есть ровно то, ради чего тему включали.
@@ -189,7 +189,7 @@ namespace Lvn.UI.Screens
             _hubView.Add(topBar);
 
             var brand = new VisualElement();
-            brand.style.marginTop = 2; brand.style.marginBottom = LvnTokens.Space3;
+            brand.style.marginTop = LvnTokens.Hair; brand.style.marginBottom = LvnTokens.Space3;
             var eyebrow = ScreenUi.Eyebrow(HubEyebrow, 30f, _accent);
             _hubEyebrow = eyebrow;
             eyebrow.style.marginBottom = LvnTokens.Space1;
@@ -217,7 +217,9 @@ namespace Lvn.UI.Screens
             navRoot.style.position = Position.Absolute;
             navRoot.style.left = 0; navRoot.style.right = 0; navRoot.style.bottom = 0;
             Add(navRoot);
-            _hubView.style.paddingBottom = 124; // лента не ныряет под меню
+            // Лента не ныряет под меню — по НАСТОЯЩЕЙ его высоте: она растёт
+            // от размера шрифта интерфейса, а число этого не знало.
+            LvnEdges.Under(_hubView, navRoot);
             Add(_hubView);
 
             // ── COLLECTION ──
@@ -267,7 +269,7 @@ namespace Lvn.UI.Screens
                 : LvnWords.Name("subtitle", _detailTarget.id, _detailTarget.subtitle ?? ""));
             _detailSubtitle.style.color = _dim; _detailSubtitle.style.fontSize = LvnTokens.TextBase;
             _detailSubtitle.style.whiteSpace = WhiteSpace.Normal;
-            _detailSubtitle.style.marginTop = 4;
+            _detailSubtitle.style.marginTop = LvnTokens.Tight;
             dCap.Add(_detailSubtitle);
             _detailImage.Add(dCap);
             _detailView.Add(_detailImage);

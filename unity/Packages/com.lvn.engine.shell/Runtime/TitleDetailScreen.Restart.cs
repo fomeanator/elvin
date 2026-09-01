@@ -86,7 +86,7 @@ namespace Lvn.UI.Screens
             var whereLbl = new Label(where);
             whereLbl.style.color = LvnTokens.TextDim;
             whereLbl.style.fontSize = LvnTokens.TextXs;
-            whereLbl.style.marginTop = 4;
+            whereLbl.style.marginTop = LvnTokens.Tight;
             col.Add(whereLbl);
             row.Add(col);
 

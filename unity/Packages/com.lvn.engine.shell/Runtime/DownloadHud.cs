@@ -150,7 +150,7 @@ namespace Lvn.UI.Screens
             // ЦЕНТР строки единого навбара (решение Ильи 26.08): кружок живёт
             // в баре, морф попапа растёт симметрично из его же точки. Отступ
             // сверху хост синхронизирует с safe area бара (SetSafeTop).
-            _capsule.style.marginTop = 5;
+            _capsule.style.marginTop = LvnTokens.Tight;
             var bg = LvnTokens.PanelBg;
             // Просто полупрозрачный тон — блюр-стекло снято (Илья, 26.08).
             _capsule.style.backgroundColor = UiColor.WithAlpha(bg, 0.94f);
@@ -232,7 +232,7 @@ namespace Lvn.UI.Screens
             _kind.pickingMode = PickingMode.Ignore;
             _kind.style.color = LvnTokens.TextDim;
             _kind.style.fontSize = LvnTokens.TextXs;
-            _kind.style.marginTop = 3;
+            _kind.style.marginTop = LvnTokens.Hair;
             col.Add(_kind);
 
             // Поля — ТАБЛИЦЕЙ, по строке на факт (не лапшой через «·»):

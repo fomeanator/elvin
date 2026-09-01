@@ -32,7 +32,7 @@ namespace Lvn.UI.Screens
             var hint = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("settings.hint", "Sound, story language and full download"));
             hint.style.color = LvnTokens.TextDim;
             hint.style.fontSize = LvnTokens.TextXs;
-            hint.style.marginTop = 2;
+            hint.style.marginTop = LvnTokens.Hair;
             col.Add(hint);
             row.Add(col);
             var arrow = new Label("›");
@@ -65,7 +65,7 @@ namespace Lvn.UI.Screens
             var hint = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("account.delete_hint", "Erases progress, purchases and saves. Forever."));
             hint.style.color = LvnTokens.TextDim;
             hint.style.fontSize = LvnTokens.TextXs;
-            hint.style.marginTop = 2;
+            hint.style.marginTop = LvnTokens.Hair;
             hint.style.whiteSpace = WhiteSpace.Normal;
             col.Add(hint);
             row.Add(col);

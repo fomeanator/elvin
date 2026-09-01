@@ -215,7 +215,7 @@ namespace Lvn.UI
                 var cost = new Label(option.Cost) { name = CostName };
                 cost.style.color = _theme.ChoiceCostColor;
                 cost.style.fontSize = Mathf.RoundToInt(ChoiceSize * CostSizeRatio);
-                cost.style.marginTop = 4;
+                cost.style.marginTop = LvnTokens.Tight;
                 // Гарнитура новеллы — и подписи под вариантом тоже. Её ставили
                 // только заголовку, и вторая строка той же кнопки рисовалась
                 // шрифтом панели: на кнопке оказывались две разные гарнитуры.
@@ -229,7 +229,7 @@ namespace Lvn.UI
             {
                 var effRow = new VisualElement();
                 LvnFlow.Wrap(effRow, Justify.Center);
-                effRow.style.marginTop = 4;
+                effRow.style.marginTop = LvnTokens.Tight;
                 foreach (var eff in option.Effects)
                 {
                     var chip = new Label($"{(eff.Delta > 0 ? "+" : "")}{eff.Delta} {eff.Label}") { name = EffectName };

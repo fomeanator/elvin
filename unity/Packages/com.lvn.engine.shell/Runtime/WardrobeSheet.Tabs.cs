@@ -95,7 +95,7 @@ namespace Lvn.UI.Screens
             }) { text = "" };
             b.style.width = 54; b.style.height = 54;
             LvnAir.Pad(b, 0);
-            LvnAir.MarginX(b, 5);
+            LvnAir.MarginX(b, LvnTokens.Tight);
             b.style.alignItems = Align.Center;
             b.style.justifyContent = Justify.Center;
             LvnChrome.Round(b, Lvn.UI.LvnTokens.RadiusLg);

@@ -89,7 +89,7 @@ namespace Lvn.UI.Screens
             tabs.style.backgroundColor = LvnTokens.Surface;
             LvnChrome.Edge(tabs);
             LvnChrome.Round(tabs, LvnTokens.Radius);
-            LvnAir.Pad(tabs, 4);
+            LvnAir.Pad(tabs, LvnTokens.Tight);
             sheet.Add(tabs);
 
             _tabWeek = Pill(LvnWords.Of("board.week", "This week"), () => SetPeriod(true));
@@ -193,7 +193,7 @@ namespace Lvn.UI.Screens
             var crown = first
                 ? LvnIcons.Make(LvnIcon.Crown, 30f, LvnTokens.Gold)
                 : new VisualElement { style = { width = 30, height = 30 } };
-            crown.style.marginBottom = 2;
+            crown.style.marginBottom = LvnTokens.Hair;
             crown.style.alignSelf = Align.Center;
             col.Add(crown);
 
@@ -238,7 +238,7 @@ namespace Lvn.UI.Screens
             score.style.color = first ? LvnTokens.Gold : LvnTokens.TextDim;
             score.style.fontSize = first ? 26f : 18f;
             score.style.unityFontStyleAndWeight = first ? FontStyle.Bold : FontStyle.Normal;
-            score.style.marginTop = 2;
+            score.style.marginTop = LvnTokens.Hair;
             score.style.unityTextAlign = TextAnchor.MiddleCenter;
             col.Add(score);
 
@@ -305,7 +305,7 @@ namespace Lvn.UI.Screens
                 you.style.unityFontStyleAndWeight = FontStyle.Bold;
                 you.style.unityTextAlign = TextAnchor.MiddleCenter;
                 LvnAir.PadX(you, LvnTokens.Space2);
-                LvnAir.PadY(you, 2);
+                LvnAir.PadY(you, LvnTokens.Hair);
                 you.style.marginLeft = LvnTokens.Space2;
                 LvnChrome.Round(you, LvnTokens.RadiusSm);
                 nameCol.Add(you);

@@ -57,7 +57,7 @@ namespace Lvn.UI.Screens
             column.Add(_chapter);
 
             _continue = MakeButton(LvnWords.Pick("chapter_end.continue", _cfg.continue_label, "Continue"), primary: true);
-            _continue.style.marginTop = 72;
+            _continue.style.marginTop = LvnTokens.Space6; // пауза перед действием — крупнейшая ступень
             _continue.clicked += () => Resolve(true);
             column.Add(_continue);
 

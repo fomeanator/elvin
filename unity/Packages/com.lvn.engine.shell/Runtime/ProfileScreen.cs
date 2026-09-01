@@ -278,7 +278,7 @@ namespace Lvn.UI.Screens
             var level = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("profile.level", "Level {0}", Level));
             level.style.color = LvnTokens.Accent;
             level.style.fontSize = LvnTokens.TextSm;
-            level.style.marginTop = 2;
+            level.style.marginTop = LvnTokens.Hair;
             level.style.marginBottom = LvnTokens.Space2;
             col.Add(level);
 
@@ -340,7 +340,7 @@ namespace Lvn.UI.Screens
             var caption = new Label(s.Caption);
             caption.style.color = LvnTokens.TextDim;
             caption.style.fontSize = LvnTokens.TextXs;
-            caption.style.marginTop = 4;
+            caption.style.marginTop = LvnTokens.Tight;
             caption.style.whiteSpace = WhiteSpace.Normal;
             caption.style.unityTextAlign = TextAnchor.MiddleCenter;
             tile.Add(caption);

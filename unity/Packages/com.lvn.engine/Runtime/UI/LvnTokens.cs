@@ -120,6 +120,16 @@ namespace Lvn.UI
         public static int TextOr(float? authored, int step) =>
             authored.HasValue ? LvnFonts.Size(authored.Value) : step;
 
+        /// <summary>Волосяной зазор (2) — притирка: разделитель, кромка, точка.
+        /// Ниже нижней ступени шкалы, и потому со своим именем: это не «мало
+        /// воздуха», а его отсутствие с оговоркой.</summary>
+        public static float Hair => LvnTheme.Current.Hair;
+
+        /// <summary>Тесный зазор (4) — иконка у слова, чип в ряду. Второе и
+        /// последнее значение ниже шкалы: их было пять, и разнобой между
+        /// ними виден в сумме, а не поодиночке.</summary>
+        public static float Tight => LvnTheme.Current.Tight;
+
         public static float Space1 => LvnTheme.Current.Space1;
         public static float Space2 => LvnTheme.Current.Space2;
         public static float Space3 => LvnTheme.Current.Space3;

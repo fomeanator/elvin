@@ -268,7 +268,7 @@ namespace Lvn.UI.Screens
             {
                 var dot = new VisualElement();
                 dot.style.width = 10; dot.style.height = 10;
-                LvnAir.MarginX(dot, 5);
+                LvnAir.MarginX(dot, LvnTokens.Tight);
                 LvnChrome.Round(dot, LvnTokens.RadiusXs);   // точка — круг из квадрата 10×10
                 dot.style.backgroundColor = i == _index ? _dotActiveColor : _dotColor;
                 _dots.Add(dot);
@@ -346,7 +346,7 @@ namespace Lvn.UI.Screens
                 var sub = new Label(t.subtitle);
                 sub.style.color = UiColor.Named(_cfg.subtitle_color, LvnTokens.TextDim);
                 sub.style.fontSize = LvnTokens.TextOr(_cfg.subtitle_size, LvnTokens.TextSm);
-                sub.style.marginTop = 4;
+                sub.style.marginTop = LvnTokens.Tight;
                 sub.style.whiteSpace = WhiteSpace.Normal;
                 caption.Add(sub);
             }
@@ -468,7 +468,7 @@ namespace Lvn.UI.Screens
                     var prev = new Label("«" + Lvn.LvnClip.Text(auto.Preview, Lvn.LvnClip.PreviewMax) + "»");
                     prev.pickingMode = PickingMode.Ignore;
                     prev.style.fontSize = LvnTokens.TextMicro;
-                    prev.style.marginTop = 2;
+                    prev.style.marginTop = LvnTokens.Hair;
                     prev.style.unityFontStyleAndWeight = FontStyle.Italic;
                     prev.style.color = UiColor.Named(_cfg.subtitle_color, LvnTokens.TextDim);
                     cont.Add(prev);
