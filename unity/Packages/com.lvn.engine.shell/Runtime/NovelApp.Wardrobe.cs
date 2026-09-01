@@ -105,7 +105,7 @@ namespace Lvn.UI.Screens
             var hub = _shell?.Hub;
             if (hub != null)
             {
-                await ScreenFx.FadeAsync(hub, 1f, 0f, 0.25f, destroyCancellationToken);
+                await ScreenFx.FadeAsync(hub, 1f, 0f, 0.25f, _quitting);
                 hub.style.display = DisplayStyle.None;
             }
             try
@@ -123,7 +123,7 @@ namespace Lvn.UI.Screens
                 if (hub != null)
                 {
                     hub.style.display = DisplayStyle.Flex;
-                    LvnAsync.Fire(ScreenFx.FadeAsync(hub, 0f, 1f, 0.25f, destroyCancellationToken), "Fade");
+                    LvnAsync.Fire(ScreenFx.FadeAsync(hub, 0f, 1f, 0.25f, _quitting), "Fade");
                 }
             }
         }

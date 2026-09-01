@@ -56,7 +56,7 @@ namespace Lvn.UI.Screens
                 // into a later chapter, or a seamless next chapter, starts its own
                 // here — critical assets first, deferred during play.
                 if (_downloads != null && !ReferenceEquals(chapter, _preparedChapter))
-                    _chapterSched = _downloads.BeginChapter(chapter, destroyCancellationToken);
+                    _chapterSched = _downloads.BeginChapter(chapter, _quitting);
                 _preparedChapter = null;
                 AnnounceChapterStart(title, chapter);
                 var finished = await PlayOneChapterAsync(title, chapter, playerName, novelFreshStart);

@@ -295,8 +295,11 @@ namespace Lvn.UI.Screens
             // кормление осталось: статы, прогресс и балансы шли в экран,
             // который НИКОГДА не показывается — Show(Hud) нет ни в одном месте.
             // Мёртвая работа на каждый шаг главы и на каждое движение кошелька.
+            // Токен — общее поле `_quitting`, снятое в Start до первого
+            // ожидания (см. NovelApp.Boot): читать свойство здесь нельзя, мы
+            // уже после await.
             while (Stage.Player != null && !Stage.Player.Finished && !Stage.ExitRequested
-                   && !destroyCancellationToken.IsCancellationRequested)
+                   && !_quitting.IsCancellationRequested)
             {
                 _shell.TopBar?.SetProgress(Stage.Player.ProgressIndex, Stage.Player.ProgressTotal);
                 await Task.Yield();

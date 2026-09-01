@@ -26,7 +26,7 @@ namespace Lvn.UI.Screens
             TitleVars tv = null;
             try
             {
-                var json = await _assets.Loader.DownloadScriptText(title.vars_url, destroyCancellationToken);
+                var json = await _assets.Loader.DownloadScriptText(title.vars_url, _quitting);
                 var root = Newtonsoft.Json.Linq.JObject.Parse(json);
                 tv = new TitleVars
                 {

@@ -49,7 +49,7 @@ namespace Lvn.UI.Screens
             _chapterScript = string.IsNullOrEmpty(ch.script_url)
                 ? Task.CompletedTask
                 : _assets.Loader.DownloadScriptCached(ch.script_url);
-            _chapterSched = _downloads.BeginChapter(ch, destroyCancellationToken);
+            _chapterSched = _downloads.BeginChapter(ch, _quitting);
             _preparedChapter = ch;
             var script = _chapterScript;
             var sched = _chapterSched;

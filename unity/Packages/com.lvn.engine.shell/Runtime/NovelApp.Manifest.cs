@@ -86,7 +86,7 @@ namespace Lvn.UI.Screens
                     BootVeil.Status(LvnWords.Of("boot.reconnecting", "no connection to the server — reconnecting… ({n})", attempt));
                     // Компонент умер (смена сцены, снос встраивателем) — уходим
                     // без манифеста: вызывающий это увидит и прекратит загрузку.
-                    try { await Task.Delay(5000, destroyCancellationToken); }
+                    try { await Task.Delay(5000, _quitting); }
                     catch (OperationCanceledException) { return (null, online); }
                     try
                     {

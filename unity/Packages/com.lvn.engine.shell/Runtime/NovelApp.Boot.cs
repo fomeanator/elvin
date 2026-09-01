@@ -34,8 +34,30 @@ namespace Lvn.UI.Screens
         // упавший бут молчал: исключение уходило в никуда, а игрок оставался
         // перед вуалью, которая «просто не догружается». Теперь падение видно и
         // в логе, и на самой вуали.
+        /// <summary>
+        /// ПРИЛОЖЕНИЕ ЗАКРЫВАЮТ — снятая КОПИЯ ответа, а не сам вопрос.
+        ///
+        /// <para><c>destroyCancellationToken</c> — свойство НА КОМПОНЕНТЕ.
+        /// Пока компонент жив, оно отдаёт токен; после <c>Destroy</c>
+        /// обращение к нему бросает <c>MissingReferenceException</c>. Беда в
+        /// том, что читают его обычно ИМЕННО ТАМ, где проверяют «а не снесли ли
+        /// нас» — то есть после ожидания, — и проверка на мёртвом объекте
+        /// падает вместо того, чтобы ответить «да, снесли».</para>
+        ///
+        /// <para>Исключение вылетает в продолжении после <c>await</c>, ловить
+        /// его некому, и оно уходит в лог. В игре это тихо, а в прогоне
+        /// валится СЛЕДУЮЩИЙ тест — на чужом сообщении, у себя в SetUp. Так
+        /// краснота и простояла с 02:44 до 13:45, пока её не нашёл бисект.</para>
+        ///
+        /// <para>Сама структура токена уничтожение переживает и честно
+        /// отвечает «отменено». Поэтому копия снимается ОДИН раз, до первого
+        /// ожидания, и все проверки смотрят на неё.</para>
+        /// </summary>
+        private System.Threading.CancellationToken _quitting;
+
         private async void Start()
         {
+            _quitting = destroyCancellationToken;   // до первого await, пока живы
             // Хранилища оболочки объявляют себя ЗАБВЕНИЮ: движок их не видит
             // (Engine не знает про Shell), а забывать их надо вместе со всеми.
             Lvn.UI.LvnForget.Register("прогресс", LvnProgress.ResetTitle, null);
@@ -129,7 +151,7 @@ namespace Lvn.UI.Screens
                 // wins — invisible unless nothing answers in time. Checked
                 // (persisted), a small browser lists them plus a free-text field
                 // for the player's own host, and waits for an explicit Connect.
-                ServerUrl = await ServerSelectScreen.ResolveAsync(ServerUrl, KnownServers, destroyCancellationToken);
+                ServerUrl = await ServerSelectScreen.ResolveAsync(ServerUrl, KnownServers, _quitting);
                 LvnLog.Info($"[novelapp] server resolved: {ServerUrl}");
             }
             Mark("server resolved");
@@ -212,7 +234,7 @@ namespace Lvn.UI.Screens
             // The awaits above outlive a destroyed host (scene switch, embedder
             // teardown) — never keep booting on a dead component. Пустой манифест
             // означает ровно это: ожидание сети прервали сносом компонента.
-            if (destroyCancellationToken.IsCancellationRequested || manifest == null) return;
+            if (_quitting.IsCancellationRequested || manifest == null) return;
             LvnLog.Info($"[novelapp] manifest: {manifest.titles?.Count ?? 0} title(s) (online={online})");
 
             PrepareStage(manifest);
@@ -237,7 +259,7 @@ namespace Lvn.UI.Screens
             // reads — the next chapter's loading screen is then near-instant,
             // and nothing EVER trickles in on camera. Yields to an active
             // chapter gate so it never steals that bandwidth.
-            LvnAsync.Fire(WarmLibraryAsync(manifest, destroyCancellationToken), "WarmLibrary");
+            LvnAsync.Fire(WarmLibraryAsync(manifest, _quitting), "WarmLibrary");
             // The veil OWNS the whole app boot — one continuous surface from
             // the first frame to the first interactive screen. The shell's own
             // boot splash is suppressed (bootSplash: false): a second loading
@@ -260,7 +282,7 @@ namespace Lvn.UI.Screens
                 chapterProgress: ch => ChapterLoadProgress,
                 playChapter: PlayChapterAsync,
                 askName: AskName,
-                ct: destroyCancellationToken,
+                ct: _quitting,
                 bootSplash: false);
             await run;
         }
@@ -274,7 +296,7 @@ namespace Lvn.UI.Screens
             try
             {
                 var l = _assets?.Loader;
-                var ct = destroyCancellationToken;
+                var ct = _quitting;
                 while (!prefetch.IsCompleted && !ct.IsCancellationRequested)
                 {
                     float p = l != null && l.BatchTotal > 0
@@ -308,9 +330,17 @@ namespace Lvn.UI.Screens
                     // ЗАСТАВКА ДОСТАИВАЕТ СВОЁ. Успели за полсекунды — тем
                     // лучше, но мелькнувшее и тут же исчезнувшее имя читается
                     // как сбой, а не как вступление.
-                    while (BootVeil.BrandHolding && !destroyCancellationToken.IsCancellationRequested)
+                    // ТОКЕН — ТОТ ЖЕ `ct`, СНЯТЫЙ В НАЧАЛЕ МЕТОДА. Свойство
+                    // destroyCancellationToken живёт НА КОМПОНЕНТЕ: читать его
+                    // ПОСЛЕ await нельзя — к этому мигу объект мог быть
+                    // уничтожен, и обращение бросит MissingReferenceException
+                    // прямо в продолжении, где его некому поймать. Сама
+                    // структура токена уничтожение переживает и честно
+                    // отвечает «отменено» — потому копию и снимают один раз,
+                    // до первого ожидания.
+                    while (BootVeil.BrandHolding && !ct.IsCancellationRequested)
                         await System.Threading.Tasks.Task.Yield();
-                    if (destroyCancellationToken.IsCancellationRequested) return;
+                    if (ct.IsCancellationRequested) return;
                     if (Stage != null && !Stage.HasBackdrop)
                         Debug.LogWarning($"[lvn-boot] полотно не встало за {wait.ElapsedMilliseconds}ms — снимаем вуаль без него");
                     await BootVeil.FadeOutAsync(LvnMenuStage.VeilFadeSeconds);
@@ -401,6 +431,28 @@ namespace Lvn.UI.Screens
                 };
                 _shell.Settings.DownloadProgress = () =>
                     (loader.BatchBytesReceived, loader.BatchBytesExpected, loader.BatchActive);
+
+                // СБРОС АККАУНТА. Обряд забвения (LvnForget.All) написан давно
+                // и умеет всё — а в игре его не звал НИКТО: жил только в
+                // тестах. Кого забывать, знает каталог: хранилища по новеллам
+                // адресуются по ключу и списка своих ключей не ведут, а
+                // гардероб живёт по ПЕРСОНАЖУ, а не по новелле.
+                _shell.Settings.OnResetAccount = () =>
+                {
+                    var titles = new System.Collections.Generic.List<string>();
+                    if (_manifest?.titles != null)
+                        foreach (var t in _manifest.titles)
+                            if (!string.IsNullOrEmpty(t?.id)) titles.Add(t.id);
+                    var entities = new System.Collections.Generic.List<string>();
+                    if (_manifest?.sprites != null)
+                        foreach (var key in _manifest.sprites.Keys) entities.Add(key);
+
+                    Lvn.UI.LvnForget.All(titles, entities);
+                    // Забыли — значит и на экране должно стать пусто: витрина
+                    // держит прогресс в своих карточках, шапка — имя игрока.
+                    _shell.ApplyLiveUpdate(_manifest);
+                    LvnLog.Info("[lvn-forget] сброс из настроек: игрок стёрт, воронка пойдёт заново");
+                };
 
                 // Единый навбар: валюты данными, бургер по контексту
                 // (в сцене — квик-меню, в меню — настройки), пилюля — магазин.
@@ -527,7 +579,7 @@ namespace Lvn.UI.Screens
                     ProgressVault.Apply(ProgressVault.ReadLocal(), manifest);
                     if (ProgressVault.IsVirgin(manifest) && _state != null)
                         ProgressVault.Apply(
-                            await _state.LoadVarsAsync(ProgressVault.Scope, destroyCancellationToken),
+                            await _state.LoadVarsAsync(ProgressVault.Scope, _quitting),
                             manifest);
                 }
                 else if (_state != null)
@@ -540,7 +592,7 @@ namespace Lvn.UI.Screens
                     // данных (потолок и галерея доливаются, закладка едет за
                     // тем устройством, где играли позже).
                     ProgressVault.Absorb(
-                        await _state.LoadVarsAsync(ProgressVault.Scope, destroyCancellationToken),
+                        await _state.LoadVarsAsync(ProgressVault.Scope, _quitting),
                         manifest);
                 }
             }
