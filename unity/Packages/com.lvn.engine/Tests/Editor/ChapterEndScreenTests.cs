@@ -41,19 +41,10 @@ namespace Lvn.Tests
             return кнопки.ToArray();
         }
 
-        /// <summary>НАЖАТЬ без панели и кадров: в EditMode настоящий указатель
-        /// до кнопки не доходит (нет ни панели, ни раскладки), а правило живёт
-        /// именно на нажатии — дёргаем обработчик напрямую.</summary>
-        private static void Нажать(Button кнопка)
-        {
-            var подписка = typeof(Clickable).GetField("clicked", BindingFlags.Instance | BindingFlags.NonPublic);
-            if (подписка?.GetValue(кнопка.clickable) is Action действие) { действие(); return; }
-
-            var invoke = typeof(Clickable).GetMethod("Invoke", BindingFlags.Instance | BindingFlags.NonPublic,
-                null, new[] { typeof(EventBase) }, null);
-            Assert.NotNull(invoke, "до обработчика кнопки не дотянуться — нажатие проверять нечем");
-            invoke.Invoke(кнопка.clickable, new object[] { null });
-        }
+        /// <summary>НАЖАТЬ без панели и кадров — вопрос к дому
+        /// (<see cref="Нажатие"/>). Запасной путь через приватный Invoke пришёл
+        /// отсюда: три соседние копии его не знали.</summary>
+        private static void Нажать(Button кнопка) => Нажатие.Жать(кнопка);
 
         // ── показ: экран держит цикл глав ───────────────────────────────────
 

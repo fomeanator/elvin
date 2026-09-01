@@ -118,10 +118,7 @@ namespace Lvn.Tests
         {
             var кнопки = попап.Query<Button>().ToList();
             Assert.Greater(кнопки.Count, номер, "кнопки, на которую отвечают, на экране нет");
-            foreach (var поле in typeof(Clickable).GetFields(
-                         BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public))
-                if (поле.GetValue(кнопки[номер].clickable) is Action действие) { действие(); return; }
-            Assert.Fail("до обработчика кнопки не дотянуться — нажатие проверять нечем");
+            Нажатие.Жать(кнопки[номер]);
         }
 
         private static int Ответ(Task<int> показ, string почему)
