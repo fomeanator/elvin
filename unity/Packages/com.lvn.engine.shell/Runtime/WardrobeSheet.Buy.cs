@@ -135,7 +135,7 @@ namespace Lvn.UI.Screens
                 string buy = LvnWords.Pick("wardrobe.buy", _cfg.buy_text, "Buy");
                 SetConfirmText($"{buy}:  {price}", item.currency);
                 LvnLog.Trace($"[lvn-wardrobe] sheet buy offer {_entity}.{axis}='{item.value}' " +
-                          $"{item.price} {item.currency}, have {(LvnWallet.Balances.TryGetValue(item.currency ?? "", out var b) ? b : 0)}");
+                          $"{item.price} {item.currency}, have {LvnWallet.Balance(item.currency)}");
             }
             else SetConfirmText(LvnWords.Pick("wardrobe.choose", _cfg.confirm_text, "Choose"));
         }

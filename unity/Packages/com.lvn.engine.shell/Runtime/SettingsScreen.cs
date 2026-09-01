@@ -145,7 +145,7 @@ namespace Lvn.UI.Screens
             // новелла просит simple_audio). Здесь остаётся вид строки.
             foreach (var d in Lvn.UI.LvnSettingsCatalog.Audio(_cfg.simple_audio ?? false))
                 _list.Add(RowFor(d));
-            if (LvnPrefs.AvailableLocales != null && LvnPrefs.AvailableLocales.Count > 0)
+            if (Lvn.UI.LvnLocale.Offered)
                 _list.Add(LanguageRow());
             if (MenuTracks != null && MenuTracks.Count > 1)
                 _list.Add(MenuTrackRow());

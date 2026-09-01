@@ -26,6 +26,22 @@ namespace Lvn.Services
         public static IReadOnlyDictionary<string, long> Inventory { get { EnsureLoaded(); return _inventory; } }
 
         /// <summary>
+        /// СКОЛЬКО У ИГРОКА ЭТОЙ ВАЛЮТЫ — ноль, если он её ещё не видел.
+        ///
+        /// <para>Вопрос кошелька, а не поиск по карте. «Валюты нет в карте»
+        /// значит «ноль», и это РЕШЕНИЕ: можно было бы считать неизвестную
+        /// валюту ошибкой автора. Написанное хвостом <c>? v : 0</c> по месту,
+        /// оно повторялось у витрины гардероба и у функции сценария
+        /// <c>balance()</c> — и следующий, кому понадобится баланс, написал бы
+        /// хвост в третий раз, уже, может быть, с другим ответом.</para>
+        /// </summary>
+        public static long Balance(string currency)
+        {
+            if (string.IsNullOrEmpty(currency)) return 0;
+            return Balances.TryGetValue(currency, out var v) ? v : 0;
+        }
+
+        /// <summary>
         /// ЕСТЬ ЛИ ВЕЩЬ У ИГРОКА СЕЙЧАС — «штук больше нуля», а не «ключ
         /// присутствует».
         ///
