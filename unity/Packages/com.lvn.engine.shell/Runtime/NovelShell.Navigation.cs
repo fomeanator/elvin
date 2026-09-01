@@ -77,7 +77,7 @@ namespace Lvn.UI.Screens
                 case Lvn.UI.LvnScreenDirector.StoryPanel:
                 case Lvn.UI.LvnScreenDirector.QuickMenu: return;
             }
-            if (_inChapter) return;    // экран чист, глава идёт — «назад» не наш
+            if (InChapter) return;    // экран чист, глава идёт — «назад» не наш
             if (_tab != LvnTabs.Home && !_tabBusy) LvnAsync.Fire(TabGoTo(LvnTabs.Home), "BackHome");
         }
 

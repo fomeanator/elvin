@@ -151,7 +151,7 @@ namespace Lvn.UI.Screens
                 // дешевле любой отложенной перерисовки: лишней работы не
                 // становится меньше, её просто не возникает.
                 var favNow = MenuFavoriteEntity();
-                if (!_chapterPlaying && favNow != _lastMenuFavorite)
+                if (!InChapter && favNow != _lastMenuFavorite)
                 {
                     _lastMenuFavorite = favNow;
                     ShowMenuScene(withPortal: false); // смена фаворита — живьём, без врат
@@ -266,7 +266,7 @@ namespace Lvn.UI.Screens
             _shell.OnTabTravel = PanMenuScene;     // полотно панорамирует с вкладками
             _shell.OnTabTravelTick = k =>          // …кадр в кадр с UI
             {
-                if (_chapterPlaying || Stage == null
+                if (InChapter || Stage == null
                     || !Stage.ShowsBackdrop(_manifest?.ui?.browse?.canvas)) return;
                 Stage.SetBackgroundPan(Mathf.Lerp(_menuPanFrom, _menuPanTo, k));
             };
@@ -279,7 +279,7 @@ namespace Lvn.UI.Screens
             // лямбда — отписаться от неё нельзя вовсе, и правило «подписался
             // — умей отпустить» держалось у двух соседей из трёх.
             System.Action<string> onWardrobe =
-                _ => { if (!_chapterPlaying) ShowMenuScene(withPortal: false); };
+                _ => { if (!InChapter) ShowMenuScene(withPortal: false); };
             _leash.Hold(() => Lvn.UI.LvnWardrobe.Changed += onWardrobe,
                         () => Lvn.UI.LvnWardrobe.Changed -= onWardrobe);
             // Сцена перехода: панель ведёт экран, створ и героиню — хост.
@@ -482,8 +482,8 @@ namespace Lvn.UI.Screens
             catch (OperationCanceledException) { /* приложение закрывают — история всё равно отпускается домом */ }
         }
 
-        // Окно в Режиссёра: своей копии режима у приложения больше нет.
-        private bool _chapterPlaying => Lvn.UI.LvnScreenDirector.Current.InChapter;
+        // Окно в Режиссёра, а не память: имя у вопроса одно на всю оболочку.
+        private bool InChapter => Lvn.UI.LvnScreenDirector.Current.InChapter;
 
 
 

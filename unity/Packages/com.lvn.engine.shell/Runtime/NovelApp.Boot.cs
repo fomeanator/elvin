@@ -463,7 +463,7 @@ namespace Lvn.UI.Screens
                     _shell.TopBar.OnCurrency = _ => LvnAsync.Fire(_shell.OpenPackShopAsync(), "TopBarStore");
                     _shell.TopBar.OnBurger = () =>
                     {
-                        if (_chapterPlaying && Stage != null) Stage.OpenQuickMenu();
+                        if (InChapter && Stage != null) Stage.OpenQuickMenu();
                         else LvnAsync.Fire(_shell.OpenSettingsAsync(), "TopBarSettings");
                     };
                     Lvn.UI.StageMenu.ExternalSettings = () =>
@@ -501,7 +501,7 @@ namespace Lvn.UI.Screens
                     {
                         // Только во время сессии: вне игры «текущая глава» —
                         // хвост прошлого запуска («Скачать главу 0», скрин).
-                        if (!_chapterPlaying) return null;
+                        if (!InChapter) return null;
                         var t = _currentTitle; var ch = _currentChapter;
                         if (t == null || ch == null) return null;
                         long bytes = 0; int miss = 0;
