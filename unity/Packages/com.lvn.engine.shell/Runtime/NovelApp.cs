@@ -251,7 +251,17 @@ namespace Lvn.UI.Screens
 
 
 
-        private void PrepareStage(LvnManifest manifest)
+        /// <param name="mark">Отметка бута; <c>null</c> — не с запуска (живое
+        /// обновление каталога зовёт то же самое, и мерить там нечего).
+        ///
+        /// СЮДА ПРИХОДИЛИ УГАДЫВАТЬ. Между «манифест» и «сцена и тема готовы»
+        /// в живом логе 02.09 лежало 634 мс — самый крупный непрозрачный кусок
+        /// бута после ожидания полотна. Внутри четыре разных дела (построить
+        /// сцену, принять манифест с темой и шрифтами, прогреть полотно,
+        /// наложить язык), и ни одно не было названо: узнать, какое из них
+        /// стоит эти 634 мс, было НЕЧЕМ. Отметки ничего не стоят (обычный
+        /// Trace) и превращают чёрный ящик в четыре числа.</param>
+        private void PrepareStage(LvnManifest manifest, System.Action<string> mark = null)
         {
             if (Stage == null)
             {
@@ -265,13 +275,16 @@ namespace Lvn.UI.Screens
                     _shell.OnMenuVisible += ShowMenuScene;
                 }
             }
+            mark?.Invoke("сцена построена");
             Stage.Assets = _assets;   // ДО принятия: тема грузит свой арт через него
             // Содержимое манифеста применяет ОДИН дом (NovelApp.Manifest) — он
             // же отвечает на живое обновление. Здесь остаётся только то, что
             // относится к запуску.
             ApplyManifest(manifest);
+            mark?.Invoke("манифест принят (тема, шрифты)");
             WarmMenuCanvas();     // полотно витрины — к первому же показу меню
             WatchMenuBackdrop();  // и под наблюдение Лекаря: витрина без фона — недуг
+            mark?.Invoke("полотно поставлено греться");
             Stage.CrossChapterLoader = CrossChapterLoadAsync;
 
             // Language: the manifest declares which catalogs exist (Settings shows
@@ -293,6 +306,12 @@ namespace Lvn.UI.Screens
             // языков идёт следом, чтобы переключение было мгновенным.
             LvnAsync.Fire(ApplyLocaleAtBootAsync(), "ApplyLocale");
             _localeApplied = CurrentLocale;   // с чем стартовали — от этого и считаем смену
+            // ЯЗЫК ОТМЕЧАЕТСЯ ОТДЕЛЬНО, хотя пущен через Fire: до первого
+            // ожидания он идёт СИНХРОННО и успевает пройти по всему дереву
+            // интерфейса (LvnWords.Translate → LvnRedress.All). В логе 02.09
+            // эта строка стоит внутри измеряемых 634 мс — значит платит за
+            // неё бут, а не фон.
+            mark?.Invoke("язык наложен");
             LvnPrefs.Changed -= OnPrefsMaybeLocale;
             _leash.Hold(() => LvnPrefs.Changed += OnPrefsMaybeLocale,
                         () => LvnPrefs.Changed -= OnPrefsMaybeLocale);
