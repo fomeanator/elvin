@@ -39,7 +39,7 @@ namespace Lvn.UI
                     var s = await Assets.LoadSpriteAsync(url, _cts.Token);
                     if (s != null)
                     {
-                        if (attempt > 1) LvnLog.Trace($"[stage] {what} {url} recovered (attempt {attempt})");
+                        if (attempt > 1) LvnLog.Trace($"[lvn-stage] {what} {url} recovered (attempt {attempt})");
                         return s;
                     }
                     lastErr = "no data (404 or decode failed)";
@@ -48,10 +48,10 @@ namespace Lvn.UI
                 catch (Exception ex) { lastErr = ex.Message; }
                 if (attempt == MaxAttempts) break;
                 float delay = Lvn.Content.LvnBackoff.DelaySeconds(attempt + 1);
-                Debug.LogWarning($"[stage] {what} {url} unavailable (attempt {attempt}): {lastErr} — retry in {delay:F0}s or on reconnect");
+                Debug.LogWarning($"[lvn-stage] {what} {url} unavailable (attempt {attempt}): {lastErr} — retry in {delay:F0}s or on reconnect");
                 await WaitRetryWindowAsync(delay);
             }
-            Debug.LogWarning($"[stage] {what} {url} gave up after {MaxAttempts} attempts: {lastErr}");
+            Debug.LogWarning($"[lvn-stage] {what} {url} gave up after {MaxAttempts} attempts: {lastErr}");
             return null;
         }
 
@@ -288,7 +288,7 @@ namespace Lvn.UI
                     catch (OperationCanceledException) { return; }
                     catch (System.Exception e)
                     {
-                        Debug.LogWarning($"[stage] 3D set '{id}' не загрузился: {e.Message}");
+                        Debug.LogWarning($"[lvn-stage] 3D set '{id}' не загрузился: {e.Message}");
                     }
                     if (loaded?.Prefab == null) { loaded?.Dispose(); return; } // keep the flat background
                     if (!_clock.MayTouch(epoch, LvnStageClock.BackgroundLane, gen))
@@ -303,7 +303,7 @@ namespace Lvn.UI
                     _active3DSetId = id;
                     old?.Dispose();
                     HasBackdrop = true;
-                    LvnLog.Trace($"[stage] 3D set '{id}' ready ({(loaded.Remote ? "server/cache" : "bundled fallback")})");
+                    LvnLog.Trace($"[lvn-stage] 3D set '{id}' ready ({(loaded.Remote ? "server/cache" : "bundled fallback")})");
                 }
             }
 

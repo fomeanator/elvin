@@ -108,7 +108,7 @@ namespace Lvn.UI.Screens
             if (shared.Count > 0) _dlCenter.Enqueue(LvnWords.Of("dl.shared", "Covers and menu"), sharedBytes, shared);
             foreach (var (label, bytes, items) in perChapter)
                 _dlCenter.Enqueue(label, bytes, items);
-            LvnLog.Trace($"[content] «Скачать всё»: {perChapter.Count} глав + {shared.Count} общих файлов в очередь");
+            LvnLog.Trace($"[lvn-content] «Скачать всё»: {perChapter.Count} глав + {shared.Count} общих файлов в очередь");
             return _dlCenter.WhenDrainedAsync();
         }
 
@@ -169,7 +169,7 @@ namespace Lvn.UI.Screens
                     }
                 }
             });
-            LvnLog.Trace($"[content] качество арта: чужие боксы вычищены ({removed} файлов), "
+            LvnLog.Trace($"[lvn-content] качество арта: чужие боксы вычищены ({removed} файлов), "
                 + $"перекачка {redo.Count} глав в {cur}");
             if (redo.Count == 0) return;
             _dlCenter ??= new Lvn.UI.Screens.DownloadCenter(loader);
@@ -256,7 +256,7 @@ namespace Lvn.UI.Screens
             foreach (var part in LvnParts.OfShellSound(m)) Add(live, part.Url);
             var (removed, freed) = await loader.SweepAssetCacheAsync(live, prot, DiskCacheQuotaBytes);
             if (removed > 0)
-                LvnLog.Trace($"[content] уборка диска: {removed} файлов, {freed >> 20} МБ (мёртвые версии + давнее над квотой)");
+                LvnLog.Trace($"[lvn-content] уборка диска: {removed} файлов, {freed >> 20} МБ (мёртвые версии + давнее над квотой)");
         }
 
         // Every image url the MENU surfaces reference (covers, chapter loading

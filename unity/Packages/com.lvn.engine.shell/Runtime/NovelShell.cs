@@ -559,7 +559,7 @@ namespace Lvn.UI.Screens
         public async Task RevealFromLoadingAsync(CancellationToken ct = default)
         {
             bool visible = Loading != null && Loading.resolvedStyle.display != DisplayStyle.None;
-            LvnLog.Trace($"[shell] reveal: loader visible={visible} fade={Transitions?.screen_fade ?? 0.35f}s");
+            LvnLog.Trace($"[lvn-shell] reveal: loader visible={visible} fade={Transitions?.screen_fade ?? 0.35f}s");
             if (visible)
             {
                 await Loading.FadeOutAsync(Transitions?.screen_fade ?? 0.35f, ct);

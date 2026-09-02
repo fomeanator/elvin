@@ -39,7 +39,7 @@ namespace Lvn.UI.Screens
             {
                 // Declarations are an optimization, never a gate: chapters keep
                 // playing on their own (older content carries inline defaults).
-                Debug.LogWarning($"[novelapp] vars_url '{title.vars_url}' failed: {e.Message}");
+                Debug.LogWarning($"[lvn-app] vars_url '{title.vars_url}' failed: {e.Message}");
             }
             _titleVarsCache[title.id] = tv; // cache the miss too — no refetch storm
             return tv;
@@ -60,13 +60,13 @@ namespace Lvn.UI.Screens
             var (title, chapter) = FindChapterByScriptUrl(url);
             if (chapter == null)
             {
-                Debug.LogWarning($"[novelapp] save points at unknown chapter: {url}");
+                Debug.LogWarning($"[lvn-app] save points at unknown chapter: {url}");
                 return false;
             }
 
             string json;
             try { json = await _assets.Loader.DownloadScriptCached(url); }
-            catch (Exception ex) { Debug.LogWarning($"[novelapp] cross-chapter fetch failed: {ex.Message}"); return false; }
+            catch (Exception ex) { Debug.LogWarning($"[lvn-app] cross-chapter fetch failed: {ex.Message}"); return false; }
             if (string.IsNullOrEmpty(json)) return false;
 
             Stage.ClearStage();
@@ -78,7 +78,7 @@ namespace Lvn.UI.Screens
             EnterChapterContext(title ?? _currentTitle, chapter);
             _currentScriptJson = json;
             LvnProgress.ResumeFromSave(_currentTitle, chapter); // continue follows the jump
-            LvnLog.Trace($"[novelapp] loaded save into '{chapter.id}' (@{slot.Snap.Index})");
+            LvnLog.Trace($"[lvn-app] loaded save into '{chapter.id}' (@{slot.Snap.Index})");
             return true;
         }
 
@@ -96,7 +96,7 @@ namespace Lvn.UI.Screens
             // перечислялись сейвы и статы, а галерея с прочитанным оставались.
             Lvn.UI.LvnForget.Title(title.id);
             await WipeServerVarsAsync(title.id);
-            LvnLog.Info($"[novelapp] restarted expedition '{title.id}' — stats & saves cleared");
+            LvnLog.Info($"[lvn-app] restarted expedition '{title.id}' — stats & saves cleared");
             SyncProgressVault(); // the wipe is progress too — all homes agree
         }
 
@@ -199,7 +199,7 @@ namespace Lvn.UI.Screens
         {
             if (_state == null || string.IsNullOrEmpty(titleId)) return;
             try { await _state.SaveVarsAsync(titleId, new Newtonsoft.Json.Linq.JObject(), default); }
-            catch (Exception ex) { Debug.LogWarning($"[novelapp] stat wipe {titleId}: {ex.Message}"); }
+            catch (Exception ex) { Debug.LogWarning($"[lvn-app] stat wipe {titleId}: {ex.Message}"); }
         }
 
         // Snapshot the player's live variables as a JObject the state store persists.
@@ -227,7 +227,7 @@ namespace Lvn.UI.Screens
                 ProgressVault.WriteLocal(bundle);
                 if (_state != null) LvnAsync.Fire(_state.SaveVarsAsync(ProgressVault.Scope, bundle, default), "SaveVars");
             }
-            catch (Exception e) { Debug.LogWarning("[vault] sync failed: " + e.Message); }
+            catch (Exception e) { Debug.LogWarning("[lvn-vault] sync failed: " + e.Message); }
         }
     }
 }

@@ -257,7 +257,7 @@ namespace Lvn.Content
                     catch (OperationCanceledException) { throw; }
                     catch (LvnFetchException ex) when (ex.Status is >= 400 and < 500)
                     {
-                        Debug.LogWarning($"[content] preload {asset.Url} permanent {ex.Status}");
+                        Debug.LogWarning($"[lvn-content] preload {asset.Url} permanent {ex.Status}");
                         if (prefetchUrl == "") prefetchUrl = null;
                         break;
                     }

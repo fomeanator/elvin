@@ -306,3 +306,47 @@ func TestChromeUnwiresWhatItWires(t *testing.T) {
 			len(lonely), strings.Join(lonely, "\n  "))
 	}
 }
+
+// ДИАГНОСТИКА ПОМЕЧАЕТСЯ ОДНИМ СПОСОБОМ.
+//
+// Тег стоит в самой строке (`[lvn-menu] …`), и по нему фильтруют консоль и
+// ОТГРУЖАЕМЫЙ ЛОГ — тот, что приезжает с устройства игрока в админку. Правило
+// записано в докблоке дома журнала.
+//
+// Соглашений при этом было ДВА: 166 строк с `[lvn-*]` и 98 с голым именем —
+// `[novelapp]`, `[content]`, `[stage]`, да ещё вперемешку по регистру
+// (`[LVN]`, `[LvnFx]`). Фильтр по `lvn-` не видел ТРЕТИ диагностики движка, и
+// заметить это можно было только не найдя в поле того, что точно логируется.
+func TestEveryDiagnosticTagIsNamespaced(t *testing.T) {
+	root := repoRoot(t)
+	tag := regexp.MustCompile(`(?:Debug\.Log\w*|LvnLog\.\w+)\(\s*\$?"(\[[a-zA-Z][\w-]*\])`)
+	seen := 0
+	var strays []string
+	err := filepath.Walk(filepath.Join(root, "unity", "Packages"),
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+				return err
+			}
+			if strings.Contains(path, "/Tests/") || strings.Contains(path, "Samples~") {
+				return nil
+			}
+			seen++
+			for _, m := range tag.FindAllStringSubmatch(string(mustRead(t, path)), -1) {
+				if !strings.HasPrefix(m[1], "[lvn") {
+					strays = append(strays, filepath.Base(path)+": "+m[1])
+				}
+			}
+			return nil
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sawSources(t, seen, 200, "файлов .cs")
+	sort.Strings(strays)
+	if len(strays) > 0 {
+		t.Errorf("теги диагностики мимо соглашения (%d):\n  %s\n\n"+
+			"Тег обязан начинаться с «lvn»: по нему фильтруют отгружаемый лог, "+
+			"и сообщение с чужим тегом в поле просто не находится.",
+			len(strays), strings.Join(strays, "\n  "))
+	}
+}

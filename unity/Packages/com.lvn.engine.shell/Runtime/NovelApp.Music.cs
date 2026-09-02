@@ -33,7 +33,7 @@ namespace Lvn.UI.Screens
                             () => Lvn.UI.LvnPrefs.Changed -= SyncMenuMusicVolume);
                 if (!InChapter) _menuMusic.Play();
             }
-            catch (Exception ex) { Debug.LogWarning($"[novelapp] музыка меню: {ex.Message}"); }
+            catch (Exception ex) { Debug.LogWarning($"[lvn-app] музыка меню: {ex.Message}"); }
         }
 
         // Трек меню: выбранный игроком из ui.browse.music_options, иначе базовый.
@@ -62,7 +62,7 @@ namespace Lvn.UI.Screens
                 if (was && !InChapter) _menuMusic.Play();
             }
             catch (OperationCanceledException) { }   // приложение закрывают — не отказ
-            catch (Exception ex) { Debug.LogWarning($"[novelapp] смена трека меню: {ex.Message}"); }
+            catch (Exception ex) { Debug.LogWarning($"[lvn-app] смена трека меню: {ex.Message}"); }
         }
 
         private void SyncMenuMusicVolume()

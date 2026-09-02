@@ -27,7 +27,7 @@ namespace Lvn.EditorTools
         {
             if (!ApplyIfPresent())
             {
-                Debug.LogError("[icon] нет " + Dir + "app-icon.png");
+                Debug.LogError("[lvn-icon] нет " + Dir + "app-icon.png");
                 EditorApplication.Exit(1);
             }
         }
@@ -52,7 +52,7 @@ namespace Lvn.EditorTools
             SetAndroid(AndroidPlatformIconKind.Legacy, legacy, null);
 
             AssetDatabase.SaveAssets();
-            Debug.Log("[icon] иконки применены" + (fg != null && bg != null ? " (включая адаптивную)" : ""));
+            Debug.Log("[lvn-icon] иконки применены" + (fg != null && bg != null ? " (включая адаптивную)" : ""));
             return true;
         }
 

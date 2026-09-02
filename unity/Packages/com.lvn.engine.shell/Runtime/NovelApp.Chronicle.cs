@@ -122,7 +122,7 @@ namespace Lvn.UI.Screens
             LvnSaveStore.Delete(title?.id, LvnSaveStore.AutoSlot);
             await Lvn.Content.LvnGlobalStats.OverlayAsync(_state, Stage.SeedVars);
             await SaveScopedVarsAsync(title?.id, Stage.SeedVars);
-            LvnLog.Info($"[novelapp] restarting '{chapter.id}' from its entry checkpoint");
+            LvnLog.Info($"[lvn-app] restarting '{chapter.id}' from its entry checkpoint");
             return true;
         }
 
@@ -174,15 +174,15 @@ namespace Lvn.UI.Screens
             var plan = ChapterEntryPlan.From(online, in readiness);
             if (!plan.CanPlay)
             {
-                Debug.LogWarning($"[novelapp] chapter '{chapter.id}' unavailable offline (script not cached)");
+                Debug.LogWarning($"[lvn-app] chapter '{chapter.id}' unavailable offline (script not cached)");
                 await Task.Delay(300);
                 return null;
             }
 
             string json;
             try { json = await _assets.Loader.DownloadScriptCached(chapter.script_url); }
-            catch (Exception ex) { Debug.LogWarning($"[novelapp] script fetch failed: {ex.Message}"); return null; }
-            if (string.IsNullOrEmpty(json)) { Debug.LogWarning($"[novelapp] no script for '{chapter.id}'"); return null; }
+            catch (Exception ex) { Debug.LogWarning($"[lvn-app] script fetch failed: {ex.Message}"); return null; }
+            if (string.IsNullOrEmpty(json)) { Debug.LogWarning($"[lvn-app] no script for '{chapter.id}'"); return null; }
 
             EnterChapterContext(title, chapter);
             // Имя не запоминаем: его держит дом, а параметр остаётся ради
@@ -261,7 +261,7 @@ namespace Lvn.UI.Screens
             }
             if (resuming)
             {
-                LvnLog.Info($"[novelapp] resuming '{chapter.id}' from autosave (@{autosave.Snap.Index})");
+                LvnLog.Info($"[lvn-app] resuming '{chapter.id}' from autosave (@{autosave.Snap.Index})");
                 // The snapshot carries the GLOBAL stats as they were at save time —
                 // another novel may have moved them since. Load the live ones FIRST:
                 // the overlay below then runs before any of the restore's async

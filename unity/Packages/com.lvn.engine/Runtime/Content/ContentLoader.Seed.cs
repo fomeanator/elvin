@@ -42,7 +42,7 @@ namespace Lvn.Content
                     }
                 }
                 _seedIndex = set;
-                if (set.Count > 0) LvnLog.Info($"[content] сид первого входа: {set.Count} файлов в APK");
+                if (set.Count > 0) LvnLog.Info($"[lvn-content] сид первого входа: {set.Count} файлов в APK");
             }
             catch { _seedIndex = new HashSet<string>(); }
         }

@@ -44,21 +44,21 @@ namespace Lvn.UI
                 if (loaded && _collection.variantCount > 0)
                 {
                     Driver().StartWarmup(_collection);
-                    LvnLog.Trace($"[pso] warming {_collection.variantCount} variant(s) / {_collection.totalGraphicsStateCount} state(s) from {Path.GetFileName(path)}");
+                    LvnLog.Trace($"[lvn-pso] warming {_collection.variantCount} variant(s) / {_collection.totalGraphicsStateCount} state(s) from {Path.GetFileName(path)}");
                 }
                 else
                 {
                     _collection.BeginTrace();
                     _tracing = true;
                     Driver(); // hooks quit/pause saves
-                    LvnLog.Trace("[pso] no collection for this device yet — tracing this session");
+                    LvnLog.Trace("[lvn-pso] no collection for this device yet — tracing this session");
                 }
             }
             catch (System.Exception ex)
             {
                 // Experimental API — a platform where it misbehaves just keeps
                 // the old first-show compiles. Never let warmup break boot.
-                Debug.LogWarning($"[pso] warmup unavailable: {ex.Message}");
+                Debug.LogWarning($"[lvn-pso] warmup unavailable: {ex.Message}");
                 _collection = null;
                 _tracing = false;
             }
@@ -73,13 +73,13 @@ namespace Lvn.UI
             {
                 _collection.EndTrace();
                 if (_collection.variantCount > 0 && _collection.SaveToFile(FilePath))
-                    LvnLog.Trace($"[pso] traced {_collection.variantCount} variant(s) → {Path.GetFileName(FilePath)}");
+                    LvnLog.Trace($"[lvn-pso] traced {_collection.variantCount} variant(s) → {Path.GetFileName(FilePath)}");
                 // Keep collecting if the session continues (pause ≠ quit).
                 _collection.BeginTrace();
             }
             catch (System.Exception ex)
             {
-                Debug.LogWarning($"[pso] trace save failed: {ex.Message}");
+                Debug.LogWarning($"[lvn-pso] trace save failed: {ex.Message}");
                 _tracing = false;
             }
         }
@@ -112,7 +112,7 @@ namespace Lvn.UI
                 if (_warming == null) return;
                 if (_warming.isWarmedUp)
                 {
-                    LvnLog.Trace($"[pso] warmup complete: {_warming.completedWarmupCount} state(s)");
+                    LvnLog.Trace($"[lvn-pso] warmup complete: {_warming.completedWarmupCount} state(s)");
                     _warming = null;
                     return;
                 }

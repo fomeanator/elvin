@@ -142,7 +142,7 @@ namespace Lvn.UI.Screens
                 // Test-lane override always wins — it exists so device automation
                 // can point an install at a throwaway server without re-exporting.
                 ServerUrl = serverOverride;
-                LvnLog.Info($"[novelapp] server override (dev): {ServerUrl}");
+                LvnLog.Info($"[lvn-app] server override (dev): {ServerUrl}");
             }
             else
             {
@@ -152,7 +152,7 @@ namespace Lvn.UI.Screens
                 // (persisted), a small browser lists them plus a free-text field
                 // for the player's own host, and waits for an explicit Connect.
                 ServerUrl = await ServerSelectScreen.ResolveAsync(ServerUrl, KnownServers, _quitting);
-                LvnLog.Info($"[novelapp] server resolved: {ServerUrl}");
+                LvnLog.Info($"[lvn-app] server resolved: {ServerUrl}");
             }
             Mark("server resolved");
 
@@ -235,7 +235,7 @@ namespace Lvn.UI.Screens
             // teardown) — never keep booting on a dead component. Пустой манифест
             // означает ровно это: ожидание сети прервали сносом компонента.
             if (_quitting.IsCancellationRequested || manifest == null) return;
-            LvnLog.Info($"[novelapp] manifest: {manifest.titles?.Count ?? 0} title(s) (online={online})");
+            LvnLog.Info($"[lvn-app] manifest: {manifest.titles?.Count ?? 0} title(s) (online={online})");
 
             PrepareStage(manifest);
             Mark("stage + theme ready");
@@ -427,7 +427,7 @@ namespace Lvn.UI.Screens
                 _shell.Settings.ClearDownloads = async () =>
                 {
                     long freed = await loader.ClearAssetCacheAsync();
-                    LvnLog.Trace($"[content] загруженное удалено: {freed >> 20} МБ");
+                    LvnLog.Trace($"[lvn-content] загруженное удалено: {freed >> 20} МБ");
                 };
                 _shell.Settings.DownloadProgress = () =>
                     (loader.BatchBytesReceived, loader.BatchBytesExpected, loader.BatchActive);
@@ -543,7 +543,7 @@ namespace Lvn.UI.Screens
                         {
                             _lastMissingCount = files;
                             if (files > 0 && files <= 24)
-                                LvnLog.Trace($"[content] недокачано {files}: {string.Join(", ", sample)}");
+                                LvnLog.Trace($"[lvn-content] недокачано {files}: {string.Join(", ", sample)}");
                         }
                         return (bytes, files);
                     };
@@ -597,7 +597,7 @@ namespace Lvn.UI.Screens
                 }
             }
             catch (OperationCanceledException) { }   // приложение закрывают — не отказ
-            catch (Exception e) { Debug.LogWarning("[vault] restore skipped: " + e.Message); }
+            catch (Exception e) { Debug.LogWarning("[lvn-vault] restore skipped: " + e.Message); }
         }
 
         /// <summary>
@@ -631,27 +631,27 @@ namespace Lvn.UI.Screens
             try { fresh = await manifestTask; }
             catch (Exception ex)
             {
-                LvnLog.Info($"[novelapp] запуск по кэшу: сеть не догнала ({ex.Message})");
+                LvnLog.Info($"[lvn-app] запуск по кэшу: сеть не догнала ({ex.Message})");
                 return;
             }
             if (fresh == null || this == null) return;
             if (SameAsCached(fresh))
             {
-                LvnLog.Info("[novelapp] запуск по кэшу: каталог не менялся");
+                LvnLog.Info("[lvn-app] запуск по кэшу: каталог не менялся");
                 return;
             }
-            LvnLog.Info("[novelapp] запуск по кэшу: приехал свежий каталог — обновляю экраны");
+            LvnLog.Info("[lvn-app] запуск по кэшу: приехал свежий каталог — обновляю экраны");
             await AdoptManifestAsync(fresh);
         }
 
         private async Task OnContentChangedAsync()
         {
-            LvnLog.Info("[novelapp] content changed — reloading");
+            LvnLog.Info("[lvn-app] content changed — reloading");
             try { await _assets.WarmVersionsAsync(); } catch { /* offline */ }
 
             LvnManifest manifest;
             try { manifest = await FetchManifestAsync(); }
-            catch (Exception ex) { Debug.LogWarning($"[novelapp] live manifest fetch failed: {ex.Message}"); return; }
+            catch (Exception ex) { Debug.LogWarning($"[lvn-app] live manifest fetch failed: {ex.Message}"); return; }
             await AdoptManifestAsync(manifest);
             await HotReloadOpenChapterAsync();
         }
@@ -720,14 +720,14 @@ namespace Lvn.UI.Screens
             // structure forces a restart from the top.
             if (Stage.TryHotSwap(json))
             {
-                LvnLog.Trace($"[novelapp] hot-swapped chapter '{_currentChapter.id}' in place (kept position)");
+                LvnLog.Trace($"[lvn-app] hot-swapped chapter '{_currentChapter.id}' in place (kept position)");
             }
             else
             {
                 Stage.Play(json);
                 if (Stage.Player != null && !string.IsNullOrEmpty(_playerName))
                     Lvn.UI.LvnPlayerName.Seed(Stage.Player, _playerName);
-                LvnLog.Trace($"[novelapp] reloaded chapter '{_currentChapter.id}' (structure changed — restarted)");
+                LvnLog.Trace($"[lvn-app] reloaded chapter '{_currentChapter.id}' (structure changed — restarted)");
             }
         }
     }

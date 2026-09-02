@@ -179,7 +179,7 @@ namespace Lvn.UI
                 catch (OperationCanceledException) { throw; }
                 catch (Exception e)
                 {
-                    Debug.LogWarning($"[assets] 3D set '{id}' remote bundle failed: {e.Message}; using fallback");
+                    Debug.LogWarning($"[lvn-assets] 3D set '{id}' remote bundle failed: {e.Message}; using fallback");
                 }
             }
 

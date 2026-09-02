@@ -48,7 +48,7 @@ namespace Lvn.UI.Screens
                 try { manifest = await manifestTask; CacheManifest(manifest); }
                 catch (Exception ex)
                 {
-                    Debug.LogWarning($"[novelapp] manifest fetch failed: {ex.Message} — falling back to cache");
+                    Debug.LogWarning($"[lvn-app] manifest fetch failed: {ex.Message} — falling back to cache");
                     online = false;
                     LvnNetworkStatus.MarkOffline("manifest fetch failed");
                 }
@@ -80,7 +80,7 @@ namespace Lvn.UI.Screens
                 // A fresh install that can't reach the server is NOT a dead end:
                 // hold on the veil and keep retrying — the moment the network
                 // appears the app boots itself, no restart needed.
-                Debug.LogWarning("[novelapp] no manifest and no cache — holding boot for connectivity");
+                Debug.LogWarning("[lvn-app] no manifest and no cache — holding boot for connectivity");
                 for (int attempt = 1; manifest == null; attempt++)
                 {
                     BootVeil.Status(LvnWords.Of("boot.reconnecting", "no connection to the server — reconnecting… ({n})", attempt));
@@ -97,7 +97,7 @@ namespace Lvn.UI.Screens
                     }
                     catch (Exception ex)
                     {
-                        LvnLog.Info($"[novelapp] manifest retry {attempt}: {ex.Message}");
+                        LvnLog.Info($"[lvn-app] manifest retry {attempt}: {ex.Message}");
                     }
                 }
                 mark("manifest (recovered)");
@@ -166,7 +166,7 @@ namespace Lvn.UI.Screens
                     // (LvnBackoff), а не своя лесенка: «сколько ждать» не может
                     // зависеть от того, какой файл споткнулся.
                     float pause = Lvn.Content.LvnBackoff.DelaySeconds(attempt + 1);
-                    Debug.LogWarning($"[novelapp] manifest fetch attempt {attempt} failed: {ex.Message} — retry in {pause:F1}s");
+                    Debug.LogWarning($"[lvn-app] manifest fetch attempt {attempt} failed: {ex.Message} — retry in {pause:F1}s");
                     await Task.Delay((int)(pause * 1000f));
                 }
             }

@@ -103,7 +103,7 @@ namespace Lvn.UI.World
                 target = FindPart(actorGo, part);
                 if (target == null)
                 {
-                    Debug.LogWarning($"[LvnSpriteFx] у '{actorGo.name}' нет слоя part={part}");
+                    Debug.LogWarning($"[lvn-fx] у '{actorGo.name}' нет слоя part={part}");
                     return;
                 }
             }
@@ -407,7 +407,7 @@ namespace Lvn.UI.World
                     secondary = Html("#ffffff");
                     break;
                 default:
-                    Debug.LogWarning($"[LvnSpriteFx] неизвестный aura_style={style}; использую basic");
+                    Debug.LogWarning($"[lvn-fx] неизвестный aura_style={style}; использую basic");
                     _auraStyle = 0f;
                     primary = Html("#d6deea");
                     secondary = Html("#ffffff");

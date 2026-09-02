@@ -198,9 +198,9 @@ namespace Lvn.Content
                     // Поймано прогоном 01.09: два теста, идущих БЕЗ сервера,
                     // покраснели на строке про кодировщик.
                     if (Lvn.LvnNetworkStatus.IsOffline)
-                        LvnLog.Warn($"[content] {url}: кода не спросить — связи нет");
+                        LvnLog.Warn($"[lvn-content] {url}: кода не спросить — связи нет");
                     else
-                        LvnLog.Error($"[content] {url}: кода нет и через {Ktx2Waits * Ktx2WaitMs / 1000} с, "
+                        LvnLog.Error($"[lvn-content] {url}: кода нет и через {Ktx2Waits * Ktx2WaitMs / 1000} с, "
                                    + "а растром арт истории мы не показываем. "
                                    + "Соберите коды (tools/warm-ktx2.sh) или проверьте basisu на сервере");
                     return null;

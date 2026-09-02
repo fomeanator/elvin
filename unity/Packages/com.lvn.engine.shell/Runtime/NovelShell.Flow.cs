@@ -168,7 +168,7 @@ namespace Lvn.UI.Screens
                         BeginChapterSession();   // один дом начала: хром, лента, режим, хост
                         try { await playChapter(title, chapter, _playerName); }
                         catch (OperationCanceledException) { return; }
-                        catch (Exception ex) { Debug.LogWarning($"[shell] chapter play failed: {ex.Message}"); }
+                        catch (Exception ex) { Debug.LogWarning($"[lvn-shell] chapter play failed: {ex.Message}"); }
                         EndChapterSession();   // один дом завершения: хром, режим, полоса, хост
                     }
                     // Свидетель того, что вводная пройдена, ОДИН, и он у дома

@@ -148,7 +148,7 @@ namespace Lvn
                 var path = FilePath(name);
                 if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
             }
-            catch (Exception e) { Debug.LogWarning($"[mark] не стёрся файл метки '{name}': {e.Message}"); }
+            catch (Exception e) { Debug.LogWarning($"[lvn-mark] не стёрся файл метки '{name}': {e.Message}"); }
         }
 
         /// <summary>
