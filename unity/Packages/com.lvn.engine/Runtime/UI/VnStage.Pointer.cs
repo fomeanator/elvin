@@ -201,7 +201,14 @@ namespace Lvn.UI
         {
             if (LvnClock.Now() - _lastSwallowLog < 1f) return;
             _lastSwallowLog = LvnClock.Now();
-            LvnLog.Trace($"[lvn-input] тап проглочен: {reason} (say={_sayUp} awaitingTap={_awaitingTap})");
+            // КТО ДЕРЖИТ ИНТЕРФЕЙС — часть ответа на «ничего не тыкается».
+            // Скрытый интерфейс съедает касание, а причин скрыть его три
+            // (катсцена, «во весь рост», долгое нажатие); без имени держащего
+            // в логе видно только следствие.
+            string chrome = _chromeHidden
+                ? " chromeHidden=" + LvnScreenDirector.Current.ChromeHolders() : "";
+            LvnLog.Trace($"[lvn-input] тап проглочен: {reason} "
+                       + $"(say={_sayUp} awaitingTap={_awaitingTap}{chrome})");
         }
 
         private void HandleTap(Vector2 pos)

@@ -161,7 +161,33 @@ namespace Lvn.UI
         // Every text/choice beat replaces the previous card through a short
         // dissolve. The generation invalidates delayed callbacks on reset/new beat.
         private int _dialogueSwapGeneration;
-        private bool _choiceCommitInFlight;
+        /// <summary>
+        /// ПОЧЕМУ СТОПКА ВЫБОРА ПОГАШЕНА — причин две, а ручка одна.
+        ///
+        /// <para>Гасят её обработка нажатия (идёт оплата или доигрывается
+        /// такт) и незакончившаяся хореография (актёр ещё входит в кадр).
+        /// Каждая держала <c>SetEnabled</c> сама, парами «выключил — включил»
+        /// по девяти местам, и вторая снимала первую: пока шла оплата, конец
+        /// входа актёра ЗАЖИГАЛ стопку обратно и заново запускал отсчёт
+        /// выбора. Второе нажатие ловил отдельный флаг, а вот кнопки светились
+        /// живыми и срок тикал.</para>
+        /// </summary>
+        private readonly LvnReasons _choiceLocks = new LvnReasons();
+
+        /// <summary>Причины, по которым выбор погашен. Слова, а не числа: на
+        /// вопрос «почему кнопки не нажимаются» отвечает журнал.</summary>
+        private const string ChoiceLockCommit = "нажатие в обработке";
+        private const string ChoiceLockChoreography = "хореография не доиграла";
+
+        /// <summary>Нажатие уже обрабатывается (оплата, доигрывание такта).
+        /// Отдельный вопрос от «стопка погашена»: тап по реплике гасит именно
+        /// он, а не всякое погашение.</summary>
+        private bool _choiceCommitInFlight => _choiceLocks.Has(ChoiceLockCommit);
+
+        /// <summary>Единственное место, где стопка выбора включается и
+        /// гаснет. Пока их было девять, «включить» и «выключить» стояли
+        /// парами — и пара, написанная одной причиной, снимала чужую.</summary>
+        private void PaintChoiceEnabled() => _choices?.SetEnabled(!_choiceLocks.Any);
         // A rebuilt UIDocument has no old pixels to fade out even if _sayUp
         // remembers that the player is parked on a line. The first rerender onto
         // that fresh surface must install the current card directly.

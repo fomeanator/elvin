@@ -97,7 +97,8 @@ namespace Lvn.UI
             }
             if (_curChoices != null && _curChoices.Count > 0 && _choices != null)
             {
-                _choices.SetEnabled(false);
+                _choiceLocks.Hold(ChoiceLockChoreography);
+                PaintChoiceEnabled();
                 int gen = _dialogueSwapGeneration;
                 _choices.schedule.Execute(() => EnableChoiceWhenChoreographyReady(gen))
                     .ExecuteLater(1);

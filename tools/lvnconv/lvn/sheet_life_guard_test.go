@@ -1338,3 +1338,93 @@ func TestHalfSizeRadiusHasAHome(t *testing.T) {
 			len(hand), strings.Join(hand, "\n  "))
 	}
 }
+
+// У СТОПКИ ВЫБОРА ОДНА РУЧКА.
+//
+// Гасят её две независимые причины: нажатие в обработке (идёт оплата или
+// доигрывается такт) и незакончившаяся хореография (актёр ещё входит в кадр).
+// Каждая держала `SetEnabled` сама, парами «выключил — включил» по девяти
+// местам, и вторая снимала первую: пока шла ОПЛАТА, конец входа актёра зажигал
+// стопку обратно и заново запускал отсчёт выбора.
+//
+// Второе нажатие ловил отдельный флаг, поэтому дважды не платили. Но кнопки
+// светились живыми, а срок тикал — и увидеть это можно было только глазами, в
+// узком окне, на медленной сети.
+//
+// Теперь причины считает LvnReasons, а включает и гасит ОДНО место.
+func TestChoiceStackHasOneSwitch(t *testing.T) {
+	root := repoRoot(t)
+	dir := filepath.Join(root, "unity/Packages/com.lvn.engine/Runtime/UI")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := 0
+	var extra []string
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasPrefix(e.Name(), "VnStage") {
+			continue
+		}
+		seen++
+		src := stripComments(string(mustRead(t, filepath.Join(dir, e.Name()))))
+		for _, line := range strings.Split(src, "\n") {
+			if !strings.Contains(line, "SetEnabled") || !strings.Contains(line, "_choices") {
+				continue
+			}
+			if strings.Contains(line, "PaintChoiceEnabled") {
+				continue // сам выключатель
+			}
+			extra = append(extra, e.Name()+": "+strings.TrimSpace(line))
+		}
+	}
+	sawSources(t, seen, 10, "частей сцены")
+	sort.Strings(extra)
+	if len(extra) > 0 {
+		t.Errorf("стопку выбора гасят мимо выключателя (%d):\n  %s\n\n"+
+			"Возьмите причину (_choiceLocks.Hold/Drop) и позовите "+
+			"PaintChoiceEnabled(). Пара «выключил — включил», написанная одной "+
+			"причиной, снимает чужую: так оплата теряла свой замок на входе "+
+			"актёра.",
+			len(extra), strings.Join(extra, "\n  "))
+	}
+}
+
+// СЧЁТ ПРИЧИН — ОДИН НА ДВИЖОК.
+//
+// Форма «держат, пока держит хоть одна причина» жила двумя экземплярами:
+// у режиссёра экрана (скрытый интерфейс) и у стопки выбора. Второй экземпляр
+// той же логики расходится молча — и расходится в ту же сторону, что и флаг
+// до него: снимут одну причину, отпустят все.
+func TestReasonCountingHasOneHome(t *testing.T) {
+	root := repoRoot(t)
+	own := regexp.MustCompile(`HashSet<string>\s+_(?:hidden|held|locks|reasons|holders)\b`)
+	seen := 0
+	var copies []string
+	for _, rel := range []string{
+		"unity/Packages/com.lvn.engine/Runtime/UI",
+		"unity/Packages/com.lvn.engine.shell/Runtime",
+	} {
+		_ = filepath.Walk(filepath.Join(root, rel), func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+				return nil
+			}
+			seen++
+			if filepath.Base(path) == "LvnReasons.cs" {
+				return nil // единственный законный дом
+			}
+			if own.MatchString(stripComments(string(mustRead(t, path)))) {
+				copies = append(copies, filepath.Base(path))
+			}
+			return nil
+		})
+	}
+	sawSources(t, seen, 60, "файлов слоя интерфейса")
+	sort.Strings(copies)
+	if len(copies) > 0 {
+		t.Errorf("счёт причин заведён своим множеством (%d): %s\n\n"+
+			"Есть LvnReasons: Hold/Drop возвращают «состояние перевернулось», "+
+			"а Journal отвечает на вопрос «почему оно до сих пор выключено» — "+
+			"на который у флага ответа нет вовсе.",
+			len(copies), strings.Join(copies, ", "))
+	}
+}
