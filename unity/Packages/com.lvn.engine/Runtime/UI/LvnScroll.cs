@@ -65,8 +65,14 @@ namespace Lvn.UI
                 view.contentContainer.UnregisterCallback(back);
             };
             view.contentContainer.RegisterCallback(back);
-            view.schedule.Execute(() => view.contentContainer.UnregisterCallback(back))
-                .ExecuteLater(96);
+            // Страховка ВОЗВРАЩАЕТ, а не просто отписывает: у пустого тела
+            // геометрию считать не на чем, события может не быть вовсе — и
+            // отписка без возврата оставила бы игрока в начале молча.
+            view.schedule.Execute(() =>
+            {
+                view.scrollOffset = was;
+                view.contentContainer.UnregisterCallback(back);
+            }).ExecuteLater(96);
         }
 
         /// <summary>Вертикальный список с общими правилами: полос нет (на
