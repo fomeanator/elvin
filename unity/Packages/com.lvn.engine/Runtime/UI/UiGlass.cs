@@ -61,8 +61,26 @@ namespace Lvn.UI
                 host.style.overflow = Overflow.Hidden;
 
                 host.RegisterCallback<GeometryChangedEvent>(_ => Align(host));
-                layer.RegisterCallback<DetachFromPanelEvent>(_ => LvnGlass.Current?.Forget());
-                LvnGlass.Current?.Retain();
+
+                // ДЕРЖИМ РОВНО ОДИН РАЗ, И ПОКА МЫ НА ЭКРАНЕ.
+                //
+                // Раньше «взять» стояло один раз при создании слоя, а «отдать»
+                // висело на отсоединении от панели — то есть срабатывало
+                // СТОЛЬКО РАЗ, сколько элемент уходил с экрана. Пара
+                // разъезжалась на первом же возврате: отсоединили —
+                // счётчик ушёл в ноль, подложка выключилась, а вернувшийся
+                // слой её больше не просил вовсе. Диалог с матовым фоном
+                // получал пустоту, и заметить это в коде нельзя — оба вызова
+                // на месте, и каждый по отдельности верен.
+                //
+                // Теперь пара считается по СВОЕМУ состоянию, а не по числу
+                // событий, и возврат на экран снова просит подложку.
+                bool held = false;
+                void Hold() { if (held) return; held = true; LvnGlass.Current?.Retain(); }
+                void Drop() { if (!held) return; held = false; LvnGlass.Current?.Forget(); }
+                layer.RegisterCallback<AttachToPanelEvent>(_ => Hold());
+                layer.RegisterCallback<DetachFromPanelEvent>(_ => Drop());
+                if (layer.panel != null) Hold();   // уже на панели — события не будет
 
                 // Подложка пересоздаётся при смене разрешения (поворот экрана,
                 // окно на настольной машине), и старая ссылка после этого
