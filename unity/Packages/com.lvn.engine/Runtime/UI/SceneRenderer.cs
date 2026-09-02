@@ -41,8 +41,8 @@ namespace Lvn.UI
         /// origin — for manual hotspot hit-testing. Null when the actor doesn't
         /// exist.</summary>
         Rect? ActorScreenRect(string id);
-        /// <summary>Момент (realtime), когда у актёра доиграет идущий кроссфейд
-        /// облика; 0 — свободен. Новое применение ждёт, а не срезает.</summary>
+        /// <summary>Убрать всех со сцены (уборка между главами). Кто переживает
+        /// её живьём — <see cref="KeepAlive"/>.</summary>
         void RemoveAll();
 
         /// <summary>Кто переживает уборку ЖИВЬЁМ (не пересобираясь): героиня

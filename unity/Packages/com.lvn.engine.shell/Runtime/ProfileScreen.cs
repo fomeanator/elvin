@@ -50,8 +50,6 @@ namespace Lvn.UI.Screens
         }
 
         // ── Live/overridable model (hardcoded demo fallbacks) ──────────────
-        /// <summary>Имя для показа. Пусто — спросим у роли: она знает и имя,
-        /// и подпись безымянного (её задаёт новелла, а не движок).</summary>
         // Копия имени не хранится — см. BrowseHub: одна правда у роли
         // LvnPlayerName, экран её только показывает.
 

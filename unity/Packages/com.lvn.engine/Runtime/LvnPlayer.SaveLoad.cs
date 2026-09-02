@@ -417,13 +417,5 @@ namespace Lvn
             }
             return true;
         }
-
-        // Pure-visual staging ops safe to re-apply on a hot-swap (no side effects
-        // on vars/flow/pauses). NOT set/inc (would double-count) nor say/choice/wait.
-        /// <summary>
-        /// Единственная дверь на сцену. Раньше её открывали в десяти местах, и
-        /// любая обработка команды перед показом означала бы десять правок —
-        /// девять из которых однажды забыли бы.
-        /// </summary>
     }
 }

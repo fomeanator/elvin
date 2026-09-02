@@ -22,18 +22,18 @@ namespace Lvn.UI
         /// нажатие); после него взвод снимается сам.</summary>
         public bool Press()
         {
-        if (!Armed) { Armed = true; return false; }
-        Armed = false;
-        return true;
+            if (!Armed) { Armed = true; return false; }
+            Armed = false;
+            return true;
         }
 
         /// <summary>Разоружить (время вышло, ушли с экрана).
         /// <c>true</c> — состояние изменилось.</summary>
         public bool Disarm()
         {
-        if (!Armed) return false;
-        Armed = false;
-        return true;
+            if (!Armed) return false;
+            Armed = false;
+            return true;
         }
     }
 }

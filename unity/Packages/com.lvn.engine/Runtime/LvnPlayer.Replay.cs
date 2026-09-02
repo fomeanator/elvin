@@ -281,8 +281,5 @@ namespace Lvn
                 "ExtensionPlugin sample does; a MonoBehaviour.Start races the runner's Start;\n" +
                 "  4) it is simply a typo — lvnconv validate flags it as 'unknown op' at build time.");
         }
-
-        /// <summary>Set the cursor and run forward to the next pause — the resume
-        /// step after a load (the scene is rebuilt by <see cref="ReplayVisuals"/>).</summary>
     }
 }

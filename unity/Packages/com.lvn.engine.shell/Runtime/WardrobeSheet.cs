@@ -375,6 +375,8 @@ namespace Lvn.UI.Screens
         public void SetContent(LvnManifest manifest) => _manifest = manifest;
 
         private VisualElement _rosterRow;
+        /// <summary>Open the sheet for a character; resolves when the player
+        /// confirms or collapses it. The story op awaits this.</summary>
         public async Task ShowAsync(string entityId, CancellationToken ct = default)
         {
             if (_open) return;

@@ -323,7 +323,9 @@ namespace Lvn.UI
             Commands.ReleaseAll(LvnSender.Cutscene);
         }
 
-        /// </summary>
+        /// <summary>Порядок слоя фигуры, которая стоит перед всеми в катсцене.
+        /// Явный <c>z</c> живёт у сцены до следующего явного — чистый лист
+        /// нового показа его сбрасывает (см. ApplyActorAsync).</summary>
         public const int SoloFrontZ = 100;
     }
 }

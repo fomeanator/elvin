@@ -21,6 +21,8 @@ namespace Lvn.Content
     /// </summary>
     public sealed partial class ContentLoader
     {
+        /// <summary>True if at least one asset has been downloaded and cached
+        /// locally. Used to decide whether to show the verify phase on startup.</summary>
         public bool HasCachedAssets()
         {
             try
@@ -140,8 +142,5 @@ namespace Lvn.Content
         // версии после обновления арта, снятый контент) удаляются всегда; над
         // квотой уходят самые давние, защищённые (текущая/следующая глава,
         // вводная) — никогда.
-
-        /// <summary>Ключи кэша, под которыми может лежать этот url: сам файл и
-        /// все его варианты (@2k, @mini, .ktx2) — их и держит уборка живыми.</summary>
     }
 }

@@ -199,6 +199,9 @@ namespace Lvn.UI
             return true;
         }
 
+        /// <summary>Restore a persistent slot taken in the CURRENT chapter; returns
+        /// false for another chapter's slot (see <see cref="LoadFromSlotAsync"/> for
+        /// the cross-chapter path).</summary>
         public bool LoadFromSlot(string slot)
         {
             var s = LvnSaveStore.Get(_saveTitleId, slot);

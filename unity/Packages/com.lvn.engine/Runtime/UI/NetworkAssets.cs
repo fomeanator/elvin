@@ -134,7 +134,6 @@ namespace Lvn.UI
             => _audio.GetAsync(url, () => LoadAudioCoreAsync(url, ct));
 
 
-        // more; huge atlases otherwise stall on decode/upload and blow memory.
         // Выгрузка — в общем доме (AssetMemory): у поставщиков разные кэши, но
         // одинаковые правила освобождения. Копия здесь и была тем местом, где
         // «почти одинаково» однажды становится «по-разному».

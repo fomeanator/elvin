@@ -81,8 +81,5 @@ namespace Lvn.UI.Screens
                             return true;
             return false;
         }
-
-        /// <summary>Open the sheet for a character; resolves when the player
-        /// confirms or collapses it. The story op awaits this.</summary>
     }
 }

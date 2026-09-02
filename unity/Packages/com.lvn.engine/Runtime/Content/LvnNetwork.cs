@@ -2,6 +2,12 @@ using System;
 
 namespace Lvn.Content
 {
+    /// <summary>
+    /// A content-fetch failure carrying the HTTP status and a short machine code
+    /// (<c>"network"</c> for connectivity misses, <c>"http_NNN"</c> for bad
+    /// responses). Retry loops branch on these: a <c>4xx</c> is permanent (give
+    /// up), a <c>"network"</c> while offline is pointless to retry.
+    /// </summary>
     public sealed class LvnFetchException : Exception
     {
         public int Status { get; }

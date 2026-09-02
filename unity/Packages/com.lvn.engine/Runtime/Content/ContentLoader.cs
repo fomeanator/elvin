@@ -686,6 +686,8 @@ namespace Lvn.Content
         // version into the key means a re-uploaded asset gets a fresh cache file
         // (auto-invalidation) without clobbering the old one. Unknown/unversioned
         // assets fall back to sha1(url) — legacy behaviour.
+        /// <summary>Ключи кэша, под которыми может лежать этот url: сам файл и
+        /// все его варианты (@2k, @mini, .ktx2) — их и держит уборка живыми.</summary>
         public void AddLiveKeysFor(string url, HashSet<string> into)
         {
             if (string.IsNullOrEmpty(url) || into == null) return;

@@ -51,9 +51,5 @@ namespace Lvn.UI
             // нужен дальше — в отличие от переноса под бюджет памяти.
             return Lvn.Content.LvnTexCopy.Rescale(tex, width, h);
         }
-
-        /// <summary>Restore a persistent slot taken in the CURRENT chapter; returns
-        /// false for another chapter's slot (see <see cref="LoadFromSlotAsync"/> for
-        /// the cross-chapter path).</summary>
     }
 }

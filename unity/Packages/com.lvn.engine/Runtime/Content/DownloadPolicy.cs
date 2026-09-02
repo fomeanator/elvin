@@ -300,7 +300,7 @@ namespace Lvn.Content
         /// </summary>
         public static bool CodedArt(string url)
             => !string.IsNullOrEmpty(url)
-               && !url.Contains("/pixel/")
+               && !HasFolder(url, "/pixel/")
                && url.IndexOf(QMini, System.StringComparison.Ordinal) < 0;
 
         /// <summary>
@@ -321,7 +321,7 @@ namespace Lvn.Content
         /// полгода прятал поломку кодов.</para>
         /// </summary>
         public static bool RasterForbidden(string url)
-            => CodedArt(url) && !string.IsNullOrEmpty(url) && !url.Contains("/ui/");
+            => CodedArt(url) && !string.IsNullOrEmpty(url) && !HasFolder(url, "/ui/");
 
         /// <summary>Адрес уменьшенного варианта («@2k») для крупного арта
         /// истории, либо null, когда файл обязан грузиться как есть: пиксель-арт,
@@ -334,7 +334,7 @@ namespace Lvn.Content
         public static string DownscaleVariant(string url)
         {
             if (string.IsNullOrEmpty(url)) return null;
-            if (url.Contains("/pixel/") || url.Contains("/ui/") || url.Contains("@")) return null;
+            if (HasFolder(url, "/pixel/") || HasFolder(url, "/ui/") || url.Contains("@")) return null;
             // /spine/ pages are here because the SPINE display path also renders
             // from @2k (VnStage.Spine LoadSpineImageAsync) — warming the original
             // would download+decode a full-size page the renderer never samples.
