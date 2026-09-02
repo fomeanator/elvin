@@ -547,3 +547,98 @@ func TestTestsCleanUpInTearDown(t *testing.T) {
 			len(loud), strings.Join(loud, "\n  "))
 	}
 }
+
+// ЭКРАНЫ ГАСНУТ В ОДИН ТЕМП.
+//
+// Прайс-лист длительностей (`LvnMotion`) заведён ровно от этой болезни: «правка
+// одного имени меняет ритм всей оболочки разом», а числа на местах вызова дают
+// соседние элементы, движущиеся вразнобой. Самое крупное движение оболочки —
+// гашение ЦЕЛОГО ЭКРАНА — в список не попало, и пять экранов держали свои
+// числа: 0,18 у попапа, 0,25 у галереи и гардероба, 0,3 у входа. Решение «в
+// темп актёров» (Илья 25.08) знал только накладной экран, где оно и записано.
+//
+// Поэтому: длительность в вызове `ScreenFx.Fade*` — не число. Имя (`FadeSeconds`,
+// `HandOffSeconds`, `VeilFadeSeconds`), поле автора (`screen_fade`) или
+// переменная — что угодно, у чего есть место, где решение записано ОДИН раз.
+func TestScreensFadeAtOneTempo(t *testing.T) {
+	root := repoRoot(t)
+	dirs := []string{
+		"unity/Packages/com.lvn.engine.shell/Runtime",
+		"unity/Packages/com.lvn.engine/Runtime/UI",
+	}
+	// Довод длительности: у FadeAsync четвёртый, у FadeAwayAsync второй.
+	call := regexp.MustCompile(`ScreenFx\.(FadeAsync|FadeAwayAsync)\(`)
+	number := regexp.MustCompile(`^\d+(\.\d+)?f?$`)
+	at := map[string]int{"FadeAsync": 3, "FadeAwayAsync": 1}
+
+	seen := 0
+	var literals []string
+	for _, d := range dirs {
+		entries, err := os.ReadDir(filepath.Join(root, d))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, e := range entries {
+			if e.IsDir() || !strings.HasSuffix(e.Name(), ".cs") {
+				continue
+			}
+			src := stripComments(string(mustRead(t, filepath.Join(root, d, e.Name()))))
+			for _, m := range call.FindAllStringSubmatchIndex(src, -1) {
+				which := src[m[2]:m[3]]
+				args, ok := topLevelArgs(src, m[1])
+				if !ok {
+					continue
+				}
+				seen++
+				i := at[which]
+				if i >= len(args) {
+					continue
+				}
+				a := strings.TrimSpace(args[i])
+				if number.MatchString(a) {
+					line := strings.Count(src[:m[0]], "\n") + 1
+					literals = append(literals, e.Name()+":"+itoa(line)+" → "+a)
+				}
+			}
+		}
+	}
+	sawSources(t, seen, 8, "гашений экрана")
+	sort.Strings(literals)
+	if len(literals) > 0 {
+		t.Errorf("длительность гашения задана числом на месте вызова (%d):\n  %s\n\n"+
+			"Прайс-лист LvnMotion затем и заведён, чтобы ритм оболочки правился "+
+			"одним именем. Общий темп экрана — ScreenFx.FadeSeconds; если этот "+
+			"экран правда другой поступок, дайте числу имя с объяснением.",
+			len(literals), strings.Join(literals, "\n  "))
+	}
+}
+
+// Доводы вызова верхнего уровня: запятые внутри вложенных скобок и строк не
+// делят. `from` — позиция сразу за открывающей скобкой.
+func topLevelArgs(src string, from int) ([]string, bool) {
+	depth, start := 1, from
+	var args []string
+	for i := from; i < len(src); i++ {
+		switch src[i] {
+		case '(', '[':
+			depth++
+		case ')', ']':
+			depth--
+			if depth == 0 {
+				return append(args, src[start:i]), true
+			}
+		case ',':
+			if depth == 1 {
+				args = append(args, src[start:i])
+				start = i + 1
+			}
+		case '"':
+			for i++; i < len(src) && src[i] != '"'; i++ {
+				if src[i] == '\\' {
+					i++
+				}
+			}
+		}
+	}
+	return nil, false
+}

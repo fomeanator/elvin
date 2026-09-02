@@ -207,7 +207,7 @@ namespace Lvn.UI.Screens
                 _field.value = !string.IsNullOrEmpty(known) ? known : (_cfg.default_name ?? "");
             }
             LvnAsync.Fire(DriveStatusAsync(), "DriveStatus");
-            await ScreenFx.FadeAsync(this, 0f, 1f, 0.3f, ct);
+            await ScreenFx.FadeAsync(this, 0f, 1f, ScreenFx.FadeSeconds, ct);
 
             _tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var reg = ct.Register(() => _tcs.TrySetCanceled());
@@ -216,7 +216,7 @@ namespace Lvn.UI.Screens
             try { name = await _tcs.Task; }
             finally
             {
-                await ScreenFx.FadeAwayAsync(this, 0.3f, CancellationToken.None);
+                await ScreenFx.FadeAwayAsync(this, ScreenFx.FadeSeconds, CancellationToken.None);
             }
             // Fire-and-forget: the name lands on the account when the network
             // allows; Start never waits on the round-trip.

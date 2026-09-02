@@ -124,8 +124,16 @@ namespace Lvn.UI.Screens
             Render(true);
             try { await Task.Delay(120, ct); } catch (OperationCanceledException) { }   // заставка не обязана быть: без неё загрузка просто тише
 
-            await ScreenFx.FadeAwayAsync(this, 0.4f, ct);
+            await ScreenFx.FadeAwayAsync(this, HandOffSeconds, ct);
         }
+
+        /// <summary>ПЕРЕДАЧА КАДРА, а не смена раздела: бут гаснет вдвое
+        /// дольше общего темпа экранов, потому что за ним открывается не
+        /// соседний раздел, а первая сцена — единственный кроссфейд, который
+        /// игрок смотрит осознанно. Столько же держит брендовая вуаль
+        /// (<see cref="Lvn.UI.LvnMenuStage.VeilFadeSeconds"/>): это один
+        /// поступок, показанный двумя поверхностями.</summary>
+        private const float HandOffSeconds = 0.4f;
 
         public void Hide() => ScreenFx.PutAway(this);
 

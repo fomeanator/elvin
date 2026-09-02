@@ -161,7 +161,7 @@ namespace Lvn.UI.Screens
             // Смена вопроса не мигает: карточка уже на экране, и проявлять её
             // с нуля значит погасить и зажечь заново — игрок читает это как
             // сбой, а не как новый вопрос.
-            await ScreenFx.FadeAsync(this, wasUp ? 1f : 0f, 1f, 0.18f, ct);
+            await ScreenFx.FadeAsync(this, wasUp ? 1f : 0f, 1f, ScreenFx.FadeSeconds, ct);
             // Убрали посреди появления (хозяин свернулся) или сменили вторым
             // вопросом — не парковаться на ожидании, которое некому решить.
             if (gen != _showGen || !_open) return -1;
@@ -179,7 +179,7 @@ namespace Lvn.UI.Screens
                 // достанется сменщику.
                 if (gen == _showGen)
                 {
-                    await ScreenFx.FadeAsync(this, 1f, 0f, 0.18f, CancellationToken.None);
+                    await ScreenFx.FadeAsync(this, 1f, 0f, ScreenFx.FadeSeconds, CancellationToken.None);
                     // И ЕЩЁ РАЗ ПОСЛЕ ЗАТУХАНИЯ. Одной проверки до него мало:
                     // гаснем 0,18 с, и это целое окно, за которое экран может
                     // занять новый вопрос — тогда три строки ниже уберут за
