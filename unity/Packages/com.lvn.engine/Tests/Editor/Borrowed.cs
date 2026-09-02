@@ -50,21 +50,25 @@ namespace Lvn.Tests
     /// </summary>
     internal sealed class Мусор
     {
-        private readonly System.Collections.Generic.List<UnityEngine.GameObject> _список
-            = new System.Collections.Generic.List<UnityEngine.GameObject>();
+        private readonly System.Collections.Generic.List<UnityEngine.Object> _список
+            = new System.Collections.Generic.List<UnityEngine.Object>();
 
         /// <summary>Взять объект под уборку и вернуть его же — чтобы вызов
-        /// вставал прямо в выражение, а не отдельной строкой, которую забудут.</summary>
-        public UnityEngine.GameObject Беречь(UnityEngine.GameObject go)
+        /// вставал прямо в выражение, а не отдельной строкой, которую забудут.
+        ///
+        /// <para>Любой <c>Object</c>, а не только игровой: тесты заводят ещё и
+        /// текстуры, спрайты, префабы, и они переживают тест ровно так же —
+        /// молча и до конца сессии редактора.</para></summary>
+        public T Беречь<T>(T o) where T : UnityEngine.Object
         {
-            if (go != null) _список.Add(go);
-            return go;
+            if (o != null) _список.Add(o);
+            return o;
         }
 
         public void Убрать()
         {
-            foreach (var go in _список)
-                if (go != null) UnityEngine.Object.DestroyImmediate(go);
+            foreach (var o in _список)
+                if (o != null) UnityEngine.Object.DestroyImmediate(o);
             _список.Clear();
         }
     }

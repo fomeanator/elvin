@@ -13,8 +13,14 @@ namespace Lvn.Tests
     /// by stepping its compositor with a controlled clock.
     public class WorldActorTests
     {
+        private readonly Мусор _мусор = new Мусор();
+
         [TearDown]
-        public void RestoreClock() => LvnAnimSampler.Clock = () => Time.realtimeSinceStartup;
+        public void RestoreClock()
+        {
+            LvnAnimSampler.Clock = () => Time.realtimeSinceStartup;
+            _мусор.Убрать();
+        }
 
         private static List<object[]> K(params object[][] keys) => new List<object[]>(keys);
         private static Sprite NewSprite() => Sprite.Create(new Texture2D(2, 2), new Rect(0, 0, 2, 2), new Vector2(0.5f, 0.5f));
@@ -22,7 +28,7 @@ namespace Lvn.Tests
         [Test]
         public void Compositor_DrivesUguiTargets()
         {
-            var go = new GameObject("actor", typeof(RectTransform));
+            var go = _мусор.Беречь(new GameObject("actor", typeof(RectTransform)));
             var actor = go.AddComponent<WorldActor>();
             actor.ContentSize = new Vector2(1000f, 2000f);
             actor.SetSlotBase(Vector2.zero);
@@ -68,7 +74,6 @@ namespace Lvn.Tests
             Assert.AreEqual(0.7f, group.alpha, 0.01f, "alpha 1→0.4 at t=0.5");
             Assert.AreSame(closed, eyes.sprite, "frame stepped to 'closed' by t=0.5");
 
-            Object.DestroyImmediate(go);
         }
     }
 }

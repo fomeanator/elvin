@@ -533,6 +533,14 @@ func TestTestsCleanUpInTearDown(t *testing.T) {
 				if fin := strings.Index(block, "finally"); fin >= 0 && fin < at {
 					continue
 				}
+				// СНОС, ПОСЛЕ КОТОРОГО ЕЩЁ ПРОВЕРЯЮТ, — это СЦЕНАРИЙ, а не
+				// уборка: «старый слой умер, родились два новых» — ровно то,
+				// что тест и воспроизводит. Уборка стоит последней, после неё
+				// утверждать уже нечего. Без этой оговорки сторож кусал верное,
+				// а такой выключают вместе с настоящими находками.
+				if strings.Contains(block[at:], "Assert") {
+					continue
+				}
 				loud = append(loud, e.Name())
 				break
 			}
@@ -540,8 +548,8 @@ func TestTestsCleanUpInTearDown(t *testing.T) {
 	}
 	sawSources(t, seen, 40, "файлов тестов")
 	sort.Strings(loud)
-	if len(loud) > 9 {
-		t.Errorf("тестов, убирающих за собой на удачном пути: %d при пороге 9:\n  %s\n\n"+
+	if len(loud) > 0 {
+		t.Errorf("тестов, убирающих за собой на удачном пути: %d (их не должно быть):\n  %s\n\n"+
 			"Берите Мусор + [TearDown]: упавшее утверждение оставляет объект жить, "+
 			"и следующий тест падает не от своей причины.",
 			len(loud), strings.Join(loud, "\n  "))
