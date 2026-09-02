@@ -320,12 +320,25 @@ namespace Lvn.Content
                 var sprite = Sprite.Create(tex, new Rect(0, 0, w, h),
                     new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
                 NoteKtx2Hit(); // «жив» = ДЕКОД прошёл: сброс до декода прятал серию битых файлов от общего счётчика
+                // ЭТО ЧИСЛО — ОЖИДАНИЕ, А НЕ РАБОТА, и правило про это уже
+                // записано у соседа (ContentLoader.Sprites), а здесь его не
+                // было. LoadFromBytes отдаёт результат событием, которое Unity
+                // поднимает на главном потоке в покадровой обработке, — значит
+                // в измеренное входит остаток кадра.
+                //
+                // Именно эта строка ввела в заблуждение 02.09: пять разных
+                // файлов показали 917, 925, 929, 932 и 936 мс при кадре в
+                // 955 мс, и читалось это как «расшифровка стала в двадцать раз
+                // медленнее». Работа так не совпадает — совпадает ожидание.
+                // Поэтому число зовётся wall и длина кадра стоит рядом.
                 if (sw.ElapsedMilliseconds > 30)
                     // БЕЗ orientation в логе: result.orientation бывает null, и
                     // NRE в ЛОГ-СТРОКЕ ронял весь декод уже ПОСЛЕ успешного
                     // транскода — целый файл читался как «битый» (живой стек
                     // 27.08, hair_orchid_red@2k).
-                    LvnLog.Trace($"[lvn-perf] ktx2 transcode {ktx2Url}: {sw.ElapsedMilliseconds}ms ({tex.width}x{tex.height}, {tex.format})");
+                    LvnLog.Trace($"[lvn-perf] ktx2 {ktx2Url}: wall={sw.ElapsedMilliseconds}ms "
+                               + $"(расшифровка + граница кадра; кадр {Lvn.LvnFrameWatch.LastFrameMs}ms) "
+                               + $"({tex.width}x{tex.height}, {tex.format})");
                 // Budget the LRU by the COMPRESSED size — that's what actually
                 // occupies VRAM; charging width*height*4 would evict 4-8× early.
                 return (sprite, bytes.LongLength);
