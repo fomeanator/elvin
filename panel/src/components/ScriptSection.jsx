@@ -152,6 +152,12 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
   const [diags, setDiags] = useState([]); // [{ sev, line, op, msg }]
   const [jump, setJump] = useState({ line: 0, n: 0 });
   const [stat, setStat] = useState({ kind: "warn", text: "…", title: "" });
+
+  // ИТОГ КОМПИЛЯЦИИ ЕДЕТ В ДВА МЕСТА: своя плашка и шапка родителя. Значение
+  // одно, приёмника два, и держались они в согласии руками — три места, в
+  // каждом по паре строк. Забудь вторую, и шапка покажет прошлый итог рядом со
+  // свежим: автор чинит ошибку, ошибка исчезает из плашки и остаётся наверху.
+  const report = (s) => { report(s); };
   const [showPreview, setShowPreview] = useState(true);
   const [showProblems, setShowProblems] = useState(true);
   const [showDocs, setShowDocs] = useState(false);
@@ -527,7 +533,7 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
             setDiags([]);
             setSrc(importedBanner(c.id, n));
             const s = { kind: "success", text: `✓ Imported · ${n} commands (read-only)` };
-            setStat(s); setStatus?.(s);
+            report(s);
             return;
           }
         }
@@ -580,7 +586,7 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
       setOutput(r && r.errors ? r.errors : "Compilation error");
       setError(true);
       const s = { kind: "error", text: "✗ " + first, title: r?.errors || "" };
-      setStat(s); setStatus?.(s);
+      report(s);
       lastJson.current = "";
       return;
     }
@@ -597,7 +603,7 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
     } else {
       s = { kind: "success", text: libOpen ? "✓ Общий файл — проверяется в главе" : "✓ Compiled" };
     }
-    setStat(s); setStatus?.(s);
+    report(s);
   }
 
   // Compiling on EVERY keystroke froze the editor on real chapters (a 1.5k-line
