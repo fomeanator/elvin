@@ -270,3 +270,75 @@ func classBody(src string, from int) string {
 	}
 	return src[i:]
 }
+
+// ДОКУМЕНТ НЕ ССЫЛАЕТСЯ НА СТОРОЖА, КОТОРОГО НЕТ.
+//
+// Хроника и карта называют сторожей поимённо — и это не украшение: читатель по
+// этому имени решает, ЗАКРЫТ ли урок проверкой или держится на внимательности.
+// Ссылка на несуществующего сторожа отвечает «закрыт» там, где закрыто ничего.
+//
+// Так и было: разбор про сокрытие экранов ссылался на сторожа, которого я в тот
+// же день заменил другим, а разбор про словарь согласия — на имя, под которым
+// сторож так и не родился (родился под русским). Оба урока при этом оставались
+// закрытыми — просто документ показывал не туда.
+//
+// Считаем существующими и тестовые ПОМОЩНИКИ (`TestStage`, `TestAssets`): карта
+// называет их наравне со сторожами, и они такие же настоящие.
+func TestDocsNameOnlyLivingGuards(t *testing.T) {
+	root := repoRoot(t)
+	have := map[string]bool{}
+
+	// Go-стражи.
+	for _, dir := range []string{"tools", "server"} {
+		_ = filepath.Walk(filepath.Join(root, dir), func(p string, i os.FileInfo, err error) error {
+			if err != nil || i.IsDir() || !strings.HasSuffix(p, "_test.go") {
+				return err
+			}
+			for _, m := range regexp.MustCompile(`func (Test\w+)\(`).FindAllStringSubmatch(string(mustRead(t, p)), -1) {
+				have[m[1]] = true
+			}
+			return nil
+		})
+	}
+	// Unity-тесты и их помощники.
+	_ = filepath.Walk(filepath.Join(root, "unity/Packages"), func(p string, i os.FileInfo, err error) error {
+		if err != nil || i.IsDir() || !strings.HasSuffix(p, ".cs") || !strings.Contains(p, "/Tests/") {
+			return err
+		}
+		src := string(mustRead(t, p))
+		for _, re := range []*regexp.Regexp{
+			regexp.MustCompile(`(?:public|internal)\s+(?:static\s+)?(?:IEnumerator|void)\s+(\w+)\s*\(`),
+			regexp.MustCompile(`class\s+(\w+)`),
+		} {
+			for _, m := range re.FindAllStringSubmatch(src, -1) {
+				have[m[1]] = true
+			}
+		}
+		return nil
+	})
+	sawSources(t, len(have), 400, "имён тестов и помощников")
+
+	named := regexp.MustCompile("`(Test[A-Za-z0-9_]+)`")
+	docs, err := filepath.Glob(filepath.Join(root, "docs", "*.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := 0
+	var ghosts []string
+	for _, d := range docs {
+		for _, m := range named.FindAllStringSubmatch(string(mustRead(t, d)), -1) {
+			seen++
+			if !have[m[1]] {
+				ghosts = append(ghosts, filepath.Base(d)+": "+m[1])
+			}
+		}
+	}
+	sawSources(t, seen, 40, "ссылок на сторожей в доках")
+	sort.Strings(ghosts)
+	if len(ghosts) > 0 {
+		t.Errorf("документы ссылаются на сторожей, которых нет (%d):\n  %s\n\n"+
+			"По имени сторожа читатель решает, закрыт ли урок проверкой. Ссылка "+
+			"на несуществующего отвечает «закрыт» там, где закрыто ничего.",
+			len(ghosts), strings.Join(ghosts, "\n  "))
+	}
+}
