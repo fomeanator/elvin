@@ -72,17 +72,33 @@ namespace Lvn.UI
             bool hidden = LvnScreenDirector.Current.ChromeHidden;
             if (_chromeHidden == hidden) return;
             _chromeHidden = hidden;
+            PaintChromeVisibility(hidden);
+            ChromeHiddenChanged?.Invoke(hidden);
+        }
+
+        /// <summary>
+        /// НАНЕСТИ ВИДИМОСТЬ НА НЫНЕШНИЕ ПОВЕРХНОСТИ — без сравнения с прошлым.
+        ///
+        /// <para>Решение «спрятан ли хром» и его НАНЕСЕНИЕ — разные работы, и
+        /// разошлись они на пересборке. Пересобирают хром три повода, и два из
+        /// них асинхронные: доехал шрифт главы, доехали фоны темы. Новые
+        /// поверхности рождаются видимыми, а решение уже принято — сравнение
+        /// с прошлым значением выходило сразу, и диалог всплывал поверх
+        /// катсцены.</para>
+        ///
+        /// <para>Слой <c>ui</c> — такая же часть интерфейса: в катсцене не
+        /// должно остаться ни кнопок, ни полос, иначе кадр не «кино», а игра с
+        /// пропавшим диалогом.</para>
+        /// </summary>
+        private void PaintChromeVisibility(bool hidden)
+        {
             var vis = hidden ? Visibility.Hidden : Visibility.Visible;
             if (_dialogue != null) _dialogue.style.visibility = vis;
             if (_choices != null) _choices.style.visibility = vis;
             if (_labelLayer != null) _labelLayer.style.visibility = vis;
             if (_menu != null) _menu.style.visibility = vis;
-            // Слой `ui` — такая же часть интерфейса: в катсцене не должно
-            // остаться ни кнопок, ни полос, иначе кадр не «кино», а игра с
-            // пропавшим диалогом.
             if (_uiHudHost != null) _uiHudHost.style.visibility = vis;
             if (_uiOverHost != null) _uiOverHost.style.visibility = vis;
-            ChromeHiddenChanged?.Invoke(hidden);
         }
 
         private void OnPointerDown(PointerDownEvent evt)

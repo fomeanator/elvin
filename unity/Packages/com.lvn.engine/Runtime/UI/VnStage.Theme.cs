@@ -96,6 +96,12 @@ namespace Lvn.UI
                 _dialogue.SetText(beat.text);
             }
             if (_curChoices != null) _choices.Present(_curChoices);
+
+            // И ВИДИМОСТЬ — НА СВЕЖИЕ ПОВЕРХНОСТИ. Они рождаются видимыми, а
+            // решение «хром спрятан» было принято раньше: без этой строки
+            // догрузка шрифта или фонов темы посреди катсцены возвращала
+            // диалог на экран.
+            PaintChromeVisibility(_chromeHidden);
         }
         // Load the theme's background-image urls (panel/nameplate/choice buttons)
         // through ILvnAssets and assign the resolved sprites onto the Theme, then

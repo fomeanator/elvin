@@ -1006,3 +1006,33 @@ func TestOptionalPackagesStillFitTheEngine(t *testing.T) {
 			len(lost), strings.Join(lost, "\n  "))
 	}
 }
+
+// ПЕРЕСОБРАННЫЙ ХРОМ НАСЛЕДУЕТ СПРЯТАННОСТЬ.
+//
+// Решение «хром спрятан» и НАНЕСЕНИЕ этого решения — разные работы, и разошлись
+// они на пересборке. Хром пересобирают три повода, и два из них асинхронные:
+// доехал шрифт главы, доехали фоны темы. Свежие поверхности рождаются
+// видимыми, а решение принято раньше — обработчик события сравнивает новое
+// значение с прошлым и выходит сразу, ничего не нанося. Диалог всплывал поверх
+// катсцены.
+//
+// Сторож держит именно связку: если пересборка перестанет наносить видимость,
+// поймать это можно будет только глазами и только на живой катсцене с
+// медленной сетью.
+func TestRebuiltChromeInheritsHiding(t *testing.T) {
+	root := repoRoot(t)
+	dir := filepath.Join(root, "unity/Packages/com.lvn.engine/Runtime/UI")
+
+	pointer := stripComments(string(mustRead(t, filepath.Join(dir, "VnStage.Pointer.cs"))))
+	theme := stripComments(string(mustRead(t, filepath.Join(dir, "VnStage.Theme.cs"))))
+	sawSources(t, len(pointer)+len(theme), 2000, "знаков в домах хрома")
+
+	if !strings.Contains(pointer, "void PaintChromeVisibility(bool") {
+		t.Error("нанесение видимости не отделено от решения: пока оно живёт внутри " +
+			"обработчика события, пересобранные поверхности до него не доходят")
+	}
+	if !strings.Contains(theme, "PaintChromeVisibility(_chromeHidden)") {
+		t.Error("пересборка хрома не наносит видимость на свежие поверхности — " +
+			"догрузка шрифта или фонов темы посреди катсцены вернёт диалог на экран")
+	}
+}
