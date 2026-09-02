@@ -318,7 +318,12 @@ namespace Lvn.Content
         public float? corner_radius;   // default 12
         public string close_text;      // default "Close"
         public string menu_label;      // quick-menu entry; default "Settings"
-        public bool? show_menu_item;   // add the quick-menu entry; default true
+        // ВЫКЛЮЧЕНО ПО УМОЛЧАНИЮ, и это не описка: у быстрого меню уже есть
+        // свои настройки чтения (скорость, авто, прозрачность окна). Этот
+        // пункт открывает ПОЛНЫЙ экран приложения — он нужен не всякой игре, и
+        // автор просит его явно. У магазина и гардероба умолчание обратное:
+        // там пункт — единственный вход.
+        public bool? show_menu_item;   // add the quick-menu entry; default FALSE
 
         // Row labels / values (all localizable).
         public string sound_label;     // "Sound"
