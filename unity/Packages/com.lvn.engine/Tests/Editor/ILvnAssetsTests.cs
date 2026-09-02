@@ -9,6 +9,11 @@ namespace Lvn.Tests
 {
     public class ILvnAssetsTests
     {
+        private readonly Мусор _мусор = new Мусор();
+
+        [TearDown]
+        public void Прибрать() => _мусор.Убрать();
+
         private sealed class StubAssets : ILvnAssets
         {
             public int LoadSpriteCount;
@@ -87,14 +92,13 @@ namespace Lvn.Tests
         [Test]
         public void Default3DPreloadWarmsPrefabLoaderWithoutInstantiation()
         {
-            var stub = new StubAssets { Prefab = new GameObject("warm-set-prefab") };
+            var stub = new StubAssets { Prefab = _мусор.Беречь(new GameObject("warm-set-prefab")) };
             ILvnAssets assets = stub;
 
             assets.Preload3DSetAsync("forest", CancellationToken.None).Wait();
 
             Assert.AreEqual(1, stub.LoadPrefabCount);
             Assert.AreEqual("warm-set-prefab", stub.Prefab.name);
-            Object.DestroyImmediate(stub.Prefab);
         }
 
         [Test]

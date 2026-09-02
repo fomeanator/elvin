@@ -9,6 +9,11 @@ namespace Lvn.Tests
     /// the script asks for.
     public class Backdrop3DTests
     {
+        private readonly Мусор _мусор = new Мусор();
+
+        [TearDown]
+        public void Прибрать() => _мусор.Убрать();
+
         // A bare hierarchy, not a primitive: creating a primitive drags in the
         // standard shader, and compiling it in a headless test run crashes the
         // editor. What we assert here is the backdrop's bookkeeping, not Unity's
@@ -24,7 +29,7 @@ namespace Lvn.Tests
         [Test]
         public void SetStands_AndIsFilmedIntoATexture()
         {
-            var host = new GameObject("host");
+            var host = _мусор.Беречь(new GameObject("host"));
             var backdrop = Lvn3DBackdrop.Ensure(host.transform);
             var prefab = NewSet();
 
@@ -43,7 +48,7 @@ namespace Lvn.Tests
         [Test]
         public void SetIsBuiltFarFromTheScene_SoNothingElseSeesIt()
         {
-            var host = new GameObject("host");
+            var host = _мусор.Беречь(new GameObject("host"));
             var backdrop = Lvn3DBackdrop.Ensure(host.transform);
             backdrop.SetSet(NewSet());
 
@@ -56,7 +61,7 @@ namespace Lvn.Tests
         [Test]
         public void CanvasActors_AreAlwaysASeparateSiblingAboveThe3DFrame()
         {
-            var host = new GameObject("stage-host");
+            var host = _мусор.Беречь(new GameObject("stage-host"));
             var stage = new WorldStage(host.transform);
             stage.EnsureActor("hero");
 
@@ -69,18 +74,17 @@ namespace Lvn.Tests
             Assert.IsNotNull(actor);
             Assert.Less(background.GetSiblingIndex(), content.GetSiblingIndex(),
                 "the filmed 3D frame is background only; actors paint after it");
-            Object.DestroyImmediate(host);
         }
 
         [Test]
         public void StageCanvasCamera_RendersAfterOtherScreenCameras()
         {
-            var host = new GameObject("stage-host");
-            var mainGo = new GameObject("Main Camera");
+            var host = _мусор.Беречь(new GameObject("stage-host"));
+            var mainGo = _мусор.Беречь(new GameObject("Main Camera"));
             var main = mainGo.AddComponent<Camera>();
             mainGo.tag = "MainCamera";
             main.depth = 0f;
-            var contentCamera = new GameObject("content-camera").AddComponent<Camera>();
+            var contentCamera = _мусор.Беречь(new GameObject("content-camera")).AddComponent<Camera>();
             contentCamera.depth = 7f;
 
             var stage = new WorldStage(host.transform);
@@ -91,9 +95,6 @@ namespace Lvn.Tests
                 "the camera carrying bg + actors must paint after every content camera");
 
             stage.Dispose();
-            Object.DestroyImmediate(host);
-            Object.DestroyImmediate(mainGo);
-            Object.DestroyImmediate(contentCamera.gameObject);
         }
 
         [Test]
@@ -103,7 +104,7 @@ namespace Lvn.Tests
             // буфер), следующий `bg3d` строит сет заново — камера обязана снова
             // получить буфер. Камера без targetTexture рисует ПРЯМО В ЭКРАН и
             // накрывает сетом все спрайты сцены — так в бою пропали персонажи.
-            var host = new GameObject("host");
+            var host = _мусор.Беречь(new GameObject("host"));
             var backdrop = Lvn3DBackdrop.Ensure(host.transform);
             backdrop.SetSet(NewSet());
             backdrop.Release();
@@ -127,7 +128,7 @@ namespace Lvn.Tests
             // Lvn3DSetEnv — служебный компонент (небо/туман сета), а не анимация.
             // Считать его «движением» = снимать каждый статичный сет 60 раз в
             // секунду: на слабом устройстве это фризы по секунде.
-            var host = new GameObject("host");
+            var host = _мусор.Беречь(new GameObject("host"));
             var backdrop = Lvn3DBackdrop.Ensure(host.transform);
             var prefab = NewSet();
             // На ребёнке, не на корне: SetAnimates обходит ВСЮ иерархию, а Apply()
@@ -145,7 +146,7 @@ namespace Lvn.Tests
         [Test]
         public void FramingSnapsWithoutDuration_AndKeepsUnsetAxes()
         {
-            var host = new GameObject("host");
+            var host = _мусор.Беречь(new GameObject("host"));
             var backdrop = Lvn3DBackdrop.Ensure(host.transform);
             backdrop.SetSet(NewSet());
 
@@ -168,7 +169,7 @@ namespace Lvn.Tests
         [Test]
         public void ReleasingTheSetFreesTheFrame()
         {
-            var host = new GameObject("host");
+            var host = _мусор.Беречь(new GameObject("host"));
             var backdrop = Lvn3DBackdrop.Ensure(host.transform);
             backdrop.SetSet(NewSet());
 
@@ -181,7 +182,7 @@ namespace Lvn.Tests
         [Test]
         public void StandingASetWithNull_TearsItDown()
         {
-            var host = new GameObject("host");
+            var host = _мусор.Беречь(new GameObject("host"));
             var backdrop = Lvn3DBackdrop.Ensure(host.transform);
             backdrop.SetSet(NewSet());
 

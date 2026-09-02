@@ -163,8 +163,18 @@ if command -v go >/dev/null 2>&1; then
     || { log "WARN: go build сервера не удался — PlayMode-смоук скипнется"; }
 fi
 
-report_platform() { # $1 = имя, $2 = xml
-python3 - "$2" "$1" <<'PY'
+# ПОЛ ПОКРЫТИЯ: сколько тестов ОБЯЗАНО быть. Число может только расти.
+#
+# 02.09: тесты оболочки получили свою сборку — и перестали запускаться, потому
+# что пакет не был объявлен `testables` в манифесте хоста. Пятьдесят проверок
+# исчезли, а прогон остался ЗЕЛЁНЫМ: он смотрит на провалы, а не на состав.
+# Исчезнувший тест не падает — его просто нет, и это худший вид красноты,
+# потому что он выглядит как её отсутствие.
+FLOOR_EDITMODE=1975
+FLOOR_PLAYMODE=79
+
+report_platform() { # $1 = имя, $2 = xml, $3 = пол
+python3 - "$2" "$1" "$3" <<'PY'
 import sys, xml.etree.ElementTree as ET
 try:
     r = ET.parse(sys.argv[1]).getroot()
@@ -186,6 +196,12 @@ if len(skipped) > 10:
 for tc in r.iter('test-case'):
     if tc.get('result') not in (None, 'Passed', 'Skipped'):
         print("   ", tc.get('result'), tc.get('fullname'))
+floor = int(sys.argv[3]) if len(sys.argv) > 3 and sys.argv[3] else 0
+if floor and int(total) < floor:
+    print(f"    ТЕСТОВ МЕНЬШЕ ПОЛА: {total} при {floor} — проверки не упали, а ИСЧЕЗЛИ")
+    sys.exit(1)
+if floor and int(total) > floor:
+    print(f"    (тестов стало больше: {total} при поле {floor} — поднимите пол)")
 sys.exit(0 if failed == '0' else 1)
 PY
 }
@@ -198,7 +214,7 @@ args=(-batchmode -nographics -projectPath "$REPO_ROOT/unity/TestHost"
       -testResults "$OUT/editmode.xml" -logFile "$OUT/editmode.log")
 [ -n "$FILTER" ] && args+=(-testFilter "$FILTER")
 "$UNITY" "${args[@]}" >/dev/null 2>&1
-report_platform editmode "$OUT/editmode.xml" || fail=1
+report_platform editmode "$OUT/editmode.xml" "$FLOOR_EDITMODE" || fail=1
 fi
 
 # ── 1b. PlayMode: интеграция (сцена, бут NovelApp против живого сервера) ─────
@@ -220,7 +236,7 @@ args=(-batchmode -projectPath "$REPO_ROOT/unity/TestHost"
       -testResults "$OUT/playmode.xml" -logFile "$OUT/playmode.log")
 [ -n "$FILTER" ] && args+=(-testFilter "$FILTER")
 "$UNITY" "${args[@]}" >/dev/null 2>&1
-report_platform playmode "$OUT/playmode.xml" || fail=1
+report_platform playmode "$OUT/playmode.xml" "$FLOOR_PLAYMODE" || fail=1
 fi
 
 # ── 2. Девайс-смоук (опционально) ───────────────────────────────────────────

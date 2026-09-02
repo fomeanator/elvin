@@ -9,6 +9,11 @@ namespace Lvn.Tests
 {
     public class ThreeDSetCatalogTests
     {
+        private readonly Мусор _мусор = new Мусор();
+
+        [TearDown]
+        public void Прибрать() => _мусор.Убрать();
+
         [Test]
         public void Manifest_DeserializesPlatformBundleAndOfflineFallback()
         {
@@ -60,7 +65,7 @@ namespace Lvn.Tests
         [Test]
         public void SetAsset_ReleaseLeaseExactlyOnce()
         {
-            var prefab = new GameObject("leased-set");
+            var prefab = _мусор.Беречь(new GameObject("leased-set"));
             var releases = 0;
             var asset = new Lvn3DSetAsset("set", prefab, remote: true,
                 release: () => releases++);
@@ -69,7 +74,6 @@ namespace Lvn.Tests
             asset.Dispose();
 
             Assert.AreEqual(1, releases);
-            Object.DestroyImmediate(prefab);
         }
     }
 }

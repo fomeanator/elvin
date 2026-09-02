@@ -21,11 +21,19 @@ namespace Lvn.Tests.Editor
         [SetUp]
         public void SetUp() { _saved = LvnScale.SceneMeters; LvnScale.SceneMeters = 2f; }
 
-        [TearDown]
-        public void TearDown() => LvnScale.SceneMeters = _saved;
+        private readonly Мусор _мусор = new Мусор();
 
-        private static RectTransform Slot()
-            => new GameObject("t-slot", typeof(RectTransform)).GetComponent<RectTransform>();
+        [TearDown]
+        public void TearDown()
+        {
+            LvnScale.SceneMeters = _saved;
+            _мусор.Убрать();
+        }
+
+        // Слот сразу берётся на учёт: упавшее утверждение оставляло его жить, а
+        // сцена у тестов редактора общая.
+        private RectTransform Slot()
+            => _мусор.Беречь(new GameObject("t-slot", typeof(RectTransform))).GetComponent<RectTransform>();
 
         // Кадр 1080×1920, потолок 2 м: героиня 1.7 м занимает 1.7/2 высоты.
         [Test]
@@ -38,7 +46,6 @@ namespace Lvn.Tests.Editor
 
             Assert.AreEqual(1920f * (1.7f / 2f), slot.sizeDelta.y, 1f,
                 "рост посчитан не по шкале мира");
-            Object.DestroyImmediate(slot.gameObject);
         }
 
         // Тот же человек, поставленный тремя разными w=/h= (сценарий, меню,
@@ -54,7 +61,6 @@ namespace Lvn.Tests.Editor
                 p.Width = w; p.Height = h; p.Meters = 1.7f;
                 WorldPlacement.Apply(slot, p, size);
                 float y = slot.sizeDelta.y;
-                Object.DestroyImmediate(slot.gameObject);
                 return y;
             }
 
@@ -80,7 +86,6 @@ namespace Lvn.Tests.Editor
                 p.ContentX = 0f; p.ContentY = 0f; p.ContentW = 1f; p.ContentH = figureH;
                 WorldPlacement.Apply(slot, p, size);
                 float figure = slot.sizeDelta.y * p.FigureH; // на экране видно фигуру
-                Object.DestroyImmediate(slot.gameObject);
                 return figure;
             }
 
@@ -111,7 +116,6 @@ namespace Lvn.Tests.Editor
 
             Assert.Greater(near, far, "камера подъехала, а фигура не выросла");
             Assert.AreEqual(2f / 1.5f, near / far, 0.01f);
-            Object.DestroyImmediate(slot.gameObject);
         }
 
         // Роста нет — всё как раньше: доли экрана и тема. Шкала включается
@@ -126,7 +130,6 @@ namespace Lvn.Tests.Editor
 
             Assert.AreEqual(1920f * 0.93f, slot.sizeDelta.y, 0.5f,
                 "новелла без шкалы получила чужой рост");
-            Object.DestroyImmediate(slot.gameObject);
         }
     }
 }
