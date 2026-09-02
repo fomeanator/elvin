@@ -747,3 +747,62 @@ func TestSkipsDoNotMultiply(t *testing.T) {
 		t.Logf("пропусков стало меньше (%d при бюджете %d) — опустите бюджет", seen, budget)
 	}
 }
+
+// СЦЕНА, ГОВОРЯЩАЯ САМА С СОБОЙ, НАЗЫВАЕТСЯ.
+//
+// У команды сцены есть отправитель, и он решает не оформление, а ПАМЯТЬ:
+// липкой (наследуемой следующей авторской командой) может быть только команда
+// истории. Когда в память попадала команда витрины или гардероба, героиня
+// выходила в главу стоящей по-менюшному — «не встраивается в игру, хотя её
+// реплика». Ради этого липкость и заведена.
+//
+// Однорукая перегрузка `ApplyStage(cmd)` подставляет `LvnSender.Story`. Снаружи
+// это правильное умолчание — зовущий и есть история. ИЗНУТРИ сцены это ложь:
+// сцена не история, она пересылает чужую команду, и назваться историей значит
+// подменить память.
+//
+// Живой случай 02.09: повтор недоехавшей фигуры (`RetryActorSoonAsync`) звал
+// одноруко. Поза витрины, доехавшая со второй попытки, оседала в памяти как
+// авторская — главный путь эту дыру закрыл, повтор ходил мимо.
+func TestStageNamesItselfWhenItTalksToItself(t *testing.T) {
+	root := repoRoot(t)
+	dir := filepath.Join(root, "unity/Packages/com.lvn.engine/Runtime/UI")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	call := regexp.MustCompile(`ApplyStage\(`)
+	// Объявления перегрузок — не вызовы.
+	decl := regexp.MustCompile(`(?:void|Task)\s+ApplyStage\(`)
+
+	seen := 0
+	var nameless []string
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasPrefix(e.Name(), "VnStage") || !strings.HasSuffix(e.Name(), ".cs") {
+			continue
+		}
+		src := stripComments(string(mustRead(t, filepath.Join(dir, e.Name()))))
+		for _, m := range call.FindAllStringIndex(src, -1) {
+			head := src[max0(m[0]-24):m[1]]
+			if decl.MatchString(head) {
+				continue
+			}
+			seen++
+			args, ok := topLevelArgs(src, m[1])
+			if !ok || len(args) >= 2 {
+				continue
+			}
+			nameless = append(nameless, e.Name()+":"+itoa(strings.Count(src[:m[0]], "\n")+1))
+		}
+	}
+	sawSources(t, seen, 5, "вызовов сцены изнутри неё самой")
+	sort.Strings(nameless)
+	if len(nameless) > 0 {
+		t.Errorf("сцена зовёт себя без отправителя (%d):\n  %s\n\n"+
+			"Однорукая перегрузка подставляет LvnSender.Story, то есть ЛИПКИЙ. "+
+			"Изнутри сцены это ложь: чужая команда осядет в памяти как авторская, "+
+			"и героиня выйдет в главу стоящей по-менюшному.",
+			len(nameless), strings.Join(nameless, "\n  "))
+	}
+}
+
