@@ -404,7 +404,13 @@ namespace Lvn.Content
         internal static string Ktx2UrlFor(string url)
         {
             if (string.IsNullOrEmpty(url)) return null;
-            var basis = url.Contains(DownloadPolicy.DisplayVariant) ? url : DownloadPolicy.DownscaleVariant(url);
+            // ЛЮБАЯ СТУПЕНЬ КАЧЕСТВА, а не только «@2k». Здесь стояло имя ОДНОЙ
+            // ступени, и на устройстве, выбравшем другую (@1440), код рядом с
+            // ней даже не искался: DownscaleVariant отказывается строить вариант
+            // от адреса, в котором «@» уже есть, — и путь выходил молча, до
+            // первой строки лога. Формат для видеокарты был написан с обеих
+            // сторон, сервер его отдавал, и он не сработал НИ РАЗУ.
+            var basis = url.IndexOf('@') >= 0 ? url : DownloadPolicy.DownscaleVariant(url);
             if (basis == null) return null;
             return DownloadPolicy.SplitSourceImage(basis, out var stem, out _) ? stem + ".ktx2" : null;
         }
