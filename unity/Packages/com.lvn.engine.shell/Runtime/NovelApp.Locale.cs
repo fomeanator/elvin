@@ -28,18 +28,31 @@ namespace Lvn.UI.Screens
         {
             var want = CurrentLocale;
             if (want == _localeApplied) return;
-            _localeApplied = want;
 
             // СЛОВА ОБОЛОЧКИ ТОЖЕ ПЕРЕВОДЯТСЯ. Раньше переводился только текст
             // главы, а подписи движка оставались авторскими: игрок переключал
             // язык и получал английские реплики в русском интерфейсе —
             // двуязычие наполовину выглядит поломкой, а не выбором.
-            Lvn.Content.LvnWords.Translate(await LoadUiWordsAsync(want));
+            var words = await LoadUiWordsAsync(want);
+
+            // ПЕРЕКЛЮЧИЛИ, ПОКА МЫ ГРУЗИЛИ — их выбор новее нашего. То же
+            // правило, что у бута строкой ниже, и по той же причине: два
+            // быстрых переключения подряд идут двумя загрузками, а приходят в
+            // любом порядке. Победившая последней ставила СВОИ слова, и
+            // интерфейс оставался на языке, который игрок уже отменил, — а
+            // отметка о применённом языке при этом показывала новый, и
+            // повторное переключение туда-обратно его не чинило.
+            if (CurrentLocale != want) return;
+            _localeApplied = want;
+            Lvn.Content.LvnWords.Translate(words);
 
             if (_currentChapter != null && Stage != null)
             {
-                try { Stage.Strings = await LoadCatalogAsync(_currentChapter.script_url); }
-                catch { Stage.Strings = null; } // no catalog → the inline original
+                System.Collections.Generic.IReadOnlyDictionary<string, string> strings;
+                try { strings = await LoadCatalogAsync(_currentChapter.script_url); }
+                catch { strings = null; } // no catalog → the inline original
+                if (CurrentLocale != want) return;   // и здесь: каталог главы тоже едет сетью
+                Stage.Strings = strings;
                 // РЕАЛТАЙМ: реплика, уже стоящая на экране, перерисовывается
                 // новым языком сразу (штатный RerenderCurrent — тот же вариант
                 // текста, без сдвига {a|b|c}), а не со следующей строки.
