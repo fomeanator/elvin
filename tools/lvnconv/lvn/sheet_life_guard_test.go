@@ -467,3 +467,62 @@ func TestHiddenScreensCanComeBack(t *testing.T) {
 			strings.Join(blind, ", "))
 	}
 }
+
+// СОЗДАННОЕ ТЕСТОМ УБИРАЮТ В TEARDOWN, А НЕ В КОНЦЕ УДАЧНОГО ПУТИ.
+//
+// Уборка последней строкой теста срабатывает ТОЛЬКО когда все утверждения
+// прошли. Упади любое — объект переживает тест: в редакторе его никто не
+// сносит, а сцена у тестов общая. Следующий тест находит чужого участника и
+// падает не от своей причины; разбор при этом уходит не в тот файл, и это
+// самая дорогая форма красноты.
+//
+// Сторожим форму: `DestroyImmediate` в теле [Test] — признак уборки на удачном
+// пути. В `[TearDown]` он законен, там же живёт и дом `Мусор`.
+func TestTestsCleanUpInTearDown(t *testing.T) {
+	root := repoRoot(t)
+	var loud []string
+	seen := 0
+	for _, rel := range []string{
+		"unity/Packages/com.lvn.engine/Tests/Editor",
+		"unity/Packages/com.lvn.engine/Tests/Runtime",
+	} {
+		entries, err := os.ReadDir(filepath.Join(root, rel))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, e := range entries {
+			if e.IsDir() || !strings.HasSuffix(e.Name(), ".cs") {
+				continue
+			}
+			seen++
+			body := stripComments(string(mustRead(t, filepath.Join(root, rel, e.Name()))))
+			for _, block := range strings.Split(body, "[Test]")[1:] {
+				// тело до следующего атрибута — грубо, но нам хватает
+				if cut := strings.Index(block, "\n        ["); cut > 0 {
+					block = block[:cut]
+				}
+				// Уборка в `finally` — ЗАКОННАЯ: она срабатывает и на
+				// упавшем утверждении, то есть делает ровно то, ради чего
+				// заведён [TearDown]. Страж, кусающий верное, хуже
+				// отсутствующего: его выключают вместе с настоящими находками.
+				at := strings.Index(block, "DestroyImmediate(")
+				if at < 0 {
+					continue
+				}
+				if fin := strings.Index(block, "finally"); fin >= 0 && fin < at {
+					continue
+				}
+				loud = append(loud, e.Name())
+				break
+			}
+		}
+	}
+	sawSources(t, seen, 40, "файлов тестов")
+	sort.Strings(loud)
+	if len(loud) > 9 {
+		t.Errorf("тестов, убирающих за собой на удачном пути: %d при пороге 9:\n  %s\n\n"+
+			"Берите Мусор + [TearDown]: упавшее утверждение оставляет объект жить, "+
+			"и следующий тест падает не от своей причины.",
+			len(loud), strings.Join(loud, "\n  "))
+	}
+}
