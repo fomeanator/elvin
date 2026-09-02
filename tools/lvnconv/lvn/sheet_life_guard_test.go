@@ -1036,3 +1036,44 @@ func TestRebuiltChromeInheritsHiding(t *testing.T) {
 			"догрузка шрифта или фонов темы посреди катсцены вернёт диалог на экран")
 	}
 }
+
+// ПОМЕТКУ РЕЖИССЁРА ОТПУСКАЮТ ВМЕСТЕ С ПАНЕЛЬЮ.
+//
+// Пометка «поднят модальный экран» живёт у Режиссёра и гасит декор всей
+// оболочки: баблики валют, кружок загрузок, верхнюю тап-зону. Пока экран
+// открыт — правильно. Но если сам экран убрали из дерева, пока он открыт,
+// закрывать пометку становится некому: оболочка остаётся подавленной НАВСЕГДА
+// и без единого признака в логе.
+//
+// Правило несут общее окно истории и меню сцены. Попап его не нёс — типичное
+// «правило написано у соседа, а тут его нет»: три дома одного слоя, у двух
+// проверка есть.
+func TestDirectorMarkFollowsThePanel(t *testing.T) {
+	root := repoRoot(t)
+	дома := map[string]string{
+		"unity/Packages/com.lvn.engine/Runtime/UI/VnPanelHost.cs":    "StoryPanel",
+		"unity/Packages/com.lvn.engine/Runtime/UI/StageMenu.cs":      "QuickMenu",
+		"unity/Packages/com.lvn.engine.shell/Runtime/PopupScreen.cs": "Alert",
+	}
+	seen := 0
+	var немые []string
+	for p, метка := range дома {
+		src := stripComments(string(mustRead(t, filepath.Join(root, p))))
+		seen++
+		есть := strings.Contains(src, "DetachFromPanelEvent") &&
+			strings.Contains(src, "AttachToPanelEvent") &&
+			strings.Contains(src, "Close(Lvn.UI.LvnScreenDirector."+метка) ||
+			strings.Contains(src, "Close(LvnScreenDirector."+метка)
+		if !есть || !strings.Contains(src, "AttachToPanelEvent") {
+			немые = append(немые, filepath.Base(p)+" ("+метка+")")
+		}
+	}
+	sawSources(t, seen, 3, "домов с пометкой Режиссёра")
+	sort.Strings(немые)
+	if len(немые) > 0 {
+		t.Errorf("уход с панели не отпускает пометку Режиссёра: %s\n\n"+
+			"Экран, убранный из дерева в открытом виде, оставит оболочку "+
+			"подавленной навсегда — без единого признака в логе.",
+			strings.Join(немые, ", "))
+	}
+}

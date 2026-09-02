@@ -76,6 +76,26 @@ namespace Lvn.UI.Screens
         public PopupScreen(PopupConfig cfg)
         {
             _cfg = cfg ?? new PopupConfig();
+
+            // УШЁЛ С ПАНЕЛИ — ОТПУСТИ РЕЖИССЁРА; ВЕРНУЛСЯ — ВОЗЬМИ СНОВА.
+            // Пометка «поднят алерт» живёт у Режиссёра и гасит декор всей
+            // оболочки: баблики, кружок загрузок, верхнюю тап-зону. Пока попап
+            // открыт — правильно; но если его самого убрали из дерева ОТКРЫТЫМ,
+            // закрывать пометку становится некому, и оболочка остаётся
+            // подавленной НАВСЕГДА, без единого признака в логе.
+            //
+            // Правило не новое: им живут оба соседа по слою — общее окно
+            // истории и меню сцены. Здесь его просто не было. Подписки стоят
+            // ПРЯМО ЗДЕСЬ, как у соседей: спрятанные в способ, они выглядят
+            // живыми даже когда их никто не зовёт.
+            RegisterCallback<DetachFromPanelEvent>(_ =>
+            {
+                if (_openFlag) Lvn.UI.LvnScreenDirector.Current.Close(Lvn.UI.LvnScreenDirector.Alert);
+            });
+            RegisterCallback<AttachToPanelEvent>(_ =>
+            {
+                if (_openFlag) Lvn.UI.LvnScreenDirector.Current.Open(Lvn.UI.LvnScreenDirector.Alert);
+            });
             _text = UiColor.Named(_cfg.text_color, LvnTokens.Text);
             _titleColor = UiColor.Named(_cfg.title_color, LvnTokens.Text);
             _btnColor = UiColor.Named(_cfg.button_color, LvnTokens.Faint);
