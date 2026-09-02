@@ -77,8 +77,8 @@ namespace Lvn.UI
                 // за одну ветку. Даровой выбор так и делал — метку ставит
                 // CommitChoice, — а платный, самый дорогой для ошибки, шёл
                 // мимо.
-                _choiceCommitInFlight = true;
-                _choices?.SetEnabled(false);
+                _choiceLocks.Hold(ChoiceLockCommit);
+                PaintChoiceEnabled();
                 LvnAsync.Fire(SpendThenChooseAsync(index, picked), "SpendThenChoose");
                 return;
             }
@@ -95,8 +95,8 @@ namespace Lvn.UI
                 // Сцену сменили посреди оплаты. Ветку доигрывать нельзя (она
                 // из прошлой главы), но и держать выбор занятым нечего:
                 // следующий выбор в новой сцене иначе не нажмётся.
-                _choiceCommitInFlight = false;
-                _choices?.SetEnabled(true);   // симметрично отказу ниже: стопка не остаётся погашенной
+                _choiceLocks.Drop(ChoiceLockCommit);
+                PaintChoiceEnabled();   // симметрично отказу ниже: стопка не остаётся погашенной
                 return;
             }
             if (!paid)
@@ -116,8 +116,8 @@ namespace Lvn.UI
                 // Не заплатили — выбор снова живой: кнопки нажимаются, отсчёт
                 // идёт дальше с того места, где остановился (пока шла оплата,
                 // срок не тикал — см. отсчёт выбора).
-                _choiceCommitInFlight = false;
-                _choices?.SetEnabled(true);
+                _choiceLocks.Drop(ChoiceLockCommit);
+                PaintChoiceEnabled();
                 return; // menu stays up; the player picks something else
             }
             CommitChoice(index, picked.Text);
@@ -126,8 +126,8 @@ namespace Lvn.UI
         {
             StopChoiceTimer(); // the pick beat the clock
             PlayUiSound(_sndChoice != null ? _sndChoice : _sndClick);
-            _choiceCommitInFlight = true;
-            _choices.SetEnabled(false);
+            _choiceLocks.Hold(ChoiceLockCommit);
+            PaintChoiceEnabled();
 
             var kind = LvnAppear.Parse(Theme?.BoxAppear);
             if (kind != LvnAppearKind.None && _dialogue != null &&
@@ -147,7 +147,7 @@ namespace Lvn.UI
         {
             if (!SwapCurrent(gen)) return;
             StopWaitingForPlayer(cancelTimer: false);   // выбор сделан — таймер уже не его дело
-            _choiceCommitInFlight = false;
+            _choiceLocks.Clear();   // такт кончился: и нажатие, и хореография этой стопки
             _sayUp = false;
             if (_dialogue != null)
             {
@@ -173,7 +173,7 @@ namespace Lvn.UI
             _awaitingTap = false;
             _curChoices = options;
             _dialogue?.SuppressAdvanceHint(true); // a choice is up — don't invite a tap
-            _choiceCommitInFlight = false;
+            _choiceLocks.Clear();   // новая стопка приходит без чужих замков
 
             var kind = LvnAppear.Parse(Theme?.BoxAppear);
             // Пара «реплика + выбор» одним тактом: ShowSay этого же кадра ещё
@@ -209,7 +209,8 @@ namespace Lvn.UI
         {
             if (!SwapCurrent(gen) || _choices == null) return;
             _choices.Present(options);
-            _choices.SetEnabled(false);
+            _choiceLocks.Hold(ChoiceLockChoreography);
+            PaintChoiceEnabled();
             // Present() makes the list visible before UI Toolkit has completed
             // its new layout. Re-evaluate once after that pass; subsequent text
             // wrapping is covered by WireChoiceGeometrySync above.
@@ -241,7 +242,13 @@ namespace Lvn.UI
                     .ExecuteLater(Mathf.Max(1, Mathf.CeilToInt(left * 1000f)));
                 return;
             }
-            _choices.SetEnabled(true);
+            // ХОРЕОГРАФИЯ ОТПУСКАЕТ СВОЁ, А НЕ ВКЛЮЧАЕТ ВСЁ. Здесь стояло
+            // прямое включение, и конец входа актёра зажигал стопку посреди
+            // ОПЛАТЫ — вместе с отсчётом выбора, который на время оплаты
+            // нарочно не тикает.
+            _choiceLocks.Drop(ChoiceLockChoreography);
+            PaintChoiceEnabled();
+            if (_choiceLocks.Any) return;   // держит кто-то ещё — и срок не его дело
             // A timed choice starts only when it is visible and can be pressed.
             StartChoiceTimer(_player != null ? _player.CurrentChoiceTimeout : 0f);
         }

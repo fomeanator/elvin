@@ -60,7 +60,7 @@ namespace Lvn.UI
             {
                 _dialogueSwapGeneration++; // cancel a pending card replacement
                 _pendingSay = null;        // отменённая реплика не должна воскреснуть у выбора
-                _choiceCommitInFlight = false;
+                _choiceLocks.Drop(ChoiceLockCommit);
                 _dialogueSurfaceFresh = false;
             }
             if (_dialogue != null)

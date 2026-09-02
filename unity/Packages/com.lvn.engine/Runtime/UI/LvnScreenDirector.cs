@@ -83,38 +83,42 @@ namespace Lvn.UI
 
         // ── скрытие интерфейса: по причинам, а не флагом ──────────────────────
 
-        private readonly HashSet<string> _hidden = new HashSet<string>(StringComparer.Ordinal);
+        // СЧЁТ ПРИЧИН — не свой, а общий (LvnReasons). Форма «держат, пока
+        // держит хоть одна» встречается в движке не однажды: тем же самым
+        // гасится стопка выбора (нажатие в обработке + незакончившаяся
+        // хореография). Второй экземпляр той же логики расходится молча — и
+        // расходиться будет в ту же сторону, что и флаг до неё.
+        private readonly LvnReasons _hidden = new LvnReasons();
 
         /// <summary>Интерфейс скрыт, пока держит хоть одна причина.</summary>
-        public bool ChromeHidden => _hidden.Count > 0;
+        public bool ChromeHidden => _hidden.Any;
 
         /// <summary>Держит ли интерфейс именно эта причина.</summary>
-        public bool HiddenBecause(string reason) => _hidden.Contains(reason ?? "");
+        public bool HiddenBecause(string reason) => _hidden.Has(reason ?? "");
+
+        /// <summary>Кто сейчас держит интерфейс убранным — для лога.</summary>
+        public string ChromeHolders() => _hidden.Journal();
 
         /// <summary>Попросить убрать интерфейс. Повторная просьба той же
         /// причиной ничего не меняет — причина одна, сколько бы раз о ней ни
         /// сказали.</summary>
         public void HideChrome(string reason)
         {
-            if (string.IsNullOrEmpty(reason) || !_hidden.Add(reason)) return;
-            if (_hidden.Count == 1) Note();   // экран только что закрылся
+            if (_hidden.Hold(reason)) Note();   // экран только что закрылся
         }
 
         /// <summary>Своя причина отпала. Чужие остаются: катсцена не кончается
         /// оттого, что игрок отпустил палец.</summary>
         public void ShowChrome(string reason)
         {
-            if (string.IsNullOrEmpty(reason) || !_hidden.Remove(reason)) return;
-            if (_hidden.Count == 0) Note();   // держать больше некому
+            if (_hidden.Drop(reason)) Note();   // держать больше некому
         }
 
         /// <summary>Снять ВСЕ причины разом — сброс сцены: скрытый интерфейс не
         /// имеет права пережить главу, в которой его спрятали.</summary>
         public void ShowChromeAll()
         {
-            if (_hidden.Count == 0) return;
-            _hidden.Clear();
-            Note();
+            if (_hidden.Clear()) Note();
         }
 
         // ── поверхности: кто главный и куда ведёт «назад» ─────────────────────
