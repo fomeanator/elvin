@@ -161,6 +161,11 @@ namespace Lvn.UI.Screens
             _viewport.RegisterCallback<PointerDownEvent>(OnPointerDown);
             _viewport.RegisterCallback<PointerMoveEvent>(OnPointerMove);
             _viewport.RegisterCallback<PointerUpEvent>(OnPointerUp);
+            // ОТМЕНА — ТОЖЕ КОНЕЦ ЖЕСТА. Без неё захват указателя остаётся у
+            // ленты навсегда: системный жест, входящий звонок или потеря фокуса
+            // уводят палец без «отпустил», и витрина продолжает глотать ввод.
+            // Дом прокрутки это уже знает (см. LvnScroll); здесь путь был один.
+            _viewport.RegisterCallback<PointerCancelEvent>(OnPointerCancel);
 
             RegisterCallback<GeometryChangedEvent>(OnGeometry);
         }
@@ -532,11 +537,17 @@ namespace Lvn.UI.Screens
             ApplyOffset();
         }
 
-        private void OnPointerUp(PointerUpEvent e)
+        private void OnPointerUp(PointerUpEvent e) => EndDrag(e.pointerId);
+        private void OnPointerCancel(PointerCancelEvent e) => EndDrag(e.pointerId);
+
+        /// <summary>Конец жеста, чем бы он ни кончился. Захват отпускаем ТОЛЬКО
+        /// свой: между началом и концом его мог перехватить кто-то ещё, и
+        /// чужой отпускать не наше дело.</summary>
+        private void EndDrag(int pointerId)
         {
             if (!_dragging) return;
             _dragging = false;
-            _viewport.ReleasePointer(e.pointerId);
+            if (_viewport.HasPointerCapture(pointerId)) _viewport.ReleasePointer(pointerId);
             var snap = new CarouselSnap(_stride, _titles.Count);
             SetIndex(snap.IndexAt(_offset));
         }
