@@ -642,3 +642,55 @@ func topLevelArgs(src string, from int) ([]string, bool) {
 	}
 	return nil, false
 }
+
+// НАСТРОЙКА ПРИМЕНЯЕТ СЕБЯ САМА.
+//
+// `LvnPrefs.Changed` летит на каждую запись, и на него подписаны те, кого она
+// касается: панель (масштаб интерфейса), шрифты, темп движения, громкости,
+// сцена. Экран настроек знает только «записать» — применение не его дело.
+//
+// Из 34 присваиваний настроек ручной толчок добавляли ДВА, оба безвредных: они
+// звали `LvnPanel.ApplyUiScale()` после записи, которая и так его поднимала.
+// Вред был не в этих двух вызовах, а в правиле, которому они учат: следующая
+// настройка, применённая руками, обновит ТОТ экран, с которого её меняли, и не
+// обновит второй — а экранов настроек два (меню сцены и оболочка).
+func TestSettingsApplyThemselves(t *testing.T) {
+	root := repoRoot(t)
+	dirs := []string{
+		"unity/Packages/com.lvn.engine.shell/Runtime",
+		"unity/Packages/com.lvn.engine/Runtime/UI",
+	}
+	call := regexp.MustCompile(`\bApplyUiScale\s*\(`)
+	seen := 0
+	var outside []string
+	for _, d := range dirs {
+		entries, err := os.ReadDir(filepath.Join(root, d))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, e := range entries {
+			if e.IsDir() || !strings.HasSuffix(e.Name(), ".cs") {
+				continue
+			}
+			// Дом применения — сам LvnPanel: там и вызов при заводе панели, и
+			// подписка на событие.
+			if e.Name() == "LvnPanel.cs" {
+				seen += len(call.FindAllString(string(mustRead(t, filepath.Join(root, d, e.Name()))), -1))
+				continue
+			}
+			src := stripComments(string(mustRead(t, filepath.Join(root, d, e.Name()))))
+			for range call.FindAllString(src, -1) {
+				seen++
+				outside = append(outside, e.Name())
+			}
+		}
+	}
+	sawSources(t, seen, 2, "вызовов применения масштаба")
+	sort.Strings(outside)
+	if len(outside) > 0 {
+		t.Errorf("масштаб интерфейса применяют руками мимо подписки: %s\n\n"+
+			"LvnPrefs.Changed летит на каждую запись, и панель на него подписана. "+
+			"Ручное применение обновит тот экран, с которого меняли, и не обновит "+
+			"второй — экранов настроек два.", strings.Join(outside, ", "))
+	}
+}

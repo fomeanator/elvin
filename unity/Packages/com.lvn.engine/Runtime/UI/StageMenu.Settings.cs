@@ -27,7 +27,7 @@ namespace Lvn.UI
             scroll.Add(SegmentRow(L("text_size", "Text size"), ScaleSegment(
                 () => LvnPrefs.TextScale, v => LvnPrefs.TextScale = v)));
             scroll.Add(SegmentRow(L("ui_size", "Interface size"), ScaleSegment(
-                () => LvnPrefs.UiScale, v => { LvnPrefs.UiScale = v; LvnPanel.ApplyUiScale(); })));
+                () => LvnPrefs.UiScale, v => LvnPrefs.UiScale = v)));
             // ЧТО настраивается — у КАТАЛОГА, здесь только вид. Набор жил в
             // двух местах, и имена уже разошлись: прозрачность окна звалась
             // здесь window_opacity, а в оболочке settings.box_opacity — и
