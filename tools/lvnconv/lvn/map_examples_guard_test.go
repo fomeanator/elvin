@@ -175,7 +175,7 @@ func TestMapManifestPathsExist(t *testing.T) {
 	}
 }
 
-// РАЙОН КАРТЫ НЕ ОСЫПАЕТСЯ.
+// ЗАКРЫТЫЙ РАЙОН КАРТЫ НЕ ОСЫПАЕТСЯ.
 //
 // Полупустой район карты хуже пустого: читатель находит два дома из десяти,
 // делает вывод «остального тут нет» — и заводит второй дом рядом с живым. В
@@ -187,44 +187,56 @@ func TestMapManifestPathsExist(t *testing.T) {
 // Механизмом считаем класс с публичным способом: чистые записи данных
 // (`Lvn3DSet`, `LvnBox`) на карте не нужны — карта отвечает «как это делается»,
 // а не «из чего состоит».
+// Рядом, но НЕ то же самое: `TestEveryLivedInHomeIsOnTheMap` сверяет
+// СТАТИЧЕСКИЕ дома с двумя и более читателями по всему движку. Классов-
+// экземпляров он не видит, а район состоит в основном из них.
 func TestWorldDistrictIsFullyMapped(t *testing.T) {
 	root := repoRoot(t)
-	dir := filepath.Join(root, "unity/Packages/com.lvn.engine/Runtime/UI/World")
 	canon := string(mustRead(t, filepath.Join(root, "docs", "where-things-live.md")))
-
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		t.Fatal(err)
+	// Закрытые районы. Оболочка и Content ещё не закрыты — их числа записаны в
+	// хронике; храповик добавляет район сюда, когда тот дочитан до конца.
+	dirs := []string{
+		"unity/Packages/com.lvn.engine/Runtime/UI",
+		"unity/Packages/com.lvn.engine/Runtime/UI/World",
 	}
 	class := regexp.MustCompile(`\bpublic\s+(?:sealed\s+|abstract\s+|static\s+|partial\s+)*class\s+(\w+)`)
 	method := regexp.MustCompile(`public\s+[\w<>\[\]\.]+\s+\w+\s*\(`)
 
 	seen := 0
 	var lost []string
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".cs") {
-			continue
+	for _, dir := range dirs {
+		entries, err := os.ReadDir(filepath.Join(root, dir))
+		if err != nil {
+			t.Fatal(err)
 		}
-		src := string(mustRead(t, filepath.Join(dir, e.Name())))
-		for _, m := range class.FindAllStringSubmatchIndex(src, -1) {
-			name := src[m[2]:m[3]]
-			tail := src[m[1]:]
-			if len(tail) > 4000 {
-				tail = tail[:4000]
+		for _, e := range entries {
+			if e.IsDir() || !strings.HasSuffix(e.Name(), ".cs") {
+				continue
 			}
-			if !method.MatchString(tail) {
-				continue // запись данных, а не механизм
-			}
-			seen++
-			if !strings.Contains(canon, "`"+name) {
-				lost = append(lost, name)
+			src := string(mustRead(t, filepath.Join(root, dir, e.Name())))
+			for _, m := range class.FindAllStringSubmatchIndex(src, -1) {
+				name := src[m[2]:m[3]]
+				tail := src[m[1]:]
+				if len(tail) > 4000 {
+					tail = tail[:4000]
+				}
+				if !method.MatchString(tail) {
+					continue // запись данных, а не механизм
+				}
+				seen++
+				// Имя целиком, а не приставкой: иначе строка про
+				// `Lvn3DSetEnv` засчитывалась бы за `Lvn3DSet`, а
+				// переименование в карте прошло бы незамеченным.
+				if !regexp.MustCompile("`" + regexp.QuoteMeta(name) + "(?:`|\\.|/|\\s)").MatchString(canon) {
+					lost = append(lost, name)
+				}
 			}
 		}
 	}
-	sawSources(t, seen, 8, "механизмов района UI/World")
+	sawSources(t, seen, 30, "механизмов закрытых районов")
 	sort.Strings(lost)
 	if len(lost) > 0 {
-		t.Errorf("механизмы района UI/World вне карты (%d): %s\n\n"+
+		t.Errorf("механизмы закрытых районов вне карты (%d): %s\n\n"+
 			"Полупустой район хуже пустого: читатель делает вывод «остального тут "+
 			"нет» и заводит второй дом рядом с живым.", len(lost), strings.Join(lost, ", "))
 	}
