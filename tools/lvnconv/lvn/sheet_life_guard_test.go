@@ -417,3 +417,53 @@ func TestPlayModeRunHasGraphics(t *testing.T) {
 			"пропускаться ВСЕГДА, а отчёт останется зелёным")
 	}
 }
+
+// СПРЯТАННЫЙ ЭКРАН УМЕЕТ ВЕРНУТЬСЯ.
+//
+// Экраны оболочки прячутся по-разному, и это законно: у каждого своё
+// состояние, которое надо унести. Но одно сочетание делает экран невидимым
+// НАВСЕГДА: спрятать, выставив прозрачность в ноль, и не ставить её при
+// показе. Следующий показ выставит `display = Flex` поверх нулевой
+// прозрачности — экран «открыт», не показавшись. Ни ошибки, ни строки в логе,
+// только тишина в ответ на нажатие.
+//
+// Сегодня так не делает никто: у всех, кто прячет в ноль, показ идёт
+// проявлением. Правило при этом нигде не было записано — девять реализаций
+// решали каждая сама.
+func TestHiddenScreensCanComeBack(t *testing.T) {
+	root := repoRoot(t)
+	dir := filepath.Join(root, "unity/Packages/com.lvn.engine.shell/Runtime")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hide := regexp.MustCompile(`(?s)public void Hide\(\).*?\n        \}`)
+	seen := 0
+	var blind []string
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".cs") {
+			continue
+		}
+		body := stripComments(string(mustRead(t, filepath.Join(dir, e.Name()))))
+		m := hide.FindString(body)
+		if m == "" {
+			continue
+		}
+		seen++
+		if !strings.Contains(m, "opacity = 0f") {
+			continue
+		}
+		rest := strings.Replace(body, m, "", 1)
+		if !strings.Contains(rest, "style.opacity") && !strings.Contains(rest, "FadeAsync") {
+			blind = append(blind, e.Name())
+		}
+	}
+	sawSources(t, seen, 5, "экранов с сокрытием")
+	sort.Strings(blind)
+	if len(blind) > 0 {
+		t.Errorf("экраны прячутся в ноль и не ставят прозрачность при показе: %s\n\n"+
+			"Следующий показ выставит display = Flex поверх нулевой прозрачности: "+
+			"экран «открыт», не показавшись, и в ответ на нажатие — тишина.",
+			strings.Join(blind, ", "))
+	}
+}
