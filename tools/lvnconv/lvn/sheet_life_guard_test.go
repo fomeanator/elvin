@@ -907,3 +907,81 @@ func TestUncalledPublicDoorsExplainThemselves(t *testing.T) {
 			len(mute), doors, strings.Join(mute, "\n  "))
 	}
 }
+
+// НЕОБЯЗАТЕЛЬНЫЕ ПАКЕТЫ НЕ ОТСТАЮТ ОТ ДВИЖКА.
+//
+// `com.lvn.engine.spine` и `com.lvn.engine.addressables` — швы под чужие
+// пакеты (spine-unity, com.unity.addressables). Их asmdef закрыт
+// `defineConstraints`, а нужных зависимостей в тестовом хосте нет: **610 строк,
+// которые не компилирует НИКТО и никогда**. Опечатка там всплывёт у того, кто
+// поставит необязательный пакет, — то есть у чужого человека и не сегодня.
+//
+// Компилировать их нам нечем (нет самих чужих сборок). Но самое вероятное
+// гниение — не опечатка, а ПЕРЕИМЕНОВАНИЕ в движке: шов зовёт `LvnXxx.Член`,
+// член переезжает, и шов остаётся звать пустоту. Это проверяется текстом.
+//
+// Сверка грубая (имена, а не типы), поэтому судит только про ОТСУТСТВИЕ имени
+// целиком: если слова нет во всём движке — звать нечего.
+func TestOptionalPackagesStillFitTheEngine(t *testing.T) {
+	root := repoRoot(t)
+	word := regexp.MustCompile(`\w+`)
+	known := map[string]bool{}
+	files := 0
+	add := func(d string, declOnly bool) {
+		_ = filepath.Walk(filepath.Join(root, d), func(p string, i os.FileInfo, err error) error {
+			if err != nil || i.IsDir() || !strings.HasSuffix(p, ".cs") {
+				return err
+			}
+			files++
+			src := string(mustRead(t, p))
+			// У СВОИХ ФАЙЛОВ ШВА берём только ОБЪЯВЛЕНИЯ. Иначе шов
+			// подтверждает сам себя: `LvnSpineBootstrap.TryFitZ` кладёт
+			// «TryFitZ» в словарь известных, и проверка на него же и
+			// соглашается. Употребления — это всё, что стоит после точки.
+			if declOnly {
+				src = regexp.MustCompile(`\.\s*\w+`).ReplaceAllString(src, ".")
+			}
+			for _, w := range word.FindAllString(src, -1) {
+				known[w] = true
+			}
+			return nil
+		})
+	}
+	add("unity/Packages/com.lvn.engine", false)
+	add("unity/Packages/com.lvn.engine.services", false)
+	add("unity/Packages/com.lvn.engine.spine", true)
+	add("unity/Packages/com.lvn.engine.addressables", true)
+	sawSources(t, files, 200, "файлов движка и швов")
+
+	ref := regexp.MustCompile(`\b(Lvn\w+|VnStage|WorldStage|ILvn\w+)\.(\w+)`)
+	seen := 0
+	var lost []string
+	for _, d := range []string{
+		"unity/Packages/com.lvn.engine.spine",
+		"unity/Packages/com.lvn.engine.addressables",
+	} {
+		_ = filepath.Walk(filepath.Join(root, d), func(p string, i os.FileInfo, err error) error {
+			if err != nil || i.IsDir() || !strings.HasSuffix(p, ".cs") {
+				return err
+			}
+			src := stripComments(string(mustRead(t, p)))
+			for _, m := range ref.FindAllStringSubmatch(src, -1) {
+				seen++
+				if !known[m[1]] {
+					lost = append(lost, filepath.Base(p)+": типа "+m[1]+" в движке нет")
+				} else if !known[m[2]] {
+					lost = append(lost, filepath.Base(p)+": "+m[1]+"."+m[2]+" — члена в движке нет")
+				}
+			}
+			return nil
+		})
+	}
+	sawSources(t, seen, 6, "обращений швов к движку")
+	sort.Strings(lost)
+	if len(lost) > 0 {
+		t.Errorf("необязательные пакеты зовут то, чего в движке больше нет (%d):\n  %s\n\n"+
+			"Их не компилирует ничто: ошибка всплывёт у того, кто поставит "+
+			"spine-unity или Addressables, — у чужого человека и не сегодня.",
+			len(lost), strings.Join(lost, "\n  "))
+	}
+}
