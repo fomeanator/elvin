@@ -233,9 +233,19 @@ namespace Lvn.UI
             // видимость слоёв ставит она. Без подписки чужая просьба доехала
             // бы до Режиссёра и осталась там.
             LvnScreenDirector.Current.Changed += ApplyChromeVisibility;
+            // Кадры считает наблюдатель панели (с первого кадра, см. LvnPanel);
+            // сцена лишь рассказывает счётчику то, что знает только она.
+            Lvn.LvnFrameWatch.Busy = BusyNote;
             Build();
         }
         private void Start() => Build();
+
+        /// <summary>Чем занята сцена — пояснение к запинке; спрашивают только у неё.</summary>
+        private string BusyNote()
+        {
+            var busy = string.Join(",", BuildingSkeletons());
+            return busy.Length > 0 ? $" (spine builds in flight: {busy})" : "";
+        }
         // Start runs once per component lifetime — after a disable/enable cycle
         // it can't retry a Build whose panel wasn't ready yet, so keep a cheap
         // per-frame guard until the chrome exists.
@@ -258,16 +268,6 @@ namespace Lvn.UI
                     case LvnScreenDirector.QuickMenu: _menu?.Close(); break;
                 }
             }
-            // Рывок кадра — у СЧЁТЧИКА (Lvn.LvnFrameWatch): порог и вопрос «это
-            // уже рывок?» жили здесь строкой, и ответ был только в логе. Сцена
-            // добавляет к нему то, что знает только она: чем движок был занят.
-            Lvn.LvnFrameWatch.Frame(Time.unscaledDeltaTime, Time.frameCount,
-                () =>
-                {
-                    var busy = string.Join(",", BuildingSkeletons());
-                    return busy.Length > 0 ? $" (spine builds in flight: {busy})" : "";
-                });
-
             if (_renderer is CanvasSceneRenderer csr)
             {
                 // Переход полотна в «пусто и бело» логируем СОБЫТИЕМ, а не
@@ -474,6 +474,9 @@ namespace Lvn.UI
             if (_choices != null) _choices.OnSelected -= OnChoiceSelected;
             LvnPrefs.Changed -= OnPrefsChanged;
             LvnWardrobe.Changed -= OnWardrobeChanged;
+            // Снимаем своё пояснение — и только своё: другая сцена могла уже
+            // поставить собственное.
+            if (Lvn.LvnFrameWatch.Busy == (System.Func<string>)BusyNote) Lvn.LvnFrameWatch.Busy = null;
 
             // UIDocument tears its panel down on disable and brings up a FRESH
             // empty root on the next enable — everything Build() made is orphaned

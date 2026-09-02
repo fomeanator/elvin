@@ -1741,3 +1741,67 @@ func TestWallTimeIsNotCalledDecode(t *testing.T) {
 			"кадрах она врёт последним рывком, и замер станет ещё запутаннее")
 	}
 }
+
+// ДЛИНА КАДРА МЕРЯЕТСЯ С ПЕРВОГО КАДРА, А НЕ С ПЕРВОЙ СЦЕНЫ.
+//
+// Замер ожидания («wall=… кадр N мс») ставит рядом с числом длину последнего
+// кадра, чтобы число объясняло себя. Но кадры считала только сцена
+// (VnStage.Update): на витрине, где грузится полотно и где живёт вся
+// проблема первого экрана, счётчик стоял, и «кадр 0 мс» рядом с «wall=6451»
+// читалось как «ждали не кадра — значит, декодер». Проверка, отвечающая на
+// другой вопрос: число было верным, но про другое время.
+//
+// Дом покадрового пульса оболочки — наблюдатель панели (LvnPanelWatcher): он
+// рождается вместе с общими настройками панели, то есть с вуалью, и живёт
+// до конца. Сторож держит: (1) счётчик крутит ровно одно место, и это
+// наблюдатель панели; (2) тик стоит ДО раннего выхода «размер экрана не
+// менялся»; (3) пояснение сцены («чем занят движок») не потерялось — сцена
+// отдаёт его счётчику через Busy.
+func TestFrameLengthIsMeasuredFromBoot(t *testing.T) {
+	root := repoRoot(t)
+	rt := filepath.Join(root, "unity/Packages/com.lvn.engine/Runtime")
+	var callers []string
+	_ = filepath.Walk(rt, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+			return nil
+		}
+		src := stripComments(string(mustRead(t, path)))
+		if strings.Contains(src, "LvnFrameWatch.Frame(") {
+			callers = append(callers, strings.TrimPrefix(path, rt+"/"))
+		}
+		return nil
+	})
+	if len(callers) != 1 || callers[0] != "UI/LvnPanel.cs" {
+		t.Fatalf("длину кадра считает не наблюдатель панели, а %v: счётчик "+
+			"должен крутить ровно одно место, живущее с первого кадра", callers)
+	}
+	panel := stripComments(string(mustRead(t, filepath.Join(rt, "UI/LvnPanel.cs"))))
+	at := strings.Index(panel, "class LvnPanelWatcher")
+	if at < 0 {
+		t.Fatal("LvnPanelWatcher не найден")
+	}
+	watcher := classBody(panel, at+len("class LvnPanelWatcher"))
+	body, ok := ruleBody(watcher, "private void Update()")
+	if !ok {
+		t.Fatal("у LvnPanelWatcher нет Update()")
+	}
+	tick := strings.Index(body, "LvnFrameWatch.Frame(")
+	ret := strings.Index(body, "return")
+	if tick < 0 || (ret >= 0 && tick > ret) {
+		t.Error("тик длины кадра стоит после раннего выхода «размер экрана не " +
+			"менялся» — то есть почти никогда")
+	}
+	stage := stripComments(string(mustRead(t, filepath.Join(rt, "UI/VnStage.cs"))))
+	// Именно ОТДАЁТ, а не снимает: «Busy = null» в OnDisable — тоже
+	// присваивание, и первая версия стража на нём успокаивалась.
+	gives := false
+	for _, m := range regexp.MustCompile(`LvnFrameWatch\.Busy\s*=\s*([A-Za-z_]\w*)`).FindAllStringSubmatch(stage, -1) {
+		if m[1] != "null" {
+			gives = true
+		}
+	}
+	if !gives {
+		t.Error("сцена больше не рассказывает счётчику, чем занят движок — " +
+			"строка FRAME HITCH потеряла «spine builds in flight»")
+	}
+}
