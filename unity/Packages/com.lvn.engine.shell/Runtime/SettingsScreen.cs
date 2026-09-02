@@ -207,8 +207,7 @@ namespace Lvn.UI.Screens
             // Ленту настроек экран пересобирает целиком при переодевании, так
             // что готовая строка здесь живёт ровно до следующей сборки.
             var lbl = SectionTitle(() => title, LvnTokens.TextLg);
-            lbl.style.marginTop = _sections++ == 0 ? 8 : 26;
-            lbl.style.marginBottom = LvnTokens.Space1;
+            LvnAir.MarginY(lbl, _sections++ == 0 ? 8 : 26, LvnTokens.Space1);
             _list.Add(lbl);
         }
 

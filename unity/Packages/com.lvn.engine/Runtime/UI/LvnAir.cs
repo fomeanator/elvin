@@ -86,12 +86,27 @@ namespace Lvn.UI
             el.style.marginRight = x;
         }
 
-        /// <summary>Внешний отступ сверху и снизу.</summary>
-        public static void MarginY(VisualElement el, float y)
+        /// <summary>Внешний отступ сверху и снизу — одинаковый.</summary>
+        public static void MarginY(VisualElement el, float y) => MarginY(el, y, y);
+
+        /// <summary>Внешний отступ сверху и снизу — РАЗНЫЙ.
+        ///
+        /// <para>Дом умел только одинаковый, и потому его обходили: семь мест
+        /// ставили `marginTop` и `marginBottom` сырыми стилями, потому что
+        /// подпись жмётся к заголовку сверху и отпускает содержимое снизу — у
+        /// вертикального ритма стороны неравны почти всегда.</para>
+        ///
+        /// <para>Это не лень вызывающих, а НЕПОЛНОТА дома: пока он не умеет
+        /// нужного, каждый решает сам, и правило «отступы из токенов» держится
+        /// на внимательности. Порядок доводов такой же, как в CSS, — сверху
+        /// вниз; одно из семи мест писало снизу вверх, и читалось это как
+        /// ошибка.</para>
+        /// </summary>
+        public static void MarginY(VisualElement el, float top, float bottom)
         {
             if (el == null) return;
-            el.style.marginTop = y;
-            el.style.marginBottom = y;
+            el.style.marginTop = top;
+            el.style.marginBottom = bottom;
         }
     }
 }

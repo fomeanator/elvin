@@ -182,7 +182,7 @@ namespace Lvn.UI.Screens
             _hubView.Add(topBar);
 
             var brand = new VisualElement();
-            brand.style.marginTop = LvnTokens.Hair; brand.style.marginBottom = LvnTokens.Space3;
+            LvnAir.MarginY(brand, LvnTokens.Hair, LvnTokens.Space3);
             var eyebrow = ScreenUi.Eyebrow(HubEyebrow, 30f, _accent);
             _hubEyebrow = eyebrow;
             eyebrow.style.marginBottom = LvnTokens.Space1;

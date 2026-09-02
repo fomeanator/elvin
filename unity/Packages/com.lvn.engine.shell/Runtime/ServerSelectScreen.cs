@@ -181,8 +181,7 @@ namespace Lvn.UI.Screens
             var customLabel = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("server.custom", "Your own server (URL up to /api)"));
             customLabel.style.color = LvnDawn.InkDim;
             customLabel.style.fontSize = LvnTokens.TextMicro;
-            customLabel.style.marginTop = LvnTokens.Space2;
-            customLabel.style.marginBottom = LvnTokens.Space1;
+            LvnAir.MarginY(customLabel, LvnTokens.Space2, LvnTokens.Space1);
             panel.Add(customLabel);
 
             bool customKnown = candidates.Exists(c => c.Url == savedCustom);

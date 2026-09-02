@@ -268,8 +268,7 @@ namespace Lvn.UI.Screens
             var level = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("profile.level", "Level {0}", Level));
             level.style.color = LvnTokens.Accent;
             level.style.fontSize = LvnTokens.TextSm;
-            level.style.marginTop = LvnTokens.Hair;
-            level.style.marginBottom = LvnTokens.Space2;
+            LvnAir.MarginY(level, LvnTokens.Hair, LvnTokens.Space2);
             col.Add(level);
 
             // XP progress: a track with an Accent fill.
