@@ -13,7 +13,7 @@ func TestParseAttributionShapes(t *testing.T) {
 		want      playerAttribution
 	}{
 		{"полный адрес",
-			"https://timeromance.ru/?utm_source=telegram&utm_medium=post&utm_campaign=aug_beta",
+			"https://example.com/?utm_source=telegram&utm_medium=post&utm_campaign=aug_beta",
 			playerAttribution{Source: "telegram", Medium: "post", Campaign: "aug_beta"}},
 		{"голая строка меток",
 			"utm_source=vk&utm_campaign=test",
@@ -28,7 +28,7 @@ func TestParseAttributionShapes(t *testing.T) {
 			"https://x/?utm_source=%D1%82%D0%B5%D0%BB%D0%B5%D0%B3%D0%B0&utm_campaign=%20%D0%BB%D0%B5%D1%82%D0%BE%20",
 			playerAttribution{Source: "телега", Campaign: "лето"}},
 		{"без меток вовсе",
-			"https://timeromance.ru/", playerAttribution{}},
+			"https://example.com/", playerAttribution{}},
 	}
 	for _, c := range cases {
 		got := parseAttribution(c.raw)
@@ -91,7 +91,7 @@ func TestAttributionEmptyDoesNotClaimFirstTouch(t *testing.T) {
 	s.users["u1"] = &authUser{Created: "2026-08-01T00:00:00Z"}
 	s.mu.Unlock()
 
-	if _, wrote := s.SetAttributionFirstTouch("u1", parseAttribution("https://timeromance.ru/")); wrote {
+	if _, wrote := s.SetAttributionFirstTouch("u1", parseAttribution("https://example.com/")); wrote {
 		t.Error("пустая строка заняла место первого касания")
 	}
 	got, wrote := s.SetAttributionFirstTouch("u1", parseAttribution("?utm_campaign=позже"))

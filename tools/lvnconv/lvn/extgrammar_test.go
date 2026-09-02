@@ -112,7 +112,7 @@ func TestFindExtGrammarSidecar(t *testing.T) {
 	// Нет проектного файла — путь пустой, но грамматика НЕ пустая: операции
 	// движка известны всегда (см. withServiceOps). Раньше здесь возвращался
 	// nil, и каждый проект был обязан переписать список первопартийных
-	// операций себе — Time Romance переписал четыре из тринадцати.
+	// операций себе — партнёрская новелла переписала четыре из тринадцати.
 	if g, path, err := FindExtGrammar(filepath.Join(t.TempDir(), "lone.lvn")); err != nil || path != "" {
 		t.Fatalf("no sidecar must report an empty path, got path=%q err=%v", path, err)
 	} else if _, ok := g.Ops["minigame"]; ok {
@@ -159,7 +159,7 @@ func TestExtLabelFieldTargetsAndValidates(t *testing.T) {
 //
 // Валидатор носит встроенную копию (`service-ops.json`), потому что знать свои
 // операции — обязанность движка: без этого каждый проект переписывал их список
-// себе, и Time Romance объявил четыре из тринадцати — а `leaderboard_submit`,
+// себе, и партнёрская новелла объявила четыре из тринадцати — а `leaderboard_submit`,
 // рабочий и зарегистрированный, числился неизвестной командой.
 func TestEmbeddedServiceGrammarMatchesThePackage(t *testing.T) {
 	root := filepath.Join("..", "..", "..")

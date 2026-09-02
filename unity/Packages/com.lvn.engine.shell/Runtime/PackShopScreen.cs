@@ -217,7 +217,7 @@ namespace Lvn.UI.Screens
 
         private Pack ToCard(Lvn.Services.LvnWallet.IapPack p, bool bundle)
         {
-            // Витрина Time Romance живёт в ночном стекле и золоте, а не в
+            // Витрина партнёрской новеллы живёт в ночном стекле и золоте, а не в
             // случайной фиолетовой палитре. Сливовый остаётся только у редких
             // наборов как у запечатанного личного дела.
             var gem = new Color(0.06f, 0.27f, 0.31f);

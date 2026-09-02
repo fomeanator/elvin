@@ -19,7 +19,7 @@ namespace Lvn.Tests
         [Test]
         public void NovellaNamesItsOwnVariable()
         {
-            LvnPlayerName.Var = "name";     // как в Time Romance
+            LvnPlayerName.Var = "name";     // как в партнёрской новелле
 
             Assert.IsTrue(LvnPlayerName.IsNameVar("name"));
             Assert.IsTrue(LvnPlayerName.IsNameVar("Name"), "регистр не должен решать");
