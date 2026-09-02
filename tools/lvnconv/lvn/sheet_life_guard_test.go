@@ -350,3 +350,39 @@ func TestEveryDiagnosticTagIsNamespaced(t *testing.T) {
 			len(strays), strings.Join(strays, "\n  "))
 	}
 }
+
+// КАРТА КЭША И СЧЁТ БАЙТОВ МЕНЯЮТСЯ ВМЕСТЕ.
+//
+// Карта отвечает «что у нас есть», счётчик — «сколько это весит», а решение о
+// вытеснении принимается по СЧЁТЧИКУ. Забудь вычесть — бюджет считает память
+// занятой, и кэш выбрасывает живое; вычти дважды — считает свободной, и растёт
+// до отказа. Ни то, ни другое не даёт ошибки: игра просто перезагружает
+// картинки или падает по памяти.
+//
+// Обряд стоял тремя копиями и в разных порядках. Сторожим не порядок (он под
+// одним замком безразличен), а само наличие рукописного снятия: `Remove` у
+// карты законен только внутри дома.
+func TestSpriteCacheDropsThroughOneDoor(t *testing.T) {
+	root := repoRoot(t)
+	body := stripComments(string(mustRead(t, filepath.Join(root,
+		"unity/Packages/com.lvn.engine/Runtime/Content/ContentLoader.SpriteCache.cs"))))
+	sawSources(t, len(body), 2000, "знаков в доме кэша спрайтов")
+
+	// Внутри самого DropLocked — законно; всё остальное снятие идёт через него.
+	at := strings.Index(body, "private void DropLocked(")
+	if at < 0 {
+		t.Fatal("DropLocked пропал — на нём держится согласие карты и счёта")
+	}
+	end := strings.Index(body[at:], "\n        }")
+	home := body[at : at+end]
+	rest := body[:at] + body[at+end:]
+
+	if !strings.Contains(home, "_spriteCache.Remove(") || !strings.Contains(home, "_spriteBytes -=") {
+		t.Error("дом больше не делает обе половины разом")
+	}
+	if n := strings.Count(rest, "_spriteCache.Remove("); n > 0 {
+		t.Errorf("снятие из карты мимо дома: %d раз(а)\n\n"+
+			"Берите DropLocked: карта и счёт байтов обязаны меняться вместе, "+
+			"иначе бюджет вытеснения выбрасывает живое или растёт до отказа.", n)
+	}
+}
