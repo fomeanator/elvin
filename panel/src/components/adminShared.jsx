@@ -55,17 +55,43 @@ export function useDebounced(value, ms) {
 // every panel. Every run (effect OR manual reload) bumps a request id; a
 // response only lands if its id is still current, so a slow stale response can
 // never overwrite fresher data (e.g. user A's wallet over user B's card).
+// ОТВЕТ ПРИНАДЛЕЖИТ СВОЕМУ ЗАПРОСУ.
+//
+// Загрузка, перезапускаемая по смене выбора (титул, язык, раздел), гоняется
+// сама с собой: переключил дважды — и поздний СТАРЫЙ ответ ложится поверх
+// свежего. Панель показывает данные прежней новеллы под именем новой, и
+// объяснить это по экрану нельзя: ошибки нет, запрос прошёл, данные настоящие
+// — просто не те.
+//
+// Защита была у `useAsync` и только у него: пять загрузок, написанных прямо в
+// useEffect, её не имели. Правило вынесено в примитив, чтобы им пользовались
+// оба входа — и полный загрузчик, и рукописный эффект.
+//
+//   const start = useLatest();
+//   useEffect(() => { const run = start();
+//     fetch().then((d) => { if (!run.fresh()) return; … });
+//     return run.drop; }, [dep]);
+export function useLatest() {
+  const ref = useRef(0);
+  return useCallback(() => {
+    const n = ++ref.current;
+    return {
+      fresh: () => ref.current === n,
+      drop: () => { if (ref.current === n) ref.current++; },
+    };
+  }, []);
+}
+
 export function useAsync(loader, deps) {
   const [state, setState] = useState({ loading: true, error: "", data: null });
-  const reqRef = useRef(0);
+  const start = useLatest();
   const reload = useCallback(() => {
-    const req = ++reqRef.current;
-    const current = () => reqRef.current === req;
+    const run = start();                       // правило свежести — в useLatest
     setState((s) => ({ ...s, loading: true, error: "" }));
     loader()
-      .then((data) => current() && setState({ loading: false, error: "", data }))
-      .catch((e) => current() && setState({ loading: false, error: authMsg(e), data: null }));
-    return () => { if (current()) reqRef.current++; }; // effect cleanup: cancel this run
+      .then((data) => run.fresh() && setState({ loading: false, error: "", data }))
+      .catch((e) => run.fresh() && setState({ loading: false, error: authMsg(e), data: null }));
+    return run.drop;                           // effect cleanup: cancel this run
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
   useEffect(reload, [reload]);
