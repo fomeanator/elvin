@@ -241,7 +241,12 @@ namespace Lvn.UI.Screens
                     r.style.opacity = 1f - t;
                     r.style.translate = new Translate(Mathf.Lerp(0f, 40f, t * t), 0f);
                     if (h0 > 1f) r.style.height = Mathf.Lerp(h0, 0f, t);
-                    if (t >= 1f) { Center?.Remove(entry); RebuildSections(); }
+                    if (t >= 1f)
+                    {
+                        Center?.Remove(entry);
+                        // Строка ушла с ОТКРЫТОЙ панели: прокрутка игрока не её.
+                        Lvn.UI.LvnScroll.Keeping(_sections, () => RebuildSections());
+                    }
                 });
             });
             row.Add(x);
