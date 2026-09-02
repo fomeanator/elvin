@@ -31,6 +31,44 @@ namespace Lvn.UI
         /// тапом. Меньше — и список уезжает от дрожи пальца на кнопке.</summary>
         public const float DragThreshold = 8f;
 
+        /// <summary>
+        /// ПЕРЕСОБРАТЬ СПИСОК, НЕ ТЕРЯЯ МЕСТА, НА КОТОРОМ СТОИТ ИГРОК.
+        ///
+        /// <para><c>Clear()</c> обнуляет содержимое, а вместе с ним и
+        /// прокрутку: высота падает до нуля, и <c>scrollOffset</c> зажимается
+        /// в начало. Новые дети приходят уже к нулю — список прыгает наверх.
+        /// Видно это не всегда: пересобирают обычно при открытии, когда игрок
+        /// и так в начале. Но там, где список пересобирают НА ГЛАЗАХ (панель
+        /// загрузок обновляется, когда глава встала в очередь или доехала),
+        /// прыжок настоящий.</para>
+        ///
+        /// <para>Место возвращается дважды: сразу — на случай, если раскладка
+        /// уцелела, — и на первой пересчитанной геометрии, потому что до неё
+        /// возвращать некуда. Страховка снимает подписку, чтобы список,
+        /// который больше не меняет размер, не таскал её вечно.</para>
+        ///
+        /// <para>Стоял в начале — ничего не делаем: возвращать нечего, а лишняя
+        /// подписка на геометрию стоит дороже.</para>
+        /// </summary>
+        public static void Keeping(ScrollView view, System.Action rebuild)
+        {
+            if (view == null) { rebuild?.Invoke(); return; }
+            var was = view.scrollOffset;
+            rebuild?.Invoke();
+            if (was.sqrMagnitude <= 0.0001f) return;
+
+            view.scrollOffset = was;
+            EventCallback<GeometryChangedEvent> back = null;
+            back = _ =>
+            {
+                view.scrollOffset = was;
+                view.contentContainer.UnregisterCallback(back);
+            };
+            view.contentContainer.RegisterCallback(back);
+            view.schedule.Execute(() => view.contentContainer.UnregisterCallback(back))
+                .ExecuteLater(96);
+        }
+
         /// <summary>Вертикальный список с общими правилами: полос нет (на
         /// телефоне их всё равно не хватают пальцем), тянется рукой.</summary>
         public static ScrollView Vertical(bool showScroller = false)

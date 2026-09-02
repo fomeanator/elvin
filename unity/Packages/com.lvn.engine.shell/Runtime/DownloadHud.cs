@@ -382,7 +382,13 @@ namespace Lvn.UI.Screens
                             : LvnWords.Of("downloads.all_done", "everything downloaded"));
                     }
                 }
-                if (_expanded && Center != null && _centerDirty) { _centerDirty = false; RebuildSections(animate: false); }
+                if (_expanded && Center != null && _centerDirty)
+                {
+                    _centerDirty = false;
+                    // Панель обновляется НА ГЛАЗАХ (глава встала в очередь или
+                    // доехала) — прокрутку игрока пересборка забирать не должна.
+                    Lvn.UI.LvnScroll.Keeping(_sections, () => RebuildSections(animate: false));
+                }
             }
             else if (_shown && !_expanded)
             {
