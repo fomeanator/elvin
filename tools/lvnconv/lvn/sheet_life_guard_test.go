@@ -1276,3 +1276,65 @@ func ruleBody(src, header string) (string, bool) {
 	}
 	return "", false
 }
+
+// КРУГ — ОДНО РЕШЕНИЕ, А НЕ ТРИ ЧИСЛА.
+//
+// Круглых элементов в оболочке восемь: точка непрочитанного, кольцо аватара,
+// медаль места, логотип, ореол под значком, ползунок переключателя, свотч
+// цвета. Каждый собирался руками — ширина, высота и скругление тремя
+// строками, — и связь между ними нигде не была записана.
+//
+// Половину размера писали по-разному: «wide ? 39f : 30f» при коробке 78/60,
+// «(avatar + 12f) / 2f» при коробке «avatar + (first ? 12 : 8)» (радиус БОЛЬШЕ
+// половины — спасал зажим UITK, а не расчёт), «EmoBarWidth * 0.5f». А чаще
+// радиус брали ТОКЕНОМ ТЕМЫ, и круг выходил по совпадению: свотч 56 px с
+// RadiusLg = 28 — ровно половина, но лишь потому, что два независимых числа
+// темы сегодня так соотносятся.
+//
+// Сторож ловит арифметику: аргумент скругления, целиком равный половине
+// чего-то, — это круг или пилюля, и у них есть дом. Промежуточные значения
+// (морф капсулы: Mathf.Lerp(MiniSize * 0.5f, 22f, k)) не трогаются — там
+// половина лишь один конец пути.
+func TestHalfSizeRadiusHasAHome(t *testing.T) {
+	root := repoRoot(t)
+	half := regexp.MustCompile(`^\s*\(?[\w.\[\]+ ]+\)?\s*(?:\*\s*0\.5f|/\s*2(?:\.0)?f?)\s*$`)
+	var hand []string
+	seen := 0
+	for _, rel := range []string{
+		"unity/Packages/com.lvn.engine.shell/Runtime",
+		"unity/Packages/com.lvn.engine/Runtime/UI",
+	} {
+		_ = filepath.Walk(filepath.Join(root, rel), func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+				return nil
+			}
+			src := stripComments(string(mustRead(t, path)))
+			for at := 0; ; {
+				i := strings.Index(src[at:], "LvnChrome.Round(")
+				if i < 0 {
+					break
+				}
+				at += i + len("LvnChrome.Round(")
+				args, ok := topLevelArgs(src, at)
+				if !ok || len(args) != 2 {
+					continue
+				}
+				seen++
+				if half.MatchString(args[1]) {
+					hand = append(hand, filepath.Base(path)+": Round(…,"+strings.TrimSpace(args[1])+")")
+				}
+			}
+			return nil
+		})
+	}
+	sawSources(t, seen, 30, "скруглений оболочки")
+	sort.Strings(hand)
+	if len(hand) > 0 {
+		t.Errorf("половина размера посчитана на месте вызова (%d):\n  %s\n\n"+
+			"Круг — LvnChrome.Circle(el, диаметр), полоса — LvnChrome.Pill(el, толщина). "+
+			"Сосчитанная руками половина живёт отдельно от размера и переживает "+
+			"его правку: размер поменяют, радиус забудут, и круг станет "+
+			"квадратом со скруглением — молча.",
+			len(hand), strings.Join(hand, "\n  "))
+	}
+}

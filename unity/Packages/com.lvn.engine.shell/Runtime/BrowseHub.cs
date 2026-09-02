@@ -170,7 +170,7 @@ namespace Lvn.UI.Screens
             var gift = TopIconButton(LvnIcon.Gift, _text, () => { if (OnDaily != null) LvnAsync.Fire(OnDaily(), "OpenDaily"); });
             var dot = new Label { pickingMode = PickingMode.Ignore };
             dot.style.position = Position.Absolute; dot.style.top = 6; dot.style.right = 6;
-            dot.style.width = 10; dot.style.height = 10; dot.style.backgroundColor = _accent; LvnChrome.Round(dot, LvnTokens.RadiusXs);
+            dot.style.backgroundColor = _accent; LvnChrome.Circle(dot, 10f);
             gift.Add(dot);
             // Чистка витрины (TR-25): партнёр убирает ежедневную награду данными.
             if (!(_cfg.show_daily ?? true)) gift.style.display = DisplayStyle.None;

@@ -270,9 +270,8 @@ namespace Lvn.UI.Screens
             for (int i = 0; i < _titles.Count; i++)
             {
                 var dot = new VisualElement();
-                dot.style.width = 10; dot.style.height = 10;
+                LvnChrome.Circle(dot, 10f);
                 LvnAir.MarginX(dot, LvnTokens.Tight);
-                LvnChrome.Round(dot, LvnTokens.RadiusXs);   // точка — круг из квадрата 10×10
                 _dots.Add(dot);
             }
             // Цвет ставит ТОТ ЖЕ ход, что и при переходе на карточку. Стоял он

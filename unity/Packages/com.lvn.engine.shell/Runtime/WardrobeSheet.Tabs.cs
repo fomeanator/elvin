@@ -93,12 +93,14 @@ namespace Lvn.UI.Screens
                 RefreshLabel();   // «Рыжая: Голливудские волны» — цвет И причёска
                 RefreshConfirm(); // кнопка предложит купить этот цвет
             }) { text = "" };
-            b.style.width = LvnTokens.TouchLg; b.style.height = LvnTokens.TouchLg;
+            // Свотч круглый по размеру касания, а не по огранке темы: он
+            // выходил кругом лишь потому, что RadiusLg (28) — ровно половина
+            // TouchLg (56), а это два независимых числа темы.
+            LvnChrome.Circle(b, LvnTokens.TouchLg);
             LvnAir.Pad(b, 0);
             LvnAir.MarginX(b, LvnTokens.Tight);
             b.style.alignItems = Align.Center;
             b.style.justifyContent = Justify.Center;
-            LvnChrome.Round(b, Lvn.UI.LvnTokens.RadiusLg);
             var fallback = new Color(0.30f, 0.31f, 0.35f, 0.9f);
             b.style.backgroundColor = string.IsNullOrEmpty(item.color)
                 ? fallback : UiColor.Named(item.color, fallback);
