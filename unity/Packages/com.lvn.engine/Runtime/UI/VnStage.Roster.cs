@@ -23,6 +23,29 @@ namespace Lvn.UI
     /// </summary>
     public sealed partial class VnStage
     {
+        /// <summary>
+        /// ПЕРЕИГРАТЬ ЗАПОМНЕННУЮ КОМАНДУ — С ТЕМ, КТО ЕЁ ПРИСЛАЛ.
+        ///
+        /// <para>Повтор это не новая команда: её прислал тот же, кто и первую,
+        /// и память сцены отправителя хранит (<see cref="LvnActorMemory.TryPoseSender"/>).
+        /// Без этого повтор идёт умолчанием «история», то есть ЛИПКИМ, и поза
+        /// витрины или гардероба оседает в памяти как авторская — ровно то, от
+        /// чего липкость и заведена: «героиня выходила в главу стоящей
+        /// по-менюшному».</para>
+        ///
+        /// <para>Переигрывают в четырёх местах — фон сменился, наряд сменился,
+        /// слои не доехали, гардероб вернул актёра, — и каждое теряло
+        /// отправителя по-своему. Здесь он берётся из памяти один раз.</para>
+        /// </summary>
+        private Task ReplayRememberedAsync(string id, JObject cmd,
+                                           bool wardrobeSwap = false, bool wardrobeFromTop = false)
+            => ApplyActorAsync(cmd, wardrobeSwap, wardrobeFromTop, RememberedSender(id));
+
+        /// <summary>Кем поставлена фигура сейчас. Не помним — значит её ставит
+        /// история: до первой чужой команды других отправителей и не было.</summary>
+        private LvnSender RememberedSender(string id)
+            => _memory.TryPoseSender(id, out var was) ? was : LvnSender.Story;
+
         /// <summary>Re-apply an on-screen actor from its last command (art
         /// re-resolves against the current variables + wardrobe). No-op when
         /// the actor isn't on stage.</summary>
@@ -30,7 +53,7 @@ namespace Lvn.UI
         {
             if (string.IsNullOrEmpty(id) || !_memory.TryCommand(id, out var cmd)) return;
             if (!BoolOr(cmd["show"], true)) return; // скрытого не воскрешать
-            LvnAsync.Fire(ApplyActorAsync(cmd), "ApplyActor");
+            LvnAsync.Fire(ReplayRememberedAsync(id, cmd), "ApplyActor");
         }
 
         /// <summary>Актёр виден ИЛИ его показ уже в полёте (слои грузятся).
@@ -66,13 +89,20 @@ namespace Lvn.UI
             // would reload the whole layered composite and lag the wardrobe open.
             if (_memory.TryWhere(id, out var pl) && pl.Show) return;
             JObject cmd;
+            // Отправитель: у возвращаемого — тот, с которым он стоял; у
+            // манекена, которого история никогда не ставила, — гардероб.
+            // Назвать «историей» манекен значило бы дать ему мировые метры, и
+            // кукла вырастает во весь экран, обрезанная по грудь.
+            LvnSender sender;
             if (_memory.TryCommand(id, out var last) && (string)last["op"] == "actor")
             {
                 cmd = (JObject)last.DeepClone();
                 cmd["show"] = true; // in case the last op hid her
+                sender = RememberedSender(id);
             }
             else
             {
+                sender = LvnSender.Wardrobe;
                 // Манекен гардероба без сценарной постановки: размер как у
                 // сценарного зеркала (0.92/1.06), а не дефолтный слот — иначе
                 // «в игре и в гардеробе героиня разного роста» (живой репорт).
@@ -83,7 +113,7 @@ namespace Lvn.UI
                 };
             }
             if (fadeOnly) cmd["enter"] = "fade";
-            LvnAsync.Fire(ApplyActorAsync(cmd), "ApplyActor");
+            LvnAsync.Fire(ApplyActorAsync(cmd, sender: sender), "ApplyActor");
         }
 
         /// <summary>

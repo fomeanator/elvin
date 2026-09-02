@@ -771,9 +771,10 @@ func TestStageNamesItselfWhenItTalksToItself(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	call := regexp.MustCompile(`ApplyStage\(`)
+	// Два входа в сцену с одинаковым правилом: и общая дверь, и путь актёра.
+	call := regexp.MustCompile(`(?:ApplyStage|ApplyActorAsync)\(`)
 	// Объявления перегрузок — не вызовы.
-	decl := regexp.MustCompile(`(?:void|Task)\s+ApplyStage\(`)
+	decl := regexp.MustCompile(`(?:void|Task)\s+(?:ApplyStage|ApplyActorAsync)\(`)
 
 	seen := 0
 	var nameless []string
@@ -789,13 +790,27 @@ func TestStageNamesItselfWhenItTalksToItself(t *testing.T) {
 			}
 			seen++
 			args, ok := topLevelArgs(src, m[1])
-			if !ok || len(args) >= 2 {
+			if !ok {
+				continue
+			}
+			// Отправитель может ехать именованным доводом (`sender: sender`),
+			// значением (`LvnSender.Wardrobe`) или через дом памяти
+			// (`RememberedSender(id)`) — считать позиции нельзя: у пути актёра
+			// между ними два признака гардероба. Ищем слово, а не место.
+			named := false
+			for _, a := range args {
+				if strings.Contains(strings.ToLower(a), "sender") {
+					named = true
+					break
+				}
+			}
+			if named {
 				continue
 			}
 			nameless = append(nameless, e.Name()+":"+itoa(strings.Count(src[:m[0]], "\n")+1))
 		}
 	}
-	sawSources(t, seen, 5, "вызовов сцены изнутри неё самой")
+	sawSources(t, seen, 10, "вызовов сцены изнутри неё самой")
 	sort.Strings(nameless)
 	if len(nameless) > 0 {
 		t.Errorf("сцена зовёт себя без отправителя (%d):\n  %s\n\n"+
@@ -805,4 +820,3 @@ func TestStageNamesItselfWhenItTalksToItself(t *testing.T) {
 			len(nameless), strings.Join(nameless, "\n  "))
 	}
 }
-
