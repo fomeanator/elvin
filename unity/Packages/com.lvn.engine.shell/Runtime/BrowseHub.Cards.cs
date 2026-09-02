@@ -120,10 +120,7 @@ namespace Lvn.UI.Screens
             string art = t.CardArt();
             if (!string.IsNullOrEmpty(art))
             {
-                var img = new VisualElement { pickingMode = PickingMode.Ignore };
-                ScreenUi.Stretch(img);
-                poster.Add(img);
-                LvnPicture.Photo(img, art, _assets);
+                LvnPicture.Layer(poster, art, _assets);
             }
             else
             {

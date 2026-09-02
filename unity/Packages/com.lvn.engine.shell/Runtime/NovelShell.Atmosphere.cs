@@ -53,10 +53,7 @@ namespace Lvn.UI.Screens
             {
                 // Арт-полотно партнёра: фото на всю ширину 4 экранов + тёмная
                 // вуаль (текст обязан читаться) + тинт вкладки поверх.
-                var photo = new VisualElement { pickingMode = PickingMode.Ignore };
-                LvnChrome.Stretch(photo);
-                _atmosphere.Add(photo);
-                LvnPicture.Photo(photo, canvasUrl, _assets, what: "MenuCanvas");
+                LvnPicture.Layer(_atmosphere, canvasUrl, _assets, what: "MenuCanvas");
                 var veil = new VisualElement { pickingMode = PickingMode.Ignore };
                 LvnChrome.Stretch(veil);
                 // «Реализм» (Илья): фото почти как есть — лишь лёгкая вуаль,
