@@ -236,7 +236,9 @@ namespace Lvn.UI.Screens
                 // ни реплика, ни витрина. Забыть отпустить — значит оставить
                 // историю без её же героя до истечения срока держания.
                 st.ReleaseWardrobeFocus();
-                OnWardrobeSection(null);                // глава продолжается общим планом
+                // Источник — НЕ лист, а сам хост: сброс здесь намеренный, а
+                // не эхо чужого раздела. Потому первым доводом null.
+                OnWardrobeSection(null, null);           // глава продолжается общим планом
                 var cur = _storySheet.CurrentEntity ?? entity;
                 if (!wasOn.Contains(cur))
                     await st.HideActorTemporarilyAndWaitAsync(cur);

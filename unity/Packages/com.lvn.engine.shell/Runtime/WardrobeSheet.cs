@@ -100,9 +100,15 @@ namespace Lvn.UI.Screens
         /// (null — общий план: таб «Все», «Во весь рост», закрытие). Хост со
         /// сценой (NovelApp) наводит по нему камеру — тот же приём, что зум к
         /// лицам фаворитов в прологе (просьба Ильи 28.08).</summary>
-        public static event Action<string> SectionFocus;
+        /// <para>ЛИСТОВ ДВА — вкладка хаба и сюжетный, — и событие статическое,
+        /// поэтому хост слышал ОБА. Камеру он наводит менюшную; сюжетный лист
+        /// стоит поверх сцены главы, а уводил при этом камеру ХАБА: игрок
+        /// возвращался в меню и видел куклу в зуме, которого там не выбирал.
+        /// Поэтому источник теперь приходит доводом — слушающий вправе решить,
+        /// его ли это лист.</para>
+        public static event Action<WardrobeSheet, string> SectionFocus;
 
-        private void FireSectionFocus(string axis) => SectionFocus?.Invoke(axis);
+        private void FireSectionFocus(string axis) => SectionFocus?.Invoke(this, axis);
         /// <summary>Вернуть зум активного раздела (возврат из «Во весь рост»).</summary>
         public void RefocusSection() => FireSectionFocus(_tab);
 
