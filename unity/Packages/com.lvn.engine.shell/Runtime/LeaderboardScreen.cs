@@ -41,9 +41,28 @@ namespace Lvn.UI.Screens
 
         private bool _weekly = true;
 
-        /// <summary>The current standings, ordered by rank ascending. Defaults to a
-        /// demo set; a host assigns the live board and calls <see cref="Rebuild"/>.</summary>
-        public List<Entry> Entries;
+        /// <summary>
+        /// ТЕКУЩИЕ СТРОКИ, по возрастанию места. До прихода хоста — ДЕМО:
+        /// вымышленные имена, чтобы в редакторе была видна вёрстка.
+        ///
+        /// <para>Присваивание снаружи означает «пришли ЖИВЫЕ» и гасит демо
+        /// навсегда. Иначе бывает хуже, чем совсем без данных: игрок открыл
+        /// таблицу, увидел настоящих людей, переключил «за неделю» — и получил
+        /// выдуманные имена, ничем от настоящих не отличимые.</para>
+        /// </summary>
+        public List<Entry> Entries
+        {
+            get => _entries;
+            set { _entries = value; _demo = false; }
+        }
+
+        private List<Entry> _entries;
+        private bool _demo = true;
+
+        /// <summary>ПЕРИОД ПЕРЕКЛЮЧИЛ ИГРОК — а достать доску за него может
+        /// только хост: сеть и ключ доски у него. Экран сообщает и ждёт новых
+        /// строк; сам он их выдумать не вправе.</summary>
+        public System.Action<bool> PeriodChanged;
 
         // A small deterministic palette for fallback avatar circles, so a given
         // name always lands on the same colour.
@@ -60,7 +79,7 @@ namespace Lvn.UI.Screens
         public LeaderboardScreen(ILvnAssets assets)
         {
             _assets = assets;
-            Entries = DemoEntries();
+            _entries = DemoEntries();   // напрямую: это ДЕМО, метку не снимаем
 
             Lvn.UI.LvnChrome.Scrim(this, Close);
             // tap the scrim (not the sheet) to close
@@ -131,14 +150,26 @@ namespace Lvn.UI.Screens
             if (_weekly == weekly) return;
             _weekly = weekly;
             SyncTabs();
-            // A live host refetches the period's board here; the demo regenerates
-            // its fallback so the toggle visibly changes the numbers.
-            Entries = DemoEntries();
+            // ЖИВЫЕ СТРОКИ ДЕМОМ НЕ ЗАМЕНЯЮТ. Раньше здесь стояло безусловное
+            // DemoEntries(): у хоста, подставившего настоящую доску, второе
+            // нажатие подменяло людей вымышленными — и отличить их не по чему.
+            if (_demo) _entries = DemoEntries();
+            else PeriodChanged?.Invoke(weekly);
             Rebuild();
         }
 
         private void SyncTabs()
         {
+            // ПЕРЕКЛЮЧАТЕЛЬ, КОТОРОМУ НЕЧЕГО ПЕРЕКЛЮЧАТЬ, НЕ ПОКАЗЫВАЕТСЯ.
+            // Сервер знает именованные доски и НЕ знает периодов: «за неделю»
+            // и «за всё время» — это две разные доски, и назвать их может
+            // только хост. Пока он не сказал как (PeriodChanged), живой доске
+            // переключать нечего — а кнопка, которая ничего не делает, читается
+            // как поломка. У демо переключатель есть: там он показывает, что
+            // вёрстка живая.
+            bool canSwitch = _demo || PeriodChanged != null;
+            _tabWeek.style.display = canSwitch ? DisplayStyle.Flex : DisplayStyle.None;
+            _tabAll.style.display = canSwitch ? DisplayStyle.Flex : DisplayStyle.None;
             StyleTab(_tabWeek, _weekly);
             StyleTab(_tabAll, !_weekly);
         }
