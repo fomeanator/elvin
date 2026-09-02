@@ -1623,3 +1623,64 @@ func TestThumbnailDoesNotWaitForAFrame(t *testing.T) {
 		t.Error("отказ крошке стоит ПОСЛЕ запроса — платим ровно то, чего избегаем")
 	}
 }
+
+// СЕРВЕР БЕЗ КОДИРОВЩИКА ГОВОРИТ ОБ ЭТОМ ВСЛУХ.
+//
+// Раньше `warmAll` при отсутствии basisu молча возвращался с припиской «видно
+// по первому же запросу». Неправда: запрос отвечает 404, а 404 на код значит
+// «зайдите позже» — отличить «ещё кодирую» от «кодировать нечем и не будет»
+// по нему нельзя ни клиенту, ни человеку. Клиент честно ждёт свои секунды,
+// потом не показывает арт истории вовсе, и в ЕГО логе написано «проверьте
+// basisu на сервере» — а в логе сервера про это нет ни строки.
+//
+// Молчала именно та половина, которая знает ответ.
+func TestServerSaysWhenItCannotEncode(t *testing.T) {
+	root := repoRoot(t)
+	src := stripComments(string(mustRead(t, filepath.Join(root, "server/ktx2.go"))))
+	body, ok := ruleBody(src, "func (t *ktx2Transcoder) warmAll(contentRoot string) {")
+	if !ok {
+		t.Fatal("warmAll не найден")
+	}
+	head := body
+	if i := strings.Index(body, "go func()"); i > 0 {
+		head = body[:i]
+	}
+	if !strings.Contains(head, "log.Printf") {
+		t.Error("сервер без basisu снова молчит: отличить «ещё кодирую» от " +
+			"«кодировать нечем» по 404 невозможно, и разбираться человек " +
+			"пойдёт не туда")
+	}
+}
+
+// «КОМУ ПОЛОЖЕН КОД» — ТЕПЕРЬ И У СКРИПТА ПРОГРЕВА.
+//
+// Список жил уже четырьмя копиями: клиент (DownloadPolicy.CodedArt), сервер
+// (ktx2Coded + ktx2WorthCoding) и tools/warm-ktx2.sh. Четвёртая отстала:
+// скрипт не заходил в `/ui/` вовсе, и полотно витрины 2000×1500 оставалось
+// без кода НИГДЕ — сервер его собрать мог не успеть или не смочь, а скрипт
+// не пробовал. Игрок платил тремя секундами на первом экране.
+//
+// Сторож держит две вещи: скрипт заходит в /ui/ и судит там по размеру тем же
+// порогом, что сервер.
+func TestWarmScriptKnowsTheSameList(t *testing.T) {
+	root := repoRoot(t)
+	sh := string(mustRead(t, filepath.Join(root, "tools/warm-ktx2.sh")))
+	if !strings.Contains(sh, "-path '*/ui/*'") {
+		t.Error("прогрев снова не заходит в /ui/: полотно витрины останется " +
+			"без кода нигде")
+	}
+	if !strings.Contains(sh, "1024") {
+		t.Error("прогрев не судит обшивку по размеру — либо пропустит полотно, " +
+			"либо размажет блочным сжатием кнопки и рамки")
+	}
+	if !strings.Contains(sh, "*/pixel/*") || !strings.Contains(sh, "@mini") {
+		t.Error("прогрев потерял исключение, которое есть у клиента и сервера")
+	}
+	// Порог — тот же, что у сервера. Разъедутся — часть картинок получит код
+	// у одного и не получит у другого, и разница будет видна только на глаз.
+	goSrc := stripComments(string(mustRead(t, filepath.Join(root, "server/ktx2.go"))))
+	if !strings.Contains(goSrc, "ktx2ChromeBox = 1024") {
+		t.Error("порог обшивки у сервера больше не 1024 — поправьте и скрипт " +
+			"(tools/warm-ktx2.sh), они обязаны совпадать")
+	}
+}
