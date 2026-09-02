@@ -89,8 +89,36 @@ func newKtx2Transcoder(d *downscaler) *ktx2Transcoder {
 // Путь ожидается в нижнем регистре.
 func ktx2Coded(lowPath string) bool {
 	return !strings.Contains(lowPath, "/pixel/") &&
-		!strings.Contains(lowPath, "/ui/") &&
 		!strings.Contains(lowPath, miniSuffix+".")
+}
+
+// ktx2ChromeBox — с какой длинной стороны обшивка интерфейса перестаёт быть
+// обшивкой. Ниже — кнопки, рамки, иконки: у них пиксельная сетка и тонкие
+// линии, которые блочное сжатие размажет. Выше — полноэкранная картинка,
+// живущая в /ui/ по месту, а не по природе.
+const ktx2ChromeBox = 1024
+
+// КРУПНОЕ В /ui/ — НЕ ОБШИВКА.
+//
+// Папку исключали целиком, и правило было верным для мелочи. Полотно витрины
+// (/content/ui/menu-canvas.jpg, 2000×1500) под него попадало вместе со всеми:
+// кода ему не собирали, показ шёл процессорной распаковкой — 3334 мс в живом
+// логе 02.09, вуаль снималась без полотна, и первое, что видел игрок, был
+// пустой экран.
+//
+// Судить надо по размеру, а не по месту: тонкие линии живут в мелких файлах.
+func ktx2WorthCoding(path, lowPath string) bool {
+	if !strings.Contains(lowPath, "/ui/") {
+		return true
+	}
+	if path == "" {
+		return false // исходника нет — судить не по чему
+	}
+	w, h, ok := imageSize(path)
+	if !ok {
+		return false // размер не прочитался — считаем обшивкой, как раньше
+	}
+	return w >= ktx2ChromeBox || h >= ktx2ChromeBox
 }
 
 // Что вообще считается КРУПНЫМ АРТОМ ИСТОРИИ. Отдельный вопрос от «положен ли
@@ -127,7 +155,8 @@ func (t *ktx2Transcoder) warmAll(contentRoot string) {
 			if !(strings.HasSuffix(low, ".png") || strings.HasSuffix(low, ".jpg")) {
 				return nil
 			}
-			if !ktx2Coded(low) || !ktx2LargeArt(low) {
+			if !ktx2Coded(low) || !ktx2WorthCoding(path, low) ||
+				!(ktx2LargeArt(low) || strings.Contains(low, "/ui/")) {
 				skipped++
 				return nil
 			}
@@ -355,6 +384,23 @@ func (t *ktx2Transcoder) transcode(srcPath, ktx2Path string) error {
 	return os.Rename(tmp, ktx2Path)
 }
 
+// ktx2SourceFor — растровый файл, ИЗ КОТОРОГО кодируется этот .ktx2: сосед по
+// имени, а для имени со ступенью — оригинал за ней. Нужен, чтобы спросить у
+// картинки размер, не раскодировав её (см. ktx2WorthCoding). Пустая строка —
+// исходника рядом нет.
+func ktx2SourceFor(ktx2Path string) string {
+	base := strings.TrimSuffix(ktx2Path, filepath.Ext(ktx2Path))
+	for _, ext := range sourceExts {
+		if fileExists(base + ext) {
+			return base + ext
+		}
+		if src := variantSource(base + ext); src != "" && fileExists(src) {
+			return src
+		}
+	}
+	return ""
+}
+
 // hasKtx2Source is the HANDLER-side eligibility check — fast fileExists probes
 // only, no image work: a sibling source on disk, or a variant name whose
 // original exists (the worker materializes the @2k itself, later).
@@ -516,7 +562,9 @@ func (s *server) withKTX2(d *downscaler, next http.Handler) http.Handler {
 		// ТОТ ЖЕ ВОПРОС, ЧТО У ПРОГРЕВА. Без него запрос «X@mini.ktx2»
 		// ставился в очередь и кодировался — намеренное решение «крошка живёт
 		// растром» отменялось тем, что кто-то один раз спросил.
-		if t.bin() != "" && ktx2Coded(strings.ToLower(ktx2Path)) && hasKtx2Source(ktx2Path) {
+		low := strings.ToLower(ktx2Path)
+		if t.bin() != "" && ktx2Coded(low) && hasKtx2Source(ktx2Path) &&
+			ktx2WorthCoding(ktx2SourceFor(ktx2Path), low) {
 			t.enqueue(ktx2Path) // warm for the future; never block this request
 		}
 		http.NotFound(w, r)
