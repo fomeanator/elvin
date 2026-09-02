@@ -290,9 +290,13 @@ namespace Lvn.UI.Screens
         // Кукла меню: ноги у низа, рост 0.91 высоты сцены → голова ~0.82H от
         // низа, шея ~0.72H, корпус ~0.45H. Скейл GameRoot идёт вокруг центра,
         // пан возвращает точку интереса чуть выше центра кадра (+0.10H).
-        private void OnWardrobeSection(string axis)
+        private void OnWardrobeSection(Lvn.UI.Screens.WardrobeSheet from, string axis)
         {
             if (Stage == null) return;
+            // Камера тут МЕНЮШНАЯ. Сюжетный лист стоит поверх сцены главы, и
+            // его разделы к ней отношения не имеют: пусти их сюда — игрок
+            // вернётся в меню и найдёт куклу в зуме, которого не выбирал.
+            if (_storySheet != null && ReferenceEquals(from, _storySheet)) return;
             if (axis == null)
             {
                 Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
