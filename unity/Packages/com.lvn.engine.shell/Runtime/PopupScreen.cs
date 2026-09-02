@@ -186,7 +186,7 @@ namespace Lvn.UI.Screens
                     // НИМ, и висяк вернётся, только на 180 мс уже.
                     if (gen == _showGen)
                     {
-                        style.display = DisplayStyle.None;
+                        ScreenFx.PutAway(this);
                         _open = false;
                         _tcs = null;
                     }
@@ -221,8 +221,7 @@ namespace Lvn.UI.Screens
             // должен потом убирать ЕЩЁ раз — экран уже убран, и его повторное
             // затухание вернуло бы непрозрачность на кадр.
             _showGen++;
-            style.opacity = 0f;
-            style.display = DisplayStyle.None;
+            ScreenFx.PutAway(this);
             _open = false;
             _tcs?.TrySetResult(-1);
             _tcs = null;

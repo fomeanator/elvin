@@ -91,14 +91,12 @@ namespace Lvn.UI.Screens
             try { await Task.Delay(Mathf.RoundToInt(Mathf.Max(0f, _hold) * 1000f), ct); }
             catch (System.OperationCanceledException) { return; }
 
-            await ScreenFx.FadeAsync(this, 1f, 0f, _fade, ct);
-            style.display = DisplayStyle.None;
+            await ScreenFx.FadeAwayAsync(this, _fade, ct);
         }
 
         public void Hide()
         {
-            style.opacity = 0f;
-            style.display = DisplayStyle.None;
+            ScreenFx.PutAway(this);
         }
     }
 }

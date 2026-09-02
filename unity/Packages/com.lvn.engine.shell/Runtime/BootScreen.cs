@@ -124,11 +124,10 @@ namespace Lvn.UI.Screens
             Render(true);
             try { await Task.Delay(120, ct); } catch (OperationCanceledException) { }   // заставка не обязана быть: без неё загрузка просто тише
 
-            await ScreenFx.FadeAsync(this, 1f, 0f, 0.4f, ct);
-            style.display = DisplayStyle.None;
+            await ScreenFx.FadeAwayAsync(this, 0.4f, ct);
         }
 
-        public void Hide() { style.display = DisplayStyle.None; style.opacity = 1f; }
+        public void Hide() => ScreenFx.PutAway(this);
 
         private void Render(bool full)
         {

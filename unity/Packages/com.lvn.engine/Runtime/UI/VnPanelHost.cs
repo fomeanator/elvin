@@ -166,7 +166,7 @@ namespace Lvn.UI
             LvnScreenDirector.Current.Close(LvnScreenDirector.StoryPanel);
             _frame.Clear();
             _content = null;
-            style.display = DisplayStyle.None;
+            ScreenFx.PutAway(this);
             _frame.style.opacity = 1f;
             _frame.style.translate = new Translate(0f, 0f, 0f);
             _frame.style.height = StyleKeyword.Auto;

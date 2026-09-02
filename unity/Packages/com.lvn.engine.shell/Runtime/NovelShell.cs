@@ -563,7 +563,6 @@ namespace Lvn.UI.Screens
             if (visible)
             {
                 await Loading.FadeOutAsync(Transitions?.screen_fade ?? 0.35f, ct);
-                Loading.Hide();
             }
             // Брендовая вуаль первого входа (имя продукта фейдом) живёт до
             // одетой сцены и гаснет ЗДЕСЬ — единственный кроссфейд, который

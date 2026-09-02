@@ -304,8 +304,7 @@ namespace Lvn.UI.Screens
         /// </summary>
         private void PutAway()
         {
-            style.display = DisplayStyle.None;
-            style.translate = new Translate(0f, 0f);
+            ScreenFx.PutAway(this);
         }
 
         public void HideAsTab()

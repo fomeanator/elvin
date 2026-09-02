@@ -214,15 +214,17 @@ namespace Lvn.UI.Screens
             }
         }
 
-        /// <summary>Fade the whole loader out (call after RunAsync before swapping
-        /// to the title card or the scene).</summary>
+        /// <summary>ПОГАСНУТЬ И УЙТИ (звать после RunAsync, перед сменой на
+        /// карточку главы или сцену). Убирает себя САМА: вызывающий писал
+        /// «погаси, потом спрячь» двумя строками, а вторую можно забыть — и
+        /// тогда погашенный загрузчик остаётся в раскладке поверх сцены и
+        /// съедает тапы.</summary>
         public Task FadeOutAsync(float seconds = 0.4f, CancellationToken ct = default) =>
-            ScreenFx.FadeAsync(this, 1f, 0f, seconds, ct);
+            ScreenFx.FadeAwayAsync(this, seconds, ct);
 
         public void Hide()
         {
-            style.display = DisplayStyle.None;
-            style.opacity = 1f;
+            ScreenFx.PutAway(this);
         }
 
         private void SetFill(float fillPercent)

@@ -109,7 +109,7 @@ namespace Lvn.UI
         {
             _timerFill = null;
             Clear();
-            style.display = DisplayStyle.None;
+            ScreenFx.PutAway(this);
             VisibleChanged?.Invoke(false);
         }
 

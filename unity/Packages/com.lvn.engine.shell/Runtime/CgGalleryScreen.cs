@@ -171,8 +171,7 @@ namespace Lvn.UI.Screens
             try { await _gate.WaitAsync(ct); }
             finally
             {
-                await ScreenFx.FadeAsync(this, 1f, 0f, 0.25f, CancellationToken.None);
-                style.display = DisplayStyle.None;
+                await ScreenFx.FadeAwayAsync(this, 0.25f, CancellationToken.None);
                 CloseViewer();
                 _open = false;
             }
@@ -180,8 +179,7 @@ namespace Lvn.UI.Screens
 
         public void Hide()
         {
-            style.opacity = 0f;
-            style.display = DisplayStyle.None;
+            ScreenFx.PutAway(this);
             CloseViewer();
             _open = false;
             _gate.Release(false);

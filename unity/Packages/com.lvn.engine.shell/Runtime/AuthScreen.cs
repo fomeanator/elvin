@@ -216,8 +216,7 @@ namespace Lvn.UI.Screens
             try { name = await _tcs.Task; }
             finally
             {
-                await ScreenFx.FadeAsync(this, 1f, 0f, 0.3f, CancellationToken.None);
-                style.display = DisplayStyle.None;
+                await ScreenFx.FadeAwayAsync(this, 0.3f, CancellationToken.None);
             }
             // Fire-and-forget: the name lands on the account when the network
             // allows; Start never waits on the round-trip.
@@ -238,8 +237,7 @@ namespace Lvn.UI.Screens
 
         public void Hide()
         {
-            style.opacity = 0f;
-            style.display = DisplayStyle.None;
+            ScreenFx.PutAway(this);
             _tcs?.TrySetCanceled();
         }
 
