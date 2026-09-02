@@ -132,11 +132,34 @@ namespace Lvn.Content
                          SnapshotLocked(), budgetBytes, now, graceSeconds))
             {
                 if (!_spriteCache.TryGetValue(url, out var e)) continue;
-                _spriteCache.Remove(url);
-                _spriteBytes -= e.Bytes;
+                DropLocked(url, e);
                 victims.Add(e);
             }
             return victims;
+        }
+
+        /// <summary>СНЯТЬ ЗАПИСЬ С УЧЁТА — из карты и из счёта байтов разом.
+        ///
+        /// <para>Два действия, и они обязаны идти вместе: карта отвечает «что у
+        /// нас есть», счётчик — «сколько это весит», а решение о вытеснении
+        /// принимается по СЧЁТЧИКУ. Забудь вычесть — бюджет считает память
+        /// занятой, и кэш выбрасывает живое; вычти дважды — считает свободной,
+        /// и растёт до отказа. Ни то, ни другое не даёт ошибки: игра просто
+        /// перезагружает картинки или падает по памяти.</para>
+        ///
+        /// <para>Обряд стоял тремя копиями, и в РАЗНЫХ ПОРЯДКАХ — где-то сперва
+        /// вычитали, где-то сперва удаляли. Порядок здесь безразличен (всё под
+        /// одним замком), но разные написания одного действия — верный признак,
+        /// что четвёртое напишут без половины.</para>
+        ///
+        /// <para>Что делать с самой записью — НЕ здесь: закреплённая уходит в
+        /// сторону и живёт, пока её держат; выселенную уничтожают снаружи
+        /// замка. Это решение места.</para>
+        /// </summary>
+        private void DropLocked(string url, SpriteEntry e)
+        {
+            _spriteCache.Remove(url);
+            _spriteBytes -= e.Bytes;
         }
 
         private List<(string url, long bytes, long seq, float at, bool pinned)> SnapshotLocked()
@@ -270,8 +293,7 @@ namespace Lvn.Content
             lock (_spriteCache)
             {
                 if (!_spriteCache.TryGetValue(url, out var entry)) return;
-                _spriteCache.Remove(url);
-                _spriteBytes -= entry.Bytes;
+                DropLocked(url, entry);
                 RetireLocked(entry);   // закреплённое переживёт выгрузку
             }
             FlushDestroys();
@@ -289,8 +311,7 @@ namespace Lvn.Content
                 {
                     if (!match(k)) continue;
                     var e = _spriteCache[k];
-                    _spriteBytes -= e.Bytes;
-                    _spriteCache.Remove(k);
+                    DropLocked(k, e);
                     RetireLocked(e);   // то, что на экране, не убиваем
                 }
             }
