@@ -41,10 +41,7 @@ namespace Lvn.UI
             style.display = DisplayStyle.None;
 
             _frame = new VisualElement { name = "vn-panel-host-frame" };
-            _frame.style.position = Position.Absolute;
-            _frame.style.left = t.EdgePadding;
-            _frame.style.right = t.EdgePadding;
-            _frame.style.bottom = t.BottomPadding;
+            LvnChrome.BottomStrip(_frame, t.EdgePadding, t.BottomPadding);
             LvnAir.Pad(_frame, t.PanelPaddingX, t.PanelPaddingY);
             _frame.style.minHeight = t.PanelMinHeight;
             _frame.style.backgroundColor = t.PanelColor;

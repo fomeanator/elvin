@@ -316,8 +316,7 @@ namespace Lvn.UI.Screens
             }
 
             var plate = new VisualElement { pickingMode = PickingMode.Ignore };
-            plate.style.position = Position.Absolute;
-            plate.style.left = 0; plate.style.right = 0; plate.style.bottom = 0;
+            LvnChrome.BottomStrip(plate);
             plate.style.backgroundColor = new Color(0.16f, 0.16f, 0.19f, 0.85f);
             LvnAir.Pad(plate, LvnTokens.Space1);
             card.Add(plate);

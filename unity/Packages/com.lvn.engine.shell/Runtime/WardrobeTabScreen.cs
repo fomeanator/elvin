@@ -113,9 +113,7 @@ namespace Lvn.UI.Screens
             // ней. Вид — как игровая панель: Полночь, скруглённый верх,
             // акцентная кромка (то самое «дорого» единого стиля).
             _panel = new VisualElement();
-            _panel.style.position = Position.Absolute;
-            _panel.style.left = 10; _panel.style.right = 10;
-            _panel.style.bottom = 140;
+            LvnChrome.BottomStrip(_panel, 10f, 140f);
             var bg = LvnTokens.PanelBg;
             _panel.style.backgroundColor = UiColor.WithAlpha(bg, 0.94f);
             LvnChrome.Edged(_panel, LvnTokens.Radius);

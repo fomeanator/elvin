@@ -96,8 +96,7 @@ namespace Lvn.UI.Screens
 
             // The engine brand: steel ELVIN + dimmed version, pinned to the bottom.
             var brand = new VisualElement();
-            brand.style.position = Position.Absolute;
-            brand.style.left = 0; brand.style.right = 0; brand.style.bottom = 46;
+            LvnChrome.BottomStrip(brand, 0f, 46f);
             brand.style.alignItems = Align.Center;
             brand.pickingMode = PickingMode.Ignore;
 
