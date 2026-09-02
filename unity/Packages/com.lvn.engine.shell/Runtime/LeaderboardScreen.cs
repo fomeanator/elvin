@@ -230,12 +230,14 @@ namespace Lvn.UI.Screens
 
             // Avatar with an accent gold ring on 1st.
             var ring = new VisualElement();
-            ring.style.width = avatar + (first ? 12 : 8);
-            ring.style.height = avatar + (first ? 12 : 8);
+            // Размер назывался ТРИЖДЫ (ширина, высота, радиус), и радиус
+            // считал по своей формуле: у не-первого места коробка avatar+8, а
+            // радиус (avatar+12)/2 — больше половины. Спасал зажим UITK, а не
+            // расчёт.
+            LvnChrome.Circle(ring, avatar + (first ? 12f : 8f));
             ring.style.alignItems = Align.Center;
             ring.style.justifyContent = Justify.Center;
             ring.style.backgroundColor = LvnTokens.Medal(place);
-            LvnChrome.Round(ring, (avatar + 12f) / 2f);
             col.Add(ring);
 
             ring.Add(Avatar(e, avatar));
@@ -247,9 +249,11 @@ namespace Lvn.UI.Screens
             badge.style.color = LvnTokens.OnAccent;
             badge.style.backgroundColor = LvnTokens.Medal(place);
             badge.style.unityTextAlign = TextAnchor.MiddleCenter;
-            badge.style.width = 34; badge.style.height = 34;
+            // Медаль круглая: при Radius=16 из темы «Полночь» она была
+            // квадратом со скруглением (половина от 34 — это 17), и форма
+            // менялась вместе с огранкой темы.
+            LvnChrome.Circle(badge, 34f);
             badge.style.marginTop = -16;
-            LvnChrome.Round(badge, LvnTokens.Radius);
             col.Add(badge);
 
             var name = new Label(e.Name);

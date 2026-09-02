@@ -314,8 +314,7 @@ namespace Lvn.UI.Screens
         {
             var circle = new VisualElement();
             circle.pickingMode = PickingMode.Ignore;
-            circle.style.width = 50; circle.style.height = 50;
-            LvnChrome.Round(circle, LvnTokens.RadiusLg);
+            LvnChrome.Circle(circle, 50f);
             circle.style.backgroundColor = LvnTokens.Accent;
             circle.style.alignItems = Align.Center;
             circle.style.justifyContent = Justify.Center;

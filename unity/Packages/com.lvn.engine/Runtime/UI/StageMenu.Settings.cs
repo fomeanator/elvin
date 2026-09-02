@@ -178,8 +178,7 @@ namespace Lvn.UI
             track.style.alignItems = Align.Center;
             LvnAir.PadX(track, LvnTokens.Tight);
             var knob = new VisualElement();
-            knob.style.width = 28; knob.style.height = 28;
-            LvnChrome.Round(knob, LvnTokens.Radius);
+            LvnChrome.Circle(knob, 28f);
             knob.style.backgroundColor = Color.white;
             knob.pickingMode = PickingMode.Ignore;
             track.Add(knob);

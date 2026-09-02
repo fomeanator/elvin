@@ -75,14 +75,14 @@ namespace Lvn.UI.Screens
                 seg.style.flexGrow = 1;
                 seg.style.marginBottom = s == EmoBarSegments - 1 ? 0 : 4;
                 seg.style.backgroundColor = LvnTokens.Track;
-                LvnChrome.Round(seg, EmoBarWidth * 0.5f);
+                LvnChrome.Pill(seg, EmoBarWidth);
                 _emoBar.Add(seg);
             }
             _emoThumb = new VisualElement { pickingMode = PickingMode.Ignore };
             _emoThumb.style.position = Position.Absolute;
             _emoThumb.style.left = 0; _emoThumb.style.right = 0;
             _emoThumb.style.backgroundColor = new Color(1f, 1f, 1f, 0.62f);
-            LvnChrome.Round(_emoThumb, EmoBarWidth * 0.5f);
+            LvnChrome.Pill(_emoThumb, EmoBarWidth);
             Smooth(_emoThumb, LvnMotion.Quick, "top", "height");
             _emoBar.Add(_emoThumb);
             // Скроллеры спрятаны, но живут — их значение и есть позиция.
