@@ -58,7 +58,23 @@ import (
 // Четверть ядер, но не меньше одного: кодирование — работа «когда-нибудь», а
 // игра идёт сейчас. Один файл от этого кодируется дольше, и это правильная
 // цена: очередь всё равно фоновая, а провал кадра игрок видит.
+// ЧЕТВЕРТЬ — УМОЛЧАНИЕ ДЛЯ МАШИНЫ, КОТОРУЮ ДЕЛЯТ, А НЕ ЗАКОН.
+//
+// Осторожность здесь про соседство: у разработчика сервер живёт рядом с
+// редактором и игрой, и кодировщик, забравший все ядра, поднял среднюю
+// нагрузку до 26. На выделенном прод-боксе делить не с кем — там осторожность
+// оборачивается тем, что очередь кодов ползёт вчетверо дольше, и полотно
+// витрины не появляется, хотя всё для этого есть.
+//
+// Поэтому число объявлено доводом окружения. LVN_KTX2_THREADS=0 — снять
+// ограничение вовсе (basisu возьмёт всё, как задуман).
 func ktx2EncodeThreads() int {
+	if v := os.Getenv("LVN_KTX2_THREADS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			return n
+		}
+		log.Printf("[ktx2] LVN_KTX2_THREADS=%q — не число, беру умолчание", v)
+	}
 	n := runtime.NumCPU() / 4
 	if n < 1 {
 		n = 1
@@ -168,7 +184,23 @@ func ktx2LargeArt(lowPath string) bool {
 // капле от случайных запросов.
 func (t *ktx2Transcoder) warmAll(contentRoot string) {
 	if t.bin() == "" {
-		return // basisu нет — кодировать нечем, и это видно по первому же запросу
+		// СКАЗАТЬ ВСЛУХ, А НЕ «БУДЕТ ВИДНО ПО ЗАПРОСУ».
+		//
+		// Здесь стояло «видно по первому же запросу» — неправда: запрос
+		// отвечает 404, а 404 на код значит «зайдите позже». Отличить
+		// «сервер ещё кодирует» от «кодировать нечем и не будет» по нему
+		// нельзя ни клиенту, ни человеку. Клиент честно ждёт положенные
+		// секунды, потом не показывает арт истории вовсе — и в его логе
+		// написано «проверьте basisu на сервере», а в логе сервера про это
+		// нет ни строки.
+		//
+		// Молчит здесь именно та половина, которая знает ответ.
+		log.Printf("[ktx2] basisu НЕ НАЙДЕН в PATH — коды для видеокарты " +
+			"собирать нечем. Всё, чего нет рядом с контентом, останется без " +
+			"кода навсегда: арт истории клиент растром не показывает. " +
+			"Поставьте basis_universal на сервер или собирайте коды заранее " +
+			"(tools/warm-ktx2.sh) и выкладывайте их вместе с контентом")
+		return
 	}
 	go func() {
 		queued, skipped := 0, 0
@@ -391,9 +423,11 @@ func (t *ktx2Transcoder) transcode(srcPath, ktx2Path string) error {
 	// -mipmap ships the full chain: minified draws (actors scaled down, zoomed
 	// scenes) sample a proper mip instead of shimmering over a 2K level 0.
 	// ~+33% bytes on art the compression just shrank 4-8× — a good trade.
-	args := []string{"-ktx2", "-uastc", "-uastc_level", "2", "-uastc_rdo_l", "1.0", "-y_flip", "-mipmap",
-		"-max_threads", strconv.Itoa(ktx2EncodeThreads()),
-		srcPath, "-output_file", tmp}
+	args := []string{"-ktx2", "-uastc", "-uastc_level", "2", "-uastc_rdo_l", "1.0", "-y_flip", "-mipmap"}
+	if n := ktx2EncodeThreads(); n > 0 {
+		args = append(args, "-max_threads", strconv.Itoa(n))
+	}
+	args = append(args, srcPath, "-output_file", tmp)
 	var cmd *exec.Cmd
 	// The encoder is a BACKGROUND filler that saturates every core it gets —
 	// on a small host it must always lose the CPU to live player traffic.
