@@ -36,10 +36,35 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
+
+// КОДИРОВЩИК НЕ ИМЕЕТ ПРАВА ЗАБРАТЬ МАШИНУ.
+//
+// basisu по умолчанию берёт ВСЕ ядра, и это верно для отдельной машины сборки.
+// У нас сервер живёт там же, где игра: прогрев поставил в очередь коды для
+// полотна витрины и прочей крупной обшивки — и один кодировщик на восьми
+// потоках поднял среднюю нагрузку до 26. В логе 02.09 это видно насквозь:
+// расшифровка слоя выросла с 38 до 936 мс, проба сервера отвалилась по
+// таймауту (5806 мс на «server resolved»), кадры проваливались на 955 мс.
+//
+// nice здесь не спасает: он делит процессор между процессами, а беда в том,
+// что ОДИН процесс занял все ядра. Ограничивать надо потоки.
+//
+// Четверть ядер, но не меньше одного: кодирование — работа «когда-нибудь», а
+// игра идёт сейчас. Один файл от этого кодируется дольше, и это правильная
+// цена: очередь всё равно фоновая, а провал кадра игрок видит.
+func ktx2EncodeThreads() int {
+	n := runtime.NumCPU() / 4
+	if n < 1 {
+		n = 1
+	}
+	return n
+}
 
 // ktx2EncodeTimeout bounds a single encode. UASTC level 2 measures ~4s for a
 // 1080×2089 sprite on this machine; the largest art (already capped by the
@@ -367,6 +392,7 @@ func (t *ktx2Transcoder) transcode(srcPath, ktx2Path string) error {
 	// scenes) sample a proper mip instead of shimmering over a 2K level 0.
 	// ~+33% bytes on art the compression just shrank 4-8× — a good trade.
 	args := []string{"-ktx2", "-uastc", "-uastc_level", "2", "-uastc_rdo_l", "1.0", "-y_flip", "-mipmap",
+		"-max_threads", strconv.Itoa(ktx2EncodeThreads()),
 		srcPath, "-output_file", tmp}
 	var cmd *exec.Cmd
 	// The encoder is a BACKGROUND filler that saturates every core it gets —
