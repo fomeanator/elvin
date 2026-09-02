@@ -121,6 +121,20 @@ fi
 # а не про её исполнение). Числа могут только расти.
 FLOOR_GO_tools_lvnconv=652
 FLOOR_GO_server=252
+FLOOR_NODE_PANEL=105
+FLOOR_NODE_GRAMMAR=31
+
+# Один судья на все полы: фаз четыре, и каждая считала по-своему ровно до тех
+# пор, пока их было две.
+floor_check() { # $1 = имя, $2 = сколько прошло, $3 = пол
+  [ -n "$3" ] || return 0
+  if [ "$2" -lt "$3" ]; then
+    log "  $1: ТЕСТОВ МЕНЬШЕ ПОЛА: $2 при $3 — проверки не упали, а ИСЧЕЗЛИ"
+    fail=1
+  elif [ "$2" -gt "$3" ]; then
+    log "  $1: $2 тестов (пол $3 — поднимите)"
+  fi
+}
 
 if command -v go >/dev/null 2>&1; then
   for mod in tools/lvnconv server; do
@@ -138,12 +152,7 @@ if command -v go >/dev/null 2>&1; then
     fi
     ran=$(grep -c '^--- \(PASS\|FAIL\|SKIP\)' "$gout" 2>/dev/null || echo 0)
     eval "floor=\${FLOOR_GO_$(echo "$mod" | tr /. __)}"
-    if [ -n "$floor" ] && [ "$ran" -lt "$floor" ]; then
-      log "  $mod: ТЕСТОВ МЕНЬШЕ ПОЛА: $ran при $floor — проверки не упали, а ИСЧЕЗЛИ"
-      fail=1
-    elif [ -n "$floor" ] && [ "$ran" -gt "$floor" ]; then
-      log "  $mod: $ran тестов (пол $floor — поднимите)"
-    fi
+    floor_check "$mod" "$ran" "$floor"
   done
 else
   log "WARN: go не найден — стражи формы и языка не проверены"
@@ -161,14 +170,20 @@ if command -v node >/dev/null 2>&1; then
     || { log "FAIL: упаковка экспорта — $out"; fail=1; }
   if [ -d "$REPO_ROOT/panel/node_modules" ]; then
     log "node: тесты панели"
-    (cd "$REPO_ROOT/panel" && npm test --silent >/dev/null 2>&1) \
+    nout="$OUT/node-panel.log"
+    (cd "$REPO_ROOT/panel" && npm test --silent >"$nout" 2>&1) \
       || { log "FAIL: npm test в panel/ — подробности: (cd panel && npm test)"; fail=1; }
+    ran=$(sed -n 's/.*Tests  *\([0-9][0-9]*\) passed.*/\1/p' "$nout" | tail -1)
+    floor_check "панель" "${ran:-0}" "$FLOOR_NODE_PANEL"
   else
     log "WARN: panel/node_modules нет — тесты панели пропущены (npm i --prefix panel)"
   fi
   log "node: грамматика"
-  (cd "$REPO_ROOT/tools/lvn-lang" && node --test >/dev/null 2>&1) \
+  gram="$OUT/node-grammar.log"
+  (cd "$REPO_ROOT/tools/lvn-lang" && node --test >"$gram" 2>&1) \
     || { log "FAIL: node --test в tools/lvn-lang"; fail=1; }
+  ran=$(sed -n 's/^# pass \([0-9][0-9]*\)$/\1/p' "$gram" | tail -1)
+  floor_check "грамматика" "${ran:-0}" "$FLOOR_NODE_GRAMMAR"
 else
   log "WARN: node не найден — веб-половина не проверена"
 fi
