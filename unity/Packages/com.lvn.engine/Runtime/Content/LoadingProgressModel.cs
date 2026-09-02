@@ -170,6 +170,9 @@ namespace Lvn.Content
             return true;
         }
 
+        /// <summary>НЕ ПОДКЛЮЧЁН: затвор пропускает долю, проценты и текст —
+        /// прозрачность полосы вид покадрово не двигает. Дверь оставлена виду,
+        /// который захочет вести её тем же затвором, а не своим сравнением.</summary>
         public bool OpacityMoved(float opacity)
         {
             if (Math.Abs(opacity - _opacity) < OpacityEpsilon) return false;
