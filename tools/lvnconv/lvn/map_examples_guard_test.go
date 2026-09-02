@@ -198,6 +198,8 @@ func TestWorldDistrictIsFullyMapped(t *testing.T) {
 	dirs := []string{
 		"unity/Packages/com.lvn.engine/Runtime/UI",
 		"unity/Packages/com.lvn.engine/Runtime/UI/World",
+		"unity/Packages/com.lvn.engine.shell/Runtime",
+		"unity/Packages/com.lvn.engine/Runtime/Content",
 	}
 	class := regexp.MustCompile(`\bpublic\s+(?:sealed\s+|abstract\s+|static\s+|partial\s+)*class\s+(\w+)`)
 	method := regexp.MustCompile(`public\s+[\w<>\[\]\.]+\s+\w+\s*\(`)
@@ -216,11 +218,14 @@ func TestWorldDistrictIsFullyMapped(t *testing.T) {
 			src := string(mustRead(t, filepath.Join(root, dir, e.Name())))
 			for _, m := range class.FindAllStringSubmatchIndex(src, -1) {
 				name := src[m[2]:m[3]]
-				tail := src[m[1]:]
-				if len(tail) > 4000 {
-					tail = tail[:4000]
-				}
-				if !method.MatchString(tail) {
+				// Тело класса по скобкам, а не «столько-то знаков вперёд»:
+				// короткая запись данных (`DownloadCenter.Entry` — четыре
+				// поля) иначе прихватывает способы СОСЕДА и выдаёт себя за
+				// механизм. Обрезать по следующему слову `class` тоже нельзя:
+				// у `WorldStage` вложенная запись `Slot` объявлена раньше
+				// первого способа, и обрезка съела бы весь дом.
+				body := classBody(src, m[1])
+				if !method.MatchString(body) {
 					continue // запись данных, а не механизм
 				}
 				seen++
@@ -233,11 +238,35 @@ func TestWorldDistrictIsFullyMapped(t *testing.T) {
 			}
 		}
 	}
-	sawSources(t, seen, 30, "механизмов закрытых районов")
+	sawSources(t, seen, 60, "механизмов закрытых районов")
 	sort.Strings(lost)
 	if len(lost) > 0 {
 		t.Errorf("механизмы закрытых районов вне карты (%d): %s\n\n"+
 			"Полупустой район хуже пустого: читатель делает вывод «остального тут "+
 			"нет» и заводит второй дом рядом с живым.", len(lost), strings.Join(lost, ", "))
 	}
+}
+
+// Тело класса от объявления до парной закрывающей скобки. `from` — позиция
+// сразу за именем; открывающая скобка ищется вперёд (между ними может стоять
+// список предков).
+func classBody(src string, from int) string {
+	open := strings.IndexByte(src[from:], '{')
+	if open < 0 {
+		return ""
+	}
+	i := from + open + 1
+	depth := 1
+	for j := i; j < len(src); j++ {
+		switch src[j] {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return src[i:j]
+			}
+		}
+	}
+	return src[i:]
 }

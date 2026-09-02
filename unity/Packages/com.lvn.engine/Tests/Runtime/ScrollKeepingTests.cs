@@ -37,6 +37,7 @@ namespace Lvn.Tests.Runtime
             var doc = _go.GetComponent<UIDocument>();
             doc.panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
             _view = LvnScroll.Vertical();
+            _view.style.width = 400f;
             _view.style.height = 200f;
             doc.rootVisualElement.Add(_view);
             Fill(_view, 40);
@@ -45,11 +46,24 @@ namespace Lvn.Tests.Runtime
         [TearDown]
         public void TearDown() => Object.Destroy(_go);
 
+        /// <summary>Ждать РАСКЛАДКИ, а не «двух кадров»: панель UIDocument
+        /// строится не на первом кадре, и число кадров — это про среду, а не
+        /// про проверяемое. Пока высота содержимого нулевая, прокрутка
+        /// зажимается в ноль, и тест зелен при любой реализации.</summary>
+        private IEnumerator LaidOut()
+        {
+            for (int i = 0; i < 240; i++)
+            {
+                if (_view.contentContainer.layout.height > 300f) yield break;
+                yield return null;
+            }
+            Assert.Fail("список так и не получил раскладку — проверять нечего");
+        }
+
         [UnityTest]
         public IEnumerator ПересборкаВозвращаетМестоПрокрутки()
         {
-            yield return null;
-            yield return null;   // высота содержимого посчитана
+            yield return LaidOut();
 
             _view.scrollOffset = new Vector2(0f, 400f);
             yield return null;
@@ -57,8 +71,8 @@ namespace Lvn.Tests.Runtime
             Assert.Greater(was, 1f, "список не прокрутился — проверять нечего");
 
             LvnScroll.Keeping(_view, () => { _view.Clear(); Fill(_view, 40); });
-            yield return null;
-            yield return null;
+            yield return LaidOut();
+            yield return new WaitForSecondsRealtime(0.15f);   // и страховка успела
 
             Assert.AreEqual(was, _view.scrollOffset.y, 1f,
                 "пересборка отбросила игрока в начало списка");
@@ -67,8 +81,7 @@ namespace Lvn.Tests.Runtime
         [UnityTest]
         public IEnumerator БезПересборкиМестоНеТрогается()
         {
-            yield return null;
-            yield return null;
+            yield return LaidOut();
             _view.scrollOffset = new Vector2(0f, 300f);
             yield return null;
             float was = _view.scrollOffset.y;
@@ -82,16 +95,14 @@ namespace Lvn.Tests.Runtime
         [UnityTest]
         public IEnumerator СписокСталКорочеМестаНеПридумывает()
         {
-            yield return null;
-            yield return null;
+            yield return LaidOut();
             _view.scrollOffset = new Vector2(0f, 1200f);
             yield return null;
 
             // Пересборка на ТРИ строки: возвращать некуда, и «вернуть 1200»
             // означало бы пустоту под последней строкой.
             LvnScroll.Keeping(_view, () => { _view.Clear(); Fill(_view, 3); });
-            yield return null;
-            yield return null;
+            yield return new WaitForSecondsRealtime(0.15f);
 
             Assert.LessOrEqual(_view.scrollOffset.y, 1f,
                 "короткий список прокручен за своё содержимое");
