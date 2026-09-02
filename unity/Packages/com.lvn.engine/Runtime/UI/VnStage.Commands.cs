@@ -19,9 +19,6 @@ namespace Lvn.UI
     /// </summary>
     public sealed partial class VnStage
     {
-        // A script-driven `anim` command: deserialize its LvnAnim payload and play
-        // it on the named channel (default "script") of an already-shown entity, so
-        // .lvns can tween any prop/layer or move a sprite along a path live.
         // ── ui: дерево интерфейса ───────────────────────────────────────────
         //
         // Слой создаётся при первом же `ui` и живёт до конца главы. У него ДВА
@@ -160,6 +157,9 @@ namespace Lvn.UI
             catch { /* картинки нет — элемент остаётся пустым, экран не падает */ }
         }
 
+        // A script-driven `anim` command: deserialize its LvnAnim payload and play
+        // it on the named channel (default "script") of an already-shown entity, so
+        // .lvns can tween any prop/layer or move a sprite along a path live.
         private void ApplyAnim(JObject cmd)
         {
             var id = (string)cmd["id"];
@@ -292,11 +292,6 @@ namespace Lvn.UI
             }
         }
 
-        // `hint text="…" show=true [duration=0]` — a small card that pops up
-        // top-center over the scene: a tutorial nudge, a stat unlock, a note tied
-        // to a specific beat. `show=false` (or empty text) dismisses it; a positive
-        // `duration` auto-dismisses after that many seconds. Text interpolates
-        // {vars} like dialogue. Lives on the HUD layer, ignores the pointer.
         /// <summary>
         /// ЗАБЫТЬ ПОДСКАЗКУ — таймер и все ссылки на её части разом.
         ///
@@ -319,6 +314,11 @@ namespace Lvn.UI
             _hintLabel = null;
         }
 
+        // `hint text="…" show=true [duration=0]` — a small card that pops up
+        // top-center over the scene: a tutorial nudge, a stat unlock, a note tied
+        // to a specific beat. `show=false` (or empty text) dismisses it; a positive
+        // `duration` auto-dismisses after that many seconds. Text interpolates
+        // {vars} like dialogue. Lives on the HUD layer, ignores the pointer.
         private void ApplyHint(JObject cmd)
         {
             if (_labelLayer == null) return;

@@ -530,6 +530,8 @@ namespace Lvn.UI
             if (_pendingThumb != null) Destroy(_pendingThumb);
         }
 
+        /// <summary>Close the quick menu if it's open (host screens that take
+        /// over from a menu tap call this so the scrim doesn't linger).</summary>
         public void CloseQuickMenu() => _menu?.Close();
 
         /// <summary>True while the shared story panel (wardrobe…) is up — the

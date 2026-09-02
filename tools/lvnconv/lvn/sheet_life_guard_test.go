@@ -1805,3 +1805,80 @@ func TestFrameLengthIsMeasuredFromBoot(t *testing.T) {
 			"строка FRAME HITCH потеряла «spine builds in flight»")
 	}
 }
+
+// «ЧТО ТАКОЕ КРУПНЫЙ АРТ ИСТОРИИ» — ОДИН СПИСОК НА ТРИ ЯЗЫКА.
+//
+// Вопрос «стоит ли этим файлом заниматься» — уменьшать до ступени, собирать
+// код для видеокарты, убирать из памяти на выходе из главы — один, а списков
+// папок под него было три, и два разошлись: уборка главы не знала /spine/
+// (страницы атласа до 8K переживали главу целиком) и сверяла папки с учётом
+// регистра. Ровно так же она однажды уже не знала /sprites/ — и тогда
+// починили одну строку списка вместо того, чтобы завести списку дом.
+//
+// Дом — DownloadPolicy.LargeStoryArt. Сторож держит: (1) в C# папки арта
+// перечислены только там (файл, называющий две и больше из четырёх папок
+// строками, — вторая копия); (2) у сервера (ktx2LargeArt) и у скрипта
+// прогрева (tools/warm-ktx2.sh) те же четыре папки — другой язык, та же
+// правда.
+func TestLargeStoryArtIsOneList(t *testing.T) {
+	root := repoRoot(t)
+	folders := []string{"/bg/", "/art/", "/sprites/", "/spine/"}
+	var copies []string
+	seen := 0
+	for _, pkg := range []string{"com.lvn.engine", "com.lvn.engine.shell"} {
+		dir := filepath.Join(root, "unity/Packages", pkg, "Runtime")
+		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+				return nil
+			}
+			seen++
+			src := stripComments(string(mustRead(t, path)))
+			n := 0
+			for _, f := range folders {
+				if strings.Contains(src, `"`+f+`"`) {
+					n++
+				}
+			}
+			if n >= 2 && filepath.Base(path) != "DownloadPolicy.cs" {
+				copies = append(copies, filepath.Base(path))
+			}
+			return nil
+		})
+	}
+	sawSources(t, seen, 200, "файлов движка и оболочки")
+	if len(copies) > 0 {
+		sort.Strings(copies)
+		t.Errorf("список папок арта истории записан не только у дома: %s\n\n"+
+			"Спрашивайте DownloadPolicy.LargeStoryArt — вторая копия однажды "+
+			"не узнает новую папку, и её арт переживёт главу или пойдёт мимо ступеней",
+			strings.Join(copies, ", "))
+	}
+
+	home := stripComments(string(mustRead(t,
+		filepath.Join(root, "unity/Packages/com.lvn.engine/Runtime/Content/DownloadPolicy.cs"))))
+	body, ok := ruleBody(home, "public static bool LargeStoryArt(string url)")
+	if !ok {
+		t.Fatal("DownloadPolicy.LargeStoryArt не найден — у списка нет дома")
+	}
+	goSrc := stripComments(string(mustRead(t, filepath.Join(root, "server/ktx2.go"))))
+	goBody, ok := ruleBody(goSrc, "func ktx2LargeArt(lowPath string) bool")
+	if !ok {
+		t.Fatal("ktx2LargeArt не найден в server/ktx2.go")
+	}
+	sh := string(mustRead(t, filepath.Join(root, "tools/warm-ktx2.sh")))
+	for _, f := range folders {
+		if !strings.Contains(body, `"`+f+`"`) {
+			t.Errorf("дом (DownloadPolicy.LargeStoryArt) не знает %s", f)
+		}
+		if !strings.Contains(goBody, `"`+f+`"`) {
+			t.Errorf("сервер (ktx2LargeArt) не знает %s — арт этой папки останется без кода", f)
+		}
+		if !strings.Contains(sh, "-path '*"+f+"*'") {
+			t.Errorf("скрипт прогрева не заходит в %s", f)
+		}
+	}
+	if !strings.Contains(body, "HasFolder(") {
+		t.Error("дом сверяет папки не через HasFolder — то есть с учётом регистра: " +
+			"«/Art/Hero.PNG» пойдёт мимо ступеней и переживёт главу")
+	}
+}

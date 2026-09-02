@@ -54,11 +54,6 @@ namespace Lvn.UI
         // правила, слово в слово совпадавшая с копией в ленте листа.
         private static bool IsEmotionAxis(string axis) => LvnWardrobeStage.IsEmotion(axis);
 
-        /// <summary>Engine-level wardrobe focus: every visible CHARACTER except
-        /// <paramref name="keepId"/> is temporarily removed, all exits finish,
-        /// then the selected mannequin is faded in. Props are not cast and stay.
-        /// A generation predicate lets a host discard a rapid stale selection
-        /// before it can show the wrong actor.</summary>
         // ЧТО СЦЕНА ПОМНИЛА ДО ПРИМЕРКИ. Манекен гардероба — синтетическая
         // команда (центр, 0.92×1.06), и она ложится в ту же память, из которой
         // СЛЕДУЮЩАЯ АВТОРСКАЯ команда без position наследует место и размер.
@@ -76,6 +71,11 @@ namespace Lvn.UI
             _preWardrobe[id] = (hadCmd ? (JObject)cmd.DeepClone() : null, pl, hadCmd, hadPl);
         }
 
+        /// <summary>Engine-level wardrobe focus: every visible CHARACTER except
+        /// <paramref name="keepId"/> is temporarily removed, all exits finish,
+        /// then the selected mannequin is faded in. Props are not cast and stay.
+        /// A generation predicate lets a host discard a rapid stale selection
+        /// before it can show the wrong actor.</summary>
         public async Task FocusWardrobeActorAsync(string keepId, Func<bool> canShow = null)
         {
             if (string.IsNullOrEmpty(keepId)) return;

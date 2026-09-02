@@ -333,23 +333,17 @@ namespace Lvn.UI
             if (RunCurrent(player, gen)) player.Advance();
         }
 
-        /// <summary>
-        /// Wipe the stage to a clean slate before a chapter plays. Without this,
-        /// actors, the background and effect veils left on screen by the previous
-        /// chapter (or a live hot-reload) bleed into the new one — e.g. a character
-        /// standing on the very first beat, before any <c>actor</c> command runs.
-        /// </summary>
-        // Bumped on every stage reset (chapter change / load). An async content
-        // apply (bg, actor, spine, audio) captures it before its first await and
-        // bails if it changed — otherwise a slow load from the PREVIOUS chapter
-        // resolves after the reset and paints the new one (ghost actor, wrong bg,
-        // wrong music). The shared _cts only cancels on OnDisable, not here.
         /// <summary>ХРОНОМЕТРИСТ — кто чего ждёт и чья работа устарела. Пять
         /// счётчиков порядка (эпоха, поколения актёра/фона/ожидания, два
         /// барьера) жили порознь в трёх файлах; правило одно, и живёт оно
         /// теперь в одном месте, проверяемом тестом без сцены.</summary>
         private readonly LvnStageClock _clock = new LvnStageClock();
 
+        // Bumped on every stage reset (chapter change / load). An async content
+        // apply (bg, actor, spine, audio) captures it before its first await and
+        // bails if it changed — otherwise a slow load from the PREVIOUS chapter
+        // resolves after the reset and paints the new one (ghost actor, wrong bg,
+        // wrong music). The shared _cts only cancels on OnDisable, not here.
         private int _stageEpoch => _clock.Epoch;
 
         /// <summary>True if <paramref name="epoch"/> is still the current stage
@@ -481,6 +475,12 @@ namespace Lvn.UI
             ForgetHint();   // части подсказки оторваны Clear'ом выше
         }
 
+        /// <summary>
+        /// Wipe the stage to a clean slate before a chapter plays. Without this,
+        /// actors, the background and effect veils left on screen by the previous
+        /// chapter (or a live hot-reload) bleed into the new one — e.g. a character
+        /// standing on the very first beat, before any <c>actor</c> command runs.
+        /// </summary>
         private void ResetStage()
         {
             // Кто и когда стирает сцену — ключ к «белому полотну после главы»:

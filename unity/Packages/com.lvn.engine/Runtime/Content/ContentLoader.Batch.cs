@@ -334,8 +334,5 @@ namespace Lvn.Content
             catch (OperationCanceledException) { throw; }
             catch { /* individual asset failures don't block the wait */ }
         }
-
-        /// <summary>True if at least one asset has been downloaded and cached
-        /// locally. Used to decide whether to show the verify phase on startup.</summary>
     }
 }

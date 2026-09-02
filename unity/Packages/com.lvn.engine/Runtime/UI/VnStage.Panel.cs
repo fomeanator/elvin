@@ -110,8 +110,5 @@ namespace Lvn.UI
         /// open — the panel's OWNER dismisses its content (the wardrobe sheet's
         /// cancel). The stage can't: it only hosts the frame.</summary>
         public Action PanelCancelRequested;
-
-        /// <summary>Close the quick menu if it's open (host screens that take
-        /// over from a menu tap call this so the scrim doesn't linger).</summary>
     }
 }

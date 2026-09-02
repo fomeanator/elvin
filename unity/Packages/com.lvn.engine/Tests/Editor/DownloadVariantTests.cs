@@ -55,6 +55,21 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void ПапкиУзнаютсяВЛюбомРегистре()
+        {
+            // Урок «/Art/Hero.PNG» был усвоен у LargeStoryArt и не дошёл до
+            // соседей в том же файле: /UI/ считался артом истории (растр
+            // запрещён), а /Pixel/ получал уменьшенный вариант, который его
+            // размазывает. Сервер приводит путь к нижнему регистру — клиент
+            // обязан отвечать так же.
+            Assert.IsNull(DownloadPolicy.DownscaleVariant("/Pixel/tiles.png"));
+            Assert.IsNull(DownloadPolicy.DownscaleVariant("/UI/frame.png"));
+            Assert.IsFalse(DownloadPolicy.CodedArt("/Pixel/tiles.png"), "пиксель-арту код не положен, как бы ни писалась папка");
+            Assert.IsFalse(DownloadPolicy.RasterForbidden("/UI/menu-canvas.jpg"), "обшивке растр разрешён и с заглавной");
+            Assert.IsTrue(DownloadPolicy.RasterForbidden("/Art/hero.png"), "арту истории растр запрещён и с заглавной");
+        }
+
+        [Test]
         public void ВариантНаВариантНеВешают()
         {
             Assert.IsNull(DownloadPolicy.DownscaleVariant("/art/hero@2k.png"),
