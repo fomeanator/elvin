@@ -908,13 +908,20 @@ func TestUncalledPublicDoorsExplainThemselves(t *testing.T) {
 	}
 }
 
-// НЕОБЯЗАТЕЛЬНЫЕ ПАКЕТЫ НЕ ОТСТАЮТ ОТ ДВИЖКА.
+// КОД, КОТОРЫЙ НИКТО НЕ КОМПИЛИРУЕТ, НЕ ОТСТАЁТ ОТ ДВИЖКА.
 //
-// `com.lvn.engine.spine` и `com.lvn.engine.addressables` — швы под чужие
-// пакеты (spine-unity, com.unity.addressables). Их asmdef закрыт
+// Таких мест в репозитории два вида, и оба опасны одинаково.
+//
+// ШВЫ под чужие пакеты — `com.lvn.engine.spine` и
+// `com.lvn.engine.addressables`. Их asmdef закрыт
 // `defineConstraints`, а нужных зависимостей в тестовом хосте нет: **610 строк,
 // которые не компилирует НИКТО и никогда**. Опечатка там всплывёт у того, кто
 // поставит необязательный пакет, — то есть у чужого человека и не сегодня.
+//
+// ОБРАЗЦЫ пакетов (`Samples~`) — их Unity не видит вовсе: тильда в имени папки
+// выводит её из проекта. Компилятор к ним не притрагивается НИКОГДА, а новый
+// встраивающий копирует их ПЕРВЫМИ: сгнивший образец — это первое, что он
+// увидит от движка.
 //
 // Компилировать их нам нечем (нет самих чужих сборок). Но самое вероятное
 // гниение — не опечатка, а ПЕРЕИМЕНОВАНИЕ в движке: шов зовёт `LvnXxx.Член`,
@@ -931,6 +938,13 @@ func TestOptionalPackagesStillFitTheEngine(t *testing.T) {
 		_ = filepath.Walk(filepath.Join(root, d), func(p string, i os.FileInfo, err error) error {
 			if err != nil || i.IsDir() || !strings.HasSuffix(p, ".cs") {
 				return err
+			}
+			// ОБРАЗЦЫ ЛЕЖАТ ВНУТРИ ПАКЕТА, и обход движка забирал их слова в
+			// словарь известных — образец подтверждал сам себя ровно так же,
+			// как до этого шов. Их вклад добавляется отдельно и только
+			// объявлениями.
+			if !declOnly && strings.Contains(p, "Samples~") {
+				return nil
 			}
 			files++
 			src := string(mustRead(t, p))
@@ -951,14 +965,20 @@ func TestOptionalPackagesStillFitTheEngine(t *testing.T) {
 	add("unity/Packages/com.lvn.engine.services", false)
 	add("unity/Packages/com.lvn.engine.spine", true)
 	add("unity/Packages/com.lvn.engine.addressables", true)
+	// Образцы пакетов Unity игнорирует по тильде в имени папки — их не
+	// компилирует вообще ничто, а копирует их новый встраивающий ПЕРВЫМИ.
+	add("unity/Packages/com.lvn.engine/Samples~", true)
+	add("unity/Packages/com.lvn.engine.services/Samples~", true)
 	sawSources(t, files, 200, "файлов движка и швов")
 
-	ref := regexp.MustCompile(`\b(Lvn\w+|VnStage|WorldStage|ILvn\w+)\.(\w+)`)
+	ref := regexp.MustCompile(`\b(Lvn\w+|VnStage|WorldStage|NovelApp|NovelShell|ILvn\w+)\.(\w+)`)
 	seen := 0
 	var lost []string
 	for _, d := range []string{
 		"unity/Packages/com.lvn.engine.spine",
 		"unity/Packages/com.lvn.engine.addressables",
+		"unity/Packages/com.lvn.engine/Samples~",
+		"unity/Packages/com.lvn.engine.services/Samples~",
 	} {
 		_ = filepath.Walk(filepath.Join(root, d), func(p string, i os.FileInfo, err error) error {
 			if err != nil || i.IsDir() || !strings.HasSuffix(p, ".cs") {
@@ -976,12 +996,13 @@ func TestOptionalPackagesStillFitTheEngine(t *testing.T) {
 			return nil
 		})
 	}
-	sawSources(t, seen, 6, "обращений швов к движку")
+	sawSources(t, seen, 12, "обращений швов и образцов к движку")
 	sort.Strings(lost)
 	if len(lost) > 0 {
-		t.Errorf("необязательные пакеты зовут то, чего в движке больше нет (%d):\n  %s\n\n"+
-			"Их не компилирует ничто: ошибка всплывёт у того, кто поставит "+
-			"spine-unity или Addressables, — у чужого человека и не сегодня.",
+		t.Errorf("некомпилируемый код зовёт то, чего в движке больше нет (%d):\n  %s\n\n"+
+			"Его не компилирует ничто: ошибка всплывёт у того, кто поставит "+
+			"spine-unity или Addressables либо скопирует образец, — у чужого "+
+			"человека и не сегодня.",
 			len(lost), strings.Join(lost, "\n  "))
 	}
 }
