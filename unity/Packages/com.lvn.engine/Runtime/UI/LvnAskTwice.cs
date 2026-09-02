@@ -54,26 +54,24 @@ namespace Lvn.UI
                                       Action confirmed, Color? armedTint = null)
         {
             if (b == null || calm == null || armed == null) return b;
-            bool up = false;
+            var latch = new LvnArming();
             Color calmBg = b.style.backgroundColor.value;
             Color calmFg = b.style.color.value;
 
-            LvnRedress.Bind(b, () => up ? armed() : calm());
+            LvnRedress.Bind(b, () => latch.Armed ? armed() : calm());
 
             IVisualElementScheduledItem cooling = null;
             void Paint()
             {
                 LvnRedress.Refresh(b);
                 if (!armedTint.HasValue) return;
-                b.style.backgroundColor = up ? armedTint.Value : calmBg;
-                b.style.color = up ? Color.white : calmFg;
+                b.style.backgroundColor = latch.Armed ? armedTint.Value : calmBg;
+                b.style.color = latch.Armed ? Color.white : calmFg;
             }
             void Disarm()
             {
                 cooling?.Pause();
-                if (!up) return;
-                up = false;
-                Paint();
+                if (latch.Disarm()) Paint();
             }
 
             // Снятие с экрана разоружает — см. заголовок. Таймер здесь не
@@ -82,9 +80,8 @@ namespace Lvn.UI
 
             b.clicked += () =>
             {
-                if (!up)
+                if (!latch.Press())
                 {
-                    up = true;
                     Paint();
                     // Прежний срок гасим: иначе взвод, сделанный после
                     // остывания, разоружит старый таймер прошлого взвода.
@@ -93,7 +90,8 @@ namespace Lvn.UI
                     cooling.ExecuteLater((long)(ArmedSeconds * 1000f));
                     return;
                 }
-                Disarm();
+                cooling?.Pause();
+                Paint();          // взвод снят самим Press — рисуем спокойный вид
                 confirmed?.Invoke();
             };
             return b;

@@ -95,7 +95,6 @@ namespace Lvn.Tests
         /// </summary>
         [TestCase("/content/sprites/hill/body_west@mini.png")]
         [TestCase("/content/bg/room@mini.jpg")]
-        [TestCase("/content/ui/panel@2k.png")]
         [TestCase("/content/pixel/tile@1440.png")]
         public void РастровыйПоУмыслуКодаНеПросит(string url)
             => Assert.IsNull(ContentLoader.Ktx2UrlFor(url),
@@ -107,7 +106,7 @@ namespace Lvn.Tests
         [TestCase("/content/sprites/hill/body@1440.png", true)]
         [TestCase("/content/bg/room.jpg", true)]
         [TestCase("/content/bg/room@mini.jpg", false)]
-        [TestCase("/content/ui/panel.png", false)]
+        [TestCase("/content/ui/menu-canvas.jpg", true)]
         [TestCase("/content/pixel/tile.png", false)]
         public void ДомЗнаетКомуПоложенКод(string url, bool положен)
             => Assert.AreEqual(положен, DownloadPolicy.CodedArt(url));

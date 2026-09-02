@@ -130,10 +130,15 @@ namespace Lvn.UI.Screens
         private async Task UnloadChapterArtSoonAsync(HashSet<string> pinned)
         {
             for (int i = 0; i < 3; i++) await Task.Yield();
-            // /sprites/ здесь обязателен: послойный облик героини (~240 МБ
-            // декода) не матчился и переживал главу целиком.
+            // СПИСОК ПАПОК СПРАШИВАЕМ У ДОМА. Здесь стояла своя копия, и она
+            // знала три папки из четырёх: страницы атласа Spine — самые
+            // крупные текстуры движка — переживали главу целиком. Тот же
+            // дефект тут уже ловили однажды, про /sprites/ («послойный облик
+            // героини, ~240 МБ декода»), и починили одну строку списка.
+            // Заодно копия сверяла папки С УЧЁТОМ РЕГИСТРА: контент с
+            // «/Art/» не убирался вовсе.
             _assets.Loader.UnloadWhere(u =>
-                (u.Contains("/art/") || u.Contains("/bg/") || u.Contains("/sprites/"))
+                Lvn.Content.DownloadPolicy.LargeStoryArt(u)
                 && !pinned.Contains(Lvn.Content.DownloadPolicy.StripVariant(u)));
             // Диск убирается тем же тактом (в пуле потоков): мёртвые версии —
             // всегда, над квотой — давнее. Общий арт глав живёт одним файлом
