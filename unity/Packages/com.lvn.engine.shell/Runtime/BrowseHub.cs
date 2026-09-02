@@ -207,8 +207,7 @@ namespace Lvn.UI.Screens
             // лентой вкладок, а меню стоит поверх разделов и переключает их
             // (живой скрин «в магазине нижнего меню нету»).
             var navRoot = BottomNav();
-            navRoot.style.position = Position.Absolute;
-            navRoot.style.left = 0; navRoot.style.right = 0; navRoot.style.bottom = 0;
+            LvnChrome.BottomStrip(navRoot);
             Add(navRoot);
             // Лента не ныряет под меню — по НАСТОЯЩЕЙ его высоте: она растёт
             // от размера шрифта интерфейса, а число этого не знало.
@@ -240,8 +239,7 @@ namespace Lvn.UI.Screens
             // Затемнение под подписью: белый заголовок обязан читаться на любой
             // обложке, включая светлую.
             var dScrim = new VisualElement { pickingMode = PickingMode.Ignore };
-            dScrim.style.position = Position.Absolute;
-            dScrim.style.left = 0; dScrim.style.right = 0; dScrim.style.bottom = 0;
+            LvnChrome.BottomStrip(dScrim);
             dScrim.style.height = Length.Percent(55f);
             dScrim.style.backgroundImage = Gradient(LvnTokens.Veil(0.02f), LvnTokens.Veil(0.85f));
             _detailImage.Add(dScrim);

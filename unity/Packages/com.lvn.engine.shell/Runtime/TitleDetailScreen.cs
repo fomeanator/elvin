@@ -194,19 +194,13 @@ namespace Lvn.UI.Screens
             // bottom gradient scrim so the overlaid title reads (a real gradient —
             // a flat half-black band leaves an ugly hard edge across the art)
             var scrim = new VisualElement { pickingMode = PickingMode.Ignore };
-            scrim.style.position = Position.Absolute;
-            scrim.style.left = 0;
-            scrim.style.right = 0;
-            scrim.style.bottom = 0;
+            LvnChrome.BottomStrip(scrim);
             scrim.style.height = Length.Percent(62f);
             scrim.style.backgroundImage = BottomScrim();
             hero.Add(scrim);
 
             var overTitle = new Label(ShownName);
-            overTitle.style.position = Position.Absolute;
-            overTitle.style.left = 30;
-            overTitle.style.right = 30;
-            overTitle.style.bottom = 22;
+            LvnChrome.BottomStrip(overTitle, 30f, 22f);
             overTitle.style.color = LvnTokens.Text;
             overTitle.style.fontSize = LvnTokens.TextXl;
             overTitle.style.unityFontStyleAndWeight = FontStyle.Bold;

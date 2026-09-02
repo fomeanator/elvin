@@ -143,10 +143,7 @@ namespace Lvn.UI.Screens
             _viewer.Add(next);
 
             _viewerCaption = new Label();
-            _viewerCaption.style.position = Position.Absolute;
-            _viewerCaption.style.left = 0;
-            _viewerCaption.style.right = 0;
-            _viewerCaption.style.bottom = Length.Percent(5f);
+            LvnChrome.BottomStrip(_viewerCaption, 0f, Length.Percent(5f));
             _viewerCaption.style.unityTextAlign = TextAnchor.MiddleCenter;
             _viewerCaption.style.color = LvnTokens.Text;
             _viewerCaption.style.fontSize = LvnTokens.TextBase;
@@ -259,10 +256,7 @@ namespace Lvn.UI.Screens
                 LvnPicture.Photo(art, entry.Url, _assets);
                 // Caption strip along the bottom.
                 var cap = new VisualElement();
-                cap.style.position = Position.Absolute;
-                cap.style.left = 0;
-                cap.style.right = 0;
-                cap.style.bottom = 0;
+                LvnChrome.BottomStrip(cap);
                 LvnAir.Pad(cap, LvnTokens.Space2, LvnTokens.Space1);
                 cap.style.backgroundColor = LvnTokens.Veil(0.55f);
                 cap.pickingMode = PickingMode.Ignore;
@@ -292,10 +286,7 @@ namespace Lvn.UI.Screens
                 cell.Add(lockL);
 
                 var q = new Label("???");
-                q.style.position = Position.Absolute;
-                q.style.left = 0;
-                q.style.right = 0;
-                q.style.bottom = Length.Percent(14f);
+                LvnChrome.BottomStrip(q, 0f, Length.Percent(14f));
                 q.style.unityTextAlign = TextAnchor.MiddleCenter;
                 q.style.fontSize = LvnTokens.TextXs;
                 q.style.color = LvnTokens.TextDim;
