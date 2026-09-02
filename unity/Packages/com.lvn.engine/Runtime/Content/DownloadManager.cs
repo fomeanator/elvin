@@ -254,7 +254,12 @@ namespace Lvn.Content
         /// <summary>The chapter the shell should auto-continue into after
         /// <paramref name="current"/> finishes (next by number within the same
         /// title). Null = <paramref name="current"/> is the last chapter → return
-        /// to menu.</summary>
+        /// to menu.
+        ///
+        /// <para>ШОВ ДЛЯ ХОСТА: у загрузчика на руках манифест, у оболочки —
+        /// каталог, и она спрашивает своё <c>title.ChapterAfter</c> напрямую.
+        /// Правило «следующая по номеру» при этом ОДНО и живёт у новеллы —
+        /// здесь только дверь для того, у кого каталога нет.</para></summary>
         public LvnChapter NextChapterAfter(LvnChapter current) => FindNextChapter(_manifest, current);
 
         /// Pure: the chapter that follows `current` within the SAME title — the one

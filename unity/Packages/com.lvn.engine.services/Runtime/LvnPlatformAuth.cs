@@ -59,7 +59,11 @@ namespace Lvn.Services
         /// <summary>Run a provider's flow and LINK the identity to the current
         /// device account (so it becomes recoverable). "conflict" in the result
         /// means the identity already belongs to another account — the caller
-        /// may offer switching via <see cref="SignInAsync"/>.</summary>
+        /// may offer switching via <see cref="SignInAsync"/>.
+        ///
+        /// <para>ШОВ: экран привязки рисует встраивающая игра — своего движок
+        /// не даёт. Внутри движка эту дверь никто не открывает, и это не
+        /// забытый код.</para></summary>
         public static async Task<LinkResult> LinkAsync(string provider)
         {
             var flow = Flow(provider);

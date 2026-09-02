@@ -78,6 +78,9 @@ namespace Lvn.UI
 
         /// <summary>Fade the dialogue box (and choices) out/in — the shared
         /// window replaces it visually, so both never fight for the bottom.</summary>
+        /// <para>НЕ ПОДКЛЮЧЕНА: внутренние пути зовут <c>FadeDialogueAsync</c> и ЖДУТ его —
+        /// показ общего окна не должен начаться раньше, чем диалог погас. Эта
+        /// дверь для того, кто гасит, не дожидаясь; сегодня таких нет.</para>
         public void SetDialogueFaded(bool faded)
             => LvnAsync.Fire(FadeDialogueAsync(faded), "PanelDialogueFade");
 

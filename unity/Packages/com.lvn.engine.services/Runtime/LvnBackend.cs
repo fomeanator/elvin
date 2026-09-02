@@ -31,7 +31,9 @@ namespace Lvn.Services
         public static string Token => LvnKeep.Get(PToken, "");
         public static bool SignedIn => !string.IsNullOrEmpty(Token);
 
-        /// <summary>Raised after a successful (re-)registration.</summary>
+        /// <summary>Raised after a successful (re-)registration. ШОВ: внутри
+        /// движка на него никто не подписан — это дверь встраивающей игре,
+        /// которой надо знать про вход и выход.</summary>
         public static event Action<string> SignedInChanged;
 
         /// <summary>Register (or recover) the device account. Safe to call every

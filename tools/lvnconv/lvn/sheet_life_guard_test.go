@@ -820,3 +820,82 @@ func TestStageNamesItselfWhenItTalksToItself(t *testing.T) {
 			len(nameless), strings.Join(nameless, "\n  "))
 	}
 }
+
+// ПУБЛИЧНАЯ ДВЕРЬ, В КОТОРУЮ НИКТО НЕ ХОДИТ, ОБЪЯСНЯЕТ СЕБЯ.
+//
+// У движка-библиотеки два вида таких дверей, и различить их снаружи нельзя:
+// ШОВ (её открывает встраивающая игра — привязка аккаунта, приём сообщения от
+// хоста, режим бара) и НЕ ПОДКЛЮЧЁННОЕ (написано, но никем не позвано —
+// пролёт вкладки, затвор прозрачности). Первое трогать нельзя, второе можно
+// выкинуть — и решить это можно только по докблоку.
+//
+// Конвенция в движке уже была: `LvnMontage.Coalesce` («НЕ ПОДКЛЮЧЁН: ждёт
+// второго заказчика»), `LvnIcons.Retarget`, `LvnSpriteFxDriver.ReleaseFade`,
+// `LvnGlobalStats.SaveAsync`. Замерено 02.09: из 1203 публичных способов имя
+// тринадцати не встречается в репозитории больше НИГДЕ, и семеро из них
+// объяснялись, шестеро молчали.
+//
+// Ищем по имени целиком, а не по вызову со скобками: способ передают и
+// группой (`Safe("последний кадр", VnStage.ForgetLastSceneBg)`) — на этом
+// сито однажды чуть не объявило мёртвым живой стиратель следа игрока.
+func TestUncalledPublicDoorsExplainThemselves(t *testing.T) {
+	root := repoRoot(t)
+	var files []string
+	for _, d := range []string{
+		"unity/Packages/com.lvn.engine/Runtime",
+		"unity/Packages/com.lvn.engine.shell/Runtime",
+		"unity/Packages/com.lvn.engine.services/Runtime",
+	} {
+		_ = filepath.Walk(filepath.Join(root, d), func(p string, i os.FileInfo, err error) error {
+			if err == nil && !i.IsDir() && strings.HasSuffix(p, ".cs") {
+				files = append(files, p)
+			}
+			return err
+		})
+	}
+	// Слова считаем по всему движку и по тестам: позвали из теста — тоже позвали.
+	var all []string
+	seen := append([]string{}, files...)
+	_ = filepath.Walk(filepath.Join(root, "unity/Packages"), func(p string, i os.FileInfo, err error) error {
+		if err == nil && !i.IsDir() && strings.HasSuffix(p, ".cs") && strings.Contains(p, "/Tests/") {
+			seen = append(seen, p)
+		}
+		return err
+	})
+	for _, p := range seen {
+		all = append(all, string(mustRead(t, p)))
+	}
+	blob := strings.Join(all, "\n")
+	word := regexp.MustCompile(`\w+`)
+	uses := map[string]int{}
+	for _, w := range word.FindAllString(blob, -1) {
+		uses[w]++
+	}
+
+	member := regexp.MustCompile(`(?m)((?:[ \t]*///.*\n)*)[ \t]*public\s+(?:static\s+|async\s+|virtual\s+|sealed\s+|new\s+)*[\w<>\[\],\.\?]+\s+(\w+)\s*\(`)
+	mark := regexp.MustCompile(`(?i)НЕ ПОДКЛЮЧ|ШОВ|встраива|хост|host|снаружи|UnitySendMessage`)
+	skip := map[string]bool{"Equals": true, "GetHashCode": true, "ToString": true, "Dispose": true}
+
+	doors, mute := 0, []string{}
+	for _, p := range files {
+		src := string(mustRead(t, p))
+		for _, m := range member.FindAllStringSubmatch(src, -1) {
+			name := m[2]
+			if skip[name] || uses[name] > 1 {
+				continue
+			}
+			doors++
+			if !mark.MatchString(m[1]) {
+				mute = append(mute, filepath.Base(p)+": "+name)
+			}
+		}
+	}
+	sawSources(t, len(files), 150, "файлов движка")
+	sort.Strings(mute)
+	if len(mute) > 0 {
+		t.Errorf("публичные двери без объяснения (%d из %d непозванных):\n  %s\n\n"+
+			"Снаружи шов и брошенный код выглядят одинаково. Напишите в докблоке "+
+			"«ШОВ: кто открывает» или «НЕ ПОДКЛЮЧЁН: почему и что надо, чтобы ожил».",
+			len(mute), doors, strings.Join(mute, "\n  "))
+	}
+}
