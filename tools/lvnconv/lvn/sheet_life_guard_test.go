@@ -694,3 +694,56 @@ func TestSettingsApplyThemselves(t *testing.T) {
 			"второй — экранов настроек два.", strings.Join(outside, ", "))
 	}
 }
+
+// ПРОПУСКОВ НЕ СТАНОВИТСЯ БОЛЬШЕ.
+//
+// Тест, умеющий пропустить себя, — честный ответ на «среда не даёт проверить»:
+// пропуск виден в отчёте, а зелёная проверка, ничего не проверяющая, не видна
+// никак. Но у честности есть цена: каждый такой пропуск — дыра в покрытии,
+// которую CI не показывает красным.
+//
+// Замерено 02.09: восемнадцать мест `Assert.Ignore` и один статический
+// `[Ignore]`. Причины разные и все названы словом — нет графики, нет шейдера,
+// панель UITK в безголовом прогоне не считает раскладку, сервер-смоук не
+// собран. Храповик держит число: пропуск добавляется осознанно, а не потому,
+// что «тест почему-то красный».
+//
+// Число может только УМЕНЬШАТЬСЯ. Выросло — значит либо среда стала хуже, либо
+// пропуском лечат падение.
+func TestSkipsDoNotMultiply(t *testing.T) {
+	const budget = 19 // 18 динамических + 1 статический (02.09)
+
+	root := repoRoot(t)
+	skip := regexp.MustCompile(`Assert\.Ignore\(|\[\s*(?:UnityTest|Test)\s*,\s*Ignore\(|^\s*\[\s*Ignore\(`)
+	seen, files := 0, 0
+	where := map[string]int{}
+	_ = filepath.Walk(filepath.Join(root, "unity/Packages"), func(p string, i os.FileInfo, err error) error {
+		if err != nil || i.IsDir() || !strings.HasSuffix(p, ".cs") || !strings.Contains(p, "/Tests/") {
+			return err
+		}
+		files++
+		n := len(skip.FindAllString(string(mustRead(t, p)), -1))
+		if n > 0 {
+			seen += n
+			where[filepath.Base(p)] = n
+		}
+		return nil
+	})
+	sawSources(t, files, 150, "файлов тестов")
+
+	if seen > budget {
+		var list []string
+		for f, n := range where {
+			list = append(list, f+"×"+itoa(n))
+		}
+		sort.Strings(list)
+		t.Errorf("пропусков стало больше: %d при бюджете %d\n  %s\n\n"+
+			"Каждый пропуск — дыра, которую CI не показывает красным. Если среда "+
+			"правда не даёт проверить — назовите причину словом и поднимите бюджет "+
+			"осознанно; если пропуском лечат падение — почините падение.",
+			seen, budget, strings.Join(list, "\n  "))
+	}
+	if seen < budget {
+		t.Logf("пропусков стало меньше (%d при бюджете %d) — опустите бюджет", seen, budget)
+	}
+}
