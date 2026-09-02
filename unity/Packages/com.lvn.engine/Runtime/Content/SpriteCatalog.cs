@@ -202,7 +202,7 @@ namespace Lvn.Content
             foreach (var kv in axes)
             {
                 if (string.IsNullOrEmpty(kv.Value)) continue;
-                if (kv.Value.IndexOf('{') >= 0) continue; // unresolved template — not ours to judge
+                if (DownloadPolicy.IsTemplate(kv.Value)) continue; // ось не подставлена — судить не нам // ось не подставлена — судить не нам
                 if (!e.axes.TryGetValue(kv.Key, out var allowed) || allowed == null || allowed.Count == 0)
                     continue;
                 if (allowed.Contains(kv.Value)) continue;

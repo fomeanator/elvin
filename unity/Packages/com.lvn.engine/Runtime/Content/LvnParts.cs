@@ -121,7 +121,7 @@ namespace Lvn.Content
         /// сломан был СПИСОК: он просил то, чего никто не выкладывал.</para>
         /// </summary>
         private static bool Fetchable(string url)
-            => !string.IsNullOrEmpty(url) && url.IndexOf('{') < 0;
+            => !string.IsNullOrEmpty(url) && !DownloadPolicy.IsTemplate(url);
 
         public static IEnumerable<LvnPart> OfCast(LvnManifest m)
         {
