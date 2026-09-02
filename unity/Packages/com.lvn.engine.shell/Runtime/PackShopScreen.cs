@@ -62,7 +62,6 @@ namespace Lvn.UI.Screens
         private readonly ILvnAssets _assets;
         private readonly VisualElement _tabsRow;
         private readonly ScrollView _list;
-        private readonly List<Button> _tabButtons = new List<Button>();
         private readonly Dictionary<string, List<Pack>> _catalog;
 
         private int _tab;
@@ -255,7 +254,10 @@ namespace Lvn.UI.Screens
 
         public override void Rebuild()
         {
-            for (int i = 0; i < _tabButtons.Count; i++) StyleTab(_tabButtons[i], i == _tab);
+            // Читаем ДЕТЕЙ ряда, а не отдельный список: он был второй памятью
+            // об одном и том же, и держали их в согласии руками.
+            for (int i = 0; i < _tabsRow.childCount; i++)
+                if (_tabsRow[i] is Button b) StyleTab(b, i == _tab);
 
             _list.Clear();
             if (_tabIds.Count == 0)
@@ -301,7 +303,6 @@ namespace Lvn.UI.Screens
         private void BuildTabs()
         {
             _tabsRow.Clear();
-            _tabButtons.Clear();
             for (int i = 0; i < _tabIds.Count; i++)
             {
                 int idx = i;
@@ -317,7 +318,6 @@ namespace Lvn.UI.Screens
                 LvnChrome.Frame(pill, LvnTokens.Radius);
                 StyleTab(pill, i == _tab);
                 _tabsRow.Add(pill);
-                _tabButtons.Add(pill);
             }
         }
 

@@ -26,7 +26,6 @@ namespace Lvn.UI.Screens
         private readonly VisualElement _viewport;
         private readonly VisualElement _strip;
         private readonly VisualElement _dots;
-        private readonly List<VisualElement> _dotEls = new List<VisualElement>();
         private readonly Color _dotColor, _dotActiveColor;
         // Цвет кнопки «Играть»: дефолт писался литералом в трёх местах —
         // три шанса разойтись. Считается один раз, из темы.
@@ -263,17 +262,18 @@ namespace Lvn.UI.Screens
                 _strip.Add(BuildCard(_titles[i]));
 
             _dots.Clear();
-            _dotEls.Clear();
             for (int i = 0; i < _titles.Count; i++)
             {
                 var dot = new VisualElement();
                 dot.style.width = 10; dot.style.height = 10;
                 LvnAir.MarginX(dot, LvnTokens.Tight);
                 LvnChrome.Round(dot, LvnTokens.RadiusXs);   // точка — круг из квадрата 10×10
-                dot.style.backgroundColor = i == _index ? _dotActiveColor : _dotColor;
                 _dots.Add(dot);
-                _dotEls.Add(dot);
             }
+            // Цвет ставит ТОТ ЖЕ ход, что и при переходе на карточку. Стоял он
+            // здесь копией, и правило «активная точка ярче» жило дважды:
+            // поправь одно — свежесобранные точки и обновлённые разойдутся.
+            UpdateDots();
         }
 
         /// <summary>Snap to a card index (clamped), animating the deck.</summary>
@@ -557,10 +557,16 @@ namespace Lvn.UI.Screens
 
         private void ApplyOffset() => _strip.style.translate = new Translate(_centerPad - _offset, 0f, 0f);
 
+        /// <summary>Раскрасить точки под текущую карточку.
+        ///
+        /// <para>Читаем ДЕТЕЙ контейнера, а не отдельный список. Список был
+        /// второй памятью об одном и том же: контейнер и его зеркало держали в
+        /// согласии руками, и стоило добавить точку мимо сборки — они бы
+        /// разошлись, а виноватой выглядела бы прокрутка.</para></summary>
         private void UpdateDots()
         {
-            for (int i = 0; i < _dotEls.Count; i++)
-                _dotEls[i].style.backgroundColor = i == _index ? _dotActiveColor : _dotColor;
+            for (int i = 0; i < _dots.childCount; i++)
+                _dots[i].style.backgroundColor = i == _index ? _dotActiveColor : _dotColor;
         }
     }
 }
