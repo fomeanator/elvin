@@ -174,3 +174,58 @@ func TestMapManifestPathsExist(t *testing.T) {
 			len(lost), strings.Join(lost, "\n  "))
 	}
 }
+
+// РАЙОН КАРТЫ НЕ ОСЫПАЕТСЯ.
+//
+// Полупустой район карты хуже пустого: читатель находит два дома из десяти,
+// делает вывод «остального тут нет» — и заводит второй дом рядом с живым. В
+// `UI/World` (канвас-путь и 3D — там, где продукт РИСУЕТ) на карте стояло два
+// класса из десяти: не было ни `LvnFade` с решением Ильи про вход фейдом, ни
+// `LvnGlass`, чей докблок прямо отвечает на регулярное «диалог надо переносить
+// на канвас».
+//
+// Механизмом считаем класс с публичным способом: чистые записи данных
+// (`Lvn3DSet`, `LvnBox`) на карте не нужны — карта отвечает «как это делается»,
+// а не «из чего состоит».
+func TestWorldDistrictIsFullyMapped(t *testing.T) {
+	root := repoRoot(t)
+	dir := filepath.Join(root, "unity/Packages/com.lvn.engine/Runtime/UI/World")
+	canon := string(mustRead(t, filepath.Join(root, "docs", "where-things-live.md")))
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	class := regexp.MustCompile(`\bpublic\s+(?:sealed\s+|abstract\s+|static\s+|partial\s+)*class\s+(\w+)`)
+	method := regexp.MustCompile(`public\s+[\w<>\[\]\.]+\s+\w+\s*\(`)
+
+	seen := 0
+	var lost []string
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".cs") {
+			continue
+		}
+		src := string(mustRead(t, filepath.Join(dir, e.Name())))
+		for _, m := range class.FindAllStringSubmatchIndex(src, -1) {
+			name := src[m[2]:m[3]]
+			tail := src[m[1]:]
+			if len(tail) > 4000 {
+				tail = tail[:4000]
+			}
+			if !method.MatchString(tail) {
+				continue // запись данных, а не механизм
+			}
+			seen++
+			if !strings.Contains(canon, "`"+name) {
+				lost = append(lost, name)
+			}
+		}
+	}
+	sawSources(t, seen, 8, "механизмов района UI/World")
+	sort.Strings(lost)
+	if len(lost) > 0 {
+		t.Errorf("механизмы района UI/World вне карты (%d): %s\n\n"+
+			"Полупустой район хуже пустого: читатель делает вывод «остального тут "+
+			"нет» и заводит второй дом рядом с живым.", len(lost), strings.Join(lost, ", "))
+	}
+}
