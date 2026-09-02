@@ -76,6 +76,30 @@ func newKtx2Transcoder(d *downscaler) *ktx2Transcoder {
 	return t
 }
 
+// ЭТОМУ АРТУ ПОЛОЖЕН КОД ДЛЯ ВИДЕОКАРТЫ — три отказа, и все три «положено
+// растром», а не «не смогли»: пиксель-арт и обшивка интерфейса (блочное сжатие
+// с потерями размажет пиксельную сетку и тонкие линии) и крошка-заготовка
+// (@mini) — её показывают, пока едет крупный.
+//
+// Правило стояло ВНУТРИ прогрева, и ленивый обработчик его не знал: запрос
+// «X@mini.ktx2» он ставил в очередь и кодировал, отменяя намеренное решение.
+// Клиент задаёт тот же вопрос у себя (DownloadPolicy.CodedArt); списки
+// сверяет страж TestCodedArtIsOneList.
+//
+// Путь ожидается в нижнем регистре.
+func ktx2Coded(lowPath string) bool {
+	return !strings.Contains(lowPath, "/pixel/") &&
+		!strings.Contains(lowPath, "/ui/") &&
+		!strings.Contains(lowPath, miniSuffix+".")
+}
+
+// Что вообще считается КРУПНЫМ АРТОМ ИСТОРИИ. Отдельный вопрос от «положен ли
+// код»: у клиента он живёт у уменьшителя, здесь — рядом.
+func ktx2LargeArt(lowPath string) bool {
+	return strings.Contains(lowPath, "/bg/") || strings.Contains(lowPath, "/art/") ||
+		strings.Contains(lowPath, "/sprites/") || strings.Contains(lowPath, "/spine/")
+}
+
 // warmAll walks the content tree at startup and queues an encode for every
 // piece of story art that has no fresh .ktx2 yet.
 //
@@ -103,16 +127,7 @@ func (t *ktx2Transcoder) warmAll(contentRoot string) {
 			if !(strings.HasSuffix(low, ".png") || strings.HasSuffix(low, ".jpg")) {
 				return nil
 			}
-			// Пиксель-арт и обшивка интерфейса живут растром НАМЕРЕННО: блочное
-			// сжатие с потерями размажет пиксельную сетку и тонкие линии.
-			// Крошка-заготовка (@mini) тоже — её показывают, пока едет крупный.
-			if strings.Contains(low, "/pixel/") || strings.Contains(low, "/ui/") ||
-				strings.Contains(low, "@mini.") {
-				skipped++
-				return nil
-			}
-			if !(strings.Contains(low, "/bg/") || strings.Contains(low, "/art/") ||
-				strings.Contains(low, "/sprites/") || strings.Contains(low, "/spine/")) {
+			if !ktx2Coded(low) || !ktx2LargeArt(low) {
 				skipped++
 				return nil
 			}
@@ -498,7 +513,10 @@ func (s *server) withKTX2(d *downscaler, next http.Handler) http.Handler {
 			// PNG/JPG fallback, the next session gets the fresh ktx2.
 			_ = os.Remove(ktx2Path)
 		}
-		if t.bin() != "" && hasKtx2Source(ktx2Path) {
+		// ТОТ ЖЕ ВОПРОС, ЧТО У ПРОГРЕВА. Без него запрос «X@mini.ktx2»
+		// ставился в очередь и кодировался — намеренное решение «крошка живёт
+		// растром» отменялось тем, что кто-то один раз спросил.
+		if t.bin() != "" && ktx2Coded(strings.ToLower(ktx2Path)) && hasKtx2Source(ktx2Path) {
 			t.enqueue(ktx2Path) // warm for the future; never block this request
 		}
 		http.NotFound(w, r)

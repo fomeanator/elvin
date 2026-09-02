@@ -1178,3 +1178,101 @@ func TestPatienceNeverStandsAlone(t *testing.T) {
 			len(mute), strings.Join(mute, "\n  "))
 	}
 }
+
+// «ПОЛОЖЕН ЛИ КОД» — ОДИН СПИСОК НА ДВЕ СТОРОНЫ.
+//
+// Часть арта живёт растром НАМЕРЕННО: пиксель-арт и обшивка интерфейса
+// (блочное сжатие размажет сетку и тонкие линии) и крошка-заготовка @mini —
+// её показывают, пока едет крупный.
+//
+// Список нужен обеим сторонам, и врозь они опасны НЕСИММЕТРИЧНО. Сервер, не
+// знающий исключения, потратит процессор на лишний код. Клиент, не знающий
+// его, попросит код, которого не собирают нигде, — и, раз растрового пути у
+// арта истории нет, будет ждать 7.5 с, а потом не покажет НИЧЕГО. Ровно это и
+// случилось 02.09 с крошкой: правило было записано у сервера, а на клиенте
+// наследовалось от уменьшителя — и ушло вместе с ним, когда отображение
+// адреса в код перестало через уменьшитель ходить.
+func TestCodedArtIsOneList(t *testing.T) {
+	root := repoRoot(t)
+	cs := stripComments(string(mustRead(t,
+		filepath.Join(root, "unity/Packages/com.lvn.engine/Runtime/Content/DownloadPolicy.cs"))))
+	go_ := stripComments(string(mustRead(t, filepath.Join(root, "server/ktx2.go"))))
+
+	body, ok := ruleBody(cs, "public static bool CodedArt(string url)")
+	if !ok {
+		t.Fatal("DownloadPolicy.CodedArt не найден — правило «положен ли код» " +
+			"на клиенте снова живёт по месту")
+	}
+	goBody, ok := ruleBody(go_, "func ktx2Coded(lowPath string) bool {")
+	if !ok {
+		t.Fatal("server: ktx2Coded не найден — правило «положен ли код» снова " +
+			"живёт внутри прогрева и ленивому тракту неизвестно")
+	}
+
+	// Крошка на сервере названа константой (miniSuffix), на клиенте — своей
+	// (QMini). Сверяем ЗНАЧЕНИЯ, а не написание.
+	for _, ex := range []struct{ what, client, server string }{
+		{"пиксель-арт", "/pixel/", "/pixel/"},
+		{"обшивка интерфейса", "/ui/", "/ui/"},
+		{"крошка-заготовка", "QMini", "miniSuffix"},
+	} {
+		if !strings.Contains(body, ex.client) {
+			t.Errorf("клиент не исключает %s из кодов (%s): попросит код, "+
+				"которого не собирают, и не покажет ничего", ex.what, ex.client)
+		}
+		if !strings.Contains(goBody, ex.server) {
+			t.Errorf("сервер не исключает %s из кодов (%s)", ex.what, ex.server)
+		}
+	}
+
+	// Ленивый тракт спрашивает тот же дом, а не свой список.
+	lazy, ok := ruleBody(go_, "func (s *server) withKTX2(")
+	if !ok {
+		t.Fatal("server: withKTX2 не найден")
+	}
+	if !strings.Contains(lazy, "ktx2Coded(") {
+		t.Error("ленивый обработчик .ktx2 не спрашивает «положен ли код»: " +
+			"один запрос отменяет намеренное решение «живёт растром»")
+	}
+}
+
+// Тело правила: от заголовка до закрывающей скобки того же уровня; понимает и
+// стрелочное тело C#. Отдельно от methodBody конформанса НАРОЧНО: тот стирает
+// строковые литералы, а здесь сверяются как раз они.
+func ruleBody(src, header string) (string, bool) {
+	i := strings.Index(src, header)
+	if i < 0 {
+		return "", false
+	}
+	open := strings.Index(src[i:], "{")
+	if open < 0 {
+		// C#-выражение вместо тела: `=> …;`
+		if arrow := strings.Index(src[i:], "=>"); arrow >= 0 {
+			end := strings.Index(src[i+arrow:], ";")
+			if end >= 0 {
+				return src[i+arrow : i+arrow+end], true
+			}
+		}
+		return "", false
+	}
+	// Стрелочное тело раньше первой скобки — оно и есть тело.
+	if arrow := strings.Index(src[i:], "=>"); arrow >= 0 && arrow < open {
+		end := strings.Index(src[i+arrow:], ";")
+		if end >= 0 {
+			return src[i+arrow : i+arrow+end], true
+		}
+	}
+	depth := 0
+	for j := i + open; j < len(src); j++ {
+		switch src[j] {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return src[i+open : j], true
+			}
+		}
+	}
+	return "", false
+}
