@@ -19,8 +19,7 @@ namespace Lvn.UI.Screens
         {
             var row = LvnStyler.CardRow(ScreenUi.Row(spread: true), LvnTokens.SurfaceSoft);
             LvnAir.PadX(row, LvnTokens.Space3);
-            row.style.marginBottom = LvnTokens.Space2;
-            row.style.marginTop = LvnTokens.Space1;
+            LvnAir.MarginY(row, LvnTokens.Space1, LvnTokens.Space2);
             var col = new VisualElement();
             col.style.flexGrow = 1;
             var lbl = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("settings.title", "Settings"));

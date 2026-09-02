@@ -87,8 +87,7 @@ namespace Lvn.UI.Screens
                 var prompt = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("auth.name_prompt", _cfg.name_prompt, "Your name"));
                 prompt.style.color = UiColor.Named(_cfg.subtitle_color, LvnTokens.TextDim);
                 prompt.style.fontSize = LvnTokens.TextSm;
-                prompt.style.marginTop = LvnTokens.Space3;
-                prompt.style.marginBottom = LvnTokens.Space1;
+                LvnAir.MarginY(prompt, LvnTokens.Space3, LvnTokens.Space1);
                 panel.Add(prompt);
 
                 _field = new TextField { maxLength = _maxLength };

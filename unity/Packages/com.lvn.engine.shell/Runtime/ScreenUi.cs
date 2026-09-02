@@ -149,8 +149,7 @@ namespace Lvn.UI.Screens
             lbl.style.fontSize = LvnTokens.TextBase;
             lbl.style.unityFontStyleAndWeight = FontStyle.Bold;
             lbl.style.whiteSpace = WhiteSpace.Normal;   // длинный заголовок переносится, а не режется
-            lbl.style.marginTop = LvnTokens.Space1;
-            lbl.style.marginBottom = LvnTokens.Space2;
+            LvnAir.MarginY(lbl, LvnTokens.Space1, LvnTokens.Space2);
             return LvnChrome.Heading(lbl);
         }
 
