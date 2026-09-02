@@ -418,53 +418,74 @@ func TestPlayModeRunHasGraphics(t *testing.T) {
 	}
 }
 
-// СПРЯТАННЫЙ ЭКРАН УМЕЕТ ВЕРНУТЬСЯ.
+// УЙТИ С ЭКРАНА — ЧЕРЕЗ ОДНУ ДВЕРЬ.
 //
-// Экраны оболочки прячутся по-разному, и это законно: у каждого своё
-// состояние, которое надо унести. Но одно сочетание делает экран невидимым
-// НАВСЕГДА: спрятать, выставив прозрачность в ноль, и не ставить её при
-// показе. Следующий показ выставит `display = Flex` поверх нулевой
-// прозрачности — экран «открыт», не показавшись. Ни ошибки, ни строки в логе,
-// только тишина в ответ на нажатие.
+// Уход поверхности — это отмена всего, чем показ был обставлен: `display`
+// убирает из раскладки, `opacity` и `translate` возвращают на место то, что
+// показ двигал и гасил. Правило открывали ТРИЖДЫ и каждый раз наполовину:
+// накладной экран помнил смещение, панель истории — прозрачность рамки, бут и
+// загрузка — свою прозрачность. Ни один не знал всего набора.
 //
-// Сегодня так не делает никто: у всех, кто прячет в ноль, показ идёт
-// проявлением. Правило при этом нигде не было записано — девять реализаций
-// решали каждая сама.
-func TestHiddenScreensCanComeBack(t *testing.T) {
+// Опасность несимметрична, и в этом всё дело. Забыть `display` видно сразу:
+// экран остался на глазах. Забыть прозрачность или смещение не видно НИКОГДА:
+// следующий показ ставит `display`, поверхность честно в дереве, ловит тапы,
+// ждёт игрока — и невидима.
+//
+// Поэтому: `style.display = DisplayStyle.None` на СЕБЕ (без получателя) вне
+// конструктора — ошибка. Рождение спрятанным разрешено: там уход не отменяют,
+// там его ещё не было. Чужой элемент (`_frame.style.display`) не наш случай —
+// его прячет тот, кто им владеет.
+func TestLeavingTheScreenGoesThroughOneDoor(t *testing.T) {
 	root := repoRoot(t)
-	dir := filepath.Join(root, "unity/Packages/com.lvn.engine.shell/Runtime")
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		t.Fatal(err)
+	dirs := []string{
+		"unity/Packages/com.lvn.engine.shell/Runtime",
+		"unity/Packages/com.lvn.engine/Runtime/UI",
 	}
-	hide := regexp.MustCompile(`(?s)public void Hide\(\).*?\n        \}`)
+	selfHide := regexp.MustCompile(`^\s+style\.display = DisplayStyle\.None;`)
+	member := regexp.MustCompile(`^\s+(?:public|private|protected|internal)\s`)
+	ctor := regexp.MustCompile(`^\s+(?:public|private|protected|internal)\s+\w+\s*\(`)
+
 	seen := 0
-	var blind []string
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".cs") {
-			continue
+	var bypass []string
+	for _, d := range dirs {
+		entries, err := os.ReadDir(filepath.Join(root, d))
+		if err != nil {
+			t.Fatal(err)
 		}
-		body := stripComments(string(mustRead(t, filepath.Join(dir, e.Name()))))
-		m := hide.FindString(body)
-		if m == "" {
-			continue
-		}
-		seen++
-		if !strings.Contains(m, "opacity = 0f") {
-			continue
-		}
-		rest := strings.Replace(body, m, "", 1)
-		if !strings.Contains(rest, "style.opacity") && !strings.Contains(rest, "FadeAsync") {
-			blind = append(blind, e.Name())
+		for _, e := range entries {
+			if e.IsDir() || !strings.HasSuffix(e.Name(), ".cs") {
+				continue
+			}
+			lines := strings.Split(string(mustRead(t, filepath.Join(root, d, e.Name()))), "\n")
+			for i, l := range lines {
+				if !selfHide.MatchString(l) {
+					continue
+				}
+				seen++
+				// Ближайшее объявление члена выше: конструктор — рождение,
+				// всё остальное — уход.
+				j := i
+				for j > 0 {
+					j--
+					if member.MatchString(lines[j]) && strings.Contains(lines[j], "(") {
+						break
+					}
+				}
+				if ctor.MatchString(lines[j]) {
+					continue
+				}
+				bypass = append(bypass, e.Name()+":"+itoa(i+1)+" ("+strings.TrimSpace(lines[j])+")")
+			}
 		}
 	}
-	sawSources(t, seen, 5, "экранов с сокрытием")
-	sort.Strings(blind)
-	if len(blind) > 0 {
-		t.Errorf("экраны прячутся в ноль и не ставят прозрачность при показе: %s\n\n"+
-			"Следующий показ выставит display = Flex поверх нулевой прозрачности: "+
-			"экран «открыт», не показавшись, и в ответ на нажатие — тишина.",
-			strings.Join(blind, ", "))
+	sawSources(t, seen, 5, "мест, где поверхность прячет себя")
+	sort.Strings(bypass)
+	if len(bypass) > 0 {
+		t.Errorf("уход с экрана мимо ScreenFx.PutAway (%d):\n  %s\n\n"+
+			"PutAway отменяет ВЕСЬ показ: display, opacity, translate. Забытая "+
+			"прозрачность или смещение не видны никогда — следующий показ даёт "+
+			"поверхность, которая в дереве, ловит тапы, ждёт игрока и невидима.",
+			len(bypass), strings.Join(bypass, "\n  "))
 	}
 }
 

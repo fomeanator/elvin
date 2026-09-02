@@ -35,7 +35,7 @@ namespace Lvn.UI
             if (!on || string.IsNullOrEmpty(type))
             {
                 _tick?.Pause();
-                style.display = DisplayStyle.None;
+                ScreenFx.PutAway(this);
                 return;
             }
 

@@ -100,13 +100,13 @@ namespace Lvn.UI.Screens
         /// ровно тот случай, ради которого метка и заведена.</summary>
         public void Hide()
         {
-            style.display = DisplayStyle.None;
+            ScreenFx.PutAway(this);
             _gate.Release(false);   // некуда продолжать — значит, в меню
         }
 
         private void Resolve(bool next)
         {
-            style.display = DisplayStyle.None;
+            ScreenFx.PutAway(this);
             _gate.Release(next);
         }
     }
