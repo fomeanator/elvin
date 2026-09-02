@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getManifest, putAsset } from "../lib/api.js";
 import ResizeHandle from "./ResizeHandle.jsx";
+import { useLatest } from "./adminShared.jsx";
 
 // Editor for the manifest's `ui` theme block — the data the engine maps onto
 // every built-in screen: the in-game dialogue/choices (via VnThemeBuilder) and
@@ -128,13 +129,19 @@ export default function ThemePanel({ token, notify, onClose, titleId }) {
   const target = (scope === "global" || !titleId) ? "global" : titleId;
 
   // initial load
+  const start = useLatest();
   useEffect(() => {
+    // Ответ принадлежит СВОЕМУ титулу: переключил дважды — и поздний старый
+    // манифест показал бы чужую тему под новым именем.
+    const run = start();
     getManifest().then((m) => {
+      if (!run.fresh()) return;
       setManifest(m);
       const t = (m && m.titles) ? m.titles.find((x) => x.id === titleId) : null;
       setTitleName((t && (t.name || t.id)) || titleId || "");
     }).catch(() => {});
-  }, [titleId]);
+    return run.drop;
+  }, [titleId, start]);
 
   // (re)load cfg whenever the manifest arrives or the target changes
   useEffect(() => {
