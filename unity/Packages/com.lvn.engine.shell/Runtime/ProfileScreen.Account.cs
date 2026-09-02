@@ -70,38 +70,22 @@ namespace Lvn.UI.Screens
             // языка привязка перечитывает источник: назначь надпись руками — и
             // взведённая кнопка вернула бы вид «Удалить», оставшись взведённой.
             // Следующее нажатие удалило бы аккаунт без переспроса.
-            bool armed = false;
-            var btn = Lvn.UI.LvnRedress.Bind(new Button(), () => armed
-                ? LvnWords.Of("account.delete_sure", "Really delete?")
-                : LvnWords.Of("account.delete_do", "Delete"));
+            var btn = new Button();
             btn.style.fontSize = LvnTokens.TextXs;
             LvnAir.Pad(btn, LvnTokens.Space3, LvnTokens.Space2);
             LvnStyler.Plate(btn, LvnTokens.Faint, danger, LvnTokens.RadiusSm);
-
-            btn.clicked += () =>
-            {
-                if (!armed)
+            // Обряд целиком — у дома (Lvn.UI.LvnAskTwice). Здесь остаётся
+            // только ВИД опасности (заливка на время взвода) и само действие.
+            Lvn.UI.LvnAskTwice.AskTwice(btn,
+                calm: () => LvnWords.Of("account.delete_do", "Delete"),
+                armed: () => LvnWords.Of("account.delete_sure", "Really delete?"),
+                confirmed: () =>
                 {
-                    // Первое нажатие только взводит; через 4 с кнопка остывает.
-                    armed = true;
-                    Lvn.UI.LvnRedress.Refresh(btn);
-                    btn.style.backgroundColor = danger;
-                    btn.style.color = Color.white;
-                    btn.schedule.Execute(() =>
-                    {
-                        if (!armed) return;
-                        armed = false;
-                        Lvn.UI.LvnRedress.Refresh(btn);
-                        btn.style.backgroundColor = LvnTokens.Faint;
-                        btn.style.color = danger;
-                    }).ExecuteLater(LvnMotion.Ms(ArmedWindowMs));
-                    return;
-                }
-                armed = false;
-                btn.SetEnabled(false);
-                btn.text = LvnWords.Of("account.deleting", "Deleting…");
-                LvnAsync.Fire(RunDeleteAsync(btn, danger), "DeleteAccount");
-            };
+                    btn.SetEnabled(false);
+                    btn.text = LvnWords.Of("account.deleting", "Deleting…");
+                    LvnAsync.Fire(RunDeleteAsync(btn, danger), "DeleteAccount");
+                },
+                armedTint: danger);
             row.Add(btn);
             return row;
         }
