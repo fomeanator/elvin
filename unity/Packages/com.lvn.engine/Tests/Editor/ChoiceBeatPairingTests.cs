@@ -57,5 +57,75 @@ namespace Lvn.Tests
                 "вторая реплика и её варианты обязаны выйти одним битом");
             Assert.IsTrue(p.AtChoice);
         }
+        // ── СКОЛЬКО ИГРОК ДУМАЛ — число уезжает в телеметрию ─────────────────
+        //
+        // Мерилось это системным временем, мимо домашних часов, и потому не
+        // проверялось ничем: подменить часы тест может, `DateTime.UtcNow` —
+        // нет. Число при этом попадает в аналитику как «сколько думал над
+        // выбором», и до сих пор никто не мог сказать, верное ли оно.
+
+        [Test]
+        public void ВремяРаздумьяМеряетсяДомашнимиЧасами()
+        {
+            var doc = LvnDocument.Parse(@"{""scene"":""t"",""script"":[
+                {""op"":""choice"",""options"":[
+                    {""text"":""Да"",""goto"":""a""},
+                    {""text"":""Нет"",""goto"":""b""}]},
+                {""op"":""label"",""id"":""a""},
+                {""op"":""label"",""id"":""b""},
+                {""op"":""say"",""text"":""финал""}
+            ]}");
+            var было = LvnClock.Now;
+            float часы = 100f;
+            LvnClock.Now = () => часы;
+            try
+            {
+                var p = new LvnPlayer(doc, new RecStage());
+                float думал = -1f;
+                // Событие СТАТИЧЕСКОЕ — общее на все экземпляры плеера.
+                // Отписка обязательна: забудь её, и следующий тест получит
+                // нашего слушателя, а разбираться будет в своём файле.
+                System.Action<int, string, float, int> слушатель = (i, text, seconds, ip) => думал = seconds;
+                LvnPlayer.ChoicePicked += слушатель;
+                try
+                {
+                    p.Advance();          // выбор показан на отметке 100
+                    часы = 104.5f;        // игрок думал четыре с половиной секунды
+                    p.Choose(0);
+                }
+                finally { LvnPlayer.ChoicePicked -= слушатель; }
+
+                Assert.AreEqual(4.5f, думал, 0.001f,
+                    "телеметрия получает не то время, которое прошло по часам движка");
+            }
+            finally { LvnClock.Now = было; }
+        }
+
+        [Test]
+        public void БезПоказаВыбораРаздумьяНоль()
+        {
+            // Ноль — законная отметка сразу после запуска, поэтому «не
+            // показывали» отмечено отдельным значением, а не нулём. Спутай их —
+            // и первый же выбор на первом кадре отчитается о раздумье длиной в
+            // весь сеанс.
+            var doc = LvnDocument.Parse(@"{""scene"":""t"",""script"":[
+                {""op"":""choice"",""options"":[{""text"":""Да"",""goto"":""a""}]},
+                {""op"":""label"",""id"":""a""},
+                {""op"":""say"",""text"":""финал""}
+            ]}");
+            var было = LvnClock.Now;
+            LvnClock.Now = () => 0f;
+            try
+            {
+                var p = new LvnPlayer(doc, new RecStage());
+                float думал = -1f;
+                System.Action<int, string, float, int> слушатель = (i, text, seconds, ip) => думал = seconds;
+                LvnPlayer.ChoicePicked += слушатель;
+                try { p.Advance(); p.Choose(0); }
+                finally { LvnPlayer.ChoicePicked -= слушатель; }
+                Assert.AreEqual(0f, думал, 0.001f);
+            }
+            finally { LvnClock.Now = было; }
+        }
     }
 }
