@@ -237,7 +237,7 @@ namespace Lvn.UI.Screens
             if (_quitting.IsCancellationRequested || manifest == null) return;
             LvnLog.Info($"[lvn-app] manifest: {manifest.titles?.Count ?? 0} title(s) (online={online})");
 
-            PrepareStage(manifest);
+            PrepareStage(manifest, Mark);
             Mark("stage + theme ready");
             _downloads = new DownloadManager(_assets.Loader);
             var prefetch = SafeBootPrefetch(manifest, online);
