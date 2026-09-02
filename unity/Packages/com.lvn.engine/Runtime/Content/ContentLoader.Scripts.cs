@@ -42,6 +42,11 @@ namespace Lvn.Content
             if (File.Exists(path))
             {
                 try { return await ReadAllTextAsync(path, ct); }
+                // ОТМЕНА — НЕ «НЕЧИТАЕМЫЙ ФАЙЛ». Общая ловушка глотала и её, и
+                // тогда отмена вела не к остановке, а к ПОВТОРНОЙ ЗАКАЧКЕ по
+                // сети: игрок вышел из главы, а трафик пошёл. Пропускаем её
+                // наверх — там её и ждут.
+                catch (OperationCanceledException) { throw; }
                 catch { /* unreadable — fall through to refetch */ }
             }
             try
