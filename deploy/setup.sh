@@ -80,6 +80,12 @@ grep -q '^GOMEMLIMIT=' "$LVN_HOME/lvn.env" || echo "GOMEMLIMIT=1100MiB" >> "$LVN
 # Debian, and a novel bundle stages gigabytes — os.MkdirTemp honours TMPDIR.
 mkdir -p "$LVN_HOME/tmp"
 grep -q '^TMPDIR=' "$LVN_HOME/lvn.env" || echo "TMPDIR=$LVN_HOME/tmp" >> "$LVN_HOME/lvn.env"
+# Кодировщик KTX2 (basisu) по умолчанию берёт ЧЕТВЕРТЬ ядер — это защита
+# машины разработчика, где сервер живёт рядом с редактором и игрой. На
+# выделенном боксе делить процессор не с кем, а четверть от 2–4 ядер — один
+# поток: очередь кодов ползёт часами, и полотно витрины (папка /ui/ в обходе
+# диска — последняя) не появляется вовсе (02.09). Ноль — снять ограничение.
+grep -q '^LVN_KTX2_THREADS=' "$LVN_HOME/lvn.env" || echo "LVN_KTX2_THREADS=0" >> "$LVN_HOME/lvn.env"
 if [ -n "$ADMIN_TOKEN" ]; then
   grep -q '^ADMIN_TOKEN=' "$LVN_HOME/lvn.env" \
     && sed -i "s|^ADMIN_TOKEN=.*|ADMIN_TOKEN=$ADMIN_TOKEN|" "$LVN_HOME/lvn.env" \
