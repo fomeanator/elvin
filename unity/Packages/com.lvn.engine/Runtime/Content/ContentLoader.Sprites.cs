@@ -271,10 +271,25 @@ namespace Lvn.Content
                 // full-frame VN art gains nothing from a tight mesh anyway.
                 var sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height),
                     new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
-                // [lvn-perf] main-thread hitch map. Off-thread decodes log wall
-                // time (mostly worker-thread, not a hitch); the LoadImage
-                // fallback is a true main-thread stall. Only meaningful ones —
-                // the console stays quiet for icons and thumbnails.
+                // [lvn-perf] main-thread hitch map.
+                //
+                // ЧИСЛО ОБЯЗАНО НАЗЫВАТЬ ТО, ЧТО ИЗМЕРЕНО. Здесь стояла
+                // подпись «decode … (worker thread)» и рядом оговорка «wall
+                // time (mostly worker-thread)». Оговорка верна ровно до
+                // первого тяжёлого кадра — то есть до бута, где эти числа и
+                // смотрят: узнаём мы о готовности через событие Unity, а его
+                // поднимают на главном потоке в покадровой обработке, и в
+                // измеренное входит остаток кадра.
+                //
+                // 02.09 это стоило полдня разбирательств: пять разных файлов
+                // показали 917, 925, 929, 932 и 936 мс при кадре в 955 мс, и
+                // читалось это как «декодер стал в 24 раза медленнее». Работа
+                // так не совпадает — совпадает ожидание.
+                //
+                // Поэтому у покадровой дороги число зовётся `wall`, а рядом
+                // стоит длина последнего кадра: если они близки, число про
+                // кадр, а не про распаковку. Прямой декод главного потока
+                // по-прежнему `decode` — там это правда.
                 if (sw.ElapsedMilliseconds > 30)
                 {
                     long queueMs = offThread ? decodeQueueMs : 0;
@@ -283,7 +298,10 @@ namespace Lvn.Content
                     // НАРОЧНО по единицам ниже: версия — шестнадцатеричная,
                     // и режется она для журнала, а не для глаза игрока.
                     var v = VersionFor(url);
-                    LvnLog.Trace($"[lvn-perf] sprite decode {url}: queue={queueMs}ms decode={decodeMs - queueMs}ms{(offThread ? " (worker thread)" : "")} resize+upload={resizeMs}ms sprite={sw.ElapsedMilliseconds - decodeMs - resizeMs}ms ({tex.width}x{tex.height}) v={(string.IsNullOrEmpty(v) ? "-" : v.Substring(0, 8))}");
+                    string spent = offThread
+                        ? $"wall={decodeMs - queueMs}ms (рабочий поток + граница кадра; кадр {Lvn.LvnFrameWatch.LastFrameMs}ms)"
+                        : $"decode={decodeMs - queueMs}ms (главный поток)";
+                    LvnLog.Trace($"[lvn-perf] sprite decode {url}: queue={queueMs}ms {spent} resize+upload={resizeMs}ms sprite={sw.ElapsedMilliseconds - decodeMs - resizeMs}ms ({tex.width}x{tex.height}) v={(string.IsNullOrEmpty(v) ? "-" : v.Substring(0, 8))}");
                 }
                 return CacheSprite(url, sprite, (long)tex.width * tex.height * 4);
             }

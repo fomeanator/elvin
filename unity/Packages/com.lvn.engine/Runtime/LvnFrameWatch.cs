@@ -27,6 +27,26 @@ namespace Lvn
         private static int _hitches;
         private static float _worst;
 
+        /// <summary>
+        /// ДЛИНА ПОСЛЕДНЕГО ПРОЖИТОГО КАДРА, мс.
+        ///
+        /// <para>Нужна не плавности, а ЗАМЕРАМ ОЖИДАНИЯ. Всё, чего движок ждёт
+        /// через событие Unity (загрузка, распаковка, расшифровка кода),
+        /// узнаёт о готовности на главном потоке, в покадровой обработке, —
+        /// то есть не раньше следующей границы кадра. На буте кадры по
+        /// полсекунды, и измеренное «ждали» оказывается длиной кадра, а не
+        /// стоимостью работы.</para>
+        ///
+        /// <para>Живой пример 02.09: пять разных файлов дали 917, 925, 929,
+        /// 932 и 936 мс при кадре в 955 мс. Работа так не совпадает —
+        /// совпадает ожидание. Поставив это число рядом в логе, мы даём
+        /// замеру объяснить себя самому.</para>
+        ///
+        /// <para>Пишется ДО раннего выхода: обычный кадр запинкой не считается,
+        /// но длину имеет.</para>
+        /// </summary>
+        public static int LastFrameMs { get; private set; }
+
         /// <summary>Сколько запинок с прошлого снятия и какая была худшей.</summary>
         public static int Hitches => _hitches;
         public static int WorstMs => (int)(_worst * 1000f);
@@ -36,6 +56,7 @@ namespace Lvn
         /// платил за диагностику.</summary>
         public static void Frame(float dt, int frameCount, System.Func<string> note = null)
         {
+            LastFrameMs = (int)(dt * 1000f);
             if (dt <= HitchSeconds || frameCount <= WarmupFrames) return;
             _hitches++;
             if (dt > _worst) _worst = dt;

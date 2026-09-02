@@ -1684,3 +1684,47 @@ func TestWarmScriptKnowsTheSameList(t *testing.T) {
 			"(tools/warm-ktx2.sh), они обязаны совпадать")
 	}
 }
+
+// ЗАМЕР НАЗЫВАЕТ ТО, ЧТО ИЗМЕРИЛ.
+//
+// Число, полученное ожиданием события Unity, включает остаток кадра: о
+// готовности мы узнаём на главном потоке, в покадровой обработке. Подпись
+// «decode … (worker thread)» обещала стоимость работы — и врала ровно там, где
+// эти числа смотрят: на буте, где кадры по полсекунды.
+//
+// 02.09 это стоило полдня: пять разных файлов дали 917, 925, 929, 932 и 936 мс
+// при кадре в 955 мс, и читалось как «декодер стал в 24 раза медленнее».
+// Работа так не совпадает — совпадает ожидание.
+//
+// Сторож держит две вещи: покадровая дорога зовётся `wall`, а не `decode`, и
+// рядом стоит длина кадра, чтобы число объясняло себя само.
+func TestWallTimeIsNotCalledDecode(t *testing.T) {
+	root := repoRoot(t)
+	src := stripComments(string(mustRead(t,
+		filepath.Join(root, "unity/Packages/com.lvn.engine/Runtime/Content/ContentLoader.Sprites.cs"))))
+	if strings.Contains(src, `decode={decodeMs - queueMs}ms{(offThread`) {
+		t.Error("ожидание снова названо распаковкой: на буте это число про " +
+			"длину кадра, и читатель пойдёт чинить декодер")
+	}
+	if !strings.Contains(src, "wall=") {
+		t.Error("у покадровой дороги нет честного имени (wall=)")
+	}
+	if !strings.Contains(src, "LvnFrameWatch.LastFrameMs") {
+		t.Error("рядом с ожиданием не стоит длина кадра — число нечем " +
+			"проверить на месте")
+	}
+	watch := stripComments(string(mustRead(t,
+		filepath.Join(root, "unity/Packages/com.lvn.engine/Runtime/LvnFrameWatch.cs"))))
+	body, ok := ruleBody(watch, "public static void Frame(float dt, int frameCount")
+	if !ok {
+		t.Fatal("LvnFrameWatch.Frame не найден")
+	}
+	// Длина кадра обязана писаться ДО раннего выхода: обычный кадр запинкой
+	// не считается, но длину имеет — а замер спрашивает именно обычные.
+	set := strings.Index(body, "LastFrameMs =")
+	ret := strings.Index(body, "return")
+	if set < 0 || (ret >= 0 && set > ret) {
+		t.Error("длина кадра пишется после раннего выхода — значит на обычных " +
+			"кадрах она врёт последним рывком, и замер станет ещё запутаннее")
+	}
+}
