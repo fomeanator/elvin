@@ -54,7 +54,7 @@ namespace Lvn.UI.Screens
         /// фактический вход персонажа ~0,2 с (0.35 × шкалы), и попапы дышат
         /// той же длительностью — «дорого» читается именно из согласованности
         /// (решение Ильи 25.08).</summary>
-        protected virtual float FadeSeconds => 0.2f;
+        protected virtual float FadeSeconds => ScreenFx.FadeSeconds;
 
         /// <summary>ЕДИНЫЙ ВРАППЕР ЛИСТА (решение Ильи 25.08): накладные
         /// экраны — эдакие попапы, а не экраны, и выглядели «коротким

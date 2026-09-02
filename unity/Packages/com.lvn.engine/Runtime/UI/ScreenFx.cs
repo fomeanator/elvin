@@ -12,6 +12,12 @@ namespace Lvn.UI
     /// оставить дверь.</para></summary>
     public static class ScreenFx
     {
+        /// <summary>ТЕМП ЭКРАНА в секундах — то же число, что
+        /// <see cref="LvnMotion.Screen"/>, только в единицах этой двери
+        /// (экраны считают гашение секундами, элементы — миллисекундами).
+        /// Своё число тут заводить нечего: см. докблок в прайс-листе.</summary>
+        public const float FadeSeconds = LvnMotion.Screen / 1000f;
+
         public static Task FadeAsync(VisualElement el, float from, float to, float seconds, CancellationToken ct)
             => LvnMotion.FadeAsync(el, from, to, seconds, ct);
 

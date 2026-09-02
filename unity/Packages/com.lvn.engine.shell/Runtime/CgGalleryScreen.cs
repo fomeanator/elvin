@@ -163,7 +163,7 @@ namespace Lvn.UI.Screens
             _open = true;
             style.display = DisplayStyle.Flex;
             Rebuild();
-            await ScreenFx.FadeAsync(this, 0f, 1f, 0.25f, ct);
+            await ScreenFx.FadeAsync(this, 0f, 1f, ScreenFx.FadeSeconds, ct);
             // Hide() during the fade-in must cancel the open, not leave this await
             // parked on a gate nobody will ever release.
             if (!_open) return;
@@ -171,7 +171,7 @@ namespace Lvn.UI.Screens
             try { await _gate.WaitAsync(ct); }
             finally
             {
-                await ScreenFx.FadeAwayAsync(this, 0.25f, CancellationToken.None);
+                await ScreenFx.FadeAwayAsync(this, ScreenFx.FadeSeconds, CancellationToken.None);
                 CloseViewer();
                 _open = false;
             }
