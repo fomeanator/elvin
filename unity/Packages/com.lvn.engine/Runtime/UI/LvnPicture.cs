@@ -178,6 +178,29 @@ namespace Lvn.UI
             Lvn.LvnAsync.Fire(AssignAsync(el, url, assets), what);
         }
 
+        /// <summary>ФОТОСЛОЙ ВО ВЕСЬ РОДИТЕЛЬ — завести, растянуть, вложить и
+        /// положить фото.
+        ///
+        /// <para>Обряд из четырёх шагов, и один из них незаметный:
+        /// <c>pickingMode = Ignore</c>. Забудь его — и слой, лежащий поверх
+        /// всего, начнёт ЛОВИТЬ НАЖАТИЯ вместо карточки под ним. Проверить это
+        /// глазами нельзя: картинка выглядит правильно, не работает тап, и
+        /// виноватой кажется кнопка.</para>
+        ///
+        /// <para>Возвращаем сам слой: вызывающему случается доложить сверху
+        /// вуаль или тинт, и порядок этих слоёв — его дело, а не наше.</para>
+        /// </summary>
+        public static VisualElement Layer(VisualElement parent, string url, ILvnAssets assets,
+                                          bool cover = true, string what = "photo")
+        {
+            if (parent == null) return null;
+            var el = new VisualElement { pickingMode = PickingMode.Ignore };
+            LvnChrome.Stretch(el);
+            parent.Add(el);
+            Photo(el, url, assets, cover, what);
+            return el;
+        }
+
         /// <summary>
         /// ОБШИВКА: рамка карточки, подложка поля, полоса прогресса, туман.
         /// Тянется по своему месту — это и есть её работа, вписывать её нельзя.
