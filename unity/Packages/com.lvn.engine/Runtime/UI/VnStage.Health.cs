@@ -72,7 +72,7 @@ namespace Lvn.UI
                     _lastBgCmd = null;          // иначе повтор сочтут no-op
                     Debug.LogWarning("[lvn-bg] полотно опустело под живым кадром — ставим фон заново");
                     ApplyStage(again, LvnSender.Guard);
-                }, period: 0.5f);
+                }, period: 0.5f, working: () => BringingBackdrop());
 
             // СЛОИ ФИГУРЫ УМЕРЛИ. Спрайт может умереть уже ПОСЛЕ того, как его
             // поставили: выгрузка забирает текстуру из-под живого актёра, и

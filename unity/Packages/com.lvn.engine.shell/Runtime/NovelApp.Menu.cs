@@ -362,7 +362,12 @@ namespace Lvn.UI.Screens
                     ShowMenuScene(withPortal: false);   // лечение полотна — не приход в меню
                 },
                 period: LvnMenuStage.GuardPeriodSeconds,
-                patience: LvnMenuStage.GuardPatienceSeconds);
+                patience: LvnMenuStage.GuardPatienceSeconds,
+                // ТЕРПЕНИЕ — ДОГАДКА, ПОГРУЗКА — ФАКТ. Два оговорённых
+                // секунды хватало на декод крупного канваса тут, на этой
+                // машине; на слабом телефоне картинку везут дольше, и лечение
+                // забирало у фона поколение, начиная лестницу повторов заново.
+                working: () => Stage.BringingBackdrop(_manifest?.ui?.browse?.canvas));
         }
 
         // Перечисление сплошных светлых поверхностей сцены — снасть охоты на

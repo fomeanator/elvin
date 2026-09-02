@@ -1122,3 +1122,59 @@ func TestTemplateRuleHasOneHome(t *testing.T) {
 			strings.Join(копии, ", "))
 	}
 }
+
+// ТЕРПЕНИЕ — ДОГАДКА, ПОГРУЗКА — ФАКТ.
+//
+// Лекарь отличает живую загрузку от настоящей поломки двумя способами. Первый
+// — терпение: «крупный канвас декодится 0.6с, потерпим 2с». Это число про ЭТУ
+// машину; на слабом телефоне и плохой сети картинку везут секунд десять,
+// терпение кончается на второй, и лечение перебивает живую работу. У фона это
+// не безобидно: он везётся с повторами и разрежением (до восьми попыток), а
+// лечение забирает у него поколение и начинает лестницу с первой ступени —
+// лекарь ломает ровно тот механизм, который должен был пережить обрыв.
+//
+// Второй способ — спросить того, кто везёт (`working:`). Это факт, и он не
+// зависит ни от машины, ни от сети.
+//
+// Сторож держит правило: объявил терпение — назови и того, у кого спросить.
+// Терпение остаётся (работа может ещё не начаться), но перестаёт быть
+// ЕДИНСТВЕННЫМ доводом.
+func TestPatienceNeverStandsAlone(t *testing.T) {
+	root := repoRoot(t)
+	var mute []string
+	seen := 0
+	for _, pkg := range []string{"com.lvn.engine", "com.lvn.engine.shell"} {
+		dir := filepath.Join(root, "unity/Packages", pkg, "Runtime")
+		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+				return nil
+			}
+			src := stripComments(string(mustRead(t, path)))
+			for at := 0; ; {
+				i := strings.Index(src[at:], ".Watch(")
+				if i < 0 {
+					break
+				}
+				at += i + len(".Watch(")
+				args, ok := topLevelArgs(src, at)
+				if !ok {
+					continue
+				}
+				seen++
+				call := strings.Join(args, ",")
+				if strings.Contains(call, "patience") && !strings.Contains(call, "working") {
+					mute = append(mute, filepath.Base(path)+": "+strings.TrimSpace(args[0]))
+				}
+			}
+			return nil
+		})
+	}
+	sawSources(t, seen, 4, "недугов под наблюдением")
+	sort.Strings(mute)
+	if len(mute) > 0 {
+		t.Errorf("терпение объявлено, а спросить «везут?» не у кого (%d):\n  %s\n\n"+
+			"Число секунд описывает эту машину, а не работу. Назовите "+
+			"`working:` — тот, кто везёт, отвечает фактом.",
+			len(mute), strings.Join(mute, "\n  "))
+	}
+}
