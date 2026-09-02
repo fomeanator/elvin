@@ -515,11 +515,7 @@ func (t *ktx2Transcoder) transcode(srcPath, ktx2Path string) error {
 	// -mipmap ships the full chain: minified draws (actors scaled down, zoomed
 	// scenes) sample a proper mip instead of shimmering over a 2K level 0.
 	// ~+33% bytes on art the compression just shrank 4-8× — a good trade.
-	args := []string{"-ktx2", "-uastc", "-uastc_level", "2", "-uastc_rdo_l", "1.0", "-y_flip", "-mipmap"}
-	if n := ktx2EncodeThreads(); n > 0 {
-		args = append(args, "-max_threads", strconv.Itoa(n))
-	}
-	args = append(args, srcPath, "-output_file", tmp)
+	args := ktx2EncoderArgs(srcPath, tmp)
 	var cmd *exec.Cmd
 	// The encoder is a BACKGROUND filler that saturates every core it gets —
 	// on a small host it must always lose the CPU to live player traffic.
@@ -534,6 +530,18 @@ func (t *ktx2Transcoder) transcode(srcPath, ktx2Path string) error {
 		return &transcodeError{srcPath, string(out), err}
 	}
 	return os.Rename(tmp, ktx2Path)
+}
+
+// ktx2EncoderArgs — строка вызова basisu. Отдельно от transcode, чтобы договор
+// «LVN_KTX2_THREADS=0 — снять ограничение вовсе» проверялся тестом, а не
+// верой: на него опирается строка деплоя (deploy/setup.sh).
+// Страж: TestПотокиКодировщикаИзОкружения.
+func ktx2EncoderArgs(srcPath, outPath string) []string {
+	args := []string{"-ktx2", "-uastc", "-uastc_level", "2", "-uastc_rdo_l", "1.0", "-y_flip", "-mipmap"}
+	if n := ktx2EncodeThreads(); n > 0 {
+		args = append(args, "-max_threads", strconv.Itoa(n))
+	}
+	return append(args, srcPath, "-output_file", outPath)
 }
 
 // ktx2SourceFor — растровый файл, ИЗ КОТОРОГО кодируется этот .ktx2: сосед по
