@@ -46,7 +46,7 @@ namespace Lvn.UI
             // живые»): смена лица идёт обычным кроссфейдом облика, как
             // сценарное emotion=, а не гардеробным свопом.
             bool emotion = IsEmotionAxis(axis);
-            await ApplyActorAsync(cmd, wardrobeSwap: !emotion,
+            await ReplayRememberedAsync(id, cmd, wardrobeSwap: !emotion,
                 wardrobeFromTop: !emotion && LvnWardrobeStage.IsHair(axis));
         }
 

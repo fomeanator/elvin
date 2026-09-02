@@ -348,11 +348,15 @@ namespace Lvn.UI
                 if (_soloHidden.Remove(speakerId) ||
                     (Catalog != null && Catalog.Has(speakerId) && !_memory.HasWhere(speakerId)))
                 {
+                    // ИСТОРИЯ, И ЭТО НАЗВАНО. Авторасстановка выводит фигуру
+                    // ЗА автора — реплика его, — и её место обязано быть
+                    // липким: следующая авторская команда без position=
+                    // продолжает эту мизансцену, а не ставит заново.
                     LvnAsync.Fire(ApplyActorAsync(new JObject
                     {
                         ["op"] = "actor", ["id"] = speakerId,
                         ["show"] = true, ["enter"] = "fade", ["transition_duration"] = 0.3f,
-                    }), "ApplyActor");
+                    }, sender: LvnSender.Story), "ApplyActor");
                 }
             }
 
@@ -365,7 +369,7 @@ namespace Lvn.UI
                 {
                     ["op"] = "actor", ["id"] = id,
                     ["show"] = false, ["exit"] = "fade", ["transition_duration"] = 0.3f,
-                }), "ApplyActor");
+                }, sender: LvnSender.Story), "ApplyActor");
             }
         }
 
