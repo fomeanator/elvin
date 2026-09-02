@@ -134,8 +134,20 @@ namespace Lvn.UI
             }
             int epoch = _stageEpoch;
             int gen = _clock.Claim(LvnStageClock.BackgroundLane);
-            var sprite = await LoadSceneSpriteAsync(url, "bg",
-                () => _clock.MayTouch(epoch, LvnStageClock.BackgroundLane, gen));
+            Sprite sprite;
+            _bgUnderwayUrl = url; _bgUnderwayGen = gen;
+            try
+            {
+                sprite = await LoadSceneSpriteAsync(url, "bg",
+                    () => _clock.MayTouch(epoch, LvnStageClock.BackgroundLane, gen));
+            }
+            finally
+            {
+                // Только своё: пока мы ждали, полотно мог перехватить кто-то
+                // новее — стереть его запись значило бы сказать «никто не
+                // везёт» ровно в тот миг, когда везут.
+                if (_bgUnderwayGen == gen) _bgUnderwayUrl = null;
+            }
             if (sprite == null) { LvnLog.Trace($"[lvn-bg] bg НЕ ЗАГРУЗИЛСЯ: {url}"); return; }
             if (!_clock.MayTouch(epoch, LvnStageClock.BackgroundLane, gen))
             {
@@ -170,6 +182,29 @@ namespace Lvn.UI
         /// и едет другой кривой — рассинхрон с переездом вкладок бросался в
         /// глаза (живой репорт 28.08).</summary>
         public void SetBackgroundPan(float pan01) => _renderer?.PanBackground(pan01, pan01, 0f);
+
+        // ЧТО ВЕЗУТ ПРЯМО СЕЙЧАС. Не «мы что-то просили», а «загрузка этого
+        // адреса идёт вот в эту секунду»: между просьбой и картинкой лежат
+        // сеть, декод и до восьми попыток с разрежением.
+        private string _bgUnderwayUrl;
+        private int _bgUnderwayGen;
+
+        /// <summary>
+        /// ПОЛОТНО ВЕЗУТ ПРЯМО СЕЙЧАС. Без адреса — «везут хоть какое-то».
+        ///
+        /// <para>Вопрос завёлся ради Лекаря. Недуг «мы в меню, а полотна нет»
+        /// отличал живую загрузку от настоящей поломки ЧИСЛОМ СЕКУНД — и на
+        /// слабом телефоне терпение кончалось раньше, чем приезжала картинка.
+        /// Лечение (поставить полотно заново) забирает у фона поколение, и
+        /// лестница повторов начиналась с первой ступени: лекарь ломал ровно
+        /// тот механизм, который и должен был пережить обрыв сети.</para>
+        ///
+        /// <para>Спрашивать надо у того, кто везёт. Здесь ответ — факт, а не
+        /// догадка о его длительности.</para>
+        /// </summary>
+        public bool BringingBackdrop(string url = null)
+            => _bgUnderwayUrl != null
+               && (url == null || string.Equals(_bgUnderwayUrl, url, StringComparison.Ordinal));
 
         // Последняя применённая bg-команда — повтор той же не трогает сцену.
         private JObject _lastBgCmd;

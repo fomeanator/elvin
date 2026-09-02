@@ -18,6 +18,7 @@ namespace Lvn.Tests.Editor
         private LvnHealer _doc;
         private bool _sick;
         private int _cures;
+        private bool _working;
 
         [SetUp]
         public void SetUp()
@@ -25,10 +26,16 @@ namespace Lvn.Tests.Editor
             _doc = new LvnHealer();
             _sick = false;
             _cures = 0;
+            _working = false;
         }
 
         private void Watch(float period = 1f, float patience = 0f)
             => _doc.Watch("недуг", () => _sick, () => _cures++, period, patience);
+
+        /// <summary>Недуг, у которого есть кого спросить «а не везут ли уже».</summary>
+        private void WatchWithWorker(float period = 1f, float patience = 0f)
+            => _doc.Watch("недуг", () => _sick, () => _cures++, period, patience,
+                          working: () => _working);
 
         [Test]
         public void AHealthySceneIsNeverTouched()
@@ -208,6 +215,95 @@ namespace Lvn.Tests.Editor
         {
             Watch();
             Assert.AreEqual(0, _doc.HealedCount("такого недуга нет"));
+        }
+
+        // ПОКА ВЕЗУТ — НЕ ЛЕЧИМ. Живой случай: полотно витрины качается десять
+        // секунд на слабом телефоне, терпение объявлено в две. Лечение
+        // забирает у фона поколение и начинает лестницу повторов заново — то
+        // есть ломает ровно тот механизм, который должен был пережить обрыв.
+        [Test]
+        public void WhileTheWorkIsUnderwayNothingIsHealed()
+        {
+            WatchWithWorker(period: 0.5f, patience: 2f);
+            _sick = true;
+            _working = true;
+            for (float t = 0f; t < 30f; t += 0.5f) _doc.Tick(t);
+            Assert.AreEqual(0, _cures,
+                "лекарь перебил живую загрузку — терпение победило факт");
+        }
+
+        // ТЕРПЕНИЕ СЧИТАЕТСЯ ОТ КОНЦА РАБОТЫ, А НЕ ОТ НАЧАЛА БОЛЕЗНИ. Иначе
+        // десятисекундная загрузка приезжает в мир, где терпение кончилось
+        // восемь секунд назад, и первый же кадр после неё — лечение.
+        [Test]
+        public void PatienceStartsWhenTheWorkStops()
+        {
+            WatchWithWorker(period: 0.5f, patience: 2f);
+            _sick = true;
+            _working = true;
+            for (float t = 0f; t < 10f; t += 0.5f) _doc.Tick(t);
+            _working = false;
+            _doc.Tick(10f);
+            _doc.Tick(11f);
+            Assert.AreEqual(0, _cures, "терпение не начали заново — вылечили в первый же кадр");
+            // Ровно 11.5 — терпение (2с) от конца работы (9.5). Окно закрыто
+            // до второго лечения нарочно: проверяем начало отсчёта, а не
+            // разрежение повторов, у которого свой тест.
+            for (float t = 11.5f; t < 13f; t += 0.5f) _doc.Tick(t);
+            Assert.AreEqual(1, _cures, "работа кончилась, а недуг остался — лечить обязаны");
+        }
+
+        // РАБОТА КОНЧИЛАСЬ УСПЕХОМ — лечить нечего и счёт ожиданий не мешает
+        // выздоровлению.
+        [Test]
+        public void WorkThatSucceedsLeavesNoTreatment()
+        {
+            WatchWithWorker(period: 0.5f, patience: 1f);
+            _sick = true;
+            _working = true;
+            for (float t = 0f; t < 8f; t += 0.5f) _doc.Tick(t);
+            _sick = false;
+            _working = false;
+            for (float t = 8f; t < 16f; t += 0.5f) _doc.Tick(t);
+            Assert.AreEqual(0, _cures, "картинка доехала сама, а её всё равно лечили");
+        }
+
+        // НЕ У КОГО СПРОСИТЬ — ведём себя как раньше. Недуг без этого вопроса
+        // (их большинство) не должен ни ждать вечно, ни лечиться иначе.
+        [Test]
+        public void AnAilmentWithNoWorkerBehavesAsBefore()
+        {
+            Watch(period: 0.5f, patience: 1f);
+            _sick = true;
+            for (float t = 0f; t < 5f; t += 0.5f) _doc.Tick(t);
+            Assert.Greater(_cures, 0, "недуг без погрузчика перестал лечиться");
+        }
+
+        // СЛОМАННЫЙ ВОПРОС НЕ ЗАПИРАЕТ ЛЕЧЕНИЕ. Проверка, которая бросает,
+        // означала бы «везут всегда» — то есть тихо выключала бы самолечение
+        // насовсем, а это худший исход из возможных.
+        [Test]
+        public void AThrowingWorkerDoesNotBlockHealing()
+        {
+            _doc.Watch("недуг", () => _sick, () => _cures++, 0.5f, 1f,
+                       working: () => throw new System.InvalidOperationException("сломан"));
+            _sick = true;
+            for (float t = 0f; t < 5f; t += 0.5f) _doc.Tick(t);
+            Assert.Greater(_cures, 0, "сломанный вопрос «везут?» выключил лечение");
+        }
+
+        // ОЖИДАНИЯ ПОПАДАЮТ В ЖУРНАЛ. Число «ждали N» — мера того, насколько
+        // объявленное терпение разошлось с настоящей работой: оно и есть повод
+        // не подкручивать секунды, а спросить факт.
+        [Test]
+        public void TheJournalNamesTheWaiting()
+        {
+            WatchWithWorker(period: 0.5f, patience: 1f);
+            _sick = true;
+            _working = true;
+            for (float t = 0f; t < 6f; t += 0.5f) _doc.Tick(t);
+            StringAssert.Contains("ждали", _doc.Journal(),
+                "журнал молчит о том, что лекарь хотел вмешаться в живую работу");
         }
 
         // Разрежение не уходит в бесконечность: у него объявленный потолок.
