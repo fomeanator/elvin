@@ -1077,3 +1077,48 @@ func TestDirectorMarkFollowsThePanel(t *testing.T) {
 			strings.Join(немые, ", "))
 	}
 }
+
+// ПРАВИЛО ПРО ШАБЛОННЫЙ АДРЕС ЖИВЁТ В ОДНОМ МЕСТЕ.
+//
+// «Адрес с неподставленной осью — не адрес»: файла с фигурными скобками в имени
+// нет ни на одном сервере, и каждый такой запрос — ожидание, круг по сети и
+// гарантированный 404. Правило было записано в доме списков и применялось там
+// же — в ОДНОМ списке из семи; а живой случай 02.09 рождается вообще после
+// подстановки (гардероб подставлял одну ось из двух), и списками не ловится.
+//
+// Теперь правило одно, живёт у дома адресов, и спрашивают его у ДВЕРИ
+// загрузчика. Сторож держит единственность: вторая проверка на «{» в тракте
+// содержимого — это вторая правда, которая однажды разойдётся с первой.
+func TestTemplateRuleHasOneHome(t *testing.T) {
+	root := repoRoot(t)
+	dir := filepath.Join(root, "unity/Packages/com.lvn.engine/Runtime/Content")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	brace := regexp.MustCompile(`IndexOf\('\{'\)|Contains\("\{"\)`)
+	seen := 0
+	var копии []string
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".cs") {
+			continue
+		}
+		seen++
+		src := stripComments(string(mustRead(t, filepath.Join(dir, e.Name()))))
+		for range brace.FindAllString(src, -1) {
+			if e.Name() == "DownloadPolicy.cs" {
+				continue // единственный законный дом правила
+			}
+			копии = append(копии, e.Name())
+		}
+	}
+	sawSources(t, seen, 20, "файлов тракта содержимого")
+	sort.Strings(копии)
+	if len(копии) > 0 {
+		t.Errorf("правило про шаблонный адрес записано не только у дома: %s\n\n"+
+			"Спрашивайте DownloadPolicy.IsTemplate. Вторая проверка на «{» — "+
+			"вторая правда, и она однажды разойдётся с первой: список отфильтрует, "+
+			"а собранный на лету адрес всё равно уйдёт в сеть.",
+			strings.Join(копии, ", "))
+	}
+}

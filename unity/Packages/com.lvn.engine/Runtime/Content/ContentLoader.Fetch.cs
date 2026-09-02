@@ -352,6 +352,7 @@ namespace Lvn.Content
             var seeded = await TrySeedAsync(url, path, ct);
             if (seeded != null) return seeded;
 
+            ThrowIfTemplate(url);
             ThrowIfKnownMissing(url);
 
             return await TrackedFetch(url, async () =>
@@ -547,6 +548,31 @@ namespace Lvn.Content
         /// </summary>
         private static bool Missing(int status) => status is 404 or 410;
 
+        /// <summary>
+        /// ШАБЛОН НЕ УХОДИТ В СЕТЬ — И ГОВОРИТ ОБ ЭТОМ ОДИН РАЗ.
+        ///
+        /// <para>Правило («адрес с неподставленной осью — не адрес») живёт у
+        /// дома адресов; спрашивают его ЗДЕСЬ, у двери, потому что мимо списков
+        /// такие адреса всё равно приходят: гардероб собирает их на лету,
+        /// подставляя одну ось из двух.</para>
+        ///
+        /// <para>Отказ такой же, как у известной пропажи: это не «пока нет», а
+        /// «не будет никогда» — файла с фигурными скобками в имени не существует
+        /// ни на одном сервере.</para>
+        /// </summary>
+        private void ThrowIfTemplate(string url)
+        {
+            if (!DownloadPolicy.IsTemplate(url)) return;
+            bool first;
+            lock (_notFound) first = _templatesSeen.Add(url);
+            if (first)
+                LvnLog.Warn($"[lvn-content] {url}: ось не подставлена — в сеть не идём "
+                          + "(файла с фигурными скобками в имени не существует)");
+            throw new LvnFetchException(404, "template", url + " (unsubstituted axis)");
+        }
+
+        private readonly HashSet<string> _templatesSeen = new HashSet<string>();
+
         /// <summary>Этого файла нет — и мы уже знаем. Срок обязан истекать и в
         /// фоне, иначе свёрнутая на час игра вернётся с той же протухшей
         /// памятью.</summary>
@@ -588,6 +614,7 @@ namespace Lvn.Content
             // Память о пропаже — общая с кэширующим путём. Её здесь не было
             // вовсе: новелла с битым адресом повторяющегося звука делала
             // сетевой запрос НА КАЖДУЮ реплику, где он играет.
+            ThrowIfTemplate(url);
             ThrowIfKnownMissing(url);
             lock (_underway) Progress(url).Attempt = 1;
             while (true)
