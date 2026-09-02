@@ -1428,3 +1428,82 @@ func TestReasonCountingHasOneHome(t *testing.T) {
 			len(copies), strings.Join(copies, ", "))
 	}
 }
+
+// ВЗЯЛ НОМЕР — СПРОСИ, НЕ ОБОГНАЛИ ЛИ.
+//
+// Половины неравны по громкости, и это главное. Забыть ВЗЯТЬ номер видно
+// сразу: чужая работа не отменяется, и опоздавший рисует поверх нового.
+// Забыть СПРОСИТЬ не видно никогда: код отработает до конца и тихо поставит
+// своё — старое. Ни исключения, ни строки в логе.
+//
+// Поэтому файл, который берёт номер, обязан в том же файле его и сверять.
+func TestClaimingATicketMeansCheckingIt(t *testing.T) {
+	root := repoRoot(t)
+	claim := regexp.MustCompile(`\.Claim\(`)
+	check := regexp.MustCompile(`\.Mine\(|\.IsNewest\(|\.MayTouch\(`)
+	seen := 0
+	var mute []string
+	for _, rel := range []string{
+		"unity/Packages/com.lvn.engine.shell/Runtime",
+		"unity/Packages/com.lvn.engine/Runtime/UI",
+	} {
+		_ = filepath.Walk(filepath.Join(root, rel), func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".cs") {
+				return nil
+			}
+			src := stripComments(string(mustRead(t, path)))
+			if !claim.MatchString(src) {
+				return nil
+			}
+			seen++
+			if !check.MatchString(src) {
+				mute = append(mute, filepath.Base(path))
+			}
+			return nil
+		})
+	}
+	sawSources(t, seen, 5, "мест, берущих номер в очереди")
+	sort.Strings(mute)
+	if len(mute) > 0 {
+		t.Errorf("номер берут, а не обогнали ли — не спрашивают (%d): %s\n\n"+
+			"Взятый и не спрошенный номер хуже, чем никакого: он создаёт "+
+			"впечатление защиты. Спросите Mine/IsNewest/MayTouch после КАЖДОГО "+
+			"ожидания.",
+			len(mute), strings.Join(mute, ", "))
+	}
+}
+
+// ПРИЁМКА СВЕЖЕГО КАТАЛОГА СТОИТ В ОЧЕРЕДИ.
+//
+// У неё ДВА повода начаться — «сервер сказал, что контент сменился» и «запуск
+// догнал сеть», — и между записью офлайновой копии и обновлением экранов лежит
+// ожидание (байты меню). Две приёмки, начатые подряд, приходят в любом порядке:
+// сеть очерёдности не обещает. Победивший последним ставил СВОЁ — и это старое.
+//
+// Правило было записано у соседа: смена языка сверяет выбор игрока после
+// КАЖДОГО ожидания и объясняет, почему. Здесь его не было — при том, что
+// сюжет тот же, а цена выше: приложение оставалось на отменённом каталоге, и
+// офлайновая копия записывалась вчерашней.
+func TestManifestAdoptionStandsInLine(t *testing.T) {
+	root := repoRoot(t)
+	src := stripComments(string(mustRead(t,
+		filepath.Join(root, "unity/Packages/com.lvn.engine.shell/Runtime/NovelApp.Boot.cs"))))
+	body, ok := ruleBody(src, "private async Task<bool> AdoptManifestAsync(")
+	if !ok {
+		t.Fatal("AdoptManifestAsync не найден или больше не отвечает, приняли ли " +
+			"его каталог: без ответа зовущий не узнает, что его обогнали, и " +
+			"перезагрузит открытую главу по отменённому каталогу")
+	}
+	if !strings.Contains(body, ".Claim(") {
+		t.Error("приёмка каталога не берёт номер: две приёмки разъедутся молча")
+	}
+	if !strings.Contains(body, ".Mine(") {
+		t.Error("приёмка каталога не спрашивает, не обогнали ли её ПОСЛЕ ожидания")
+	}
+	at := strings.Index(body, "await")
+	mine := strings.Index(body, ".Mine(")
+	if at >= 0 && mine >= 0 && mine < at {
+		t.Error("сверка стоит ДО ожидания — она отвечает на вопрос, который " +
+			"ещё не задан: обгоняют нас именно в ожидании")
+	}
+}

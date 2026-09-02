@@ -652,7 +652,10 @@ namespace Lvn.UI.Screens
             LvnManifest manifest;
             try { manifest = await FetchManifestAsync(); }
             catch (Exception ex) { Debug.LogWarning($"[lvn-app] live manifest fetch failed: {ex.Message}"); return; }
-            await AdoptManifestAsync(manifest);
+            // НАС МОГЛИ ОБОГНАТЬ, ПОКА МЫ КАЧАЛИ. Тогда открытую главу
+            // перезагружать нечем: скрипт поедет по каталогу, который уже
+            // отменён, — и главу перебьёт вчерашний текст.
+            if (!await AdoptManifestAsync(manifest)) return;
             await HotReloadOpenChapterAsync();
         }
 
@@ -663,15 +666,33 @@ namespace Lvn.UI.Screens
         /// новом каталоге, — один: кэш, байты меню, экраны, дома слов, сцена,
         /// тема, надетые облики.
         /// </summary>
-        private async Task AdoptManifestAsync(LvnManifest manifest)
+        private async Task<bool> AdoptManifestAsync(LvnManifest manifest)
         {
-            if (manifest == null) return;
+            if (manifest == null) return false;
+            // ВАЖЕН ТОЛЬКО САМЫЙ НОВЫЙ КАТАЛОГ.
+            //
+            // Поводов принять его два — «сервер сказал, что контент сменился» и
+            // «запуск догнал сеть», — и оба живут своим асинхронным трактом.
+            // Между CacheManifest и ApplyManifest здесь лежит ожидание, и две
+            // приёмки, начатые подряд, приходят В ЛЮБОМ ПОРЯДКЕ: сеть
+            // очерёдности не обещает. Победивший последним ставил СВОЁ — и это
+            // старое: приложение оставалось на отменённом каталоге, а
+            // офлайновая копия записывалась вчерашней.
+            //
+            // Правило это уже записано у соседа (смена языка сверяет свой выбор
+            // после КАЖДОГО ожидания и объясняет почему) — здесь его не было.
+            int mine = _adoptions.Claim(ManifestLine);
             CacheManifest(manifest); // keep the offline copy fresh on every live update
             // Pull the changed boot-set bytes and re-warm replaced covers BEFORE the
             // carousel rebuilds — otherwise it re-renders from the stale in-memory
             // sprites and a cover swap on the server never shows up.
             try { await _downloads.MenuRefreshAsync(manifest, default); }
             catch { /* best-effort; never blocks the live update */ }
+            if (!_adoptions.Mine(ManifestLine, mine))
+            {
+                LvnLog.Info("[lvn-app] приёмку каталога обогнали — этот экраны не трогает");
+                return false;
+            }
             _shell?.ApplyLiveUpdate(manifest);
             // Содержимое манифеста применяет тот же дом, что и на старте
             // (NovelApp.Manifest): два списка одного факта расходились при
@@ -684,7 +705,14 @@ namespace Lvn.UI.Screens
             // оставив на экране старый арт. Забываем надетое: реплей ниже
             // пересоберёт фигуры уже из новых файлов.
             Stage?.ForgetLooks();
+            return true;
         }
+
+        /// <summary>Линия приёмки каталога: важен только самый новый. Домом
+        /// правила заведует <see cref="Lvn.UI.LvnNewest"/> — тот же, что держит
+        /// дорожки сцены.</summary>
+        private readonly Lvn.UI.LvnNewest _adoptions = new Lvn.UI.LvnNewest();
+        private const string ManifestLine = "manifest";
 
         /// <summary>Открытая глава подхватывает изменившийся скрипт. Отдельно от
         /// принятия манифеста: на запуске главы нет, и этой работе там нечего

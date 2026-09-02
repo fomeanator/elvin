@@ -67,23 +67,20 @@ namespace Lvn.UI
 
         // ── дорожки: «важен только самый новый» ───────────────────────────────
 
-        private readonly Dictionary<string, int> _lanes = new Dictionary<string, int>();
+        // ДОРОЖКИ ДЕРЖИТ ОБЩИЙ ДОМ. Правило «важен только самый новый» нужно
+        // не одной сцене: принятие свежего каталога — та же работа через
+        // ожидание с несколькими поводами начать. Второй экземпляр той же
+        // логики разошёлся бы молча, и разошёлся бы в ту же сторону — в
+        // сторону опоздавшего, который однажды снова окажется новейшим.
+        private readonly LvnNewest _lanes = new LvnNewest();
 
         /// <summary>Взять номер на дорожке — начинающий работу объявляет себя
         /// новейшим. Прежний владелец узнает об этом по <see cref="IsNewest"/>
         /// и тихо уйдёт, не тронув экран.</summary>
-        public int Claim(string lane)
-        {
-            if (string.IsNullOrEmpty(lane)) return 0;
-            int next = (_lanes.TryGetValue(lane, out var cur) ? cur : 0) + 1;
-            _lanes[lane] = next;
-            return next;
-        }
+        public int Claim(string lane) => _lanes.Claim(lane);
 
         /// <summary>Моя работа всё ещё самая новая на этой дорожке?</summary>
-        public bool IsNewest(string lane, int ticket)
-            => string.IsNullOrEmpty(lane)
-               || !_lanes.TryGetValue(lane, out var cur) || cur == ticket;
+        public bool IsNewest(string lane, int ticket) => _lanes.Mine(lane, ticket);
 
         /// <summary>И эпоха та же, и на дорожке никто не обогнал — полное право
         /// трогать экран. Именно эту пару проверяют все асинхронные тракты.</summary>
