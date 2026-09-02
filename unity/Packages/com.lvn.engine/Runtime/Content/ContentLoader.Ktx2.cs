@@ -104,6 +104,21 @@ namespace Lvn.Content
         /// Свойство устройства: узнаётся один раз и не меняется.</summary>
         private bool _gpuWithoutKtx2;
 
+        private static bool _saidNoKtx2;
+
+        /// <summary>СКАЗАТЬ ОДИН РАЗ, ПОЧЕМУ ПОКАЗ ИДЁТ ПРОЦЕССОРОМ.
+        ///
+        /// <para>Причин отказа три — нет декодера в сборке, локальная база,
+        /// видеокарта не потянула, — и все три выглядели в логе ОДИНАКОВО:
+        /// никак. Картинки просто распаковывались процессором, и понять, почему
+        /// формат для видеокарты не работает, было нечем.</para></summary>
+        private static void NoteNoKtx2Once(string why)
+        {
+            if (_saidNoKtx2) return;
+            _saidNoKtx2 = true;
+            Debug.LogWarning("[lvn-ktx2] показ идёт процессорной распаковкой PNG/JPEG — " + why);
+        }
+
         /// <summary>
         /// ХОЛОДНЫЙ КОД И БИТЫЙ КОД — РАЗНЫЕ БЕДЫ, И СЧЁТ У НИХ РАЗНЫЙ.
         ///
@@ -209,8 +224,17 @@ namespace Lvn.Content
                 _gpuHonest = honest;
                 return honest;
             }
-            catch
+            catch (System.Exception ex)
             {
+                // ОТКАЗ НАЗЫВАЕТ СЕБЯ. Раньше здесь стоял немой `catch`, и весь
+                // тракт видеокарты выключался без единого слова: в логе просто
+                // не появлялось ни одной строки про ktx2, а картинки как ни в
+                // чём не бывало распаковывались процессором по 800–6000 мс.
+                // Отличить «выключено пробой» от «не собрано» и от «сервер не
+                // отдал» было НЕЧЕМ — три разные беды выглядели одинаково.
+                Debug.LogWarning("[lvn-ktx2] проба не выполнилась → весь показ идёт "
+                               + "процессорной распаковкой PNG/JPEG до конца сессии. "
+                               + ex.GetType().Name + ": " + ex.Message);
                 _gpuHonest = false; // a probe that can't even run is a no
                 return false;
             }
@@ -223,8 +247,14 @@ namespace Lvn.Content
         private async Task<(Sprite sprite, long bytes)> TryDecodeKtx2Async(string url, CancellationToken ct)
         {
 #if !LVN_KTX2
+            NoteNoKtx2Once("в сборке нет декодера: пакет com.unity.cloud.ktx не подключён к ПРОЕКТУ "
+                         + "(признак LVN_KTX2 объявляется его наличием в manifest.json)");
             return (null, 0);
 #else
+            if (_local)
+                NoteNoKtx2Once("база локальная (file:// или jar:) — коды для видеокарты туда не кладут");
+#endif
+#if LVN_KTX2
             var ktx2Url = Ktx2UrlFor(url);
             if (ktx2Url == null || Ktx2Skipped(ktx2Url)) return (null, 0);
             // ЕДИНСТВЕННАЯ законная причина не показывать через ktx2 —
