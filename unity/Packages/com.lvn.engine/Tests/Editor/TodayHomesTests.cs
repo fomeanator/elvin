@@ -325,11 +325,17 @@ namespace Lvn.Tests
         public void НастоящаяКартинкаСтановитсяТекстуройСвоегоРазмера()
         {
             var исходник = new Texture2D(4, 3, TextureFormat.RGBA32, false);
-            var пиксели = new Color32[12];
-            for (int i = 0; i < пиксели.Length; i++) пиксели[i] = new Color32(200, 30, 90, 255);
-            исходник.SetPixels32(пиксели); исходник.Apply();
-            var png = исходник.EncodeToPNG();
-            Object.DestroyImmediate(исходник);
+            byte[] png;
+            try
+            {
+                var пиксели = new Color32[12];
+                for (int i = 0; i < пиксели.Length; i++) пиксели[i] = new Color32(200, 30, 90, 255);
+                исходник.SetPixels32(пиксели); исходник.Apply();
+                png = исходник.EncodeToPNG();
+            }
+            // Уборка на УДАЧНОМ пути — не уборка: упади кодирование, текстура
+            // переживёт тест и достанется следующему.
+            finally { Object.DestroyImmediate(исходник); }
 
             var tex = AssetMemory.Decode(png);
             try

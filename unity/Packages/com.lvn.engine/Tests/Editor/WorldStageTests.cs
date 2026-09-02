@@ -11,12 +11,28 @@ namespace Lvn.Tests
     /// and the WorldStage assembles a real Canvas → GameRoot → (bg, content) tree.
     public class WorldStageTests
     {
+        // УБОРКА В TEARDOWN, А НЕ В КОНЦЕ УДАЧНОГО ПУТИ.
+        //
+        // Раньше каждый тест сносил свой объект последней строкой — то есть
+        // ТОЛЬКО когда все утверждения прошли. Упади любое, и объект переживал
+        // тест: в редакторе его никто не убирает, а сцена у тестов общая.
+        // Следующий тест находил чужого участника и падал не от своей причины —
+        // самая дорогая форма красноты, потому что разбор уходит не в тот файл.
+        private readonly Мусор _мусор = new Мусор();
+
+        [TearDown]
+        public void Прибрать() => _мусор.Убрать();
+
+        /// <summary>Объект под уборку: заводится и сразу берётся на учёт.</summary>
+        private GameObject МойОбъект(string имя, params System.Type[] части)
+            => _мусор.Беречь(new GameObject(имя, части));
+
         private static Sprite NewSprite() => Sprite.Create(new Texture2D(2, 2), new Rect(0, 0, 2, 2), new Vector2(0.5f, 0.5f));
 
         [Test]
         public void Placement_MapsScreenFractionsToRect()
         {
-            var go = new GameObject("slot", typeof(RectTransform));
+            var go = МойОбъект("slot", typeof(RectTransform));
             var rt = (RectTransform)go.transform;
             var size = new Vector2(1080f, 1920f);
 
@@ -31,13 +47,12 @@ namespace Lvn.Tests
             Assert.AreEqual(-1920f, rt.anchoredPosition.y, 0.1f, "Y 1 → -1920 (down from top)");
             Assert.AreEqual(1f, rt.localScale.x, 0.001f, "not flipped");
 
-            Object.DestroyImmediate(go);
         }
 
         [Test]
         public void Placement_FlipAndRotation()
         {
-            var go = new GameObject("slot", typeof(RectTransform));
+            var go = МойОбъект("slot", typeof(RectTransform));
             var rt = (RectTransform)go.transform;
             var p = Placement.Standing(0.25f);
             p.Flip = true;
@@ -49,7 +64,6 @@ namespace Lvn.Tests
             Assert.AreEqual(0f, Mathf.DeltaAngle(rt.localEulerAngles.z, -30f), 0.5f, "rotation negated (clockwise)");
             Assert.AreEqual(250f, rt.anchoredPosition.x, 0.1f, "X 0.25 → 250");
 
-            Object.DestroyImmediate(go);
         }
 
         // ── Габарит фигуры внутри холста ───────────────────────────────────────
@@ -59,7 +73,7 @@ namespace Lvn.Tests
         [Test]
         public void Placement_AspectLock_WithoutFigureData_FitsTheWholeCanvas()
         {
-            var go = new GameObject("slot", typeof(RectTransform));
+            var go = МойОбъект("slot", typeof(RectTransform));
             var rt = (RectTransform)go.transform;
             var p = Placement.Standing(0.5f);
             p.Width = 0.69f; p.Height = 0.93f;
@@ -73,13 +87,12 @@ namespace Lvn.Tests
             Assert.AreEqual(0.5f, rt.pivot.x, 0.001f, "без данных о фигуре якорь как был");
             Assert.AreEqual(0f, rt.pivot.y, 0.001f);
 
-            Object.DestroyImmediate(go);
         }
 
         [Test]
         public void Placement_SidePadding_DoesNotStealHeight()
         {
-            var go = new GameObject("slot", typeof(RectTransform));
+            var go = МойОбъект("slot", typeof(RectTransform));
             var rt = (RectTransform)go.transform;
             var p = Placement.Standing(0.5f);
             p.Width = 0.9f; p.Height = 1f;
@@ -96,13 +109,12 @@ namespace Lvn.Tests
             Assert.AreEqual(1600f, rt.sizeDelta.x, 0.5f, "холст с полями шире заказа — и это нормально");
             Assert.AreEqual(800f, rt.sizeDelta.x * p.ContentW, 0.5f, "фигура при этом у́же экрана");
 
-            Object.DestroyImmediate(go);
         }
 
         [Test]
         public void Placement_SidePadding_StillClampsTheFigureToTheOrderedWidth()
         {
-            var go = new GameObject("slot", typeof(RectTransform));
+            var go = МойОбъект("slot", typeof(RectTransform));
             var rt = (RectTransform)go.transform;
             var p = Placement.Standing(0.5f);
             p.Width = 0.4f; p.Height = 1f;          // узкий заказ по ширине
@@ -115,13 +127,12 @@ namespace Lvn.Tests
             Assert.AreEqual(400f, rt.sizeDelta.x * p.ContentW, 0.5f, "ширину ограничивает ФИГУРА…");
             Assert.AreEqual(1000f, rt.sizeDelta.y, 0.5f, "…и высота идёт за ней по аспекту холста");
 
-            Object.DestroyImmediate(go);
         }
 
         [Test]
         public void Placement_TopPadding_IsHeight_NotPadding()
         {
-            var go = new GameObject("slot", typeof(RectTransform));
+            var go = МойОбъект("slot", typeof(RectTransform));
             var rt = (RectTransform)go.transform;
             var p = Placement.Standing(0.5f);
             p.Width = 1f; p.Height = 0.9f;
@@ -137,13 +148,12 @@ namespace Lvn.Tests
             Assert.AreEqual(1800f, rt.sizeDelta.y, 0.5f, "высота = заказанная доля экрана");
             Assert.AreEqual(900f, rt.sizeDelta.y * p.ContentH, 0.5f, "фигура — половина кадра");
 
-            Object.DestroyImmediate(go);
         }
 
         [Test]
         public void Placement_FigureBox_PutsTheFeetOnTheBaseline()
         {
-            var go = new GameObject("slot", typeof(RectTransform));
+            var go = МойОбъект("slot", typeof(RectTransform));
             var rt = (RectTransform)go.transform;
             var p = Placement.Standing(0.5f);       // AnchorY = 1 — ноги
             p.Width = 1f; p.Height = 1f;
@@ -158,13 +168,12 @@ namespace Lvn.Tests
             Assert.AreEqual(0.5f, rt.pivot.x, 0.001f, "по горизонтали — середина фигуры");
             Assert.AreEqual(0.3f, rt.pivot.y, 0.001f, "по вертикали — подошвы, не низ файла");
 
-            Object.DestroyImmediate(go);
         }
 
         [Test]
         public void Stage_BuildsCanvasHierarchyAndPlacesActor()
         {
-            var host = new GameObject("host", typeof(RectTransform));
+            var host = МойОбъект("host", typeof(RectTransform));
             var stage = new WorldStage(host.transform, sortingOrder: 4);
 
             var canvas = stage.Root.GetComponent<Canvas>();
@@ -198,13 +207,12 @@ namespace Lvn.Tests
             Assert.AreEqual(1f, guestGfx.color.r, 0.001f, "не-говорящего притемнили — это отменено");
             Assert.AreEqual(1f, guestGfx.color.a, 0.001f, "альфа принадлежит постановке и переходу");
 
-            Object.DestroyImmediate(host);
         }
 
         [Test]
         public void Stage_ZOrder_SurvivesLateApplies()
         {
-            var host = new GameObject("host", typeof(RectTransform));
+            var host = МойОбъект("host", typeof(RectTransform));
             var stage = new WorldStage(host.transform);
 
             var pEnemy = Placement.Standing(0.5f); pEnemy.Z = 10;
@@ -232,13 +240,12 @@ namespace Lvn.Tests
             Assert.Less(second.transform.GetSiblingIndex(), enemy.transform.GetSiblingIndex(),
                 "no-z (0) stacks under z=10");
 
-            Object.DestroyImmediate(host);
         }
 
         [Test]
         public void Stage_PreloadedPlacementStaysHiddenUntilArtStartsEntrance()
         {
-            var host = new GameObject("host", typeof(RectTransform));
+            var host = МойОбъект("host", typeof(RectTransform));
             var stage = new WorldStage(host.transform);
             var p = Placement.Standing(0.25f);
             p.EnterTransition = TransitionType.Drift;
@@ -262,13 +269,12 @@ namespace Lvn.Tests
             Assert.Less(actor.Transition.anchoredPosition.x, 0f,
                 "left-side actor starts outside its final position");
 
-            Object.DestroyImmediate(host);
         }
 
         [Test]
         public void CanvasRenderer_ReusesLoadedArtOnAnimatedReshow()
         {
-            var host = new GameObject("host", typeof(RectTransform));
+            var host = МойОбъект("host", typeof(RectTransform));
             var stage = new WorldStage(host.transform);
             var renderer = new CanvasSceneRenderer(stage);
             var shown = Placement.Standing(0.75f);
@@ -288,7 +294,6 @@ namespace Lvn.Tests
             Assert.IsTrue(actor.gameObject.activeSelf, "existing layers may be shown without repeating their URL");
             Assert.AreEqual(0f, actor.GetComponent<CanvasGroup>().alpha, 0.001f);
 
-            Object.DestroyImmediate(host);
         }
     }
 }
