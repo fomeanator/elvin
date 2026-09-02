@@ -49,7 +49,7 @@ namespace Sandbox
             Debug.Log($"[ds-probe] тема панели: {(theme != null ? theme.name : "НЕ НАЙДЕНА")}");
 
             var sheet = Resources.Load<StyleSheet>("UI/Styles/DesignSystem/DesignSystem");
-            _romance = Resources.Load<StyleSheet>("TimeRomanceTokens");
+            _romance = Resources.Load<StyleSheet>("PartnerTokens");
             _cyber = Resources.Load<StyleSheet>("CyberpunkTokens");
             var ours = _romance;
             var root = doc.rootVisualElement;
@@ -81,7 +81,7 @@ namespace Sandbox
             root.style.paddingLeft = 20; root.style.paddingRight = 20;
             root.style.paddingTop = 48; root.style.paddingBottom = 20;
 
-            root.Add(Text("Time Romance", "ds-h1"));
+            root.Add(Text("Партнёрская тема", "ds-h1"));
             root.Add(Text("Истории, которые оживают", "ds-body-2"));
 
             root.Add(Gap(18));
