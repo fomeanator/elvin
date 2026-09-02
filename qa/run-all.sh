@@ -114,18 +114,35 @@ if command -v go >/dev/null 2>&1 && command -v rsync >/dev/null 2>&1; then
   fi
 fi
 
+# ПОЛ ПОКРЫТИЯ Go — та же мера, что у Unity, и по той же причине. Фаза Go
+# смотрела только на провалы: удалённый файл стражей или пакет, выпавший из
+# `./...`, не падает — его просто нет, и прогон остаётся зелёным. Числа
+# сняты 02.09 (пропущенные тесты считаются: пол — про СУЩЕСТВОВАНИЕ проверки,
+# а не про её исполнение). Числа могут только расти.
+FLOOR_GO_tools_lvnconv=652
+FLOOR_GO_server=252
+
 if command -v go >/dev/null 2>&1; then
   for mod in tools/lvnconv server; do
     # -count=1 обязателен: стражи читают C#, JS и манифесты — файлы, которых
     # кэш go test не видит. Без флага правка в Unity ломает инвариант, а прогон
     # отвечает «ok (cached)»: страж молчит ровно тогда, когда должен кричать.
     log "go test $mod"
+    gout="$OUT/go-$(echo "$mod" | tr / -).log"
     if command -v node >/dev/null 2>&1; then
-      (cd "$GO_ROOT/$mod" && LVN_REQUIRE_NODE=1 go test -count=1 ./... >/dev/null 2>&1) \
+      (cd "$GO_ROOT/$mod" && LVN_REQUIRE_NODE=1 go test -count=1 -v ./... >"$gout" 2>&1) \
         || { log "FAIL: go test $mod — подробности: (cd $mod && go test ./...)"; fail=1; }
     else
-      (cd "$GO_ROOT/$mod" && go test -count=1 ./... >/dev/null 2>&1) \
+      (cd "$GO_ROOT/$mod" && go test -count=1 -v ./... >"$gout" 2>&1) \
         || { log "FAIL: go test $mod — подробности: (cd $mod && go test ./...)"; fail=1; }
+    fi
+    ran=$(grep -c '^--- \(PASS\|FAIL\|SKIP\)' "$gout" 2>/dev/null || echo 0)
+    eval "floor=\${FLOOR_GO_$(echo "$mod" | tr /. __)}"
+    if [ -n "$floor" ] && [ "$ran" -lt "$floor" ]; then
+      log "  $mod: ТЕСТОВ МЕНЬШЕ ПОЛА: $ran при $floor — проверки не упали, а ИСЧЕЗЛИ"
+      fail=1
+    elif [ -n "$floor" ] && [ "$ran" -gt "$floor" ]; then
+      log "  $mod: $ran тестов (пол $floor — поднимите)"
     fi
   done
 else
