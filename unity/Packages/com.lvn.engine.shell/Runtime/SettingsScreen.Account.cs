@@ -33,40 +33,22 @@ namespace Lvn.UI.Screens
                 LvnWords.Of("settings.reset_hint",
                     "Wipes progress, purchases and name on this device — the game starts over"));
 
-            bool armed = false;
-            var btn = Lvn.UI.LvnRedress.Bind(new Button(), () =>
-                armed ? LvnWords.Of("common.sure", "Sure?")
-                      : LvnWords.Of("common.reset", "Reset"));
+            // ВЗВЕДЕНО, НО НЕ НАВСЕГДА. Забытая взведённой кнопка — мина:
+            // игрок вернётся в настройки через минуту и снесёт себя одним
+            // касанием, думая, что нажал впервые. Обряд целиком — у дома
+            // (Lvn.UI.LvnAskTwice): срок взвода, разоружение при уходе с
+            // экрана и подпись, читающая состояние, а не назначенная руками.
+            var btn = new Button();
             StyleValueButton(btn, false);
             btn.style.color = Lvn.UI.LvnTheme.Current.Warn;
-
-            IVisualElementScheduledItem disarm = null;
-            btn.clicked += () =>
-            {
-                if (!armed)
+            Lvn.UI.LvnAskTwice.AskTwice(btn,
+                calm: () => LvnWords.Of("common.reset", "Reset"),
+                armed: () => LvnWords.Of("common.sure", "Sure?"),
+                confirmed: () =>
                 {
-                    // ВЗВЕДЕНО, НО НЕ НАВСЕГДА. Забытая взведённой кнопка —
-                    // мина: игрок вернётся в настройки через минуту и снесёт
-                    // себя одним касанием, думая, что нажал впервые.
-                    armed = true;
-                    Lvn.UI.LvnRedress.Refresh(btn);
-                    disarm?.Pause();
-                    // ExecuteLater ничего не возвращает — срок ставится ОТДЕЛЬНО,
-                    // иначе в disarm попадёт void и разоружать будет нечем.
-                    disarm = btn.schedule.Execute(() =>
-                    {
-                        armed = false;
-                        Lvn.UI.LvnRedress.Refresh(btn);
-                    });
-                    disarm.ExecuteLater(LvnMotion.Ms(LvnMotion.Notice) * 3);
-                    return;
-                }
-                disarm?.Pause();
-                armed = false;
-                Lvn.UI.LvnRedress.Refresh(btn);
-                OnResetAccount?.Invoke();
-                LvnMotion.FlashText(btn, LvnWords.Of("common.done", "Done"));
-            };
+                    OnResetAccount?.Invoke();
+                    LvnMotion.FlashText(btn, LvnWords.Of("common.done", "Done"));
+                });
             row.Add(btn);
             return row;
         }

@@ -20,10 +20,6 @@ namespace Lvn.UI.Screens
     /// </summary>
     public sealed partial class ProfileScreen : LvnOverlayScreen
     {
-        /// <summary>Сколько кнопка удаления остаётся «взведённой» и ждёт второго
-        /// нажатия. Дольше прочих ответов интерфейса намеренно: человек должен
-        /// успеть передумать, а не промахнуться дважды подряд.</summary>
-        private const int ArmedWindowMs = 4000;
 
         /// <summary>One earned/locked achievement badge.</summary>
         public struct Achievement
