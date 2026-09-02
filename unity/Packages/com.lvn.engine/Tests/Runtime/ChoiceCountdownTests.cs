@@ -101,14 +101,9 @@ namespace Lvn.Tests
         /// <summary>Что произойдёт от нажатия по кнопке: живого тапа нет —
         /// событие разносит панель по настоящим координатам. Спрашиваем саму
         /// кнопку, к чему она приведёт.</summary>
-        private static Action Нажатие(Button кнопка)
-        {
-            if (кнопка == null) return null;
-            foreach (var f in typeof(Clickable).GetFields(
-                         BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public))
-                if (f.GetValue(кнопка.clickable) is Action a) return a;
-            return null;
-        }
+        // Приём живёт в доме сцены: PlayMode — отдельная сборка, и копия
+        // редакторного дома здесь была бы вторым правилом на один тап.
+        private static Action Нажатие(Button кнопка) => TestStage.Press(кнопка);
 
         private bool НаВыборе
         {

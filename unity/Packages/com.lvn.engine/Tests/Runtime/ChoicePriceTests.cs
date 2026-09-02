@@ -138,14 +138,9 @@ namespace Lvn.Tests
         /// событие разносит панель по настоящим координатам, а стопка выборов
         /// стоит там, где её поставила тема. Спрашиваем саму кнопку, к чему
         /// она приведёт, — это и есть нажатие игрока.</summary>
-        private static Action Нажатие(Button кнопка)
-        {
-            if (кнопка == null) return null;
-            foreach (var f in typeof(Clickable).GetFields(
-                         BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public))
-                if (f.GetValue(кнопка.clickable) is Action a) return a;
-            return null;
-        }
+        // Приём живёт в доме сцены: PlayMode — отдельная сборка, и копия
+        // редакторного дома здесь была бы вторым правилом на один тап.
+        private static Action Нажатие(Button кнопка) => TestStage.Press(кнопка);
 
         private bool НаВыборе
         {

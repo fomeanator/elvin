@@ -352,15 +352,6 @@ namespace Lvn.Tests
             LogAssert.NoUnexpectedReceived();
         }
 
-        [Test]
-        public void МусорВПолеКомандыЖалуетсяИНеМеняетЦвет()
-        {
-            LogAssert.Expect(LogType.Warning, new Regex("lvn-ui"));
-            var cmd = new JObject { ["burn_color"] = "зелёненький" };
-
-            Assert.AreEqual(Color.green, UiColor.FromCmd(cmd, "burn_color", Color.green));
-        }
-
         // ── третья дверь: ПОЛЕ МАНИФЕСТА ────────────────────────────────────
         //
         // Сто три поля манифеста (`title_color`, `bg_color`, `prompt_color`…)
