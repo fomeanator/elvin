@@ -1713,6 +1713,19 @@ func TestWallTimeIsNotCalledDecode(t *testing.T) {
 		t.Error("рядом с ожиданием не стоит длина кадра — число нечем " +
 			"проверить на месте")
 	}
+	// ТА ЖЕ БОЛЕЗНЬ У СОСЕДА. Расшифровка кода меряется тем же способом —
+	// секундомер вокруг ожидания события Unity, — и именно её строка ввела в
+	// заблуждение 02.09. Правило, записанное в одном файле и отсутствующее в
+	// соседнем, живёт ровно до следующего чтения лога.
+	ktx := stripComments(string(mustRead(t,
+		filepath.Join(root, "unity/Packages/com.lvn.engine/Runtime/Content/ContentLoader.Ktx2.cs"))))
+	if strings.Contains(ktx, "ktx2 transcode {ktx2Url}: {sw.ElapsedMilliseconds}ms") {
+		t.Error("расшифровка кода снова названа работой: это ожидание, и на " +
+			"буте оно про длину кадра")
+	}
+	if !strings.Contains(ktx, "LvnFrameWatch.LastFrameMs") {
+		t.Error("у расшифровки кода нет длины кадра рядом — число не проверить")
+	}
 	watch := stripComments(string(mustRead(t,
 		filepath.Join(root, "unity/Packages/com.lvn.engine/Runtime/LvnFrameWatch.cs"))))
 	body, ok := ruleBody(watch, "public static void Frame(float dt, int frameCount")
