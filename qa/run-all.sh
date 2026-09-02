@@ -207,7 +207,15 @@ fi
 # PlayMode-тест простоял незамеченным ровно потому, что цикл его не гонял.
 if [ "$RUN_PLAY" = 1 ]; then
 log "PlayMode-прогон…"
-args=(-batchmode -nographics -projectPath "$REPO_ROOT/unity/TestHost"
+# БЕЗ -nographics, и это НЕ упущение. Флаг заставляет Unity поднять пустой
+# графический слой (GraphicsDeviceType.Null), а пиксельные тесты сами себя
+# пропускают, когда рисовать нечем, — и пропускали ВСЕГДА: девять проверок
+# стекла, створа и переходов не выполнялись ни разу, а отчёт при этом был
+# зелёный. Проверено 02.09: с графикой 73 проходят, 0 падают, пропущены двое
+# по ДРУГОЙ причине (шейдер не поддержан) — её код отличает намеренно.
+#
+# EditMode графику не просит и запускается без неё: ему нечего рисовать.
+args=(-batchmode -projectPath "$REPO_ROOT/unity/TestHost"
       -runTests -testPlatform PlayMode
       -testResults "$OUT/playmode.xml" -logFile "$OUT/playmode.log")
 [ -n "$FILTER" ] && args+=(-testFilter "$FILTER")
