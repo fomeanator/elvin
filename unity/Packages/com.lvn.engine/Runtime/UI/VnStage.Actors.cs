@@ -492,7 +492,7 @@ namespace Lvn.UI
                 // команду, и слои, которых не хватило, доедут по второму разу.
                 // Без него безликость становится вечной: игрок ушёл в меню, и
                 // обрывать нечего — показ уже «состоялся».
-                LvnAsync.Fire(RetryActorSoonAsync(cmd, epoch, lane, gen), "ActorRetry");
+                LvnAsync.Fire(RetryActorSoonAsync(cmd, epoch, lane, gen, sender), "ActorRetry");
                 return;
             }
 
@@ -546,8 +546,18 @@ namespace Lvn.UI
         ///
         /// <para>Счётчик на актёра, а не общий: одна проблемная фигура не
         /// должна съедать попытки у соседней.</para>
+        ///
+        /// <para><b>ОТПРАВИТЕЛЬ ЕДЕТ С КОМАНДОЙ.</b> Повтор — та же команда, а
+        /// не новая, и прислал её тот же, кто и первую. Без довода повтор шёл
+        /// умолчанием <see cref="LvnSender.Story"/> — то есть ЛИПКИМ
+        /// (<see cref="LvnStageManager.Sticky"/>), — и поза витрины или
+        /// гардероба, доехавшая со второй попытки, оседала в памяти сцены как
+        /// авторская. Это ровно тот симптом, ради которого липкость и заведена:
+        /// «героиня выходила в главу стоящей по-менюшному». Главный путь его
+        /// закрыл, повтор ходил мимо.</para>
         /// </summary>
-        private async Task RetryActorSoonAsync(JObject cmd, int epoch, string lane, int gen)
+        private async Task RetryActorSoonAsync(JObject cmd, int epoch, string lane, int gen,
+                                               LvnSender sender)
         {
             var id = (string)cmd["id"];
             if (string.IsNullOrEmpty(id)) return;
@@ -566,7 +576,7 @@ namespace Lvn.UI
             if (tries == 0) await Task.Yield();
             else await Task.Delay(tries == 1 ? 250 : 1000);
             if (!_clock.MayTouch(epoch, lane, gen)) return;   // пришла команда новее — она главнее
-            ApplyStage(cmd);
+            ApplyStage(cmd, sender);
         }
 
 
