@@ -37,6 +37,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -98,22 +99,51 @@ const ktx2EncodeTimeout = 120 * time.Second
 // cache. First visit costs nothing extra; every visit after is compressed.
 type ktx2Transcoder struct {
 	mu      sync.Mutex
-	pending map[string]bool // queued or encoding — dedupes enqueues
-	queue   chan string     // ktx2 output paths awaiting encode
+	pending map[string]ktx2Lane // в какой полосе стоит (или кодируется) путь
+	queue   chan string         // ПРОГРЕВ: длинная очередь, обход контента при старте
+	urgent  chan string         // ЖИВОЕ: короткая очередь запросов игроков — работник берёт её первой
 
 	d *downscaler // materializes missing @2k sources (shared with withDownscale)
+
+	// encode — шов для тестов: кодирование одного файла. По умолчанию basisu.
+	encode func(srcPath, ktx2Path string) error
 
 	binOnce sync.Once
 	binPath string // "" if basisu isn't on PATH — every request then 404s straight through
 }
 
 func newKtx2Transcoder(d *downscaler) *ktx2Transcoder {
+	t := newKtx2TranscoderIdle(d)
+	go t.worker()
+	return t
+}
+
+// ktx2Lane — в какой из двух очередей стоит путь. Одной очереди на двоих не
+// хватало, см. ЖИВОЕ ВЫТЕСНЯЕТ ФОНОВОЕ у enqueue.
+type ktx2Lane uint8
+
+const (
+	ktx2LaneNone ktx2Lane = iota
+	ktx2LaneWarm          // очередь прогрева
+	ktx2LaneLive          // очередь живых запросов
+)
+
+// ktx2LiveLane — сколько живых запросов может ждать кодирования. Полоса
+// короткая намеренно: это очередь того, что игроки просят ПРЯМО СЕЙЧАС, и
+// если в ней сотни путей, значит, кодировщик не справляется, а не «ещё
+// чуть-чуть». Переполнение говорится вслух (см. withKTX2), а не глотается.
+const ktx2LiveLane = 64
+
+// newKtx2TranscoderIdle собирает кодировщик БЕЗ работника — для тестов, которым
+// нужно наполнить обе очереди до того, как их начнут разбирать.
+func newKtx2TranscoderIdle(d *downscaler) *ktx2Transcoder {
 	t := &ktx2Transcoder{
-		pending: map[string]bool{},
+		pending: map[string]ktx2Lane{},
 		queue:   make(chan string, 1024),
+		urgent:  make(chan string, ktx2LiveLane),
 		d:       d,
 	}
-	go t.worker()
+	t.encode = t.transcode
 	return t
 }
 
@@ -204,6 +234,7 @@ func (t *ktx2Transcoder) warmAll(contentRoot string) {
 	}
 	go func() {
 		queued, skipped := 0, 0
+		var outs []string // пути кодов в порядке обхода; порядок выкладки см. ниже
 		_ = filepath.Walk(contentRoot, func(path string, info os.FileInfo, err error) error {
 			if err != nil || info.IsDir() {
 				return nil
@@ -258,28 +289,63 @@ func (t *ktx2Transcoder) warmAll(contentRoot string) {
 				if fileExists(out) && !ktx2Stale(out) {
 					continue
 				}
-				if t.enqueueWaiting(out) {
-					queued++
-				}
+				outs = append(outs, out)
 			}
 			return nil
 		})
+		// ПЕРВЫЙ ЭКРАН ГРЕЕТСЯ ПЕРВЫМ.
+		//
+		// Обход диска идёт по алфавиту, и /ui/ в нём — последняя папка: на
+		// свежем боксе полотно витрины ждало, пока закодируются все главы.
+		// Обшивка — это то, что видит каждый игрок в первую секунду; арт
+		// главы — то, что кто-то увидит через час. Порядок между собой
+		// сохраняем (SliceStable), меняем только очередь папок.
+		// Страж: TestПрогревНачинаетСОбшивки.
+		sort.SliceStable(outs, func(i, j int) bool {
+			ui, uj := ktx2ChromeFirst(outs[i]), ktx2ChromeFirst(outs[j])
+			return ui && !uj
+		})
+		for _, out := range outs {
+			if t.enqueueWaiting(out) {
+				queued++
+			}
+		}
 		log.Printf("[ktx2] прогрев кодов (все ступени): в очередь поставлено %d, пропущено файлов %d (пиксель-арт, обшивка, крошки)",
 			queued, skipped)
 	}()
 }
 
-// enqueue schedules a background encode for ktx2Path (deduped). Returns false
-// when the queue is full — the request just 404s and a later one retries.
+// enqueue — вход ДЛЯ ЖИВОГО ЗАПРОСА: путь встаёт в короткую полосу, которую
+// работник разбирает раньше прогрева. false — полоса полна, и этот запрос
+// кодирование НЕ заказал; кто вызвал, обязан сказать об этом вслух.
+//
+// ЖИВОЕ ВЫТЕСНЯЕТ ФОНОВОЕ.
+//
+// До 02.09 полоса была одна на двоих: прогрев при старте ставил в неё
+// тысячи путей (все ступени всего арта истории) и, упёршись в буфер, ЖДАЛ
+// места — то есть очередь стояла полной часами. Живой запрос игрока шёл в ту
+// же очередь без ожидания: «не влезло — false». А false никто не читал.
+//
+// На проде это выглядело так: полотно витрины (2000×1500, первое, что видит
+// игрок) лежало в /ui/ — в обходе диска последней папке. Каждый игрок
+// спрашивал его код, получал 404 и распаковывал растр процессором 3–6 с; а
+// его запрос молча выбрасывался, потому что очередь была занята артом
+// седьмой главы, который в эту сессию никто не откроет. Даже влезь он —
+// стоял бы за тысячей чужих.
+//
+// Поэтому полосы две. Прогрев ждёт места в своей, живое встаёт в свою, и
+// работник (см. next) всегда сначала смотрит в живую. Если путь уже стоит в
+// прогреве — ставим ещё и в живую: работник закодирует его первым, а копия в
+// прогреве, дойдя до очереди, увидит готовый файл и пройдёт впустую.
 func (t *ktx2Transcoder) enqueue(ktx2Path string) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if t.pending[ktx2Path] {
+	if t.pending[ktx2Path] == ktx2LaneLive {
 		return true
 	}
 	select {
-	case t.queue <- ktx2Path:
-		t.pending[ktx2Path] = true
+	case t.urgent <- ktx2Path:
+		t.pending[ktx2Path] = ktx2LaneLive
 		return true
 	default:
 		return false
@@ -300,11 +366,11 @@ func (t *ktx2Transcoder) enqueue(ktx2Path string) bool {
 // «сервер почему-то не собрал коды».
 func (t *ktx2Transcoder) enqueueWaiting(ktx2Path string) bool {
 	t.mu.Lock()
-	if t.pending[ktx2Path] {
+	if t.pending[ktx2Path] != ktx2LaneNone {
 		t.mu.Unlock()
 		return false
 	}
-	t.pending[ktx2Path] = true
+	t.pending[ktx2Path] = ktx2LaneWarm
 	t.mu.Unlock()
 	t.queue <- ktx2Path // ждём места: горутина прогрева никого не держит
 	return true
@@ -314,28 +380,54 @@ func (t *ktx2Transcoder) enqueueWaiting(ktx2Path string) bool {
 // multithreaded, so a single job uses the machine well without starving the
 // game/server the way three concurrent encodes did.
 func (t *ktx2Transcoder) worker() {
-	for ktx2Path := range t.queue {
-		func() {
-			defer func() {
-				t.mu.Lock()
-				delete(t.pending, ktx2Path)
-				t.mu.Unlock()
-			}()
-			if fileExists(ktx2Path) && !ktx2Stale(ktx2Path) {
-				return
-			}
-			src := ensureKtx2Source(t.d, ktx2Path)
-			if src == "" {
-				return
-			}
-			start := time.Now()
-			if err := t.transcode(src, ktx2Path); err != nil {
-				log.Printf("ktx2: %v", err)
-				return
-			}
-			log.Printf("ktx2: encoded %s in %.1fs", filepath.Base(ktx2Path), time.Since(start).Seconds())
-		}()
+	for {
+		ktx2Path, ok := t.next()
+		if !ok {
+			return
+		}
+		t.run(ktx2Path)
 	}
+}
+
+// next — откуда брать следующий путь. Сначала живая полоса без ожидания;
+// пуста — ждём любую, и живая снова в приоритете: select в Go выбирает
+// между готовыми случайно, поэтому первая проверка обязательна, а не
+// украшение. Страж: TestЖивойЗапросОбгоняетПрогрев.
+func (t *ktx2Transcoder) next() (string, bool) {
+	select {
+	case p, ok := <-t.urgent:
+		return p, ok
+	default:
+	}
+	select {
+	case p, ok := <-t.urgent:
+		return p, ok
+	case p, ok := <-t.queue:
+		return p, ok
+	}
+}
+
+// run кодирует один путь: пропускает готовое, материализует ступень, зовёт
+// кодировщик. По выходе снимает путь с учёта в обеих полосах.
+func (t *ktx2Transcoder) run(ktx2Path string) {
+	defer func() {
+		t.mu.Lock()
+		delete(t.pending, ktx2Path)
+		t.mu.Unlock()
+	}()
+	if fileExists(ktx2Path) && !ktx2Stale(ktx2Path) {
+		return
+	}
+	src := ensureKtx2Source(t.d, ktx2Path)
+	if src == "" {
+		return
+	}
+	start := time.Now()
+	if err := t.encode(src, ktx2Path); err != nil {
+		log.Printf("ktx2: %v", err)
+		return
+	}
+	log.Printf("ktx2: encoded %s in %.1fs", filepath.Base(ktx2Path), time.Since(start).Seconds())
 }
 
 func (t *ktx2Transcoder) bin() string {
@@ -622,13 +714,46 @@ func (s *server) withKTX2(d *downscaler, next http.Handler) http.Handler {
 		// ТОТ ЖЕ ВОПРОС, ЧТО У ПРОГРЕВА. Без него запрос «X@mini.ktx2»
 		// ставился в очередь и кодировался — намеренное решение «крошка живёт
 		// растром» отменялось тем, что кто-то один раз спросил.
+		//
+		// 404 НАЗЫВАЕТ ПРИЧИНУ. Полдня 02.09 ушло на вопрос «почему на проде
+		// нет кода полотна» — снаружи все ответы выглядели одинаково: 404.
+		// Заголовок Lvn-Ktx2 отличает «кодировать нечем» от «не положено», от
+		// «исходника нет» и от «поставлено, зайдите позже»; curl -I
+		// показывает его с любой машины. Страж: TestОтказВКодеНазываетПричину.
 		low := strings.ToLower(ktx2Path)
-		if t.bin() != "" && ktx2Coded(low) && hasKtx2Source(ktx2Path) &&
-			ktx2WorthCoding(ktx2SourceFor(ktx2Path), low) {
-			t.enqueue(ktx2Path) // warm for the future; never block this request
+		reason := ktx2WhyQueued
+		switch {
+		case t.bin() == "":
+			reason = ktx2WhyNoEncoder
+		case !hasKtx2Source(ktx2Path):
+			reason = ktx2WhyNoSource
+		case !ktx2Coded(low) || !ktx2WorthCoding(ktx2SourceFor(ktx2Path), low):
+			reason = ktx2WhyNotCoded
+		case !t.enqueue(ktx2Path): // warm for the future; never block this request
+			// ПЕРЕПОЛНЕНИЕ ГОВОРИТСЯ ВСЛУХ. Раньше false здесь не читали, и
+			// запрос пропадал без следа — см. enqueue.
+			reason = ktx2WhyBusy
+			log.Printf("[ktx2] живая очередь полна (%d) — %s не заказан, клиент получит растр",
+				ktx2LiveLane, filepath.Base(ktx2Path))
 		}
+		w.Header().Set(ktx2WhyHeader, reason)
 		http.NotFound(w, r)
 	})
+}
+
+// Заголовок ответа 404 на «.ktx2» и его значения — ПОЧЕМУ кода нет.
+const (
+	ktx2WhyHeader    = "Lvn-Ktx2"
+	ktx2WhyQueued    = "queued"     // поставлен в живую очередь: зайдите позже
+	ktx2WhyBusy      = "busy"       // живая очередь полна: этот запрос кодирование не заказал
+	ktx2WhyNoEncoder = "no-encoder" // basisu на сервере нет: кода не будет никогда
+	ktx2WhyNoSource  = "no-source"  // растрового исходника рядом нет
+	ktx2WhyNotCoded  = "not-coded"  // положено растром: пиксель-арт, крошка, мелкая обшивка
+)
+
+// ktx2ChromeFirst — что прогрев кодирует раньше остального: обшивку.
+func ktx2ChromeFirst(ktx2Path string) bool {
+	return strings.Contains(strings.ToLower(filepath.ToSlash(ktx2Path)), "/ui/")
 }
 
 // honestExtension даёт кодировщику путь, чьё расширение НЕ ВРЁТ о содержимом.
