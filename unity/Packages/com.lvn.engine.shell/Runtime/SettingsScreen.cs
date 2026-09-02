@@ -324,7 +324,7 @@ namespace Lvn.UI.Screens
                 Lvn.UI.LvnSegment.Of(Lvn.UI.LvnKnobs.Scale,
                 st => StepWord(st),
                 st => Lvn.UI.LvnKnobs.At(LvnPrefs.UiScale, st),
-                st => { LvnPrefs.UiScale = st.K; Lvn.UI.LvnPanel.ApplyUiScale(); },
+                st => LvnPrefs.UiScale = st.K,
                 StyleValueButton, alignEnd: false));
         }
 
