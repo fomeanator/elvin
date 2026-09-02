@@ -46,9 +46,14 @@ ROOTS[Lvn.Engine.Shell]=$REPO/unity/Packages/com.lvn.engine.shell/Runtime
 ROOTS[Lvn.Engine.Editor]=$REPO/unity/Packages/com.lvn.engine/Editor
 ROOTS[Lvn.Engine.Tests]=$REPO/unity/Packages/com.lvn.engine/Tests/Editor
 ROOTS[Lvn.Engine.Tests.Runtime]=$REPO/unity/Packages/com.lvn.engine/Tests/Runtime
+# Тесты оболочки. До 02.09 своей сборки у них не было: они падали в
+# Assembly-CSharp-Editor, которую этот гейт не собирает вовсе, — и ошибка
+# компиляции в них находилась только полным прогоном Unity, через 13 минут.
+ROOTS[Lvn.Engine.Shell.Tests]=$REPO/unity/Packages/com.lvn.engine.shell/Tests/Editor
 
 ORDER=(Lvn.Engine Lvn.Engine.Content Lvn.Engine.UI Lvn.Engine.Services
-       Lvn.Engine.Shell Lvn.Engine.Editor Lvn.Engine.Tests Lvn.Engine.Tests.Runtime)
+       Lvn.Engine.Shell Lvn.Engine.Editor Lvn.Engine.Tests Lvn.Engine.Tests.Runtime
+       Lvn.Engine.Shell.Tests)
 
 fail=0
 typeset -a BUILT
