@@ -150,7 +150,21 @@ namespace Lvn
         public static event Action<int, string, float, int> ChoicePicked;
 
         // Когда показали текущий выбор — чтобы измерить раздумье.
-        private DateTime _choiceShownAt;
+        // КОГДА ПОКАЗАЛИ ВЫБОР — отметка ДОМАШНИХ часов, а не DateTime.
+        //
+        // Мерилось это `DateTime.UtcNow`, мимо `LvnClock`, и потому не
+        // проверялось ничем: подменить часы тест может, системное время — нет.
+        // Число уезжает в телеметрию как «сколько игрок думал», и до сих пор
+        // никто не мог сказать, верное ли оно.
+        //
+        // Взято КАДРОВОЕ время (LvnClock.Now), а не настенное, по той же
+        // причине, что и у автопродвижения: свернул игру на десять минут —
+        // это не «думал десять минут». Прежнее поведение считало именно так.
+        //
+        // −1 значит «выбор не показывали»: ноль — законная отметка сразу после
+        // запуска, и по нему «не показывали» от «показали на первом кадре» не
+        // отличить.
+        private float _choiceShownAt = -1f;
 
         /// <summary>Optional localization catalog: <c>text_id</c> → string for the
         /// active language. When a say/choice carries a <c>text_id</c> (instead of
@@ -522,7 +536,7 @@ namespace Lvn
                         {
                             var built = BuildOptions(c);
                             _stage.ShowChoice(built);
-                            _choiceShownAt = DateTime.UtcNow;
+                            _choiceShownAt = LvnClock.Now();
                             // В сценарии вариантов может быть больше, чем игрок
                             // увидит: закрытые гейтом до показа не доходят
                             // вовсе. Разница «написано три, доступен один» и
@@ -714,7 +728,7 @@ namespace Lvn
             Log?.Invoke("CHOOSE [" + optionIndex + "] \"" + (string)opt["text"] + "\"" + (opt["goto"] != null ? " → :" + opt["goto"] : ""));
             try
             {
-                var thought = _choiceShownAt == default ? 0f : (float)(DateTime.UtcNow - _choiceShownAt).TotalSeconds;
+                var thought = _choiceShownAt < 0f ? 0f : LvnClock.Since(_choiceShownAt);
                 ChoicePicked?.Invoke(optionIndex, (string)opt["text"], thought, _ip);
             }
             catch { /* телеметрия не смеет ронять главу */ }
