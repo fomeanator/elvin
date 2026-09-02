@@ -34,14 +34,50 @@ namespace Lvn.Tests
             StringAssert.StartsWith("/content/bg/room@", got);
         }
 
-        [TestCase("/content/ui/panel.png")]
         [TestCase("/content/pixel/tile.png")]
         [TestCase("/content/scripts/ch1.lvn")]
         [TestCase("")]
         [TestCase(null)]
         public void ЧужоеОстаётсяНаОбычномПути(string url)
             => Assert.IsNull(ContentLoader.Ktx2UrlFor(url),
-                "мелкий арт, скины и не-картинки кодом для видеокарты не показываются");
+                "пиксель-арт и не-картинки кодом для видеокарты не показываются");
+
+        /// <summary>
+        /// КРУПНОЕ В ОБШИВКЕ — НЕ ОБШИВКА.
+        ///
+        /// <para>Папку <c>/ui/</c> исключали из кодов целиком: блочное сжатие
+        /// размажет пиксельную сетку и тонкие линии. Верно для кнопок и рамок —
+        /// и неверно для полотна витрины, которое лежит там же по МЕСТУ, а не
+        /// по природе: 2000×1500 на весь экран. Живой лог 02.09 — 3334 мс
+        /// процессорной распаковки, вуаль снялась без полотна, и первое, что
+        /// видел игрок, был пустой экран.</para>
+        ///
+        /// <para>Код за обшивку теперь спрашивают, а решает по размеру сервер:
+        /// у него файл на диске, и заголовка достаточно.</para>
+        /// </summary>
+        [Test]
+        public void ЗаОбшивкуКодСпрашиваютТоже()
+        {
+            Assert.IsNotNull(ContentLoader.Ktx2UrlFor("/content/ui/menu-canvas.jpg"),
+                "полотно витрины снова платит тремя секундами распаковки");
+            Assert.IsTrue(DownloadPolicy.CodedArt("/content/ui/menu-canvas.jpg"));
+        }
+
+        /// <summary>
+        /// А РАСТР ОБШИВКЕ РАЗРЕШЁН — это разные вопросы.
+        ///
+        /// <para>Строгое «арт истории только кодом» заведено там, где растровый
+        /// запасной путь полгода прятал поломку кодов. У обшивки растр —
+        /// объявленный путь, и запретить его значило бы: код не собрался —
+        /// интерфейса нет.</para>
+        /// </summary>
+        [TestCase("/content/bg/room.jpg", true)]
+        [TestCase("/content/sprites/hill/body@1440.png", true)]
+        [TestCase("/content/ui/menu-canvas.jpg", false)]
+        [TestCase("/content/pixel/tile.png", false)]
+        [TestCase("/content/bg/room@mini.jpg", false)]
+        public void РастрЗапрещёнТолькоАртуИстории(string url, bool запрещён)
+            => Assert.AreEqual(запрещён, DownloadPolicy.RasterForbidden(url));
 
         /// <summary>
         /// КРОШКА-ЗАГОТОВКА ЖИВЁТ РАСТРОМ — И ЭТО РЕШЕНИЕ, А НЕ НЕДОРАБОТКА.
