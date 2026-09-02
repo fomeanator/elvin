@@ -32,7 +32,12 @@ func TestMapExamplesNameRealMembers(t *testing.T) {
 	// дважды — второй раз рекламным местом в сервисах, — и страж находил
 	// чужого однофамильца, у которого нужного члена, конечно, нет.
 	classRe := regexp.MustCompile(`(?:public|internal|private|protected)\s+(?:sealed\s+|static\s+|partial\s+|abstract\s+|readonly\s+|ref\s+)*(?:class|struct|record)\s+(\w+)`)
-	member := regexp.MustCompile(`(?:public|internal|private|protected)\s+(?:static\s+|readonly\s+|const\s+|async\s+|override\s+|virtual\s+|sealed\s+|event\s+)*[\w<>\[\],.?]+\s+(\w+)\s*(?:<[^>]*>)?\s*[\(\{;=]`)
+	// ДЕЛЕГАТ — ТОЖЕ ЧЛЕН ДОМА. Без него `LvnHealer.Busy` («а не везут ли это
+	// прямо сейчас») объявлялся выдуманным: описание недуга состоит из
+	// делегатов, и карта законно зовёт их по имени. Слово `delegate` стоит
+	// РОВНО ТАМ, где стоят прочие модификаторы, — иначе оно съедало бы место
+	// типа, и разбор уезжал на слово вперёд.
+	member := regexp.MustCompile(`(?:public|internal|private|protected)\s+(?:static\s+|readonly\s+|const\s+|async\s+|override\s+|virtual\s+|sealed\s+|event\s+|delegate\s+)*[\w<>\[\],.?]+\s+(\w+)\s*(?:<[^>]*>)?\s*[\(\{;=]`)
 	tupleMember := regexp.MustCompile(`(?:public|internal|private|protected)\s+(?:static\s+)?\([^)]*\)\s+(\w+)\s*[\(\{]`)
 	members := map[string]map[string]bool{}
 	// Части имён файлов: карта законно зовёт партиал («BrowseHub.Feed»,

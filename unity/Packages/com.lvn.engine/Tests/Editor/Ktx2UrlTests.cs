@@ -42,5 +42,38 @@ namespace Lvn.Tests
         public void ЧужоеОстаётсяНаОбычномПути(string url)
             => Assert.IsNull(ContentLoader.Ktx2UrlFor(url),
                 "мелкий арт, скины и не-картинки кодом для видеокарты не показываются");
+
+        /// <summary>
+        /// КРОШКА-ЗАГОТОВКА ЖИВЁТ РАСТРОМ — И ЭТО РЕШЕНИЕ, А НЕ НЕДОРАБОТКА.
+        ///
+        /// <para>@mini показывают, пока едет крупный арт: весь её смысл в том,
+        /// чтобы появиться мгновенно. Кода ей не собирают нигде — ни прогрев,
+        /// ни ленивый тракт, — а растрового пути у арта истории нет. Попроси
+        /// показ код для крошки, и вместо мгновенной заготовки получится 7.5 с
+        /// ожидания того, чего не будет, и пустое место после них.</para>
+        ///
+        /// <para>Правило пришло не отсюда: исключения наследовались от
+        /// уменьшителя, через который проходил каждый адрес. Стоило пропустить
+        /// уменьшитель для адреса, уже несущего ступень, — и они ушли вместе с
+        /// ним, молча.</para>
+        /// </summary>
+        [TestCase("/content/sprites/hill/body_west@mini.png")]
+        [TestCase("/content/bg/room@mini.jpg")]
+        [TestCase("/content/ui/panel@2k.png")]
+        [TestCase("/content/pixel/tile@1440.png")]
+        public void РастровыйПоУмыслуКодаНеПросит(string url)
+            => Assert.IsNull(ContentLoader.Ktx2UrlFor(url),
+                "попросили код у того, кому его нарочно не собирают: "
+                + "показ встанет на 7.5 с и не покажет ничего");
+
+        /// <summary>Тот же список, спрошенный у дома напрямую: ступень сама по
+        /// себе кода не отменяет — отменяет только вид арта.</summary>
+        [TestCase("/content/sprites/hill/body@1440.png", true)]
+        [TestCase("/content/bg/room.jpg", true)]
+        [TestCase("/content/bg/room@mini.jpg", false)]
+        [TestCase("/content/ui/panel.png", false)]
+        [TestCase("/content/pixel/tile.png", false)]
+        public void ДомЗнаетКомуПоложенКод(string url, bool положен)
+            => Assert.AreEqual(положен, DownloadPolicy.CodedArt(url));
     }
 }
