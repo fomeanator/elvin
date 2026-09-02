@@ -192,7 +192,22 @@ func TestMapManifestPathsExist(t *testing.T) {
 // экземпляров он не видит, а район состоит в основном из них.
 func TestWorldDistrictIsFullyMapped(t *testing.T) {
 	root := repoRoot(t)
-	canon := string(mustRead(t, filepath.Join(root, "docs", "where-things-live.md")))
+	// ИМЕНА ИЗ ПЕРВОЙ КОЛОНКИ, а не из всего текста. Упоминание дома внутри
+	// ЧУЖОЙ строки — не строка о нём: так `TitleCarousel` числился на карте,
+	// потому что его имя встретилось в объяснении соседа, а своей строки у
+	// него не было. Проверка «имя где-то есть» отвечала на другой вопрос.
+	var named []string
+	for _, line := range strings.Split(string(mustRead(t, filepath.Join(root, "docs", "where-things-live.md"))), "\n") {
+		if !strings.HasPrefix(line, "| ") {
+			continue
+		}
+		cells := strings.Split(line, "|")
+		if len(cells) < 2 {
+			continue
+		}
+		named = append(named, cells[1])
+	}
+	canon := strings.Join(named, "\n")
 	// Закрытые районы. Оболочка и Content ещё не закрыты — их числа записаны в
 	// хронике; храповик добавляет район сюда, когда тот дочитан до конца.
 	dirs := []string{
