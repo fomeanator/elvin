@@ -793,33 +793,59 @@ namespace Lvn
         // Dotted keys are NESTED paths (Way.Moral → Vars["Way"]["Moral"]) — the
         // declaration must probe and remove the same way SetVarPath writes, or
         // a default would stomp nested progress on every chapter entry.
-        private bool HasVarPath(string key)
+        /// <summary>
+        /// ПУТЬ ПЕРЕМЕННОЙ — ОДИН ОБХОД НА ЧЕТЫРЕ РАБОТЫ.
+        ///
+        /// <para>«Есть ли», «взять», «убрать», «записать» ходили по <c>a.b.c</c>
+        /// каждый своим кодом — четыре копии одного обхода. Копии уже успели
+        /// разойтись в мелочи, которая стоит главы: пустой ключ терпело только
+        /// «взять», остальные три на нём падали исключением ПРЯМО ИЗ ШАГА
+        /// истории. Путь этот АВТОРСКИЙ (<c>global.stats.wins</c>), и
+        /// расхождение здесь значит «записал, а „есть ли“ не видит».</para>
+        ///
+        /// <para>Возвращает держателя последнего звена и его имя.
+        /// <c>holder == null</c> — ключ плоский, держатель сам словарь
+        /// переменных. <paramref name="create"/> заводит недостающие звенья по
+        /// дороге; без него отсутствующее звено — это «нет пути».</para>
+        /// </summary>
+        private bool WalkVarPath(string key, bool create, out JObject holder, out string leaf)
         {
+            holder = null;
+            leaf = null;
+            if (string.IsNullOrEmpty(key)) return false;
+
             int dot = key.IndexOf('.');
-            if (dot < 0) return Vars.ContainsKey(key);
-            if (!Vars.TryGetValue(key.Substring(0, dot), out var t) || !(t is JObject cur))
-                return false;
+            if (dot < 0) { leaf = key; return true; }   // плоский ключ: держатель — Vars
+
+            var root = key.Substring(0, dot);
+            JObject node;
+            if (Vars.TryGetValue(root, out var t) && t is JObject o) node = o;
+            else if (create) node = new JObject();
+            else return false;
+
             var segs = key.Substring(dot + 1).Split('.');
+            var cur = node;
             for (int i = 0; i < segs.Length - 1; i++)
             {
-                if (!(cur[segs[i]] is JObject next)) return false;
-                cur = next;
+                if (cur[segs[i]] is JObject next) cur = next;
+                else if (create) { var made = new JObject(); cur[segs[i]] = made; cur = made; }
+                else return false;
             }
-            return cur[segs[segs.Length - 1]] != null;
+            if (create) Vars[root] = node;   // корень мог быть заведён только что
+            holder = cur;
+            leaf = segs[segs.Length - 1];
+            return true;
         }
+
+        private bool HasVarPath(string key)
+            => WalkVarPath(key, false, out var holder, out var leaf)
+               && (holder == null ? Vars.ContainsKey(leaf) : holder[leaf] != null);
 
         private void RemoveVarPath(string key)
         {
-            int dot = key.IndexOf('.');
-            if (dot < 0) { Vars.Remove(key); return; }
-            if (!Vars.TryGetValue(key.Substring(0, dot), out var t) || !(t is JObject cur)) return;
-            var segs = key.Substring(dot + 1).Split('.');
-            for (int i = 0; i < segs.Length - 1; i++)
-            {
-                if (!(cur[segs[i]] is JObject next)) return;
-                cur = next;
-            }
-            cur.Remove(segs[segs.Length - 1]);
+            if (!WalkVarPath(key, false, out var holder, out var leaf)) return;
+            if (holder == null) Vars.Remove(leaf);
+            else holder.Remove(leaf);
         }
 
         // ── internals ────────────────────────────────────────────────────────
@@ -993,19 +1019,9 @@ namespace Lvn
         // key is a direct Vars lookup; a missing segment reads as null.
         private JToken GetVarPath(string key)
         {
-            if (string.IsNullOrEmpty(key)) return null;
-            int dot = key.IndexOf('.');
-            if (dot < 0) return Vars.TryGetValue(key, out var flat) ? flat : null;
-            if (!Vars.TryGetValue(key.Substring(0, dot), out var rootTok) || !(rootTok is JObject node))
-                return null;
-            JToken cur = node;
-            foreach (var seg in key.Substring(dot + 1).Split('.'))
-            {
-                if (!(cur is JObject o)) return null;
-                cur = o[seg];
-                if (cur == null) return null;
-            }
-            return cur;
+            if (!WalkVarPath(key, false, out var holder, out var leaf)) return null;
+            if (holder != null) return holder[leaf];
+            return Vars.TryGetValue(leaf, out var flat) ? flat : null;
         }
 
         /// <summary>Set a story variable from host code exactly as the `set` op does
@@ -1027,19 +1043,9 @@ namespace Lvn
         private void SetVarPath(string key, JToken value)
         {
             value ??= JValue.CreateNull();
-            int dot = key.IndexOf('.');
-            if (dot < 0) { Vars[key] = value; return; }
-            var root = key.Substring(0, dot);
-            var node = Vars.TryGetValue(root, out var t) && t is JObject o ? o : new JObject();
-            var segs = key.Substring(dot + 1).Split('.');
-            var cur = node;
-            for (int i = 0; i < segs.Length - 1; i++)
-            {
-                if (!(cur[segs[i]] is JObject next)) { next = new JObject(); cur[segs[i]] = next; }
-                cur = next;
-            }
-            cur[segs[segs.Length - 1]] = value;
-            Vars[root] = node;
+            if (!WalkVarPath(key, true, out var holder, out var leaf)) return;
+            if (holder == null) Vars[leaf] = value;
+            else holder[leaf] = value;
         }
 
         // Tolerant boolean read: malformed content (a string "да", null) degrades to
