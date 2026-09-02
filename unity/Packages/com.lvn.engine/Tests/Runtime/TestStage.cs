@@ -70,6 +70,28 @@ namespace Lvn.Tests
             rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
         }
 
+        /// <summary>НАЖАТЬ КНОПКУ — обработчик, подписанный на её
+        /// <c>Clickable</c>.
+        ///
+        /// <para>Тот же приём, что у редакторных тестов, но живёт он ЗДЕСЬ:
+        /// PlayMode — отдельная сборка, и дотянуться до редакторного дома
+        /// нельзя. Копия при этом остаётся копией по смыслу, и разойдись они —
+        /// один и тот же тап проверялся бы по-разному в двух прогонах.</para>
+        ///
+        /// <para>Возвращаем обработчика, а не жмём сами: пиксельным тестам
+        /// случается нажать дважды подряд или проверить, что подписчика
+        /// НЕТ.</para></summary>
+        public static System.Action Press(UnityEngine.UIElements.Button b)
+        {
+            if (b == null) return null;
+            foreach (var f in typeof(UnityEngine.UIElements.Clickable).GetFields(
+                         System.Reflection.BindingFlags.Instance |
+                         System.Reflection.BindingFlags.NonPublic |
+                         System.Reflection.BindingFlags.Public))
+                if (f.GetValue(b.clickable) is System.Action a) return a;
+            return null;
+        }
+
         /// <summary>Отвязать и снести камеру вместе с её текстурой.</summary>
         public static void Drop(Camera cam)
         {

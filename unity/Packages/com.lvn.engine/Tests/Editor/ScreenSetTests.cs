@@ -193,7 +193,7 @@ namespace Lvn.Tests
 
         // ── НАБОР ОБОЛОЧКИ: НАКРЫТЫ ЛИ ИМ ВСЕ ЭКРАНЫ ────────────────────────
 
-        private readonly List<GameObject> _мусор = new List<GameObject>();
+        private readonly Мусор _мусор = new Мусор();
         private readonly ОдолженнаяТема _тема = new ОдолженнаяТема();
 
         [SetUp]
@@ -203,8 +203,7 @@ namespace Lvn.Tests
         public void Прибрать()
         {
             _тема.Вернуть();   // хаб выбирает тему на сборке — вернём чужим тестам их
-            foreach (var go in _мусор) if (go != null) UnityEngine.Object.DestroyImmediate(go);
-            _мусор.Clear();
+            _мусор.Убрать();
         }
 
         /// <summary>Оболочка со ВСЕМИ экранами: авторизацию и конец главы
@@ -212,7 +211,7 @@ namespace Lvn.Tests
         private NovelShell Оболочка(ILvnAssets assets)
         {
             var shell = NovelShell.Create();
-            _мусор.Add(shell.gameObject);
+            _мусор.Беречь(shell.gameObject);
             shell.Build(new LvnManifest
             {
                 ui = new LvnUiConfig

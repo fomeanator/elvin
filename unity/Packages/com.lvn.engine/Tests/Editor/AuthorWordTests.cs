@@ -51,8 +51,7 @@ namespace Lvn.Tests
         public void ЗабытьЖалобыПосле()
         {
             LvnAuthorWord.ForgetComplaints();
-            foreach (var go in _мусор) if (go != null) UnityEngine.Object.DestroyImmediate(go);
-            _мусор.Clear();
+            _мусор.Убрать();
             _тема.Вернуть();
         }
 
@@ -346,7 +345,7 @@ namespace Lvn.Tests
 
         // ── ПОТРЕБИТЕЛЬ: РЕЖИМ ИГРОВОГО HUD ─────────────────────────────────
 
-        private readonly List<GameObject> _мусор = new List<GameObject>();
+        private readonly Мусор _мусор = new Мусор();
         private readonly ОдолженнаяТема _тема = new ОдолженнаяТема();
 
         /// <summary>Оболочка с заданным режимом HUD. Тема запоминается: хаб
@@ -356,7 +355,7 @@ namespace Lvn.Tests
         {
             _тема.Взять();   // лениво: тему меняет сама сборка оболочки
             var shell = NovelShell.Create();
-            _мусор.Add(shell.gameObject);
+            _мусор.Беречь(shell.gameObject);
             shell.Build(new LvnManifest
             {
                 ui = new LvnUiConfig { hud = безРаздела ? null : new HudConfig { mode = режим } },

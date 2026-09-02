@@ -118,7 +118,7 @@ namespace Lvn.Tests
 
         // ── ОБОЛОЧКА СОБИРАЕТСЯ ЗАНОВО ──────────────────────────────────────
 
-        private readonly List<GameObject> _мусор = new List<GameObject>();
+        private readonly Мусор _мусор = new Мусор();
         private readonly ОдолженнаяТема _тема = new ОдолженнаяТема();
 
         [SetUp]
@@ -128,8 +128,7 @@ namespace Lvn.Tests
         public void Прибрать()
         {
             _тема.Вернуть();   // хаб выбирает тему на сборке — вернём чужим тестам их
-            foreach (var go in _мусор) if (go != null) UnityEngine.Object.DestroyImmediate(go);
-            _мусор.Clear();
+            _мусор.Убрать();
         }
 
         private static LvnManifest Манифест() => new LvnManifest
@@ -144,7 +143,7 @@ namespace Lvn.Tests
         private NovelShell Оболочка()
         {
             var shell = NovelShell.Create();
-            _мусор.Add(shell.gameObject);
+            _мусор.Беречь(shell.gameObject);
             shell.Build(Манифест(), new TestAssets());
             return shell;
         }
