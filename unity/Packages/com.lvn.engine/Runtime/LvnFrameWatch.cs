@@ -51,15 +51,28 @@ namespace Lvn
         public static int Hitches => _hitches;
         public static int WorstMs => (int)(_worst * 1000f);
 
-        /// <summary>Кадр прожит. <paramref name="note"/> — чем движок был занят;
-        /// спрашивается ТОЛЬКО когда кадр оказался рывком, чтобы обычный кадр не
-        /// платил за диагностику.</summary>
+        /// <summary>
+        /// ЧЕМ ЗАНЯТ ДВИЖОК — пояснение к запинке от того, кто это знает.
+        ///
+        /// <para>Кадры считает ОДНО место, живущее с первого кадра (наблюдатель
+        /// панели, см. LvnPanel). Сцена знает то, чего он не знает — сборки
+        /// скелетов в полёте, — и отдаёт это сюда, пока жива. Раньше сцена
+        /// считала кадры сама, и на витрине, где грузится полотно, счётчик
+        /// стоял: «кадр 0 мс» рядом с «wall=6451 мс» отвечал на другой вопрос.
+        /// Спрашивается ТОЛЬКО у запинки.</para>
+        /// </summary>
+        public static System.Func<string> Busy { get; set; }
+
+        /// <summary>Кадр прожит. <paramref name="note"/> — чем движок был занят
+        /// (по умолчанию — <see cref="Busy"/>); спрашивается ТОЛЬКО когда кадр
+        /// оказался рывком, чтобы обычный кадр не платил за диагностику.</summary>
         public static void Frame(float dt, int frameCount, System.Func<string> note = null)
         {
             LastFrameMs = (int)(dt * 1000f);
             if (dt <= HitchSeconds || frameCount <= WarmupFrames) return;
             _hitches++;
             if (dt > _worst) _worst = dt;
+            note ??= Busy;
             LvnLog.Trace($"[lvn-perf] FRAME HITCH {(dt * 1000f):F0}ms at frame {frameCount}"
                                   + (note != null ? note() : ""));
         }

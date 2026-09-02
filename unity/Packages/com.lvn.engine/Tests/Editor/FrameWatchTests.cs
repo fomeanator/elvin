@@ -51,6 +51,23 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void ЗанятостьСпрашиваютУСчётчикаТолькоПриЗапинке()
+        {
+            // Сцена отдаёт пояснение счётчику, а кадры считает не она: значит
+            // без явного note счётчик обязан спросить Busy — и только у запинки.
+            int asked = 0;
+            LvnFrameWatch.Busy = () => { asked++; return " (busy)"; };
+            try
+            {
+                LvnFrameWatch.Frame(0.016f, 1000);
+                Assert.AreEqual(0, asked, "обычный кадр не платит за диагностику");
+                LvnFrameWatch.Frame(0.3f, 1000);
+                Assert.AreEqual(1, asked, "у запинки спрашивают, чем занят движок");
+            }
+            finally { LvnFrameWatch.Busy = null; }
+        }
+
+        [Test]
         public void ПояснениеСпрашиваютТолькоУЗапинки()
         {
             int asked = 0;

@@ -167,6 +167,13 @@ namespace Lvn.UI
 
             private void Update()
             {
+                // ПУЛЬС ОБОЛОЧКИ С ПЕРВОГО КАДРА. Наблюдатель рождается вместе с
+                // общими настройками панели — то есть с вуалью — и живёт до
+                // конца; кадры считает он, а не сцена (та на витрине ещё не
+                // родилась, и «кадр 0 мс» рядом с замером ожидания врал).
+                // Тик стоит ДО раннего выхода: размер экрана меняется редко,
+                // а кадр проживается всегда. Страж: TestFrameLengthIsMeasuredFromBoot.
+                Lvn.LvnFrameWatch.Frame(Time.unscaledDeltaTime, Time.frameCount);
                 if (Screen.width == _w && Screen.height == _h) return;
                 _w = Screen.width; _h = Screen.height;
                 float match = CurrentMatch;
