@@ -1,6 +1,7 @@
 package lvn
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -116,5 +117,60 @@ func TestMapExamplesNameRealMembers(t *testing.T) {
 			"старое имя; читатель не находит его и решает, что дом не умеет нужного, — и пишет\n"+
 			"своё. Так заводится второй дом рядом с первым.",
 			len(wrong), strings.Join(wrong, ", "))
+	}
+}
+
+// ПУТЬ МАНИФЕСТА В КАРТЕ ОБЯЗАН СУЩЕСТВОВАТЬ.
+//
+// Третья колонка карты называет АВТОРСКИЕ поля — то, что человек напишет в
+// манифесте, прочитав строку. Устаревшее имя тут стоит дороже устаревшего имени
+// метода: разработчик не найдёт метод и полезет в код, а автор напишет поле,
+// увидит, что ничего не изменилось, и решит, что не работает ВОЗМОЖНОСТЬ.
+//
+// Так и было 02.09: карта обещала `ui.dialogue.panel_sprite` (на деле
+// `panel_image`), `ui.dialogue.cps` (на деле `chars_per_second`) и
+// `ui.art_quality` — последнее вообще не поле манифеста, а настройка игрока.
+//
+// Сторожим только пути с приставкой `ui.` и без звёздочки: третья колонка
+// мешает поля манифеста с полями операций скрипта и тегами диагностики, и
+// судить обо всём подряд значило бы кусать верное.
+func TestMapManifestPathsExist(t *testing.T) {
+	root := repoRoot(t)
+	canon := string(mustRead(t, filepath.Join(root, "docs", "where-things-live.md")))
+
+	var schema map[string]map[string]string
+	if err := json.Unmarshal(manifestFieldsJSON, &schema); err != nil {
+		t.Fatalf("схема не читается: %v", err)
+	}
+	leaves := map[string]bool{}
+	for _, f := range schema {
+		for k := range f {
+			leaves[k] = true
+		}
+	}
+	sawSources(t, len(leaves), 100, "полей схемы")
+
+	path := regexp.MustCompile("`(ui\\.[\\w\\.]+)`")
+	seen, checked := map[string]bool{}, 0
+	var lost []string
+	for _, m := range path.FindAllStringSubmatch(canon, -1) {
+		p := m[1]
+		if seen[p] {
+			continue
+		}
+		seen[p] = true
+		checked++
+		parts := strings.Split(p, ".")
+		if !leaves[parts[len(parts)-1]] {
+			lost = append(lost, p)
+		}
+	}
+	sawSources(t, checked, 20, "путей манифеста в карте")
+	sort.Strings(lost)
+	if len(lost) > 0 {
+		t.Errorf("карта называет поля манифеста, которых нет (%d):\n  %s\n\n"+
+			"Автор напишет такое поле, увидит, что ничего не изменилось, и решит, "+
+			"что не работает возможность. Сверьтесь со схемой (lvn/manifest-fields.json).",
+			len(lost), strings.Join(lost, "\n  "))
 	}
 }
