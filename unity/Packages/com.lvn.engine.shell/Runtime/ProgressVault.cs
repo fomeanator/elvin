@@ -162,7 +162,7 @@ namespace Lvn.UI.Screens
                 Lvn.Content.ContentLoader.AtomicWriteAllText(
                     FilePath, bundle.ToString(Newtonsoft.Json.Formatting.None));
             }
-            catch (Exception e) { Debug.LogWarning("[vault] local write failed: " + e.Message); }
+            catch (Exception e) { Debug.LogWarning("[lvn-vault] local write failed: " + e.Message); }
         }
 
         /// <summary>Снести локальный сейф: игрок попросил себя забыть, а сейф —
@@ -171,7 +171,7 @@ namespace Lvn.UI.Screens
         public static void Forget()
         {
             try { if (System.IO.File.Exists(FilePath)) System.IO.File.Delete(FilePath); }
-            catch (Exception e) { Debug.LogWarning("[vault] local wipe failed: " + e.Message); }
+            catch (Exception e) { Debug.LogWarning("[lvn-vault] local wipe failed: " + e.Message); }
         }
 
         public static JObject ReadLocal()
@@ -264,7 +264,7 @@ namespace Lvn.UI.Screens
                                         LvnWardrobe.MarkSeen(prop.Name, a.Name, (string)v);
                     }
             }
-            catch (Exception e) { Debug.LogWarning("[vault] apply failed: " + e.Message); }
+            catch (Exception e) { Debug.LogWarning("[lvn-vault] apply failed: " + e.Message); }
         }
     }
 }

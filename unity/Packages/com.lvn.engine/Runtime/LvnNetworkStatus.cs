@@ -44,7 +44,7 @@ namespace Lvn
             // Log the transition with its cause — the single most useful breadcrumb
             // when chasing "why did we go offline?" in the field.
             if (!string.IsNullOrEmpty(reason))
-                LvnLog.Info($"[net] {(online ? "online" : "offline")}: {reason}");
+                LvnLog.Info($"[lvn-net] {(online ? "online" : "offline")}: {reason}");
             try { Changed?.Invoke(online); } catch { /* a bad subscriber must not break status */ }
         }
     }

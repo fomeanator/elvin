@@ -178,7 +178,7 @@ namespace Lvn.Content
                 await Task.WhenAll(warm);
             }
             catch (OperationCanceledException) { throw; }
-            catch (Exception ex) { Debug.LogWarning($"[downloads] menu refresh skipped: {ex.Message}"); }
+            catch (Exception ex) { Debug.LogWarning($"[lvn-downloads] menu refresh skipped: {ex.Message}"); }
         }
 
         // ── Phase 3: chapter entry ────────────────────────────────────────────
@@ -248,7 +248,7 @@ namespace Lvn.Content
                     n++;
                 }
             }
-            LvnLog.Trace($"[downloads] next chapter '{next.id}' prefetch: {n} required file(s)");
+            LvnLog.Trace($"[lvn-downloads] next chapter '{next.id}' prefetch: {n} required file(s)");
         }
 
         /// <summary>The chapter the shell should auto-continue into after

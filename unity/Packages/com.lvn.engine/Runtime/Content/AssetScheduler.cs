@@ -195,7 +195,7 @@ namespace Lvn.Content
             catch (OperationCanceledException) { /* replanned or shutting down */ }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[scheduler] run failed: {ex.Message}");
+                Debug.LogWarning($"[lvn-scheduler] run failed: {ex.Message}");
             }
         }
 
@@ -247,7 +247,7 @@ namespace Lvn.Content
             {
                 // ContentLoader already retried/gave up; log and move on so the
                 // phase can complete (a dead asset can't block Play forever).
-                Debug.LogWarning($"[scheduler] {item.Url} not fetched: {ex.Message}");
+                Debug.LogWarning($"[lvn-scheduler] {item.Url} not fetched: {ex.Message}");
             }
             finally
             {

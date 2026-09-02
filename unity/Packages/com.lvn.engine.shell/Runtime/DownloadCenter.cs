@@ -92,7 +92,7 @@ namespace Lvn.UI.Screens
                     bool cancelled = false;
                     try { await _loader.StartPreloadBatch(e.Items, _entryCts.Token); }
                     catch (OperationCanceledException) { cancelled = true; }
-                    catch (Exception ex) { Debug.LogWarning($"[dl-center] {e.Label}: {ex.Message}"); }
+                    catch (Exception ex) { Debug.LogWarning($"[lvn-dl-center] {e.Label}: {ex.Message}"); }
                     _entryCts.Dispose();
                     _entryCts = null;
                     _queue.Remove(e);

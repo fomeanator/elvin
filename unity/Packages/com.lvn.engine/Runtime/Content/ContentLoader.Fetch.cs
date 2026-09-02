@@ -151,13 +151,13 @@ namespace Lvn.Content
                                                 CancellationToken ct, string what = null)
         {
             float pause = LvnBackoff.DelaySeconds(attempt);
-            Debug.LogWarning($"[content] {what}{url} attempt {attempt} failed, retry in {pause:F1}s: {why}");
+            Debug.LogWarning($"[lvn-content] {what}{url} attempt {attempt} failed, retry in {pause:F1}s: {why}");
             await RetryPauseAsync(pause, ct);
         }
 
         /// <summary>СДАЛИСЬ — тоже одной строкой.</summary>
         private static void NoteGaveUp(string url, int attempts, string why, string what = null)
-            => Debug.LogWarning($"[content] {what}{url} gave up after {attempts} attempts: {why}");
+            => Debug.LogWarning($"[lvn-content] {what}{url} gave up after {attempts} attempts: {why}");
 
         private Task RetryPauseAsync(float seconds, CancellationToken ct)
             => !Reachable
@@ -414,7 +414,7 @@ namespace Lvn.Content
                         if (whole != null && want != null && Sha256Matches(whole, want))
                         {
                             // Файл целиком у нас — не хватало переименования.
-                            LvnLog.Trace($"[content] {url}: кусок уже полон — забираем его без сети");
+                            LvnLog.Trace($"[lvn-content] {url}: кусок уже полон — забираем его без сети");
                             lock (_underway)
                             {
                                 var done = Progress(url);
@@ -430,7 +430,7 @@ namespace Lvn.Content
                         // файла — хвост от прошлой версии. Начинаем с нуля;
                         // следующий заход пойдёт без Range и повториться не
                         // сможет.
-                        Debug.LogWarning($"[content] {url}: кусок не сходится с сервером — качаем заново");
+                        Debug.LogWarning($"[lvn-content] {url}: кусок не сходится с сервером — качаем заново");
                         LvnQuiet.Try(() => File.Delete(partPath));
                         // «Забыть ожидаемое» и «обнулить» для суммы одно и то же —
                         // и теперь это видно, а не спрятано в разных вызовах.
@@ -577,7 +577,7 @@ namespace Lvn.Content
                 first = !_notFound.ContainsKey(url);
                 _notFound[url] = Lvn.LvnClock.Wall();
             }
-            if (first) LvnLog.Warn($"[content] {url} permanent {status} (silenced for this session)");
+            if (first) LvnLog.Warn($"[lvn-content] {url} permanent {status} (silenced for this session)");
         }
 
         // Retries with exponential backoff until the asset arrives or the token

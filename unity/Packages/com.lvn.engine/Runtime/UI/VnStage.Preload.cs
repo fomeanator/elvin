@@ -131,7 +131,7 @@ namespace Lvn.UI
         {
             try { await Assets.Preload3DSetAsync(id, _cts.Token); }
             catch (OperationCanceledException) { }   // предзагрузка — не обязательство: не вышло, загрузим по месту
-            catch (Exception e) { Debug.LogWarning($"[preload] 3D set '{id}': {e.Message}"); }
+            catch (Exception e) { Debug.LogWarning($"[lvn-preload] 3D set '{id}': {e.Message}"); }
         }
 
         /// <summary>Gate chapter entry only on the first upcoming 3D set. Unlike

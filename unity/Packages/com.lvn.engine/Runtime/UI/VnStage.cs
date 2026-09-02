@@ -278,7 +278,7 @@ namespace Lvn.UI
             // хотя кнопку формы даже пометили нажимаемой (VnStage.Input).
             // Пометка была, слушателя не было.
             LvnMotion.EnableTapFeedback(root);
-            LvnPlayer.Log = m => LvnLog.Trace("[LVN] " + m); // full step trace to the console
+            LvnPlayer.Log = m => LvnLog.Trace("[lvn] " + m); // full step trace to the console
 
             if (Assets == null && !string.IsNullOrEmpty(ContentRoot))
                 Assets = new DirectoryAssets(ContentRoot);

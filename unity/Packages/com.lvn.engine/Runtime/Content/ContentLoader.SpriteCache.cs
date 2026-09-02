@@ -50,7 +50,7 @@ namespace Lvn.Content
             if (clamped != SpriteCacheBudgetBytes)
             {
                 SpriteCacheBudgetBytes = clamped;
-                LvnLog.Info($"[content] бюджет спрайт-кэша: {clamped >> 20} МБ (RAM устройства {mb} МБ)");
+                LvnLog.Info($"[lvn-content] бюджет спрайт-кэша: {clamped >> 20} МБ (RAM устройства {mb} МБ)");
             }
         }
 
@@ -63,7 +63,7 @@ namespace Lvn.Content
             lock (_spriteCache)
                 victims = EvictToLocked(SpriteCacheBudgetBytes / 2, graceSeconds: 0f);
             foreach (var v in victims) DestroySprite(v.Sprite);
-            Debug.LogWarning($"[content] lowMemory: сброшено {victims.Count} спрайтов, живо {_spriteBytes >> 20} МБ");
+            Debug.LogWarning($"[lvn-content] lowMemory: сброшено {victims.Count} спрайтов, живо {_spriteBytes >> 20} МБ");
         }
 
         internal Sprite CacheSpriteForTest(string url, Sprite sprite, long bytes)

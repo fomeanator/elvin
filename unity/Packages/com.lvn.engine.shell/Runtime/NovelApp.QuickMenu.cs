@@ -408,7 +408,7 @@ namespace Lvn.UI.Screens
                     _shell.Leaderboard.Rebuild();
                 }
             }
-            catch (Exception ex) { Debug.LogWarning($"[novelapp] рейтинг не приехал: {ex.Message}"); }
+            catch (Exception ex) { Debug.LogWarning($"[lvn-app] рейтинг не приехал: {ex.Message}"); }
             await _shell.OpenLeaderboardAsync();
         }
 
@@ -431,7 +431,7 @@ namespace Lvn.UI.Screens
                     var st = await Lvn.Services.LvnDaily.GetAsync();
                     if (st != null) _shell.Daily.SetStatus(st.Streak, st.ClaimedToday);
                 }
-                catch (Exception ex) { Debug.LogWarning($"[novelapp] серия наград: {ex.Message}"); }
+                catch (Exception ex) { Debug.LogWarning($"[lvn-app] серия наград: {ex.Message}"); }
             }
             await _shell.OpenDailyAsync();
         }
@@ -440,9 +440,9 @@ namespace Lvn.UI.Screens
         {
             bool ok = false;
             try { ok = await Lvn.Services.LvnDaily.ClaimAsync(); }
-            catch (Exception ex) { Debug.LogWarning($"[novelapp] ежедневная награда: {ex.Message}"); }
+            catch (Exception ex) { Debug.LogWarning($"[lvn-app] ежедневная награда: {ex.Message}"); }
             if (ok) return;
-            Debug.LogWarning($"[novelapp] день {day}: награда не начислена");
+            Debug.LogWarning($"[lvn-app] день {day}: награда не начислена");
             if (_shell != null)
                 await _shell.AlertAsync(
                     Lvn.Content.LvnWords.Of("daily.failed_title", "Reward not claimed"),
@@ -519,11 +519,11 @@ namespace Lvn.UI.Screens
 #else
                 // iOS требует пакет Mobile Notifications — подключим, когда
                 // появится iOS-сборка; в редакторе и на десктопе просить нечего.
-                LvnLog.Trace("[novelapp] push_ask: платформа без запроса — пропускаю");
+                LvnLog.Trace("[lvn-app] push_ask: платформа без запроса — пропускаю");
                 await Task.CompletedTask;
 #endif
             }
-            catch (Exception ex) { Debug.LogWarning($"[novelapp] push_ask: {ex.Message}"); }
+            catch (Exception ex) { Debug.LogWarning($"[lvn-app] push_ask: {ex.Message}"); }
         }
     }
 }

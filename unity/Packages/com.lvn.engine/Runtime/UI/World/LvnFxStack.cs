@@ -319,7 +319,7 @@ namespace Lvn.UI.World
             Advance();
             if (_slot.Missing || !Active)
             {
-                if (_slot.Missing) Debug.LogWarning("[LvnFx] шейдер LvnFx не найден/не поддержан — эффекты выключены");
+                if (_slot.Missing) Debug.LogWarning("[lvn-fx] шейдер LvnFx не найден/не поддержан — эффекты выключены");
                 Graphics.Blit(src, dst);
                 if (!Active) enabled = false; // всё выключено — не платим за хук
                 return;

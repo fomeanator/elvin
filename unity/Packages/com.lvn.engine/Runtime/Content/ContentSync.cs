@@ -110,7 +110,7 @@ namespace Lvn.Content
                 if (changed)
                 {
                     try { OnChanged?.Invoke(); }
-                    catch (Exception ex) { UnityEngine.Debug.LogWarning($"[sync] handler failed: {ex.Message}"); }
+                    catch (Exception ex) { UnityEngine.Debug.LogWarning($"[lvn-sync] handler failed: {ex.Message}"); }
                 }
                 try { await Task.Delay(Math.Max(250, (int)(IntervalSeconds * 1000f)), ct); }
                 catch (OperationCanceledException) { break; }

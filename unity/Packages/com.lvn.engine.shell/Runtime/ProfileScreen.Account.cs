@@ -111,7 +111,7 @@ namespace Lvn.UI.Screens
         {
             bool ok = false;
             try { ok = await OnDeleteAccount(); }
-            catch (Exception e) { Debug.LogWarning($"[profile] удаление аккаунта: {e.Message}"); }
+            catch (Exception e) { Debug.LogWarning($"[lvn-profile] удаление аккаунта: {e.Message}"); }
             if (ok) { Close(); return; }
             btn.SetEnabled(true);
             btn.style.backgroundColor = LvnTokens.Faint;

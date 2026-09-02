@@ -205,7 +205,7 @@ namespace Lvn.Content
                 UnityEngine.Object.Destroy(result.texture);
                 bool honest = c.r > 0.5f && c.g < 0.3f && c.b < 0.3f; // the probe is solid red
                 if (!honest)
-                    Debug.LogWarning($"[content] ktx2 disabled for this session: GPU claims support but sampled the probe as {c} (emulator?) — falling back to PNG/JPG");
+                    Debug.LogWarning($"[lvn-content] ktx2 disabled for this session: GPU claims support but sampled the probe as {c} (emulator?) — falling back to PNG/JPG");
                 _gpuHonest = honest;
                 return honest;
             }
@@ -306,7 +306,7 @@ namespace Lvn.Content
                 // Один битый файл ≠ сломанный транскодер: помечаем файл, тракт
                 // живёт; серию подряд добьёт общий счётчик промахов. Битые
                 // байты выбрасываются из кэша — перекачаются целыми.
-                Debug.LogWarning($"[content] ktx2 decode failed for {ktx2Url}: {ex.Message}");
+                Debug.LogWarning($"[lvn-content] ktx2 decode failed for {ktx2Url}: {ex.Message}");
                 DeleteCachedAsset(ktx2Url);
                 NoteKtx2Miss(ktx2Url);
                 return (null, 0);
