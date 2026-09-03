@@ -43,7 +43,14 @@ func (s *AdminService) handleLogin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "слишком много неудачных попыток входа — подождите", http.StatusTooManyRequests)
 		return
 	}
+	// Очередь на дорогую проверку: она и есть защита ядра (см. loginWork).
+	if !takeLoginSlot() {
+		w.Header().Set("Retry-After", "2")
+		http.Error(w, "сервер занят проверкой входов — повторите", http.StatusTooManyRequests)
+		return
+	}
 	secret, role, err := s.users.Login(body.Login, body.Password)
+	freeLoginSlot()
 	if err != nil {
 		s.logins.fail(peer)
 		// Одна и та же формулировка на неверный логин и неверный пароль:
