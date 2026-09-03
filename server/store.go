@@ -115,6 +115,111 @@ var migrations = []string{
 	CREATE INDEX IF NOT EXISTS feedback_ts ON feedback(ts DESC);
 	CREATE INDEX IF NOT EXISTS feedback_build ON feedback(build);
 	`,
+	// 3. КОШЕЛЬКИ. До сих пор они лежали файлом на игрока, и это стоило трёх
+	// вещей сразу.
+	//
+	// Первая и главная: ИСТОРИЯ ОБРЕЗАЛАСЬ. Файл держал последние сто записей,
+	// потому что иначе рос без предела, — а по этой же истории считаются
+	// выплаты авторам и отчёты о деньгах. У активного игрока покупки полугодовой
+	// давности просто исчезали, и восстановить их было неоткуда. Здесь журнал
+	// растёт строками, ответ игроку по-прежнему несёт последние сто.
+	//
+	// Вторая: любой отчёт о покупках читал ВСЕ файлы целиком (четыре отчёта
+	// делают это на каждое открытие вкладки). Строка с индексом отвечает на тот
+	// же вопрос запросом.
+	//
+	// Третья: правка баланса — это чтение, изменение и запись трёх карт разом.
+	// Файл даёт атомарность только целиком; сделка базы даёт её по-настоящему,
+	// и деньги, метка идемпотентности и запись в журнале ложатся вместе или
+	// не ложатся вовсе.
+	//
+	// Идемпотентность и защита от повторной выдачи по чеку становятся тем, чем
+	// они и были по смыслу, — ПЕРВИЧНЫМИ КЛЮЧАМИ: повтор невозможен не потому,
+	// что мы его заметили, а потому что база его не примет.
+	`
+	CREATE TABLE IF NOT EXISTS wallets (
+		user_id  TEXT PRIMARY KEY,
+		version  INTEGER NOT NULL DEFAULT 0
+	);
+	CREATE TABLE IF NOT EXISTS wallet_balances (
+		user_id   TEXT NOT NULL,
+		currency  TEXT NOT NULL,
+		amount    INTEGER NOT NULL DEFAULT 0,
+		-- Момент, с которого отсчитывается восполнение. Ноль значит «часы
+		-- стоят»: баланс на потолке или выше.
+		anchor    INTEGER NOT NULL DEFAULT 0,
+		PRIMARY KEY (user_id, currency)
+	);
+	CREATE TABLE IF NOT EXISTS wallet_inventory (
+		user_id  TEXT NOT NULL,
+		sku      TEXT NOT NULL,
+		count    INTEGER NOT NULL DEFAULT 0,
+		PRIMARY KEY (user_id, sku)
+	);
+	CREATE TABLE IF NOT EXISTS wallet_ledger (
+		id        INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id   TEXT NOT NULL,
+		ts        TEXT NOT NULL,
+		type      TEXT NOT NULL,
+		currency  TEXT NOT NULL DEFAULT '',
+		amount    INTEGER NOT NULL DEFAULT 0,
+		sku       TEXT NOT NULL DEFAULT '',
+		reason    TEXT NOT NULL DEFAULT '',
+		title     TEXT NOT NULL DEFAULT '',
+		author    TEXT NOT NULL DEFAULT ''
+	);
+	CREATE INDEX IF NOT EXISTS wallet_ledger_user ON wallet_ledger(user_id, id DESC);
+	CREATE INDEX IF NOT EXISTS wallet_ledger_type ON wallet_ledger(type, id DESC);
+	CREATE TABLE IF NOT EXISTS wallet_ops (
+		user_id  TEXT NOT NULL,
+		op_id    TEXT NOT NULL,
+		ts       TEXT NOT NULL DEFAULT '',
+		PRIMARY KEY (user_id, op_id)
+	);
+	CREATE TABLE IF NOT EXISTS wallet_receipts (
+		user_id  TEXT NOT NULL,
+		txn      TEXT NOT NULL,
+		ts       TEXT NOT NULL DEFAULT '',
+		PRIMARY KEY (user_id, txn)
+	);
+	`,
+	// 4. Остальное состояние игрока: таблицы лидеров, ежедневная награда и
+	// счёт просмотров рекламы. Переезжают следом за кошельком по одной
+	// причине: это ОДНО состояние одного игрока, и держать его в двух местах
+	// значит иметь два ответа на «что у него есть» — с разной надёжностью,
+	// разными правилами записи и разными бэкапами.
+	//
+	// Аналитика и дневники клиента сюда НЕ переезжают намеренно: это поток
+	// событий, а не состояние. Их пишут пачками, читают диапазоном по времени
+	// и никогда не правят — файлу это подходит лучше, чем строке.
+	`
+	CREATE TABLE IF NOT EXISTS leaderboard (
+		board    TEXT NOT NULL,
+		user_id  TEXT NOT NULL,
+		name     TEXT NOT NULL DEFAULT '',
+		score    INTEGER NOT NULL DEFAULT 0,
+		updated  TEXT NOT NULL DEFAULT '',
+		PRIMARY KEY (board, user_id)
+	);
+	CREATE INDEX IF NOT EXISTS leaderboard_top ON leaderboard(board, score DESC);
+	CREATE TABLE IF NOT EXISTS daily_claims (
+		user_id     TEXT PRIMARY KEY,
+		last_claim  TEXT NOT NULL DEFAULT '',
+		streak      INTEGER NOT NULL DEFAULT 0
+	);
+	CREATE TABLE IF NOT EXISTS ad_users (
+		user_id  TEXT PRIMARY KEY,
+		day      TEXT NOT NULL DEFAULT ''
+	);
+	CREATE TABLE IF NOT EXISTS ad_placements (
+		user_id    TEXT NOT NULL,
+		placement  TEXT NOT NULL,
+		count      INTEGER NOT NULL DEFAULT 0,
+		spent      INTEGER NOT NULL DEFAULT 0,
+		since      INTEGER NOT NULL DEFAULT 0,
+		PRIMARY KEY (user_id, placement)
+	);
+	`,
 }
 
 func migrate(db *sql.DB) error {

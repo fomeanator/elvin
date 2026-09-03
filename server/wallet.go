@@ -10,10 +10,10 @@ package main
 // worse than an honest not-implemented.
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -39,6 +39,14 @@ type walletDoc struct {
 	// AppliedOps: recent client op_ids (LRU) — a retried mutation whose
 	// RESPONSE was lost must not apply twice. Money survives flaky links.
 	AppliedOps []string `json:"applied_ops,omitempty"`
+
+	// СКОЛЬКО ИЗ ЭТОГО УЖЕ ЛЕЖИТ В БАЗЕ. Журнал ДОПИСЫВАЕТСЯ, а не
+	// переписывается: без курсора запись отправляла бы в базу всю историю
+	// заново на каждую правку баланса. Поля неэкспортируемые — в ответ
+	// игроку они не попадают и не должны.
+	dbHistory int
+	dbOps     int
+	dbTxns    int
 }
 
 // regenRule configures a lives/energy-style regenerating currency (from
@@ -112,8 +120,14 @@ type iapProduct struct {
 }
 
 type WalletService struct {
-	owners  *ownerIndex // title → author, stamped onto every history entry
-	mu      sync.Mutex
+	owners *ownerIndex // title → author, stamped onto every history entry
+	// Замок остаётся: правка баланса — это ЧТЕНИЕ, изменение и запись, и
+	// сделка базы делает атомарной только последнюю треть. Пока сервер один
+	// процесс, замок и есть сериализация этой тройки.
+	mu sync.Mutex
+	db *sql.DB
+	// dir — прежний каталог файлов. Нужен ровно затем, чтобы один раз
+	// перевезти их в базу (importWalletFiles) и больше туда не ходить.
 	dir     string
 	auth    *AuthService
 	iapDev  bool
@@ -145,15 +159,29 @@ var reUserFile = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 // NewWalletService: catalogPath is optional (missing file = empty catalog —
 // every IAP verify then 404s on the sku, which is the safe default).
-func NewWalletService(dir string, auth *AuthService, catalogPath string, iapDev bool, owners *ownerIndex) (*WalletService, error) {
+//
+// db обязателен: деньги живут в базе. Каталог dir остаётся доводом только
+// ради разового переезда прежних файлов и ради соседнего energy.json.
+func NewWalletService(dir string, db *sql.DB, auth *AuthService, catalogPath string, iapDev bool, owners *ownerIndex) (*WalletService, error) {
+	if db == nil {
+		return nil, errors.New("кошелёк без базы: деньги больше не лежат файлами")
+	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
+	}
+	// ПЕРЕЕЗД ПРИ ПЕРВОМ ЖЕ СТАРТЕ, до первого запроса: иначе игрок,
+	// постучавшийся раньше переезда, получил бы пустой кошелёк и записал бы
+	// его поверх настоящего.
+	if moved, merr := importWalletFiles(db, dir); merr != nil {
+		return nil, fmt.Errorf("переезд кошельков в базу: %w", merr)
+	} else if moved > 0 {
+		log.Printf("[wallet] в базу перенесено кошельков: %d (прежние файлы лежат рядом с пометкой .migrated)", moved)
 	}
 	// Regen config lives beside the other economy catalogs, one level up from
 	// the per-user wallet dir (services/energy.json). Missing file = no regen
 	// currencies, so this is a no-op for anyone who doesn't ship energy.
 	regenPath := filepath.Join(filepath.Dir(dir), "energy.json")
-	s := &WalletService{dir: dir, auth: auth, iapDev: iapDev, owners: owners,
+	s := &WalletService{dir: dir, db: db, auth: auth, iapDev: iapDev, owners: owners,
 		catalog: newHotJSON(catalogPath, map[string]iapProduct{}),
 		regen:   newHotJSON(regenPath, map[string]regenRule{})}
 	s.verifyApple = verifyAppleReceipt
@@ -302,49 +330,21 @@ func (s *WalletService) handleCatalog(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"packs": packs})
 }
 
-// load reads a user's wallet. Only a MISSING file means "new wallet" — an
-// unreadable or corrupt one is an error, because treating it as empty would
-// let the next save overwrite someone's real balance with zeros.
+// load читает запись игрока из базы. Единственный «пустой» случай — кошелька
+// ещё нет; ошибка чтения остаётся ошибкой, потому что принять её за пустоту
+// значит разрешить следующей записи затереть настоящие деньги нулями.
 func (s *WalletService) load(userID string) (*walletDoc, error) {
-	doc := &walletDoc{Balances: map[string]int64{}, Inventory: map[string]int64{}}
-	path, err := userFilePath(s.dir, userID)
-	if err != nil {
-		return nil, err
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if !errors.Is(err, fs.ErrNotExist) {
-			return nil, err
+	seed := map[string]int64{}
+	for cur, rule := range s.regen.Get() {
+		if rule.Start > 0 {
+			seed[cur] = rule.Start
 		}
-		// Brand-new wallet: seed every regen currency at its starting balance
-		// (e.g. 3 chapter energy). Non-regen currencies start at 0.
-		for cur, rule := range s.regen.Get() {
-			if rule.Start > 0 {
-				doc.Balances[cur] = rule.Start
-			}
-		}
-		return doc, nil
 	}
-	if err := json.Unmarshal(data, doc); err != nil {
-		return nil, fmt.Errorf("wallet %s: %w", userID, err)
-	}
-	if doc.Balances == nil {
-		doc.Balances = map[string]int64{}
-	}
-	if doc.Inventory == nil {
-		doc.Inventory = map[string]int64{}
-	}
-	return doc, nil
+	return walletLoad(s.db, userID, seed)
 }
 
 func (s *WalletService) save(userID string, doc *walletDoc) error {
-	doc.Version++
-	if len(doc.History) > 100 {
-		doc.History = doc.History[len(doc.History)-100:]
-	}
-	// С ОТСТУПАМИ: этот файл читают глазами, когда разбирают спорную покупку.
-	data, _ := json.MarshalIndent(doc, "", "  ")
-	return writeUserFile(s.dir, userID, data)
+	return walletSave(s.db, userID, doc)
 }
 
 func (s *WalletService) user(w http.ResponseWriter, r *http.Request) (string, bool) {
@@ -485,17 +485,9 @@ func (s *WalletService) AdminLoad(userID string) *walletDoc {
 	return doc
 }
 
-// AllUserIDs lists every wallet on disk (the admin ledger walks these).
+// AllUserIDs — у кого есть кошелёк (админская ведомость идёт по ним).
 func (s *WalletService) AllUserIDs() []string {
-	entries, _ := os.ReadDir(s.dir)
-	var ids []string
-	for _, e := range entries {
-		name := e.Name()
-		if !e.IsDir() && len(name) > 5 && name[len(name)-5:] == ".json" {
-			ids = append(ids, name[:len(name)-5])
-		}
-	}
-	return ids
+	return walletAllUsers(s.db)
 }
 
 // Grant — административная выдача валюты вне HTTP-запроса (ежедневная
@@ -673,27 +665,15 @@ type walletPurchase struct {
 	Title string // в какой новелле купили — для выплат автору и разрезов
 }
 
-// Purchases — все покупки типа iap по всем кошелькам.
+// Purchases — все покупки типа iap, одним запросом по индексу.
 //
-// Читает файлы целиком: при сорока пяти игроках это несколько миллисекунд, при
-// сорока тысячах — уже нет. Когда дойдёт до этого, ведомость надо будет писать
-// отдельным журналом на запись, а не собирать обходом; пока честнее простое
-// решение, чем преждевременный журнал, который придётся чинить вслепую.
+// Прежняя версия читала ВСЕ файлы игроков целиком и честно предупреждала, что
+// на сорока тысячах игроков так будет нельзя. Этот день не наступит: журнал
+// лежит строками, у него есть индекс по типу записи, и четыре отчёта,
+// которые сюда ходят, больше не платят обходом каталога за каждое открытие
+// вкладки.
 func (s *WalletService) Purchases() []walletPurchase {
-	var out []walletPurchase
-	for _, id := range s.AllUserIDs() {
-		doc := s.AdminLoad(id)
-		if doc == nil {
-			continue
-		}
-		for _, e := range doc.History {
-			if e.Type != "iap" {
-				continue
-			}
-			out = append(out, walletPurchase{User: id, TS: e.TS, SKU: e.SKU, Title: e.Title})
-		}
-	}
-	return out
+	return walletPurchases(s.db)
 }
 
 // Price — цена пака числом. ok=false означает «неизвестна», и отчёт обязан

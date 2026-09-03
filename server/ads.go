@@ -10,7 +10,11 @@ package main
 //	content/ads.json: { "gold_small": {"currency":"gold","amount":20,"daily_cap":10} }
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"sync"
@@ -43,17 +47,26 @@ type adsUserDoc struct {
 
 type AdsService struct {
 	mu      sync.Mutex
-	dir     string
+	db      *sql.DB
+	dir     string // прежний каталог файлов — только ради разового переезда
 	auth    *AuthService
 	wallet  *WalletService
 	catalog *hotJSON[map[string]adReward] // follows disk edits live
 }
 
-func NewAdsService(dir string, auth *AuthService, wallet *WalletService, catalogPath string) (*AdsService, error) {
+func NewAdsService(dir string, db *sql.DB, auth *AuthService, wallet *WalletService, catalogPath string) (*AdsService, error) {
+	if db == nil {
+		return nil, errors.New("счёт просмотров рекламы без базы")
+	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
-	return &AdsService{dir: dir, auth: auth, wallet: wallet,
+	if moved, err := importAdsFiles(db, dir); err != nil {
+		return nil, fmt.Errorf("переезд счёта рекламы: %w", err)
+	} else if moved > 0 {
+		log.Printf("[ads] в базу перенесено записей: %d", moved)
+	}
+	return &AdsService{db: db, dir: dir, auth: auth, wallet: wallet,
 		catalog: newHotJSON(catalogPath, map[string]adReward{})}, nil
 }
 
@@ -225,32 +238,9 @@ func (s *AdsService) handleReward(w http.ResponseWriter, r *http.Request) {
 // Для рекламы это значит сброшенные счётчики просмотров — то есть выданную
 // заново награду за уже просмотренное.
 func (s *AdsService) loadUser(userID string) (*adsUserDoc, error) {
-	doc := &adsUserDoc{Counts: map[string]int{}}
-	path, err := userFilePath(s.dir, userID)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := readJSONFile(path, doc); err != nil {
-		return nil, err
-	}
-	if doc.Counts == nil {
-		doc.Counts = map[string]int{}
-	}
-	if doc.Spent == nil {
-		doc.Spent = map[string]int{}
-	}
-	if doc.Since == nil {
-		doc.Since = map[string]int64{}
-	}
-	return doc, nil
+	return adsLoad(s.db, userID)
 }
 
 func (s *AdsService) saveUser(userID string, doc *adsUserDoc) error {
-	// Ошибку упаковки НЕЛЬЗЯ глотать: при сбое data пустая, и запись стёрла бы
-	// состояние игрока пустым файлом — молча, вместо того чтобы отказаться.
-	data, err := json.Marshal(doc)
-	if err != nil {
-		return err
-	}
-	return writeUserFile(s.dir, userID, data)
+	return adsSave(s.db, userID, doc)
 }

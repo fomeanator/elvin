@@ -7,6 +7,7 @@ package main
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -22,9 +23,26 @@ func servicesMux(t *testing.T, iapDev bool) (*http.ServeMux, string) {
 	return mux, dir
 }
 
+// servicesMuxDB — то же, но с базой: испытания про отказ хранилища ломают
+// именно её. Раньше они ломали права на каталог кошельков, и это перестало
+// что-либо значить, когда деньги переехали в базу.
+func servicesMuxDB(t *testing.T, iapDev bool) (*http.ServeMux, *sql.DB) {
+	t.Helper()
+	dir := t.TempDir()
+	db := testStore(t)
+	mux, _ := servicesMuxIn(t, dir, db, iapDev)
+	return mux, db
+}
+
 func servicesMuxFull(t *testing.T, iapDev bool) (*http.ServeMux, *AuthService, string) {
 	t.Helper()
 	dir := t.TempDir()
+	mux, auth := servicesMuxIn(t, dir, testStore(t), iapDev)
+	return mux, auth, dir
+}
+
+func servicesMuxIn(t *testing.T, dir string, db *sql.DB, iapDev bool) (*http.ServeMux, *AuthService) {
+	t.Helper()
 	catalog := filepath.Join(dir, "iap-catalog.json")
 	_ = os.WriteFile(catalog, []byte(`{"gold_100": {"currency": "gold", "amount": 100}}`), 0o644)
 
@@ -32,7 +50,7 @@ func servicesMuxFull(t *testing.T, iapDev bool) (*http.ServeMux, *AuthService, s
 	if err != nil {
 		t.Fatal(err)
 	}
-	wallet, err := NewWalletService(filepath.Join(dir, "wallet"), auth, catalog, iapDev, nil)
+	wallet, err := NewWalletService(filepath.Join(dir, "wallet"), db, auth, catalog, iapDev, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +62,7 @@ func servicesMuxFull(t *testing.T, iapDev bool) (*http.ServeMux, *AuthService, s
 	auth.Routes(mux)
 	wallet.Routes(mux)
 	analytics.Routes(mux)
-	return mux, auth, dir
+	return mux, auth
 }
 
 func call(t *testing.T, mux *http.ServeMux, method, path, token string, body any) (*httptest.ResponseRecorder, map[string]any) {
@@ -133,7 +151,7 @@ func TestWallet_EnergyRegenSeedCapSpendAndBuyPastCap(t *testing.T) {
 		t.Fatal(err)
 	}
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false, nil)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), testStore(t), auth, "", false, nil)
 	now := time.Date(2026, 7, 7, 10, 0, 0, 0, time.UTC)
 	wallet.clock = func() time.Time { return now }
 
@@ -256,7 +274,7 @@ func TestIAP_BundleGrantsMultipleCurrencies(t *testing.T) {
 		`{"bundle_starter":{"currency":"gold","amount":500,"grants":{"gold":500,"energy":3}}}`), 0o644)
 
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, catalog, true, nil) // dev IAP
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), testStore(t), auth, catalog, true, nil) // dev IAP
 	mux := http.NewServeMux()
 	auth.Routes(mux)
 	wallet.Routes(mux)
@@ -313,9 +331,9 @@ func TestDaily_StreakGrowsResetsAndRefusesSecondClaim(t *testing.T) {
 	// A time machine for the daily service: rebuild it on the same stores
 	// with a controllable clock.
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false, nil)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), testStore(t), auth, "", false, nil)
 	day := time.Date(2026, 7, 4, 10, 0, 0, 0, time.UTC)
-	daily, _ := NewDailyService(filepath.Join(dir, "daily"), auth, wallet,
+	daily, _ := NewDailyService(filepath.Join(dir, "daily"), testStore(t), auth, wallet,
 		filepath.Join(dir, "no-rewards.json")) // default: 25 gold
 	daily.now = func() time.Time { return day }
 	dm := http.NewServeMux()
@@ -354,7 +372,7 @@ func TestDaily_StreakGrowsResetsAndRefusesSecondClaim(t *testing.T) {
 
 func TestLeaderboard_BestScoreWinsAndRanks(t *testing.T) {
 	mux, auth, dir := servicesMuxFull(t, false)
-	lb, _ := NewLeaderboardService(filepath.Join(dir, "lb"), auth)
+	lb, _ := NewLeaderboardService(filepath.Join(dir, "lb"), testStore(t), auth)
 	lb.Routes(mux)
 
 	_, tok1 := register(t, mux)
@@ -407,7 +425,7 @@ func TestLeaderboard_BestScoreWinsAndRanks(t *testing.T) {
 
 func TestLeaderboard_NameTruncationIsRuneSafe(t *testing.T) {
 	mux, auth, dir := servicesMuxFull(t, false)
-	lb, _ := NewLeaderboardService(filepath.Join(dir, "lb2"), auth)
+	lb, _ := NewLeaderboardService(filepath.Join(dir, "lb2"), testStore(t), auth)
 	lb.Routes(mux)
 	_, tok := register(t, mux)
 	long := "БраузерныйЧемпионСОченьДлиннымИменемКоторое"
@@ -433,7 +451,7 @@ func TestIAP_CatalogIsPublicAndSorted(t *testing.T) {
 		"plain":    {"currency": "crystals", "amount": 1}
 	}`), 0o644)
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, catalog, false, nil)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), testStore(t), auth, catalog, false, nil)
 	mux := http.NewServeMux()
 	wallet.Routes(mux)
 
@@ -541,7 +559,7 @@ func TestIAP_AppleReceiptPathAndReplayGuard(t *testing.T) {
 	catalog := filepath.Join(dir, "iap-catalog.json")
 	_ = os.WriteFile(catalog, []byte(`{"gold_100": {"currency": "gold", "amount": 100}}`), 0o644)
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, catalog, false, nil)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), testStore(t), auth, catalog, false, nil)
 	wallet.AppleSharedSecret = "shhh"
 	wallet.verifyApple = func(receipt, sku, secret, bundleID string) (string, error) {
 		if receipt != "valid-receipt" {
@@ -582,8 +600,9 @@ func TestAds_RewardGrantsAndDailyCap(t *testing.T) {
 	adsPath := filepath.Join(dir, "ads.json")
 	_ = os.WriteFile(adsPath, []byte(`{"gold_small":{"currency":"gold","amount":25,"daily_cap":2}}`), 0o644)
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false, nil)
-	ads, _ := NewAdsService(filepath.Join(dir, "ads"), auth, wallet, adsPath)
+	db := testStore(t)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), db, auth, "", false, nil)
+	ads, _ := NewAdsService(filepath.Join(dir, "ads"), db, auth, wallet, adsPath)
 	mux := http.NewServeMux()
 	auth.Routes(mux)
 	wallet.Routes(mux)
@@ -619,7 +638,7 @@ func TestAdmin_UsersOrdersGrantAndManifest(t *testing.T) {
 	_ = os.MkdirAll(content, 0o755)
 	_ = os.WriteFile(filepath.Join(content, "manifest.json"), []byte(`{"titles":[]}`), 0o644)
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", true, nil)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), testStore(t), auth, "", true, nil)
 	admin := NewAdminService(content, "admintok", auth, wallet)
 	mux := http.NewServeMux()
 	auth.Routes(mux)
@@ -673,7 +692,7 @@ func TestEconomy_CatalogsHotReloadFromDisk(t *testing.T) {
 	catalog := filepath.Join(dir, "iap-catalog.json")
 	_ = os.WriteFile(catalog, []byte(`{"gold_100": {"currency":"gold","amount":100}}`), 0o644)
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, catalog, true, nil)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), testStore(t), auth, catalog, true, nil)
 	mux := http.NewServeMux()
 	auth.Routes(mux)
 	wallet.Routes(mux)
@@ -701,7 +720,7 @@ func TestAdmin_ConfigWhitelistRoundTrip(t *testing.T) {
 	content := filepath.Join(dir, "content")
 	_ = os.MkdirAll(content, 0o755)
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false, nil)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), testStore(t), auth, "", false, nil)
 	admin := NewAdminService(content, "admintok", auth, wallet)
 	mux := http.NewServeMux()
 	admin.Routes(mux)
@@ -728,7 +747,7 @@ func TestAdmin_ImportTemplatesCRUD(t *testing.T) {
 	content := filepath.Join(dir, "content")
 	_ = os.MkdirAll(content, 0o755)
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false, nil)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), testStore(t), auth, "", false, nil)
 	admin := NewAdminService(content, "admintok", auth, wallet)
 	mux := http.NewServeMux()
 	admin.Routes(mux)
@@ -811,7 +830,7 @@ func TestAdmin_DraftPublishAndHistoryRollback(t *testing.T) {
 	_ = os.MkdirAll(content, 0o755)
 	_ = os.WriteFile(filepath.Join(content, "manifest.json"), []byte(`{"v": 1}`), 0o644)
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false, nil)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), testStore(t), auth, "", false, nil)
 	admin := NewAdminService(content, "admintok", auth, wallet)
 	mux := http.NewServeMux()
 	admin.Routes(mux)
@@ -859,7 +878,7 @@ func TestAdmin_FilesBrowserHidesInternals(t *testing.T) {
 	_ = os.MkdirAll(filepath.Join(content, ".history"), 0o755)
 	_ = os.WriteFile(filepath.Join(content, "bg", "room.jpg"), []byte("jpg"), 0o644)
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false, nil)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), testStore(t), auth, "", false, nil)
 	admin := NewAdminService(content, "admintok", auth, wallet)
 	mux := http.NewServeMux()
 	admin.Routes(mux)
@@ -879,54 +898,64 @@ func TestAdmin_FilesBrowserHidesInternals(t *testing.T) {
 	}
 }
 
-// A failed wallet write must be a loud 500 with the on-disk balance intact —
-// never a cheerful response over money that silently didn't move.
+// ОТКАЗ ХРАНИЛИЩА — ГРОМКИЙ, И ДЕНЬГИ НЕ ДВИГАЮТСЯ.
+//
+// Испытание проверяло права на каталог кошельков; с переездом в базу тот
+// каталог перестал что-либо значить, а вопрос остался прежним: недоступное
+// хранилище обязано отвечать пятисотой, а не бодрым ответом про деньги,
+// которые никуда не легли.
 func TestWallet_PersistFailureIsA500AndMoneyDoesNotMove(t *testing.T) {
-	mux, dir := servicesMux(t, false)
+	mux, db := servicesMuxDB(t, false)
 	_, tok := register(t, mux)
 	if rec, _ := call(t, mux, "POST", "/v1/wallet/earn", tok,
 		map[string]any{"currency": "gold", "amount": 50, "reason": "seed"}); rec.Code != 200 {
 		t.Fatalf("seed earn: %d", rec.Code)
 	}
+	// Читаем баланс ДО поломки: после закрытия базы читать будет неоткуда.
+	_, before := call(t, mux, "GET", "/v1/wallet", tok, nil)
+	if bal := before["balances"].(map[string]any); bal["gold"].(float64) != 50 {
+		t.Fatalf("посев не лёг: %v", bal)
+	}
 
-	walletDir := filepath.Join(dir, "wallet")
-	if err := os.Chmod(walletDir, 0o500); err != nil { // read-only: writes fail
+	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(walletDir, 0o755) })
 	if rec, _ := call(t, mux, "POST", "/v1/wallet/earn", tok,
 		map[string]any{"currency": "gold", "amount": 999, "reason": "quest"}); rec.Code != 500 {
-		t.Fatalf("earn with an unwritable store must 500, got %d", rec.Code)
+		t.Fatalf("начисление в недоступную базу обязано дать 500, вышло %d", rec.Code)
 	}
-
-	_ = os.Chmod(walletDir, 0o755)
-	rec, out := call(t, mux, "GET", "/v1/wallet", tok, nil)
-	if rec.Code != 200 {
-		t.Fatalf("get after recovery: %d", rec.Code)
-	}
-	if bal := out["balances"].(map[string]any); bal["gold"].(float64) != 50 {
-		t.Fatalf("failed persist must not move money: %v", bal)
+	if rec, _ := call(t, mux, "GET", "/v1/wallet", tok, nil); rec.Code != 500 {
+		t.Fatalf("чтение из недоступной базы обязано дать 500, вышло %d", rec.Code)
 	}
 }
 
-// A corrupt wallet file fails closed: 500 on read AND the file is never
-// overwritten — treating it as empty would zero a real balance on save.
-func TestWallet_CorruptFileFailsClosedNotEmpty(t *testing.T) {
-	mux, dir := servicesMux(t, false)
-	uid, tok := register(t, mux)
-	path := filepath.Join(dir, "wallet", uid+".json")
-	if err := os.WriteFile(path, []byte("{corrupt"), 0o600); err != nil {
+// НЕЧИТАЕМЫЙ КОШЕЛЁК — НЕ ПУСТОЙ КОШЕЛЁК.
+//
+// Прежде испытание портило файл игрока; теперь портится сама таблица. Ответ
+// обязан быть тем же: пятисотая. Принять отказ чтения за пустоту значит
+// разрешить следующей записи обнулить настоящий баланс.
+func TestWallet_UnreadableStoreFailsClosedNotEmpty(t *testing.T) {
+	mux, db := servicesMuxDB(t, false)
+	_, tok := register(t, mux)
+	if rec, _ := call(t, mux, "POST", "/v1/wallet/earn", tok,
+		map[string]any{"currency": "gold", "amount": 70, "reason": "seed"}); rec.Code != 200 {
+		t.Fatalf("seed earn: %d", rec.Code)
+	}
+	if _, err := db.Exec("DROP TABLE wallet_balances"); err != nil {
 		t.Fatal(err)
 	}
 	if rec, _ := call(t, mux, "GET", "/v1/wallet", tok, nil); rec.Code != 500 {
-		t.Fatalf("corrupt wallet read must 500, got %d", rec.Code)
+		t.Fatalf("чтение испорченного хранилища обязано дать 500, вышло %d", rec.Code)
 	}
 	if rec, _ := call(t, mux, "POST", "/v1/wallet/earn", tok,
 		map[string]any{"currency": "gold", "amount": 10, "reason": "q"}); rec.Code != 500 {
-		t.Fatalf("mutating a corrupt wallet must 500, got %d", rec.Code)
+		t.Fatalf("правка испорченного хранилища обязана дать 500, вышло %d", rec.Code)
 	}
-	if data, _ := os.ReadFile(path); string(data) != "{corrupt" {
-		t.Fatal("a corrupt wallet must never be overwritten")
+	// И журнал цел: испорченной оказалась одна таблица, деньги игрока в
+	// остальных остались на месте.
+	var n int
+	if err := db.QueryRow("SELECT COUNT(*) FROM wallet_ledger").Scan(&n); err != nil || n == 0 {
+		t.Fatalf("журнал потерян: %d записей, ошибка %v", n, err)
 	}
 }
 
@@ -938,7 +967,7 @@ func TestWallet_EarnKillSwitch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wallet, err := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false, nil)
+	wallet, err := NewWalletService(filepath.Join(dir, "wallet"), testStore(t), auth, "", false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -974,8 +1003,9 @@ func TestAds_ChargesRechargeOverTime(t *testing.T) {
 	_ = os.WriteFile(adsPath, []byte(
 		`{"crystals_ad":{"currency":"crystals","amount":5,"charges":3,"recharge_sec":90}}`), 0o644)
 	auth, _ := NewAuthService(dir)
-	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false, nil)
-	ads, _ := NewAdsService(filepath.Join(dir, "ads"), auth, wallet, adsPath)
+	db := testStore(t)
+	wallet, _ := NewWalletService(filepath.Join(dir, "wallet"), db, auth, "", false, nil)
+	ads, _ := NewAdsService(filepath.Join(dir, "ads"), db, auth, wallet, adsPath)
 	mux := http.NewServeMux()
 	auth.Routes(mux)
 	wallet.Routes(mux)
@@ -1010,20 +1040,17 @@ func TestAds_ChargesRechargeOverTime(t *testing.T) {
 		}
 	}
 
-	// Цикл истёк — заряды снова полные. Время подменяем через файл состояния:
+	// Цикл истёк — заряды снова полные. Время подменяем прямо в состоянии:
 	// перезарядка считается по часам, а не тикающим счётчиком, ровно чтобы
-	// пережить закрытие игры.
-	statePath := filepath.Join(dir, "ads")
-	entries, _ := os.ReadDir(statePath)
-	if len(entries) == 0 {
+	// пережить закрытие игры. (Раньше состояние лежало файлом; теперь строкой.)
+	res, err := db.Exec(`UPDATE ad_placements SET since = ? WHERE placement = 'crystals_ad'`,
+		time.Now().UTC().Unix()-91)
+	if err != nil {
+		t.Fatalf("состояние игрока не поправить: %v", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
 		t.Fatal("состояние игрока не записано")
 	}
-	raw, _ := os.ReadFile(filepath.Join(statePath, entries[0].Name()))
-	var doc adsUserDoc
-	_ = json.Unmarshal(raw, &doc)
-	doc.Since["crystals_ad"] = time.Now().UTC().Unix() - 91
-	fixed, _ := json.Marshal(doc)
-	_ = os.WriteFile(filepath.Join(statePath, entries[0].Name()), fixed, 0o600)
 
 	if rec, out := call(t, mux, "POST", "/v1/ads/reward", tok, map[string]string{"placement": "crystals_ad"}); rec.Code != 200 {
 		t.Fatalf("после перезарядки показ обязан снова пройти: %d %v", rec.Code, out)

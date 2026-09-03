@@ -6,10 +6,13 @@ package main
 // conservative slug so a client can't write outside the directory.
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -26,17 +29,26 @@ type lbEntry struct {
 
 type LeaderboardService struct {
 	mu   sync.Mutex
-	dir  string
+	db   *sql.DB
+	dir  string // прежний каталог файлов — только ради разового переезда
 	auth *AuthService
 }
 
 var reBoard = regexp.MustCompile(`^[a-z0-9_-]{1,40}$`)
 
-func NewLeaderboardService(dir string, auth *AuthService) (*LeaderboardService, error) {
+func NewLeaderboardService(dir string, db *sql.DB, auth *AuthService) (*LeaderboardService, error) {
+	if db == nil {
+		return nil, errors.New("таблицы лидеров без базы")
+	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
-	return &LeaderboardService{dir: dir, auth: auth}, nil
+	if moved, err := importLeaderboardFiles(db, dir); err != nil {
+		return nil, fmt.Errorf("переезд таблиц лидеров: %w", err)
+	} else if moved > 0 {
+		log.Printf("[leaderboard] в базу перенесено таблиц: %d", moved)
+	}
+	return &LeaderboardService{db: db, dir: dir, auth: auth}, nil
 }
 
 func (s *LeaderboardService) Routes(mux *http.ServeMux) {
@@ -44,21 +56,13 @@ func (s *LeaderboardService) Routes(mux *http.ServeMux) {
 }
 
 func (s *LeaderboardService) load(board string) ([]lbEntry, error) {
-	var entries []lbEntry
 	// Ошибка чтения не превращается в пустую таблицу: сохранение поверх
-	// стёрло бы её целиком (см. readJSONFile).
-	if _, err := readJSONFile(filepath.Join(s.dir, board+".json"), &entries); err != nil {
-		return nil, err
-	}
-	return entries, nil
+	// стёрло бы её целиком.
+	return lbLoad(s.db, board)
 }
 
 func (s *LeaderboardService) save(board string, entries []lbEntry) error {
-	data, _ := json.MarshalIndent(entries, "", "  ")
-	// Через дом: своя пара «записать во временный + переименовать» выглядела
-	// атомарной, но не звала Sync — при выключении питания переименование
-	// успевает раньше данных, и таблица лидеров воскресает пустой.
-	return atomicWrite(filepath.Join(s.dir, board+".json"), data, 0o600)
+	return lbSave(s.db, board, entries)
 }
 
 func (s *LeaderboardService) handle(w http.ResponseWriter, r *http.Request) {

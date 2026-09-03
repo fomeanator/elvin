@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -12,9 +13,10 @@ import (
 
 // attributionMux is servicesMuxFull with a real owner index over a manifest
 // that declares who owns which title.
-func attributionMux(t *testing.T) (*http.ServeMux, string) {
+func attributionMux(t *testing.T) (*http.ServeMux, string, *sql.DB) {
 	t.Helper()
 	dir := t.TempDir()
+	db := testStore(t)
 	manifest := filepath.Join(dir, "manifest.json")
 	if err := os.WriteFile(manifest, []byte(`{"titles":[
 		{"id":"tour","author":"elvin"},
@@ -29,7 +31,7 @@ func attributionMux(t *testing.T) (*http.ServeMux, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wallet, err := NewWalletService(filepath.Join(dir, "wallet"), auth, "", false, owners)
+	wallet, err := NewWalletService(filepath.Join(dir, "wallet"), db, auth, "", false, owners)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +43,7 @@ func attributionMux(t *testing.T) (*http.ServeMux, string) {
 	auth.Routes(mux)
 	wallet.Routes(mux)
 	analytics.Routes(mux)
-	return mux, dir
+	return mux, dir, db
 }
 
 func analyticsLines(t *testing.T, dir string) []map[string]any {
@@ -70,7 +72,7 @@ func analyticsLines(t *testing.T, dir string) []map[string]any {
 // payee must not be believed — with a creator revenue share that is the whole
 // attack, and it costs one line to get wrong.
 func TestAttributionIsServerResolvedNotClientSupplied(t *testing.T) {
-	mux, dir := attributionMux(t)
+	mux, dir, _ := attributionMux(t)
 	_, tok := register(t, mux)
 
 	rec, _ := call(t, mux, "POST", "/v1/analytics/events", tok, []any{
@@ -94,7 +96,7 @@ func TestAttributionIsServerResolvedNotClientSupplied(t *testing.T) {
 // The title may also arrive inside props — that is where the Unity helper puts
 // context today, and an event that carries it must not attribute to nobody.
 func TestAttributionAcceptsTitleFromProps(t *testing.T) {
-	mux, dir := attributionMux(t)
+	mux, dir, _ := attributionMux(t)
 	_, tok := register(t, mux)
 	call(t, mux, "POST", "/v1/analytics/events", tok, []any{
 		map[string]any{"name": "choice_pick", "props": map[string]any{"title": "tour"}},
@@ -107,7 +109,7 @@ func TestAttributionAcceptsTitleFromProps(t *testing.T) {
 
 // A title nobody declared attributes to NOTHING rather than to a guess.
 func TestAttributionOfAnUndeclaredTitleIsEmpty(t *testing.T) {
-	mux, dir := attributionMux(t)
+	mux, dir, _ := attributionMux(t)
 	_, tok := register(t, mux)
 	call(t, mux, "POST", "/v1/analytics/events", tok, []any{
 		map[string]any{"name": "x", "title": "orphan"},
@@ -123,7 +125,7 @@ func TestAttributionOfAnUndeclaredTitleIsEmpty(t *testing.T) {
 // The money path: a spend has to carry which title it happened in, or a payout
 // can never be computed from history. This is the half that cannot be backfilled.
 func TestWalletHistoryCarriesAttribution(t *testing.T) {
-	mux, dir := attributionMux(t)
+	mux, _, db := attributionMux(t)
 	_, tok := register(t, mux)
 
 	call(t, mux, "POST", "/v1/wallet/earn", tok, map[string]any{
@@ -137,27 +139,24 @@ func TestWalletHistoryCarriesAttribution(t *testing.T) {
 	}
 
 	var found bool
-	_ = filepath.Walk(filepath.Join(dir, "wallet"), func(p string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !strings.HasSuffix(p, ".json") {
-			return nil
+	// Журнал лежит в базе строками — спрашиваем его запросом. Раньше здесь
+	// шёл обход файлов игроков; с переездом денег в базу файлов нет, а
+	// вопрос остался прежним: у траты записаны новелла и её владелец.
+	rows, qerr := db.Query(`SELECT title, author FROM wallet_ledger WHERE type = 'spend'`)
+	if qerr != nil {
+		t.Fatalf("журнал не прочитался: %v", qerr)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var title, author string
+		if err := rows.Scan(&title, &author); err != nil {
+			t.Fatal(err)
 		}
-		var doc struct {
-			History []walletEntry `json:"history"`
+		found = true
+		if title != "guest-novel" || author != "masha" {
+			t.Errorf("трата отнесена к title=%q author=%q, ждали guest-novel/masha", title, author)
 		}
-		body, _ := os.ReadFile(p)
-		if json.Unmarshal(body, &doc) != nil {
-			return nil
-		}
-		for _, h := range doc.History {
-			if h.Type == "spend" {
-				found = true
-				if h.Title != "guest-novel" || h.Author != "masha" {
-					t.Errorf("spend attributed to title=%q author=%q, want guest-novel/masha", h.Title, h.Author)
-				}
-			}
-		}
-		return nil
-	})
+	}
 	if !found {
 		t.Fatal("no spend entry in wallet history — attribution cannot be checked")
 	}
