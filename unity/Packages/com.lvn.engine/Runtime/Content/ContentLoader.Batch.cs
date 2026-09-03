@@ -224,12 +224,21 @@ namespace Lvn.Content
                     CurrentFileLabel = AliasOf(asset.Url);
                     LastStartedUrl   = asset.Url;
 
-                    byte[] body = await FetchOneAsync(asset, ct);
-                    if (body != null)
-                        // Пишем атомарно (временный файл + перенос): оборванная
-                        // на середине запись оставила бы обрезанный .bin, и
-                        // File.Exists считал бы его годным кэшем НАВСЕГДА.
-                        await Task.Run(() => AtomicWriteAllBytes(path, body), CancellationToken.None);
+                    // ОДИН ЗАХОД ЗА ФАЙЛОМ НА ВЕСЬ ЗАГРУЗЧИК.
+                    //
+                    // Пакет ходил своим путём (FetchToMemory + запись на диск)
+                    // и потому не умел трёх вещей, которые общий заход умеет
+                    // давно: СИДА (файл лежит в APK — а пакет всё равно шёл в
+                    // сеть, и весь смысл сида для набора первого кадра
+                    // пропадал), ДОКАЧКИ С БАЙТА N (оборванный на 90% фон
+                    // качался с нуля) и ответа 416 (кусок уже полон — не
+                    // хватало переименования).
+                    //
+                    // Своя копия правил дала бы четвёртое место, где их надо
+                    // держать в согласии. Их и так три.
+                    try { await DownloadAssetBytes(asset.Url, ct); }
+                    catch (OperationCanceledException) { throw; }
+                    catch { /* сдался и объяснил внутри: NoteGaveUp / RememberMissing */ }
 
                     lock (_underway) BatchDone++;
                 }
@@ -253,48 +262,6 @@ namespace Lvn.Content
             return pending < width ? Math.Max(1, pending) : width;
         }
 
-        /// <summary>Один файл пакета: повторы, сверка sha256, отказ по 4xx.
-        /// Возвращает байты или null, если файл решено не сохранять.</summary>
-        private async Task<byte[]> FetchOneAsync(PreloadItem asset, CancellationToken ct)
-        {
-            int attempt = 1;
-            while (true)
-            {
-                try
-                {
-                    lock (_underway) Progress(asset.Url).Attempt = attempt;
-                    byte[] body = await FetchToMemory(asset.Url, ct);
-                    // То же правило целостности, что у DownloadBytes: никогда не
-                    // класть в кэш байты, не совпавшие с sha256 из индекса версий.
-                    // Только точные записи — унаследованная версия производного
-                    // варианта описывает ИСТОЧНИК, а не эти байты.
-                    var expect = IntegrityVersionFor(asset.Url);
-                    if (body != null && expect != null && !Sha256Matches(body, expect))
-                        throw new LvnFetchException(0, "integrity",
-                            "sha256 mismatch for " + asset.Url + " — refetching");
-                    return body;
-                }
-                catch (OperationCanceledException) { throw; }
-                catch (LvnFetchException ex) when (ex.Status is >= 400 and < 500)
-                {
-                    Debug.LogWarning($"[lvn-content] preload {asset.Url} permanent {ex.Status}");
-                    return null;
-                }
-                catch (Exception ex)
-                {
-                    attempt++;
-                    if (attempt > MaxAttempts)
-                    {
-                        NoteGaveUp(asset.Url, MaxAttempts, ex.Message, what: "preload ");
-                        return null;
-                    }
-                    // Пауза и строка в логе — у общего обряда: правило пауз (в
-                    // офлайне ждём смены состояния, а не часов) и слова одни на
-                    // все три цикла повторов.
-                    await WaitBeforeRetryAsync(asset.Url, attempt, ex.Message, ct, what: "preload ");
-                }
-            }
-        }
 
         // Returns the URL of the first file in pending[fromIdx..] not yet on disk.
         private string FindNextUncachedUrl(List<PreloadItem> pending, int fromIdx)
