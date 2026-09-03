@@ -1,0 +1,66 @@
+{
+  "scene": "quotes-are-data",
+  "script": [
+    {
+      "op": "say",
+      "text": "«Не уходи"
+    },
+    {
+      "else": "__else_head_1",
+      "expr": "courage \u003e 0",
+      "op": "if",
+      "then": "__then_head_1"
+    },
+    {
+      "id": "__then_head_1",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Я осталась.",
+      "who": "Анна"
+    },
+    {
+      "label": "__end_head_1",
+      "op": "goto"
+    },
+    {
+      "id": "__else_head_1",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Я ушла.",
+      "who": "Анна"
+    },
+    {
+      "id": "__end_head_1",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "смотри // это не комментарий",
+      "who": "Анна"
+    },
+    {
+      "duration": 3,
+      "op": "hint",
+      "text": "жми A // или B"
+    },
+    {
+      "id": "street",
+      "op": "bg",
+      "sprite_url": "https://example.org/bg/street.png"
+    },
+    {
+      "op": "say",
+      "text": "Первая строка,\nвторая строка.",
+      "who": "Анна"
+    },
+    {
+      "op": "say",
+      "text": "Конец.",
+      "who": "Анна"
+    }
+  ]
+}

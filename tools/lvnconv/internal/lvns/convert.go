@@ -224,7 +224,12 @@ func convertWith(src string, outer *nestCtx) (*Doc, error) {
 			// no blank-skip) and join with a real newline, until the » closes it.
 			cbuf.WriteString("\n")
 			cbuf.WriteString(raw)
-			chevDepth += chevronDelta(raw)
+			// ГЛУБИНА НЕСЁТСЯ, а не считается с нуля на каждой строке. Со
+			// счётом с нуля вторая строка прозы не знала, что она внутри «…»,
+			// и обычная кавычка в ней («Он крикнул: "Стой! / Не уходи!" …»)
+			// прятала закрывающую ёлочку: глава не собиралась совсем, с
+			// жалобой на первую строку.
+			chevDepth = chevScan(chevDepth, raw, false)
 			if chevDepth <= 0 {
 				chevDepth = 0
 				lines = append(lines, strings.TrimSpace(cbuf.String()))
@@ -348,7 +353,11 @@ func convertWith(src string, outer *nestCtx) (*Doc, error) {
 			if _, serr := fmt.Sscanf(line, "ui#%d", &n); serr != nil || n < 0 || n >= len(uiBlocks) {
 				return nil, fmt.Errorf("line %d: ui: внутренняя метка %q потерялась", srcNo[i], line)
 			}
-			doc.Script = append(doc.Script, uiBlocks[n])
+			// ЧЕРЕЗ emit, как всё остальное. Здесь стоял прямой append, и
+			// SrcLine не рос вместе со Script: после КАЖДОГО блока `ui` вся
+			// диагностика ниже съезжала на строку вверх — в IDE подсветка
+			// вставала не на ту строку, и чем больше блоков, тем дальше.
+			emit(uiBlocks[n], srcNo[i])
 			i++
 			continue
 		}
@@ -357,7 +366,7 @@ func convertWith(src string, outer *nestCtx) (*Doc, error) {
 			if uerr != nil {
 				return nil, uerr
 			}
-			doc.Script = append(doc.Script, cmd)
+			emit(cmd, srcNo[i])
 			i = next
 			continue
 		}
@@ -390,7 +399,11 @@ func convertWith(src string, outer *nestCtx) (*Doc, error) {
 			labelID := strings.TrimPrefix(line, ":")
 			labelID = strings.TrimSpace(labelID)
 			if labelID == "" {
-				return nil, fmt.Errorf("line %d: label cannot be empty", i+1)
+				// НОМЕР ИСХОДНОЙ СТРОКИ, а не позиция в списке: к этому месту
+				// строки уже прошли развороты (циклы, вызовы, однострочные
+				// блоки), и `i` считает их, а не файл автора. Автор искал бы
+				// ошибку не там.
+				return nil, fmt.Errorf("line %d: label cannot be empty", srcNo[i])
 			}
 			emit(Cmd{"op": "label", "id": labelID}, srcNo[i])
 			nfNames.enter(line) // this label scopes the fall-through names below it
@@ -408,7 +421,7 @@ func convertWith(src string, outer *nestCtx) (*Doc, error) {
 				if strings.HasPrefix(curr, "-") && !strings.HasPrefix(curr, "->") {
 					opt, err := parseChoiceOption(curr)
 					if err != nil {
-						return nil, fmt.Errorf("line %d: %w", j+1, err)
+						return nil, fmt.Errorf("line %d: %w", srcNo[j], err)
 					}
 					j++
 					// `- text -> label … {` … `}` — the option's BODY: the command
@@ -1312,15 +1325,26 @@ func blankExprFuncDefs(lines []string, funcs map[string]*funcDef) {
 // Used by the macro passes to leave the INSIDE of a multi-line string alone —
 // a `return`/`if`/`for` that appears as prose within «…» must not be lowered
 // into a real command (it would inject control flow into a dialogue line).
+//
+// ОДНО ПРАВИЛО С ГЛАВНЫМ ЦИКЛОМ, И ЭТО НЕ КОСМЕТИКА. Считать «…» умели двое:
+// здесь и в chevronDelta. Второй с самого начала пропускал ёлочки внутри
+// "…" (авторская ёлочка в кавычках — данные, а не синтаксис), первый — нет.
+// Расхождение давало ТИХИЙ МИСКОМПИЛ: строка
+//
+//	say text="«Не уходи"
+//	if x > 0 {
+//	    Анна: да
+//	}
+//
+// проходила главный цикл как обычная команда, а развороты блоков считали
+// себя внутри многострочной прозы — и `if …{` с `}` становились РЕПЛИКАМИ, а
+// тело блока играло безусловно. Компилятор при этом молчал, валидатор давал
+// одно предупреждение про непарную скобку, гейт публикации пропускал.
+//
+// Клампинг остаётся посимвольным (лишняя » в начале строки не уводит глубину
+// в минус) — это поведение макро-проходов, и менять его незачем.
 func chevRun(depth int, s string) int {
-	for _, r := range s {
-		if r == '«' {
-			depth++
-		} else if r == '»' && depth > 0 {
-			depth--
-		}
-	}
-	return depth
+	return chevScan(depth, s, true)
 }
 
 // expandCalls rewrites PROCEDURE call statements and `return <expr>` into core
@@ -2327,23 +2351,60 @@ func nearestOp(s string) string {
 // or silently glued 4 lines into one say). The count can go negative (a bare
 // » before any «) — callers clamp as needed.
 func chevronDelta(s string) int {
-	d := 0
-	inQuote := false
+	return chevScan(0, s, false)
+}
+
+// chevScan — ЕДИНСТВЕННЫЙ счётчик «…» на весь компилятор: и для разбора строк
+// (chevronDelta), и для макро-проходов (chevRun).
+//
+// Старшинство ровно то же, что у резчика комментариев (stripLineComment), и
+// это не совпадение — вопрос один: «что здесь код, а что текст».
+//
+//  1. ВНУТРИ «…» НЕ ДЕЙСТВУЕТ НИЧЕГО. Кавычка в многострочной прозе — знак
+//     препинания: «Он крикнул: "Стой!» через строку закрывается своей ». Пока
+//     кавычка считалась разделителем и здесь, вторая строка такой реплики
+//     включала «строку» и прятала закрывающую ёлочку — глава не собиралась
+//     вовсе, с жалобой на первую строку.
+//  2. ВНЕ «…» кавычка прячет ёлочки: авторская ёлочка в значении поля
+//     (`say text="«Не уходи"`) — данные, а не синтаксис. Иначе развороты
+//     блоков считали себя внутри прозы, и `if …{` с `}` становились
+//     репликами, а тело блока играло безусловно — тихий мискомпил.
+//  3. ОДИНАРНАЯ КАВЫЧКА РАВНА ДВОЙНОЙ. Язык принимает обе (parseKeyValue,
+//     stripQuotes, все токенизаторы), и знал об этом весь компилятор, кроме
+//     этого счётчика: `say text='«Не уходи'` не собирался ни через CLI, ни в
+//     редакторе.
+//
+// clamp: макро-проходы несут глубину через строки и не пускают её ниже нуля
+// (лишняя » в начале строки — не повод); разбор строк отличает «открыла» от
+// «закрыла» и потому считает со знаком.
+func chevScan(depth int, s string, clamp bool) int {
+	var inStr rune
 	prev := rune(0)
 	for _, r := range s {
 		switch {
-		case r == '"' && prev != '\\':
-			inQuote = !inQuote
-		case inQuote:
-			// data, not syntax
+		case depth > 0:
+			// Внутри прозы всё — текст; её закрывает только ».
+			if r == '«' {
+				depth++
+			} else if r == '»' {
+				depth--
+			}
+		case inStr != 0:
+			if r == inStr && prev != '\\' {
+				inStr = 0
+			}
 		case r == '«':
-			d++
+			depth++
 		case r == '»':
-			d--
+			if !clamp || depth > 0 {
+				depth--
+			}
+		case r == '"' || r == '\'':
+			inStr = r
 		}
 		prev = r
 	}
-	return d
+	return depth
 }
 
 func stripQuotes(s string) string {

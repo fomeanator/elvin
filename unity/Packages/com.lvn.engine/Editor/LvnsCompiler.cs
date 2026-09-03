@@ -152,7 +152,6 @@ namespace Lvn.Editor
             // and buffer multi-line «…» strings into one logical line.
             var lines = new List<string>();
             string[] rawLines = src.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
-            const string urlGuard = "\x00PROTO\x00";
 
             int chevDepth = 0;
             var cbuf = new StringBuilder();
@@ -162,12 +161,12 @@ namespace Lvn.Editor
                 {
                     cbuf.Append("\n");
                     cbuf.Append(raw);
-                    foreach (char r in raw)
-                    {
-                        if (r == '«') chevDepth++;
-                        else if (r == '»' && chevDepth > 0) chevDepth--;
-                    }
-                    if (chevDepth == 0)
+                    // ГЛУБИНА НЕСЁТСЯ, а не считается с нуля на каждой строке:
+                    // со счётом с нуля вторая строка прозы не знала, что она
+                    // внутри «…», и обычная кавычка в ней прятала закрывающую
+                    // ёлочку. Зеркалит Go: без клампинга, закрытие по «≤ 0».
+                    chevDepth = ChevScan(chevDepth, raw, false);
+                    if (chevDepth <= 0)
                     {
                         lines.Add(cbuf.ToString().Trim());
                         cbuf.Clear();
@@ -175,19 +174,18 @@ namespace Lvn.Editor
                     continue;
                 }
 
-                string line = raw.Replace("://", urlGuard);
-                int ci = line.IndexOf("//", StringComparison.Ordinal);
-                if (ci >= 0) line = line.Substring(0, ci);
-                line = line.Replace(urlGuard, "://").Trim();
+                // РЕЗАТЬ КОММЕНТАРИЙ УМЕЕТ ДОМ (StripLineComment), и он один на
+                // весь компилятор. Здесь стояла своя копия: она защищала только
+                // `://` подстановкой стража, а про кавычки не знала — и
+                // обрывала `Анна: "смотри // это не комментарий"` на середине
+                // фразы. Go режет по позициям кода (вне кавычек и «…»), то есть
+                // текст автора доезжает целиком, и одна и та же глава через CLI
+                // и через редактор собиралась ПО-РАЗНОМУ.
+                string line = StripLineComment(raw).Trim();
 
                 if (line.Length == 0 || line.StartsWith("#")) continue;
 
-                int d = 0;
-                foreach (char r in line)
-                {
-                    if (r == '«') d++;
-                    else if (r == '»' && d > 0) d--;
-                }
+                int d = ChevronDelta(line);
                 if (d > 0)
                 {
                     chevDepth = d;
