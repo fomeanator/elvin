@@ -102,8 +102,42 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 sed -e "s|\${PORT}|$PORT|g" -e "s|\${LVN_HOME}|$LVN_HOME|g" \
     -e "s|\${ADMIN_TOKEN_REF}|\${ADMIN_TOKEN}|g" \
     "$HERE/lvn.service.template" > /etc/systemd/system/lvn.service
+
+# ── ночной снимок кошельков, аккаунтов и сейвов ─────────────────────────────
+# Единственные данные на боксе, которых нет больше нигде. Скрипт объясняет,
+# что и почему в него входит (deploy/backup.sh); здесь только расписание.
+install -m 755 "$HERE/backup.sh" "$LVN_HOME/backup.sh"
+cat > /etc/systemd/system/lvn-backup.service <<UNIT
+[Unit]
+Description=LVN nightly snapshot (wallets, accounts, saves)
+
+[Service]
+Type=oneshot
+User=lvn
+Group=lvn
+Environment=LVN_HOME=$LVN_HOME
+ExecStart=$LVN_HOME/backup.sh
+# Снимок не должен конкурировать с игрой за единственное ядро.
+Nice=10
+IOSchedulingClass=idle
+UNIT
+cat > /etc/systemd/system/lvn-backup.timer <<'UNIT'
+[Unit]
+Description=LVN nightly snapshot
+
+[Timer]
+OnCalendar=daily
+# Разброс: бокс просыпается не ровно в полночь вместе со всеми таймерами.
+RandomizedDelaySec=1800
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+UNIT
+
 systemctl daemon-reload
 systemctl enable lvn >/dev/null 2>&1 || true
+systemctl enable --now lvn-backup.timer >/dev/null 2>&1 || true
 
 # ── nginx + certificate ─────────────────────────────────────────────────────
 log "nginx site for $DOMAIN"
