@@ -83,6 +83,10 @@ namespace Lvn.UI.Screens
             }
         }
 
+        /// <summary>Версия контента на момент начала запуска — точка отсчёта
+        /// для ContentSync (см. его Baseline).</summary>
+        private Task<string> _syncBaseline;
+
         private async Task StartAsync()
         {
             ConfigureFrameRate();
@@ -206,6 +210,12 @@ namespace Lvn.UI.Screens
             var probeTask = _assets.Loader.IsLocal ? Task.FromResult(true) : ProbeOnlineAsync();
             var versionsTask = _assets.WarmVersionsAsync();
             var manifestTask = FetchManifestAsync();
+            // ТОЧКА ОТСЧЁТА ДЛЯ ЖИВОГО КОНТЕНТА — снимается ДО того, как забран
+            // контент, и потому отвечает на вопрос «сменился ли он по дороге».
+            // Семьдесят девять байт, рядом с тремя другими рейсами. См.
+            // ContentSync.Baseline: без неё первый опрос перезагружал главу на
+            // каждом запуске.
+            _syncBaseline = Lvn.Content.ContentSync.PeekVersionAsync(_assets.Loader);
             BootVeil.Progress(10, LvnWords.Of("boot.connecting", "connecting…"));
 
             // ЕСТЬ ВЧЕРАШНИЙ КАТАЛОГ — НЕ ЖДЁМ СЕТЬ ВООБЩЕ.

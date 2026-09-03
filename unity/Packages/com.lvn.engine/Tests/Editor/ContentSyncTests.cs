@@ -34,6 +34,34 @@ namespace Lvn.Tests
             Assert.IsTrue(ContentSync.AdvanceVersion(ref last, "after-save", notifyOnFirst: true));
             Assert.AreEqual("after-save", last);
         }
+        /// <summary>
+        /// ТОЧКА ОТСЧЁТА СНЯТА В НАЧАЛЕ ЗАПУСКА — первый опрос СРАВНИВАЕТ.
+        ///
+        /// <para>Раньше первый опрос объявлял смену всегда, и глава, которая
+        /// только началась, тут же переигрывалась заново — на КАЖДОМ запуске
+        /// (живой трейс 04.09). Отменить объявление нельзя: правка, сделанная
+        /// между забором главы и стартом опроса, иначе не доедет никогда.
+        /// Ответ — точка отсчёта, снятая ДО забора контента.</para>
+        /// </summary>
+        [Test]
+        public void СервёрТотЖе_ПерваяСверкаМолчит()
+        {
+            string last = "снято-в-начале-запуска";   // ContentSync.Baseline
+            Assert.IsFalse(ContentSync.AdvanceVersion(ref last, "снято-в-начале-запуска", notifyOnFirst: false),
+                "контент не менялся, а опрос объявил смену — глава переиграется на ровном месте");
+        }
+
+        /// <summary>Правка, доехавшая по дороге, по-прежнему поднимает флаг:
+        /// точка отсчёта снята ДО забора контента, значит расхождение с ней и
+        /// есть «нас обогнали».</summary>
+        [Test]
+        public void СервёрСменилсяПоДороге_ПерваяСверкаГоворит()
+        {
+            string last = "снято-в-начале-запуска";
+            Assert.IsTrue(ContentSync.AdvanceVersion(ref last, "правка-автора", notifyOnFirst: false),
+                "контент сменился между началом запуска и первым опросом, а перезагрузки нет");
+        }
+
 
         [Test]
         public void FirstPoll_DefaultOnlyEstablishesBaseline()
