@@ -66,13 +66,16 @@ namespace Lvn.Content
         /// into memory and precache chapter scripts to disk (so a chapter opens
         /// offline). Offline: no network — relies on the disk cache; still warms
         /// whatever is already cached so the menu/loading paint instantly.</summary>
-        public async Task BootPrefetchAsync(LvnManifest manifest, bool online, CancellationToken ct)
+        /// <param name="showcaseAhead">Покажем ли витрину сразу после запуска.
+        /// Если нет (новый игрок уходит в воронку), обложки и фоны ОСТАЛЬНЫХ
+        /// новелл на входе не нужны вовсе — их принесёт фоновый прогрев
+        /// библиотеки, когда игрок до них дойдёт.</param>
+        public async Task BootPrefetchAsync(LvnManifest manifest, bool online, CancellationToken ct,
+                                            bool showcaseAhead = true)
         {
             _manifest = manifest;
             RegisterAliases(manifest);
-            var images  = BootImageSet(manifest);
-            var scripts = new List<string>();
-            CollectScripts(manifest, scripts);
+            var images = BootImageSet(manifest);
 
             // ЗАПУСК ЖДЁТ ПЕРВЫЙ КАДР, А НЕ ВЕСЬ КАТАЛОГ.
             //
@@ -104,7 +107,12 @@ namespace Lvn.Content
                     // Фоном и БЕЗ ожидания: очередь догонит, пока игрок смотрит
                     // витрину. Ошибки здесь ничего не решают — тот же файл
                     // попросят снова при показе.
-                    if (later.Count > 0)
+                    //
+                    // А если витрины впереди НЕТ (новый игрок уходит в воронку),
+                    // то и догонять нечего: обложки чужих новелл он увидит
+                    // в лучшем случае через главу. Пусть их принесёт прогрев
+                    // библиотеки — он для того и написан, и он уступает живому.
+                    if (later.Count > 0 && showcaseAhead)
                         Lvn.LvnAsync.Fire(FetchAsync(later, ct), "BootRest");
                 }
                 catch (OperationCanceledException) { throw; }
@@ -119,11 +127,19 @@ namespace Lvn.Content
                     warm.Add(_loader.DownloadSpriteAsync(url, ct));
             await Task.WhenAll(warm);
 
-            // Precache chapter scripts (tiny JSON) so a chapter can open offline
-            // even if never entered. Fire-and-forget; never gates the menu.
-            if (online)
-                foreach (var s in scripts)
-                    _loader.RefreshScriptInBackground(s, reloadIndex: false);
+            // СКРИПТЫ ВСЕХ ГЛАВ ЗДЕСЬ БОЛЬШЕ НЕ КАЧАЮТСЯ.
+            //
+            // Стояло: пройти LvnParts.OfAll и запросить скрипт КАЖДОЙ главы
+            // КАЖДОЙ новеллы — «чтобы глава открылась офлайн, даже если в неё
+            // не заходили». Намерение верное, место неверное: на живом первом
+            // входе (04.09) это тридцать шесть запросов разом, и единственный
+            // нужный — скрипт главы, в которую игрок прямо сейчас входит, —
+            // ждал среди них 1547 мс.
+            //
+            // Ту же работу делает фоновый прогрев библиотеки (WarmLibraryAsync):
+            // он идёт по новеллам в порядке важности, уступает открытой главе и
+            // живой поверхности и начинается через три секунды после запуска.
+            // Одна работа — один дом; здесь остаётся только первый кадр.
         }
 
         /// <summary>Скачать набор адресов, сверившись с версиями (если кэш уже
@@ -324,14 +340,6 @@ namespace Lvn.Content
                     }
                 }
             }
-        }
-
-        // Collects every chapter script url into `scripts` (for offline precache).
-        private static void CollectScripts(LvnManifest manifest, List<string> scripts)
-        {
-            foreach (var part in LvnParts.OfAll(manifest))
-                if (part.Kind == LvnParts.Script)
-                    scripts.Add(part.Url);
         }
 
     }

@@ -78,7 +78,7 @@ namespace Lvn.UI.Screens
         {
             // Online: verify + download the boot set. Offline: warm only what's
             // already on disk (no network), so a cached install still shows its art.
-            try { await _downloads.BootPrefetchAsync(manifest, online, default); }
+            try { await _downloads.BootPrefetchAsync(manifest, online, default, showcaseAhead: LvnIntro.Pending(manifest) == null); }
             catch { /* best-effort — missing boot art is non-fatal */ }
         }
 
