@@ -55,8 +55,15 @@ fi
 
 if [ -n "${CONTENT_DIR:-}" ]; then
   log "4.5/5 sync content from $CONTENT_DIR"
+  # services/ и state/ ЦЕЛИКОМ остаются серверными: там живут кошельки, база
+  # аккаунтов, очереди аналитики, сейвы игроков и учётки панели. Раньше
+  # исключались три пути из этого дерева поимённо, и `--delete` увозил с
+  # дев-машины чужие кошельки и базу — а с сентября 2026 снёс бы ещё и
+  # учётки панели (они переехали в services/). Продуктовые конфиги
+  # (iap-catalog.json, ads.json, daily-rewards.json) лежат в корне контента и
+  # деплоятся как раньше.
   rsync -az --delete \
-    --exclude 'state/' --exclude 'services/analytics/' --exclude 'services/users.json' \
+    --exclude 'state/' --exclude 'services/' \
     --exclude '.git' --exclude '.gitignore' \
     "$CONTENT_DIR/" "$HOST:$LVN_HOME/content/"
   ssh "$HOST" "chown -R lvn:lvn $LVN_HOME/content && systemctl restart lvn"

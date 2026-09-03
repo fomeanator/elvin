@@ -35,6 +35,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -80,12 +81,44 @@ type AdminUsers struct {
 	TTL time.Duration
 }
 
+// adminUsersFile — имя файла учёток панели.
+const adminUsersFile = "admin-users.json"
+
+// adminUsersDir — где лежат учётки: в services/, рядом с остальными
+// служебными данными, которые сервер никому не отдаёт.
+//
+// До 03.09.2026 файл лежал в корне контента и уходил игрокам как картинка —
+// соли и хэши паролей всех владельцев были доступны любому по адресу
+// /content/admin-users.json (аудит, проверено снаружи на проде). Переезд
+// делает сервер сам при первом старте: старый файл переносится, а если новый
+// уже есть — старый удаляется, потому что лежать в публичном корне ему нельзя
+// ни под каким предлогом. Статика на всякий случай знает это имя и не отдаёт
+// его нигде (privateRel) — второй рубеж для старого бинаря на чужом сервере.
+func adminUsersDir(content string) string {
+	dir := filepath.Join(content, "services")
+	old := filepath.Join(content, adminUsersFile)
+	now := filepath.Join(dir, adminUsersFile)
+	if _, err := os.Stat(old); err != nil {
+		return dir
+	}
+	if _, err := os.Stat(now); errors.Is(err, os.ErrNotExist) {
+		if os.MkdirAll(dir, 0o755) == nil && os.Rename(old, now) == nil {
+			log.Printf("[admin] учётки переехали из корня контента в services/: из корня они раздавались публично")
+		}
+		return dir
+	}
+	if os.Remove(old) == nil {
+		log.Printf("[admin] старая копия учёток в корне контента удалена — действующая лежит в services/")
+	}
+	return dir
+}
+
 func NewAdminUsers(dir string) (*AdminUsers, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
 	s := &AdminUsers{
-		path:     filepath.Join(dir, "admin-users.json"),
+		path:     filepath.Join(dir, adminUsersFile),
 		users:    map[string]*adminUser{},
 		sessions: map[string]*adminSession{},
 		TTL:      24 * time.Hour,
