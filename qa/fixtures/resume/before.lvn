@@ -1,0 +1,43 @@
+{
+  "scene": "resume_probe",
+  "script": [
+    {
+      "op": "say",
+      "text": "Первая строка вступления.",
+      "who": "Narrator"
+    },
+    {
+      "op": "say",
+      "text": "Вторая строка вступления.",
+      "who": "Narrator"
+    },
+    {
+      "id": "meeting",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Здесь начинается встреча.",
+      "who": "Guide"
+    },
+    {
+      "op": "say",
+      "text": "Вопрос, на котором игрок остановился.",
+      "who": "Guide"
+    },
+    {
+      "op": "say",
+      "text": "Ответ, который он ещё не видел.",
+      "who": "Guide"
+    },
+    {
+      "id": "after",
+      "op": "label"
+    },
+    {
+      "op": "say",
+      "text": "Сцена закончилась.",
+      "who": "Narrator"
+    }
+  ]
+}
