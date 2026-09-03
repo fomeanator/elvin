@@ -62,12 +62,57 @@ namespace Lvn.Content
         private string SeedKey(string url)
         {
             if (_seedIndex == null || _seedIndex.Count == 0 || string.IsNullOrEmpty(url)) return null;
+            // Метка версии в адресе («…@2k.jpg?v=3») — про кэш сервера, а не про
+            // содержимое: в описи сида её нет и быть не может, и адрес с ней
+            // промахивался мимо ЛЮБОГО ключа. Устаревание сида ловится ниже
+            // сверкой sha256, так что отрезать метку тут безопасно.
+            url = LvnUrl.Bare(url);
             int at = url.IndexOf(LvnAssetPath.ContentPrefix + "/", StringComparison.Ordinal);
             if (at < 0) return null;
             var rel = url.Substring(at + 1);          // "content/bg/x@2k.jpg"
             if (_seedIndex.Contains(rel)) return rel;
             var baseRel = DownloadPolicy.StripVariant(rel);
-            return _seedIndex.Contains(baseRel) ? baseRel : null;
+            if (_seedIndex.Contains(baseRel)) return baseRel;
+            return LowerRungInSeed(baseRel, rel);
+        }
+
+        /// <summary>
+        /// СТУПЕНЬ НИЖЕ ЗАПРОШЕННОЙ — тоже попадание.
+        ///
+        /// <para>Сид собирают на сервере, не зная устройства, и потому он везёт
+        /// НИЖНЮЮ ступень (@1k). Устройство же просит свою: телефон покрупнее —
+        /// «@1440», планшет — «@2k». Совпадения нет, и десять мегабайт в APK
+        /// лежали мёртвым грузом, пока телефон качал то же самое с сервера.</para>
+        ///
+        /// <para>Взять ступень ниже можно: это ТОТ ЖЕ КАДР, только мельче — и
+        /// он лучше, чем ждать сеть на первом же экране. Полное качество
+        /// приезжает следующим заходом, когда связь есть.</para>
+        ///
+        /// <para>РАСШИРЕНИЕ НЕ МЕНЯЕТСЯ НИКОГДА. Спросили код для видеокарты —
+        /// отдать вместо него PNG значит вернуть байты, которые вызвавший
+        /// попытается разобрать как ktx2 и не сможет. Поэтому ищется тот же
+        /// корень и то же расширение, только с другой ступенью.</para>
+        /// </summary>
+        private string LowerRungInSeed(string baseRel, string askedRel)
+        {
+            int dot = baseRel.LastIndexOf('.');
+            if (dot <= 0) return null;
+            string stem = baseRel.Substring(0, dot), ext = baseRel.Substring(dot);
+
+            // Ступени перечислены сверху вниз (DownloadPolicy.Variants: 2k,
+            // 1440, 1k, mini). Начинаем с той, что запрошена: выше неё не
+            // поднимаемся — крупнее просимого в APK не кладут, а если и лежит,
+            // то это лишний вес и лишний декод.
+            int from = 0;
+            for (int i = 0; i < DownloadPolicy.Variants.Length; i++)
+                if (askedRel.Contains(DownloadPolicy.Variants[i])) { from = i; break; }
+
+            for (int i = from; i < DownloadPolicy.Variants.Length; i++)
+            {
+                var candidate = stem + DownloadPolicy.Variants[i] + ext;
+                if (_seedIndex.Contains(candidate)) return candidate;
+            }
+            return null;
         }
         private async Task<byte[]> TrySeedAsync(string url, string cachePath, CancellationToken ct)
         {

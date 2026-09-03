@@ -116,6 +116,10 @@ func TestSeedCarriesTheFirstFrameArt(t *testing.T) {
 		}
 	}
 	put("ui/menu-canvas.jpg", "полотно")
+	put("ui/menu-canvas@1k.jpg", "нижняя ступень полотна")
+	put("bg/крит@1k.jpg", "нижняя ступень фона")
+	put("bg/крит@1k.ktx2", "нижняя ступень фона для видеокарты")
+	put("bg/крит@1440.jpg", "средняя ступень — не везём")
 	put("ui/icons/back.png", "значок")
 	put("ui/menu-canvas@1k.jpg", "ступень качества") // производная — не везём
 	put("ui/loading/ch1.jpg", "фон загрузки главы")  // не первый кадр
@@ -161,20 +165,23 @@ func TestSeedCarriesTheFirstFrameArt(t *testing.T) {
 	}
 
 	for _, want := range []string{
-		"content/ui/menu-canvas.jpg", // ровно тот файл, которого ждёт вуаль
+		"content/ui/menu-canvas@1k.jpg", // полотно, которого ждёт вуаль — нижней ступенью
 		"content/ui/icons/back.png",
+		"content/bg/крит@1k.jpg",
+		"content/bg/крит@1k.ktx2",
 		"content/scripts/agency-ch0.lvn",
-		"content/bg/крит.jpg",
 	} {
 		if !got[want] {
 			t.Errorf("%s не доехал в сид — на первом запуске за ним пойдут в сеть", want)
 		}
 	}
 	for _, notWant := range []string{
-		"content/ui/menu-canvas@1k.jpg", // ступень качества клиент сводит к базе
-		"content/ui/loading/ch1.jpg",    // фон загрузки — глава, а не первый кадр
-		"content/ui/words.en.json",      // не картинка
-		"content/bg/потом.jpg",          // не критичный
+		"content/ui/menu-canvas.jpg", // оригинал: у него есть ступень @1k
+		"content/ui/loading/ch1.jpg", // фон загрузки — глава, а не первый кадр
+		"content/ui/words.en.json",   // не картинка
+		"content/bg/потом.jpg",       // не критичный
+		"content/bg/крит.jpg",        // оригинал: у него есть ступень @1k
+		"content/bg/крит@1440.jpg",   // средняя ступень в APK не окупается
 	} {
 		if got[notWant] {
 			t.Errorf("%s уехал в сид — APK толстеет без пользы", notWant)
@@ -193,5 +200,43 @@ func TestSeedCarriesTheFirstFrameArt(t *testing.T) {
 		if !inIndex[rel] {
 			t.Errorf("%s лежит в APK, но не назван в описи — клиент его не найдёт", rel)
 		}
+	}
+}
+
+// КАКИЕ ФАЙЛЫ ВЕЗТИ РАДИ ОДНОГО АДРЕСА. Манифест называет оригинал, а
+// устройство просит ступень: сперва код для видеокарты, не вышло — уменьшенную
+// картинку. На живом каталоге прода сид вёз 8,2 МБ героя, а телефон качал его
+// же с сервера за 560 КБ — расширения не совпали. Десять мегабайт балласта.
+func TestSeedShipsTheLowerRungNotTheOriginal(t *testing.T) {
+	content := t.TempDir()
+	put := func(rel string) {
+		p := filepath.Join(content, filepath.FromSlash(rel))
+		_ = os.MkdirAll(filepath.Dir(p), 0o755)
+		if err := os.WriteFile(p, []byte(rel), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	put("art/герой.png")
+	put("art/герой@1k.png")
+	put("art/герой@1k.ktx2")
+	put("art/герой@1440.png")
+	put("audio/тема.ogg") // у звука ступеней не бывает
+	put("ui/значок.png")  // мелочь без ступеней
+
+	got := seedRungs(content, "art/герой.png")
+	want := []string{"art/герой@1k.ktx2", "art/герой@1k.png"}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Errorf("для героя везём %v, а нужны обе нижние ступени %v — "+
+			"иначе APK потолстеет на оригинал, которого никто не спросит", got, want)
+	}
+	for _, rel := range []string{"audio/тема.ogg", "ui/значок.png"} {
+		if got := seedRungs(content, rel); len(got) != 1 || got[0] != rel {
+			t.Errorf("%s: ступеней нет, надо везти оригинал, а везём %v", rel, got)
+		}
+	}
+	// Файла нет вовсе — отвечаем им же: класть в архив всё равно нечего, и
+	// тихо пропасть здесь значило бы недосчитаться его и в описи.
+	if got := seedRungs(content, "нет/такого.png"); len(got) != 1 || got[0] != "нет/такого.png" {
+		t.Errorf("пропавший файл: %v", got)
 	}
 }

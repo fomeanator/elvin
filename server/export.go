@@ -517,19 +517,26 @@ func (s *server) bundleIntroSeed(zw *zip.Writer, folder string) {
 	}
 	base := folder + "/Assets/StreamingAssets/lvn-seed"
 	var index []string
+	seen := map[string]bool{}
 	for u := range urls {
 		rel := strings.TrimPrefix(u, "/content/")
 		if rel == u { // не контент-URL — не наш файл
 			continue
 		}
-		data, rerr := os.ReadFile(filepath.Join(s.content, filepath.FromSlash(rel)))
-		if rerr != nil {
-			continue
-		}
-		entry := "content/" + rel
-		if zf, cerr := zw.Create(base + "/" + entry); cerr == nil {
-			_, _ = zf.Write(data)
-			index = append(index, entry)
+		for _, rel := range seedRungs(s.content, rel) {
+			if seen[rel] {
+				continue
+			}
+			data, rerr := os.ReadFile(filepath.Join(s.content, filepath.FromSlash(rel)))
+			if rerr != nil {
+				continue
+			}
+			seen[rel] = true
+			entry := "content/" + rel
+			if zf, cerr := zw.Create(base + "/" + entry); cerr == nil {
+				_, _ = zf.Write(data)
+				index = append(index, entry)
+			}
 		}
 	}
 	sort.Strings(index)
@@ -891,6 +898,39 @@ func firstFrameArt(content string) []string {
 		}
 		return nil
 	})
+	sort.Strings(out)
+	return out
+}
+
+// seedRungs — какие ФАЙЛЫ везти в APK ради одного адреса.
+//
+// Манифест называет оригинал («art/Cold_David_body.png»), а устройство просит
+// СТУПЕНЬ: сначала код для видеокарты («…@1440.ktx2»), не вышло — уменьшенную
+// картинку («…@1440.png»). Сид вёз оригинал, и на живом каталоге прода это
+// значило вот что: 8,2 МБ героя лежат в APK, а телефон качает его же с сервера
+// за 560 КБ — потому что расширения не совпали. Десять мегабайт балласта, и
+// первый вход всё равно идёт в сеть.
+//
+// Поэтому едет НИЖНЯЯ ступень (@1k) во всех расширениях, какие для неё есть:
+// и код для видеокарты, и обычная картинка — какой путь ни выберет устройство,
+// файл найдётся локально. Клиент принимает ступень ниже запрошенной
+// (ContentLoader.SeedKey), а полное качество приезжает с сервера потом.
+//
+// Ступени нет вовсе (звук, мелкий значок) — везём оригинал: он и есть
+// единственный файл.
+func seedRungs(content, rel string) []string {
+	ext := filepath.Ext(rel)
+	stem := strings.TrimSuffix(rel, ext)
+	matches, _ := filepath.Glob(filepath.Join(content, filepath.FromSlash(stem)) + "@1k.*")
+	if len(matches) == 0 {
+		return []string{rel}
+	}
+	out := make([]string, 0, len(matches))
+	for _, m := range matches {
+		if r, err := filepath.Rel(content, m); err == nil {
+			out = append(out, filepath.ToSlash(r))
+		}
+	}
 	sort.Strings(out)
 	return out
 }
