@@ -240,18 +240,42 @@ namespace Lvn.UI.Screens
                 // цикл глав, и второму месту (арт каста) пришлось бы его
                 // скопировать — а разойдись копии, одна очередь начала бы
                 // отбирать полосу у кадра, который игрок видит прямо сейчас.
-                async Task WarmOne(string url)
+                async Task<bool> WaitForQuietAsync()
                 {
-                    if (string.IsNullOrEmpty(url)) return;
                     while (_chapterSched != null && !_chapterSched.AllDone && !ct.IsCancellationRequested)
                         await Task.Delay(500, ct);
                     while (_assets.LivePressure > 0 && !ct.IsCancellationRequested)
                         await Task.Delay(150, ct);
-                    if (Lvn.LvnNetworkStatus.IsOffline) { await Task.Delay(3000, ct); return; }
-                    if (_assets.Loader.IsAssetCached(url)) { skipped++; return; }
-                    try { await _assets.Loader.DownloadAssetBytes(url, ct); warmed++; }
+                    if (Lvn.LvnNetworkStatus.IsOffline) { await Task.Delay(3000, ct); return false; }
+                    return !ct.IsCancellationRequested;
+                }
+
+                // СОГРЕТЬ ПАЧКУ — ОБОЗОМ, А НЕ ПО ОДНОМУ.
+                //
+                // Раньше здесь стоял `await` на КАЖДЫЙ файл: две с половиной
+                // тысячи файлов ехали строго друг за другом, и полоса сети
+                // шириной двенадцать всё это время держала одиннадцать мест
+                // пустыми. На мобильной сети цена файла — не байты, а круговой
+                // рейс; последовательный обход платит его две с половиной
+                // тысячи раз подряд.
+                //
+                // Обоз умеет то же самое в несколько полос и — что не менее
+                // важно — ВЕДЁТ СЧЁТ: сколько в пачке, сколько закрыто, сколько
+                // байт. Без него индикатор видел единственный файл в полёте и
+                // говорил игроку «в очереди: файлов 1» при сотне оставшихся,
+                // «Скачано 0 МБ» при работающей загрузке и ронял скорость в
+                // ноль на каждой границе файлов (живой скрин 04.09).
+                async Task WarmBatch(System.Collections.Generic.List<Lvn.Content.PreloadItem> pack)
+                {
+                    if (pack.Count == 0) return;
+                    if (!await WaitForQuietAsync()) return;
+                    int missing = 0;
+                    foreach (var it in pack)
+                        if (_assets.Loader.IsAssetCached(it.Url)) skipped++; else missing++;
+                    if (missing == 0) return;
+                    try { await _assets.Loader.StartPreloadBatch(pack, ct); warmed += missing; }
                     catch (System.OperationCanceledException) { throw; }
-                    catch { /* self-heal covers per-file failures */ }
+                    catch { /* самолечение закроет отдельные файлы */ }
                 }
 
                 // ПОРЯДОК — ЧАСТЬ РАБОТЫ. Очередь без порядка забивается, и
@@ -291,13 +315,16 @@ namespace Lvn.UI.Screens
                                 // что рисует первый кадр) раньше прочего.
                                 // «Критичность» ставит автор: движок не знает,
                                 // какая поза откроет сцену.
+                                // Порядок внутри главы сохранён: пачка едет в
+                                // том же порядке ступеней, просто не по одному.
+                                var pack = new System.Collections.Generic.List<Lvn.Content.PreloadItem>();
                                 foreach (var part in Lvn.Content.LvnPriority.ByRung(
                                              Lvn.Content.LvnParts.OfChapter(ch),
                                              pt => Lvn.Content.LvnPriority.OfChapterPart(pt, current: true)))
-                                {
-                                    if (ct.IsCancellationRequested) return;
-                                    await WarmOne(part.Url);
-                                }
+                                    if (!string.IsNullOrEmpty(part.Url))
+                                        pack.Add(new Lvn.Content.PreloadItem { Url = part.Url, Kind = part.Kind });
+                                if (ct.IsCancellationRequested) return;
+                                await WarmBatch(pack);
                             }
                         }
                     }
@@ -312,10 +339,13 @@ namespace Lvn.UI.Screens
                 // Гейт починен; порядок назван лестницей; полоса у каста своя —
                 // последняя.
                 using (Lvn.Content.LvnRungScope.At(Lvn.Content.LvnRung.Spare))
-                foreach (var part in Lvn.Content.LvnParts.OfCast(manifest))
                 {
+                    var spare = new System.Collections.Generic.List<Lvn.Content.PreloadItem>();
+                    foreach (var part in Lvn.Content.LvnParts.OfCast(manifest))
+                        if (!string.IsNullOrEmpty(part.Url))
+                            spare.Add(new Lvn.Content.PreloadItem { Url = part.Url, Kind = part.Kind });
                     if (ct.IsCancellationRequested) return;
-                    await WarmOne(part.Url);
+                    await WarmBatch(spare);
                 }
 
                 LvnLog.Trace($"[lvn-warm] library fully cached ({warmed} fetched, {skipped} already local)");

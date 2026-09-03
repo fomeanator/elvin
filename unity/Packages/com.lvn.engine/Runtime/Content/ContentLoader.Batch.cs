@@ -90,8 +90,9 @@ namespace Lvn.Content
         /// <summary>
         /// ОЧЕРЕДЬ ОПУСТЕЛА — счёт обнуляется ВЕСЬ.
         ///
-        /// <para>Счёт складывают шесть полей: сколько всего, сколько сделано,
-        /// что скачивалось последним, попытки и два словаря байтов. Забыть одно
+        /// <para>Счёт складывают семь полей: сколько всего, сколько сделано,
+        /// байты закрытых, что скачивалось последним, попытки и два словаря
+        /// байтов. Забыть одно
         /// из них — значит показать игроку «Скачано 131 из 135» при пустой
         /// очереди (живой скрин): мусор одиночных фетчей въезжает в проценты
         /// следующего пакета.</para>
@@ -104,9 +105,10 @@ namespace Lvn.Content
         /// </summary>
         private void ClearBatchTally()
         {
-            BatchTotal     = 0;
-            BatchDone      = 0;
-            LastStartedUrl = null;
+            BatchTotal       = 0;
+            BatchDone        = 0;
+            BatchClosedBytes = 0;
+            LastStartedUrl   = null;
             // Итоги пакета сброшены — записям о загрузках сказать больше
             // нечего. Но ИДУЩУЮ работу сброс итогов не отменяет: раньше здесь
             // стоял Clear целиком, и с переездом задачи в запись он снёс бы
@@ -157,8 +159,9 @@ namespace Lvn.Content
                     // попыток принадлежит идущей закачке, и обнулить его здесь
                     // значило бы подарить ей лишний повтор.
                     foreach (var f in _underway.Values) { f.Received = 0; f.Expected = 0; }
-                    BatchTotal     = pending.Count;
-                    BatchDone      = 0;
+                    BatchTotal       = pending.Count;
+                    BatchDone        = 0;
+                    BatchClosedBytes = 0;
                     LastStartedUrl = pending[0].Url;
                 }
                 return await RunBatchAsync(pending, ct);
@@ -216,7 +219,7 @@ namespace Lvn.Content
                     var path  = CachePath(_assetCacheDir, asset.Url, ".bin");
                     // Успел приехать одиночным запросом, пока пакет шёл, — это
                     // не работа, но в счёте она посчитана.
-                    if (File.Exists(path)) { lock (_underway) BatchDone++; continue; }
+                    if (File.Exists(path)) { CloseFile(path); continue; }
 
                     // Подпись показывает ПОСЛЕДНИЙ начатый файл. При нескольких
                     // рабочих «текущий» — понятие приблизительное, и честнее
@@ -240,7 +243,23 @@ namespace Lvn.Content
                     catch (OperationCanceledException) { throw; }
                     catch { /* сдался и объяснил внутри: NoteGaveUp / RememberMissing */ }
 
-                    lock (_underway) BatchDone++;
+                    CloseFile(path);
+                }
+            }
+
+            /// <summary>Файл закрыт — прибавить его к счёту пакета. Байты
+            /// берутся С ДИСКА, а не из заголовка: заголовка может не быть
+            /// вовсе, а файл к этому мгновению уже дописан и весит ровно
+            /// столько, сколько весит.</summary>
+            void CloseFile(string path)
+            {
+                long size = 0;
+                try { var fi = new FileInfo(path); if (fi.Exists) size = fi.Length; }
+                catch { /* гонка с чисткой кэша — не повод ронять обоз */ }
+                lock (_underway)
+                {
+                    BatchDone++;
+                    BatchClosedBytes += size;
                 }
             }
         }
