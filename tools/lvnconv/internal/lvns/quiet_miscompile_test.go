@@ -1,6 +1,10 @@
 package lvns
 
-import "testing"
+import (
+	"fmt"
+	"strings"
+	"testing"
+)
 
 // ТИХИЕ МИСКОМПИЛЫ — самый дорогой класс ошибок компилятора: автор пишет
 // правильно, получает молча не то, и узнаёт об этом от игрока. Здесь заперты
@@ -110,15 +114,6 @@ ui второй {
 
 // Ошибки разбора называют строку ФАЙЛА АВТОРА, а не позицию в рабочем
 // списке: между ними стоят вынутые блоки `ui` и пропущенные пустые строки.
-//
-// ЧЕГО ЭТОТ ТЕСТ НЕ ПРОВЕРЯЕТ, и это не забывчивость. Развороты (`for`,
-// `while`, `func`, однострочные блоки) переписывают текст ЦЕЛИКОМ, вставляя
-// свои строки, и карта строк через них не переносится вовсе — после первого
-// же цикла номера съезжают вниз на длину разворота. Чинится это не здесь:
-// нужно провести номера сквозь четыре прохода (flattenInline, expandLoops,
-// expandCalls и сбор функций), а это отдельная работа со своим риском —
-// компилятор здесь источник правды для всего продукта. Записано в
-// docs/audit-2026-09-03.md как незакрытое.
 func TestParseErrorsNameTheAuthorsLine(t *testing.T) {
 	src := "scene s\n\n// комментарий\nui бой {\n  panel\n}\n\n:\n"
 	_, err := Convert(src)
@@ -127,5 +122,81 @@ func TestParseErrorsNameTheAuthorsLine(t *testing.T) {
 	}
 	if got := err.Error(); got != "line 8: label cannot be empty" {
 		t.Errorf("ошибка называет не ту строку: %q", got)
+	}
+}
+
+// РАЗВОРОТЫ НЕ СДВИГАЮТ НОМЕРА. Каждый из трёх проходов, стоящих между
+// автором и разбором, меняет число строк: `for` разворачивается в шесть строк
+// вместо одной, `func` — в две, однострочный `if c { x }` — в четыре. Раньше
+// номер строки считался ПОСЛЕ них, и каждый разворот выше по файлу уводил всю
+// диагностику ниже него на свою длину: компилятор называл место, где ошибки
+// нет, а SrcLine в готовом .lvn (по нему IDE ставит курсор) указывал мимо на
+// то же расстояние.
+//
+// Здесь каждый разворот стоит ВЫШЕ ошибки, и каждый — своего рода.
+func TestExpansionsDoNotShiftLineNumbers(t *testing.T) {
+	cases := []struct {
+		name, above string
+		grew        string // во что разворачивается: для сообщения о провале
+	}{
+		{"for", "for i in [1,2] {\n  set key=x value=1\n}", "шесть строк"},
+		{"while", "while x < 3 {\n  set key=x expr=\"x + 1\"\n}", "три строки"},
+		{"func", "func f() {\n  set key=x value=1\n}", "две строки"},
+		{"однострочный if", "if x > 0 { set key=x value=1 }", "четыре строки"},
+		{"вызов процедуры", "func f() {\n  set key=x value=1\n}\nf()", "две строки и вызов"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			// Пустая метка на ПОСЛЕДНЕЙ строке: считаем её номер руками.
+			body := "scene s\n" + c.above + "\n:\n"
+			want := len(strings.Split(strings.TrimSuffix(body, "\n"), "\n"))
+			_, err := Convert(body)
+			if err == nil {
+				t.Fatal("пустая метка обязана быть ошибкой")
+			}
+			if got, exp := err.Error(), fmt.Sprintf("line %d: label cannot be empty", want); got != exp {
+				t.Errorf("%s разворачивается в %s и уводит диагностику: %q, ждали %q",
+					c.name, c.grew, got, exp)
+			}
+		})
+	}
+}
+
+// SrcLine в готовом документе — та же карта, и по ней работают IDE и редактор.
+// Проверяем ПОСЛЕДНЮЮ команду: до неё стоят все виды разворотов сразу.
+func TestSrcLineSurvivesExpansions(t *testing.T) {
+	src := `scene s
+for i in [1,2] {
+  set key=a value=1
+}
+if a > 0 { set key=b value=2 }
+func f() {
+  set key=c value=3
+}
+f()
+Анна: последняя строка
+`
+	doc, err := Convert(src)
+	if err != nil {
+		t.Fatalf("не собралось: %v", err)
+	}
+	if len(doc.Script) != len(doc.SrcLine) {
+		t.Fatalf("карта строк короче сценария: %d против %d", len(doc.SrcLine), len(doc.Script))
+	}
+	// Реплика — последняя команда, которую породил АВТОР (после неё идут
+	// только метки-хвосты разворотов).
+	last := -1
+	for i, c := range doc.Script {
+		if c["op"] == "say" {
+			last = i
+		}
+	}
+	if last < 0 {
+		t.Fatal("реплики нет в сценарии")
+	}
+	const want = 10 // строка `Анна: последняя строка`
+	if got := doc.SrcLine[last]; got != want {
+		t.Errorf("SrcLine реплики = %d, а в файле она на строке %d — "+
+			"на столько же промахнётся курсор IDE", got, want)
 	}
 }

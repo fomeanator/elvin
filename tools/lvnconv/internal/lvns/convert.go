@@ -184,17 +184,20 @@ func convertWith(src string, outer *nestCtx) (*Doc, error) {
 	if uiErr != nil {
 		return nil, uiErr
 	}
-	flat := flattenInline(src)
+	// КАРТА СТРОК едет через все три прохода вместе с текстом. Каждый из них
+	// меняет число строк, и без карты «строка N» в ошибке и в SrcLine — это
+	// строка N ПОСЛЕ разворотов, а не та, которую автор видит в редакторе.
+	flat, flatNo := flattenInline(src)
 	funcs, err := collectFuncs(flat)
 	if err != nil {
 		return nil, err
 	}
-	blankExprFuncDefs(flat, funcs)
-	expanded, err := expandLoops(flat)
+	blankExprFuncDefs(flat, funcs) // гасит строки на месте: число не меняется
+	expanded, expandedNo, err := expandLoops(flat, flatNo)
 	if err != nil {
 		return nil, err
 	}
-	src, err = expandCalls(expanded, funcs)
+	lowered, loweredNo, err := expandCalls(expanded, expandedNo, funcs)
 	if err != nil {
 		return nil, err
 	}
@@ -213,12 +216,13 @@ func convertWith(src string, outer *nestCtx) (*Doc, error) {
 	// 1-based source line number, so commands can map back to the editor.
 	var lines []string
 	var srcNo []int
-	rawLines := strings.Split(src, "\n")
+	rawLines := lowered
 
 	chevDepth := 0 // >0 while inside an unclosed «…» (multi-line string)
 	var cbuf strings.Builder
 	cbufSrc := 0
 	for idx, raw := range rawLines {
+		at := srcAt(loweredNo, idx)
 		if chevDepth > 0 {
 			// Inside a multi-line «…»: keep the raw line verbatim (no comment strip,
 			// no blank-skip) and join with a real newline, until the » closes it.
@@ -257,12 +261,12 @@ func convertWith(src string, outer *nestCtx) (*Doc, error) {
 			chevDepth = d
 			cbuf.Reset()
 			cbuf.WriteString(line)
-			cbufSrc = idx + 1
+			cbufSrc = at
 			continue
 		}
 
 		lines = append(lines, line)
-		srcNo = append(srcNo, idx+1)
+		srcNo = append(srcNo, at)
 	}
 	if cbuf.Len() > 0 {
 		// An unterminated «…» has swallowed everything to EOF. Emitting "what
@@ -986,18 +990,22 @@ func convertWith(src string, outer *nestCtx) (*Doc, error) {
 // `} else { … }`, `for/while/func c { … }`), the form the macro passes expect.
 // Lines inside a multi-line «…» pass through verbatim — their `{`/`}` are prose
 // or interpolation, not control flow.
-func flattenInline(src string) []string {
-	var out []string
+func flattenInline(src string) ([]string, []int) {
+	raws := strings.Split(src, "\n")
+	w := newLineWriter(len(raws))
 	depth := 0
-	for _, raw := range strings.Split(src, "\n") {
+	for i, raw := range raws {
+		w.at(i + 1) // здесь вход ЕЩЁ авторский: номер строки — порядковый
 		if depth > 0 || chevRun(0, raw) > 0 {
-			out = append(out, raw)
+			w.add(raw)
 			depth = chevRun(depth, raw)
 			continue
 		}
-		out = append(out, splitInline(raw)...)
+		// Однострочный блок раскладывается на две-четыре строки, и все они
+		// принадлежат ОДНОЙ строке автора — w.cur не меняется.
+		w.add(splitInline(raw)...)
 	}
-	return out
+	return w.lines, w.src
 }
 
 // splitInline turns a one-line control block into the own-line brace form, so
@@ -1353,14 +1361,16 @@ func chevRun(depth int, s string) int {
 // `r = __ret`. Expression functions never reach this pass as calls — they are
 // inlined into the expression itself (see inlineFuncs) — so the two kinds of
 // `func` stay strictly apart: a statement call here, an expression there.
-func expandCalls(src string, funcs map[string]*funcDef) (string, error) {
-	var out []string
+func expandCalls(srcLines []string, srcNo []int, funcs map[string]*funcDef) ([]string, []int, error) {
+	w := newLineWriter(len(srcLines))
 	depth := 0
-	for n, line := range strings.Split(src, "\n") {
+	for n, line := range srcLines {
+		at := srcAt(srcNo, n) // строка АВТОРА: вход пришёл из expandLoops
+		w.at(at)
 		// Inside (or opening) a multi-line «…»: pass the line through untouched
 		// so prose like `return home, she thought.` never becomes a `return` op.
 		if depth > 0 || chevRun(0, line) > 0 {
-			out = append(out, line)
+			w.add(line)
 			depth = chevRun(depth, line)
 			continue
 		}
@@ -1369,7 +1379,7 @@ func expandCalls(src string, funcs map[string]*funcDef) (string, error) {
 		// `return <expr>` → stash the value, then return.
 		if strings.HasPrefix(t, "return ") {
 			if expr := strings.TrimSpace(t[len("return "):]); expr != "" {
-				out = append(out, "__ret = "+expr, "return")
+				w.add("__ret = "+expr, "return")
 				continue
 			}
 		}
@@ -1383,28 +1393,28 @@ func expandCalls(src string, funcs map[string]*funcDef) (string, error) {
 				// check that line fell through and became on-screen TEXT.
 				if d.expr != "" {
 					if lhs == "" {
-						return "", fmt.Errorf("line %d: %s() returns a value — use it inside an expression (`x = %s(…)`, `{%s(…)}`), not as a statement", n+1, fname, fname, fname)
+						return nil, nil, fmt.Errorf("line %d: %s() returns a value — use it inside an expression (`x = %s(…)`, `{%s(…)}`), not as a statement", at, fname, fname, fname)
 					}
-					out = append(out, line)
+					w.add(line)
 					continue
 				}
 				args := splitArgs(argstr)
 				if len(args) != len(d.params) {
-					return "", fmt.Errorf("line %d: %s() takes %d argument(s), got %d", n+1, fname, len(d.params), len(args))
+					return nil, nil, fmt.Errorf("line %d: %s() takes %d argument(s), got %d", at, fname, len(d.params), len(args))
 				}
 				for i, p := range d.params {
-					out = append(out, p+" = "+args[i]) // bind param (assignment sugar)
+					w.add(p + " = " + args[i]) // bind param (assignment sugar)
 				}
-				out = append(out, "call __fn_"+fname)
+				w.add("call __fn_" + fname)
 				if lhs != "" {
-					out = append(out, lhs+" = __ret")
+					w.add(lhs + " = __ret")
 				}
 				continue
 			}
 		}
-		out = append(out, line)
+		w.add(line)
 	}
-	return strings.Join(out, "\n"), nil
+	return w.lines, w.src, nil
 }
 
 // splitArgs splits a call's argument list on top-level commas, respecting
@@ -1773,7 +1783,7 @@ func scanIdents(rs []rune) []identTok {
 // <var> each pass. A `while` desugars to a guarded label loop. Labels are unique
 // per loop and nest via a stack, so loops can contain loops. Input is the
 // flattened line list (see flattenInline).
-func expandLoops(srcLines []string) (string, error) {
+func expandLoops(srcLines []string, srcNo []int) ([]string, []int, error) {
 	type frame struct {
 		kind            string // "for" | "while" | "if" | "func" | "opt"
 		loopLbl, endLbl string
@@ -1782,7 +1792,7 @@ func expandLoops(srcLines []string) (string, error) {
 		sawElse         bool   // if-only
 	}
 	var stack []frame
-	var out []string
+	w := newLineWriter(len(srcLines))
 	// Где блок ОТКРЫЛСЯ: незакрытую скобку ищут по началу блока, а не по концу
 	// файла — «unclosed for/while block» без места отправлял автора листать всё.
 	var openedAt []int
@@ -1794,9 +1804,11 @@ func expandLoops(srcLines []string) (string, error) {
 	// или «unclosed for/while block» без единого указания места: автор искал
 	// скобку по всему файлу глазами. Индекс здесь и нужен только для этого.
 	for li, raw := range srcLines {
+		at := srcAt(srcNo, li) // строка АВТОРА: вход мог прийти из flattenInline
+		w.at(at)
 		// Inside/opening a «…»: emit verbatim, never interpret as a block.
 		if cdepth > 0 || chevRun(0, raw) > 0 {
-			out = append(out, raw)
+			w.add(raw)
 			cdepth = chevRun(cdepth, raw)
 			lastStmt = "" // prose, never a control statement
 			continue
@@ -1816,7 +1828,7 @@ func expandLoops(srcLines []string) (string, error) {
 				if len(openedAt) > 0 {
 					openedAt = openedAt[:len(openedAt)-1]
 				}
-				out = append(out, raw)
+				w.add(raw)
 				lastStmt = ""
 				continue
 			}
@@ -1826,17 +1838,17 @@ func expandLoops(srcLines []string) (string, error) {
 			// scan would close the OUTER block on the inner brace and silently
 			// reparent the rest of the branch as top-level script.
 			if isOptionBlockOpen(det) {
-				out = append(out, raw)
+				w.add(raw)
 				stack = append(stack, frame{kind: "opt"})
-				openedAt = append(openedAt, li+1)
+				openedAt = append(openedAt, at)
 				lastStmt = ""
 				continue
 			}
 			if strings.HasSuffix(det, "{") {
-				return "", fmt.Errorf("line %d: choice option body: nested blocks are not allowed (%q) — "+
-					"the body is a flat command list; move branching to a label and lead there with '-> label'", li+1, det)
+				return nil, nil, fmt.Errorf("line %d: choice option body: nested blocks are not allowed (%q) — "+
+					"the body is a flat command list; move branching to a label and lead there with '-> label'", at, det)
 			}
-			out = append(out, raw)
+			w.add(raw)
 			if det != "" {
 				lastStmt = det
 			}
@@ -1848,9 +1860,9 @@ func expandLoops(srcLines []string) (string, error) {
 		switch {
 		case isOptionBlockOpen(det):
 			// `- text -> label … {` opens an option body; see the guard above.
-			out = append(out, raw)
+			w.add(raw)
 			stack = append(stack, frame{kind: "opt"})
-			openedAt = append(openedAt, li+1)
+			openedAt = append(openedAt, at)
 			lastStmt = ""
 			continue
 
@@ -1858,12 +1870,12 @@ func expandLoops(srcLines []string) (string, error) {
 			inner := strings.TrimSpace(strings.TrimSuffix(det[4:], "{"))
 			pos := strings.Index(inner, " in ")
 			if pos < 0 {
-				return "", fmt.Errorf("line %d: for: expected 'for <var> in <expr> {', got %q", li+1, det)
+				return nil, nil, fmt.Errorf("line %d: for: expected 'for <var> in <expr> {', got %q", at, det)
 			}
 			itemVar := strings.TrimSpace(inner[:pos])
 			expr := strings.TrimSpace(inner[pos+4:])
 			if itemVar == "" || expr == "" {
-				return "", fmt.Errorf("line %d: for: empty variable or collection in %q", li+1, det)
+				return nil, nil, fmt.Errorf("line %d: for: empty variable or collection in %q", at, det)
 			}
 			tag := names.site()
 			idx := names.name("i", tag)
@@ -1871,7 +1883,7 @@ func expandLoops(srcLines []string) (string, error) {
 			loop := names.name("loop", tag)
 			body := names.name("body", tag)
 			end := names.name("end", tag)
-			out = append(out,
+			w.add(
 				fmt.Sprintf("set key=%s expr=%q", sv, expr),
 				fmt.Sprintf("set key=%s value=0", idx),
 				":"+loop,
@@ -1880,24 +1892,24 @@ func expandLoops(srcLines []string) (string, error) {
 				fmt.Sprintf("set key=%s expr=%q", itemVar, fmt.Sprintf("%s[%s]", sv, idx)),
 			)
 			stack = append(stack, frame{kind: "for", loopLbl: loop, endLbl: end, idxVar: idx})
-			openedAt = append(openedAt, li+1)
+			openedAt = append(openedAt, at)
 
 		case strings.HasPrefix(det, "while ") && strings.HasSuffix(det, "{"):
 			expr := strings.TrimSpace(strings.TrimSuffix(det[6:], "{"))
 			if expr == "" {
-				return "", fmt.Errorf("line %d: while: empty condition in %q", li+1, det)
+				return nil, nil, fmt.Errorf("line %d: while: empty condition in %q", at, det)
 			}
 			tag := names.site()
 			loop := names.name("loop", tag)
 			body := names.name("body", tag)
 			end := names.name("end", tag)
-			out = append(out,
+			w.add(
 				":"+loop,
 				fmt.Sprintf("if expr=%q then=%s else=%s", expr, body, end),
 				":"+body,
 			)
 			stack = append(stack, frame{kind: "while", loopLbl: loop, endLbl: end})
-			openedAt = append(openedAt, li+1)
+			openedAt = append(openedAt, at)
 
 		case strings.HasPrefix(det, "func ") && strings.HasSuffix(det, "{"):
 			inner := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(det, "func "), "{"))
@@ -1906,7 +1918,7 @@ func expandLoops(srcLines []string) (string, error) {
 				name = strings.TrimSpace(inner[:p])
 			}
 			if name == "" {
-				return "", fmt.Errorf("line %d: func: missing name in %q", li+1, det)
+				return nil, nil, fmt.Errorf("line %d: func: missing name in %q", at, det)
 			}
 			// A procedure's skip label is derived from the function NAME, which
 			// is as stable as a name gets — a re-save never renames it.
@@ -1914,37 +1926,37 @@ func expandLoops(srcLines []string) (string, error) {
 			// A PROCEDURE definition (expression functions are blanked out before
 			// this pass): jump over the body in linear flow; the body is a
 			// `call`-only routine.
-			out = append(out, "goto "+skip, ":__fn_"+name)
+			w.add("goto "+skip, ":__fn_"+name)
 			stack = append(stack, frame{kind: "func", endLbl: skip})
-			openedAt = append(openedAt, li+1)
+			openedAt = append(openedAt, at)
 
 		case strings.HasPrefix(det, "if ") && strings.HasSuffix(det, "{"):
 			cond := strings.TrimSpace(strings.TrimSuffix(det[3:], "{"))
 			if cond == "" {
-				return "", fmt.Errorf("line %d: if: empty condition in %q", li+1, det)
+				return nil, nil, fmt.Errorf("line %d: if: empty condition in %q", at, det)
 			}
 			tag := names.site()
 			thenL := names.name("then", tag)
 			elseL := names.name("else", tag)
 			endL := names.name("end", tag)
-			out = append(out,
+			w.add(
 				fmt.Sprintf("if expr=%q then=%s else=%s", cond, thenL, elseL),
 				":"+thenL,
 			)
 			stack = append(stack, frame{kind: "if", endLbl: endL, elseLbl: elseL})
-			openedAt = append(openedAt, li+1)
+			openedAt = append(openedAt, at)
 
 		case strings.ReplaceAll(det, " ", "") == "}else{":
 			if len(stack) == 0 || stack[len(stack)-1].kind != "if" {
-				return "", fmt.Errorf("line %d: '} else {' without a matching 'if … {'", li+1)
+				return nil, nil, fmt.Errorf("line %d: '} else {' without a matching 'if … {'", at)
 			}
 			f := &stack[len(stack)-1]
-			out = append(out, "goto "+f.endLbl, ":"+f.elseLbl) // end of then-branch; else-branch follows
+			w.add("goto "+f.endLbl, ":"+f.elseLbl) // end of then-branch; else-branch follows
 			f.sawElse = true
 
 		case det == "}":
 			if len(stack) == 0 {
-				return "", fmt.Errorf("line %d: unmatched '}' (no open for/while/if block)", li+1)
+				return nil, nil, fmt.Errorf("line %d: unmatched '}' (no open for/while/if block)", at)
 			}
 			f := stack[len(stack)-1]
 			stack = stack[:len(stack)-1]
@@ -1953,27 +1965,27 @@ func expandLoops(srcLines []string) (string, error) {
 			}
 			switch f.kind {
 			case "for":
-				out = append(out, fmt.Sprintf("set key=%s expr=%q", f.idxVar, fmt.Sprintf("%s + 1", f.idxVar)), "goto "+f.loopLbl, ":"+f.endLbl)
+				w.add(fmt.Sprintf("set key=%s expr=%q", f.idxVar, fmt.Sprintf("%s + 1", f.idxVar)), "goto "+f.loopLbl, ":"+f.endLbl)
 			case "while":
-				out = append(out, "goto "+f.loopLbl, ":"+f.endLbl)
+				w.add("goto "+f.loopLbl, ":"+f.endLbl)
 			case "func":
 				// Safety return only when the body does not already end in one —
 				// otherwise the lowering emitted `return` twice (harmless at runtime,
 				// but the second one is unreachable code the validator then reports).
 				if lastStmt != "return" && !strings.HasPrefix(lastStmt, "return ") {
-					out = append(out, "return")
+					w.add("return")
 				}
-				out = append(out, ":"+f.endLbl) // skip-over label
+				w.add(":" + f.endLbl) // skip-over label
 			case "if":
 				if f.sawElse {
-					out = append(out, ":"+f.endLbl) // else-branch falls into end
+					w.add(":" + f.endLbl) // else-branch falls into end
 				} else {
-					out = append(out, ":"+f.elseLbl, ":"+f.endLbl) // no else: else target == end
+					w.add(":"+f.elseLbl, ":"+f.endLbl) // no else: else target == end
 				}
 			}
 
 		default:
-			out = append(out, raw)
+			w.add(raw)
 			if det != "" { // blank/comment-only lines are not statements
 				lastStmt = det
 			}
@@ -1988,11 +2000,11 @@ func expandLoops(srcLines []string) (string, error) {
 			at = openedAt[len(openedAt)-1]
 		}
 		if stack[len(stack)-1].kind == "opt" {
-			return "", fmt.Errorf("line %d: unclosed choice option body (missing '}')", at)
+			return nil, nil, fmt.Errorf("line %d: unclosed choice option body (missing '}')", at)
 		}
-		return "", fmt.Errorf("line %d: unclosed for/while block (missing '}')", at)
+		return nil, nil, fmt.Errorf("line %d: unclosed for/while block (missing '}')", at)
 	}
-	return strings.Join(out, "\n"), nil
+	return w.lines, w.src, nil
 }
 
 // ── synthetic label names ────────────────────────────────────────────────────
