@@ -364,8 +364,6 @@ func bodyGoto(oc Cmd) string {
 	return ""
 }
 
-// hotspotTargets собирает метки, куда уводит интерактив объекта: клик,
-// попадание перетаскиванием и промах.
 // HotspotTargets — КУДА МОЖЕТ УВЕСТИ КОМАНДА ПОМИМО ОБЫЧНОГО ПОТОКА: клик по
 // объекту, перетаскивание, кнопка внутри дерева `ui`. Экспортировано, потому
 // что этот же вопрос задаёт импортёр, вычищая недостижимое: пока он спрашивал
@@ -373,6 +371,8 @@ func bodyGoto(oc Cmd) string {
 // игрок попадает нажатием.
 func HotspotTargets(c Cmd) []string { return hotspotTargets(c) }
 
+// hotspotTargets собирает метки, куда уводит интерактив объекта: клик,
+// попадание перетаскиванием и промах.
 func hotspotTargets(c Cmd) []string {
 	var out []string
 	switch v := c["on_click"].(type) {

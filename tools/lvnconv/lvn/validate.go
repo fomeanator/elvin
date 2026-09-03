@@ -136,11 +136,6 @@ var KnownOps = map[string]bool{
 	"wardrobe_show": true,
 }
 
-// OpFields is the set of accepted top-level field keys per op, used to catch
-// typo'd keys (e.g. `fade too=` instead of `to=`). Only ops with a CLOSED field
-// set are listed: say/choice/actor/obj are intentionally omitted because they
-// carry open-ended keys (catalog-defined emotion axes, a large placement
-// vocabulary, localization ids), where strict checking would false-positive.
 // OpenFieldHints — команды, у которых набор полей ОТКРЫТ (сверх грамматики
 // автор пишет свои оси гардероба), но известные имена всё же перечислены: по
 // ним ищется явная описка. Не путать с OpFields — там набор закрыт, и любое
@@ -150,6 +145,11 @@ var OpenFieldHints = map[string][]string{
 	"obj":   {"id", "sprite_url", "x", "y", "width", "height", "anchor", "on_click", "show", "opacity", "z", "enter", "exit", "draggable", "on_drop", "on_drop_miss", "loop", "play", "drag_bounds"},
 }
 
+// OpFields is the set of accepted top-level field keys per op, used to catch
+// typo'd keys (e.g. `fade too=` instead of `to=`). Only ops with a CLOSED field
+// set are listed: say/choice/actor/obj are intentionally omitted because they
+// carry open-ended keys (catalog-defined emotion axes, a large placement
+// vocabulary, localization ids), where strict checking would false-positive.
 var OpFields = map[string][]string{
 	"bg":            {"id", "sprite_url", "fade", "pan", "pan_to", "pan_dur"},
 	"bg3d":          {"id", "prefab", "scene", "x", "y", "z", "pitch", "yaw", "fov", "dur", "off", "live"},
@@ -1101,8 +1101,6 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 	return issues
 }
 
-// collectDefinedVars gathers every variable the document assigns: set/inc keys,
-// on_click set-maps, and set/inc inside choice option bodies.
 // uncalledFuncBodies отмечает индексы команд, лежащих в теле функции, которую
 // в этом документе никто не вызывает. Компилятор кладёт функцию между метками
 // `__fn_<имя>` и `__fnskip_<имя>`, а вызов — это `call __fn_<имя>`.
@@ -1133,6 +1131,8 @@ func uncalledFuncBodies(script []Cmd) map[int]bool {
 	return out
 }
 
+// collectDefinedVars gathers every variable the document assigns: set/inc keys,
+// on_click set-maps, and set/inc inside choice option bodies.
 func collectDefinedVars(script []Cmd) map[string]bool {
 	defined := map[string]bool{}
 	var visit func(cmds []Cmd)
@@ -1190,8 +1190,6 @@ var (
 	}
 )
 
-// exprIdents pulls the variable identifiers out of an expression, dropping string
-// literals, boolean/keyword tokens, numeric literals, and function-call names.
 // eachIdent — обойти ИМЕНА в выражении, сообщая для каждого, вызов это или
 // переменная.
 //
@@ -1292,12 +1290,13 @@ func strayAssign(expr string) int {
 	return -1
 }
 
-// exprCalls pulls the called function names out of an expression — the mirror of
-// exprIdents, which drops them. String literals are blanked first so a name
-// inside a quoted string is never taken for a call. A span carrying `|` is an
-// Ink-style text alternative ({a|b|c}, {cond: yes|no}) whose branches are prose,
-// not expressions, so it yields nothing.
-// exprCalls — вызовы выражения: имена, за которыми стоит скобка.
+// exprCalls — вызовы выражения: имена, за которыми стоит скобка (зеркало
+// exprIdents, который их отбрасывает).
+//
+// String literals are blanked first (eachIdent) so a name inside a quoted string
+// is never taken for a call. A span carrying `|` is an Ink-style text alternative
+// ({a|b|c}, {cond: yes|no}) whose branches are prose, not expressions, so it
+// yields nothing.
 func exprCalls(expr string) []string {
 	// Ранний выход не украшение: без скобки вызовов нет вовсе, а вертикальная
 	// черта — чужой синтаксис, разбирать который здесь не наше дело.
@@ -1356,8 +1355,6 @@ func nonEmpty(set []string) []string {
 	return out
 }
 
-// suggest returns the closest option to bad within edit distance 2 (the likely
-// typo correction), or "" if none is close enough.
 // knownOpNames: KnownOps' keys, for typo suggestions.
 func knownOpNames() []string {
 	names := make([]string, 0, len(KnownOps))

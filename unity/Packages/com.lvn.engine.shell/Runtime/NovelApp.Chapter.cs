@@ -124,10 +124,6 @@ namespace Lvn.UI.Screens
             catch { /* atlas reset is an optimization, never a failure */ }
         }
 
-        // Preflight: make the chapter's script locally available (cache hit or
-        // a live fetch) BEFORE the entry charge — money never burns on a
-        // chapter that can't start. The later fetch inside PlayOneChapterAsync
-        // then hits the cache.
         /// <summary>
         /// ГЛАВА НАЧАЛАСЬ — обряд из пяти шагов, который обязан пройти ЦЕЛИКОМ.
         ///
@@ -213,6 +209,10 @@ namespace Lvn.UI.Screens
             FlushUnknownOps(title, chapter);
         }
 
+        // Preflight: make the chapter's script locally available (cache hit or
+        // a live fetch) BEFORE the entry charge — money never burns on a
+        // chapter that can't start. The later fetch inside PlayOneChapterAsync
+        // then hits the cache.
         private async Task<bool> EnsureChapterScriptAsync(LvnChapter chapter)
         {
             if (chapter == null || string.IsNullOrEmpty(chapter.script_url)) return false;
@@ -285,7 +285,7 @@ namespace Lvn.UI.Screens
                             {
                                 if (ch == null) continue;
                                 if (!string.IsNullOrEmpty(ch.script_url) && !_assets.Loader.IsScriptCached(ch.script_url))
-                                    try { await _assets.Loader.DownloadScriptCached(ch.script_url); } catch { }   // разбор объявленных переменных: кривой блок не должен ронять главу
+                                    try { await _assets.Loader.DownloadScriptCached(ch.script_url); } catch { /* прогрев — оптимизация: не доехало сейчас — доедет самолечением */ }
                                 if (ch.assets == null) continue;
                                 // Внутри главы — по ступеням: критичное (то,
                                 // что рисует первый кадр) раньше прочего.

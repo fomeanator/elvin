@@ -233,16 +233,14 @@ func (s *AdsService) loadUser(userID string) (*adsUserDoc, error) {
 	if _, err := readJSONFile(path, doc); err != nil {
 		return nil, err
 	}
-	{
-		if doc.Counts == nil {
-			doc.Counts = map[string]int{}
-		}
-		if doc.Spent == nil {
-			doc.Spent = map[string]int{}
-		}
-		if doc.Since == nil {
-			doc.Since = map[string]int64{}
-		}
+	if doc.Counts == nil {
+		doc.Counts = map[string]int{}
+	}
+	if doc.Spent == nil {
+		doc.Spent = map[string]int{}
+	}
+	if doc.Since == nil {
+		doc.Since = map[string]int64{}
 	}
 	return doc, nil
 }
