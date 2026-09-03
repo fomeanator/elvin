@@ -62,7 +62,7 @@ func TestFullyTransparentFrameIsNotMeasured(t *testing.T) {
 func TestScanUnionsEveryVariantAndSkipsPlainSprites(t *testing.T) {
 	dir := t.TempDir()
 	art := filepath.Join(dir, "sprites", "doll")
-	writeFrame(t, filepath.Join(art, "body_a.png"), 100, 100, image.Rect(40, 30, 60, 100))   // узкое тело
+	writeFrame(t, filepath.Join(art, "body_a.png"), 100, 100, image.Rect(40, 30, 60, 100))     // узкое тело
 	writeFrame(t, filepath.Join(art, "dress_wide.png"), 100, 100, image.Rect(20, 50, 80, 100)) // широкое платье
 	writeFrame(t, filepath.Join(art, "hair_tall.png"), 100, 100, image.Rect(45, 10, 55, 40))   // высокая причёска
 	// Производный кадр с теми же пикселями — он не должен считаться дважды и
