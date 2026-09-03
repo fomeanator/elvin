@@ -32,14 +32,6 @@ namespace Lvn.Content
         /// мимо приложения. Теперь число здесь, а приложение его спрашивает.</para></summary>
         public const float DefaultIntervalSeconds = 2f;
 
-        /// <summary>
-        /// When enabled, the first successful poll also raises <see cref="OnChanged"/>.
-        /// Online hosts enable this after their potentially long boot so a content
-        /// save that happened after the chapter was fetched but before sync started
-        /// cannot be silently accepted as the baseline.
-        /// </summary>
-        public bool NotifyOnFirstPoll { get; set; }
-
         public bool Running => _cts != null;
         public string LastVersion => _lastVersion;
 
@@ -51,6 +43,38 @@ namespace Lvn.Content
         {
             _loader = loader ?? throw new ArgumentNullException(nameof(loader));
             _versionPath = versionPath;
+        }
+
+        /// <summary>
+        /// ВЕРСИЯ, С КОТОРОЙ ЗАПУСК ЗАБРАЛ КОНТЕНТ — точка отсчёта.
+        ///
+        /// <para>Без неё первый опрос отвечать не мог и потому объявлял смену
+        /// ВСЕГДА (NotifyOnFirstPoll): иначе правка, сделанная между забором
+        /// главы и стартом опроса, стала бы точкой отсчёта и не доехала бы
+        /// никогда. Дыра настоящая, но цена — перезагрузка главы на КАЖДОМ
+        /// запуске: на живом первом входе (04.09) сцена, которая только
+        /// началась, тут же переигрывалась заново (ReplayVisuals, след 5
+        /// шагов).</para>
+        ///
+        /// <para>Точка отсчёта снимается в начале запуска — до того, как
+        /// забран контент. Тогда первый опрос отвечает СРАВНЕНИЕМ: сервер тот
+        /// же — молчим, сервер сменился по дороге — перезагружаем. Оба намерения
+        /// целы, лишней работы нет.</para>
+        /// </summary>
+        public string Baseline
+        {
+            get => _lastVersion;
+            set { if (!string.IsNullOrEmpty(value)) _lastVersion = value; }
+        }
+
+        /// <summary>Снять версию контента одним запросом — для точки отсчёта.
+        /// Молчит при любой беде: не ответил сервер — значит точки нет, и опрос
+        /// поведёт себя как раньше.</summary>
+        public static async Task<string> PeekVersionAsync(ContentLoader loader,
+            string versionPath = "/v1/content/version", CancellationToken ct = default)
+        {
+            try { return ParseVersion(await loader.DownloadScriptText(versionPath, ct, singleAttempt: true)); }
+            catch { return null; }
         }
 
         public void Start(CancellationToken ct = default)
@@ -75,7 +99,7 @@ namespace Lvn.Content
             try { v = ParseVersion(await _loader.DownloadScriptText(_versionPath, ct, singleAttempt: true)); }
             catch { return false; }
             var prev = _lastVersion;
-            bool changed = AdvanceVersion(ref _lastVersion, v, NotifyOnFirstPoll);
+            bool changed = AdvanceVersion(ref _lastVersion, v, notifyOnFirst: false);
             // Диагностический след: без него «а тот ли контент играет?» каждый
             // раз выясняется руками через curl к /v1/content/version.
             if (prev == null && _lastVersion != null)

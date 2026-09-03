@@ -234,17 +234,30 @@ namespace Lvn.UI.Screens
         {
             if (SyncInterval > 0f)
             {
-                _sync = new ContentSync(_assets.Loader)
-                {
-                    IntervalSeconds = SyncInterval,
-                    // Reconcile once immediately after the long boot. Without this,
-                    // an edit made after the chapter fetch but before ContentSync
-                    // starts becomes the first baseline and is never hot-reloaded.
-                    NotifyOnFirstPoll = true,
-                };
+                _sync = new ContentSync(_assets.Loader) { IntervalSeconds = SyncInterval };
+                // ТОЧКА ОТСЧЁТА ВМЕСТО «ОБЪЯВЛЯТЬ СМЕНУ ВСЕГДА». Версия снята в
+                // начале запуска (NovelApp.Boot), то есть ДО того, как забран
+                // контент: первый опрос теперь отвечает сравнением, а не
+                // предположением. Правка, сделанная по дороге, по-прежнему
+                // доезжает; лишней перезагрузки главы на каждом запуске больше
+                // нет. Не успели снять — опрос ведёт себя как раньше.
                 _sync.OnChanged += OnContentChanged;
-                _sync.Start();
+                LvnAsync.Fire(StartSyncWithBaselineAsync(), "SyncBaseline");
             }
+        }
+
+        /// <summary>Дождаться точки отсчёта (она снималась параллельно запуску)
+        /// и только потом пустить опрос: пустить раньше — значит снова начать с
+        /// предположения вместо сравнения.</summary>
+        private async Task StartSyncWithBaselineAsync()
+        {
+            var task = _syncBaseline;
+            if (task != null)
+            {
+                try { _sync.Baseline = await task; }
+                catch { /* не сняли — опрос заведёт свою точку сам */ }
+            }
+            if (_sync != null) _sync.Start();
         }
 
         /// <summary>
