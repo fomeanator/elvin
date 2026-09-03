@@ -14,6 +14,7 @@ package main
 import (
 	"net"
 	"net/http"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -25,7 +26,48 @@ import (
 const (
 	loginMaxFails = 10
 	loginWindow   = 10 * time.Minute
+	// Потолок числа запомненных источников — чтобы перебор с тысяч адресов
+	// не превращался в рост памяти.
+	loginKeysMax = 10000
 )
+
+// СЧЁТ ПО АДРЕСУ НЕ ЗАЩИЩАЕТ ЯДРО, и это надо сказать вслух.
+//
+// Ограничение по источнику останавливает перебор с одного адреса — и только
+// его. У атакующего с ботнетом или с одной подсетью IPv6 адресов столько,
+// сколько нужно, и каждый честно получает свои десять попыток по десятой
+// секунды процессора. На боксе с ОДНИМ ядром этого хватает, чтобы игра
+// перестала отвечать: проверка пароля съест его целиком, а виноватым будет
+// выглядеть сервер.
+//
+// Поэтому ограничивается не число личностей, а САМА ДОРОГАЯ РАБОТА: сколько
+// проверок пароля идёт одновременно. Половина ядер, но не меньше одного:
+// вошедшему ждать нечего, а перебору очередь ставит потолок, не зависящий от
+// числа адресов. Не дождался за loginWaitBudget — получает отказ, а не место
+// в очереди: очередь без потолка это та же занятая память.
+var loginWork = make(chan struct{}, loginWorkers())
+
+func loginWorkers() int {
+	if n := runtime.NumCPU() / 2; n > 0 {
+		return n
+	}
+	return 1
+}
+
+// loginWaitBudget — сколько ждать своей очереди на проверку пароля.
+const loginWaitBudget = 2 * time.Second
+
+// takeLoginSlot занимает место в очереди проверок; false — не дождались.
+func takeLoginSlot() bool {
+	select {
+	case loginWork <- struct{}{}:
+		return true
+	case <-time.After(loginWaitBudget):
+		return false
+	}
+}
+
+func freeLoginSlot() { <-loginWork }
 
 // failLimiter помнит моменты промахов по источнику. Nil-безопасен: служба,
 // собранная без него (тесты, урезанная сборка), просто не ограничивает.
@@ -65,11 +107,18 @@ func (l *failLimiter) fail(key string) {
 	defer l.mu.Unlock()
 	now := l.now()
 	l.fails[key] = append(l.prune(key, now), now)
-	// Память ограничена: перебор с тысяч адресов не должен раздувать карту.
-	// Уборка редкая и грубая — выбросить всё протухшее у всех.
-	if len(l.fails) > 10000 {
+	// ПАМЯТЬ ОГРАНИЧЕНА ПО-НАСТОЯЩЕМУ. Уборки протухшего мало: при переборе с
+	// тысяч СВЕЖИХ адресов выбрасывать нечего, и карта росла бы дальше. Если
+	// после уборки предел всё равно превышен — карта сбрасывается целиком.
+	// Это амнистия всем накопленным промахам, и она честнее выбора «кого
+	// забыть»: сама ситуация означает распределённую атаку, против которой
+	// работает не счёт адресов, а очередь проверок (loginWork).
+	if len(l.fails) > loginKeysMax {
 		for k := range l.fails {
 			l.prune(k, now)
+		}
+		if len(l.fails) > loginKeysMax {
+			l.fails = map[string][]time.Time{}
 		}
 	}
 }
@@ -112,10 +161,27 @@ func (l *failLimiter) prune(key string, now time.Time) []time.Time {
 // а здесь она, наоборот, вытащила бы атакующего из общего ведра.
 func loginPeer(r *http.Request) string {
 	host := clientIP(r)
-	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
-		if real := strings.TrimSpace(r.Header.Get("X-Real-IP")); real != "" {
-			return real
+	ip := net.ParseIP(host)
+	if ip != nil && ip.IsLoopback() {
+		// ЗНАЧЕНИЕ ПРОВЕРЯЕТСЯ. Заголовок ставит nginx, но в петлю стучится и
+		// всякий локальный процесс: непроверенная строка стала бы ключом, по
+		// которому можно и обойти счёт, и запереть чужой адрес.
+		if real := net.ParseIP(strings.TrimSpace(r.Header.Get("X-Real-IP"))); real != nil {
+			return loginKeyOf(real)
 		}
 	}
+	if ip != nil {
+		return loginKeyOf(ip)
+	}
 	return host
+}
+
+// loginKeyOf — под каким ключом считать промахи. У IPv4 это сам адрес, у
+// IPv6 — подсеть /64: провайдер выдаёт её одному абоненту целиком, и счёт по
+// полному адресу означал бы бесконечный запас бесплатных попыток на человека.
+func loginKeyOf(ip net.IP) string {
+	if ip.To4() != nil {
+		return ip.String()
+	}
+	return ip.Mask(net.CIDRMask(64, 128)).String() + "/64"
 }

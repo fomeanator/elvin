@@ -23,6 +23,10 @@
 #
 #   LVN_HOME=/srv/lvn KEEP=14 deploy/backup.sh
 set -euo pipefail
+# СНИМОК ВЕЗЁТ КОШЕЛЬКИ И ХЭШИ ПАРОЛЕЙ. Права ставятся ДО первой записи, а не
+# после: между созданием .part и `chmod 600` в конце было окно, в котором
+# архив со всей казной лежал читаемым для любого на боксе.
+umask 077
 
 LVN_HOME="${LVN_HOME:-/srv/lvn}"
 CONTENT="${CONTENT:-$LVN_HOME/content}"
@@ -47,11 +51,26 @@ if [ -d "$CONTENT/services" ]; then
   mkdir -p "$SNAP/services"
   # Дневники клиента — диагностика, а не данные (см. шапку). База — ниже,
   # своим способом.
-  find "$CONTENT/services" -mindepth 1 -maxdepth 1 \
-    ! -name client-logs ! -name 'lvn.db' ! -name 'lvn.db-wal' ! -name 'lvn.db-shm' \
-    -exec cp -a {} "$SNAP/services/" \;
+  #
+  # ЦИКЛОМ, А НЕ `find -exec`: у формы `-exec … \;` статус копирования не
+  # поднимается наверх, и нечитаемый файл (кто-то создал его root-ом руками)
+  # молча выпал бы из снимка. `tar -t` такую пропажу не видит — он проверяет
+  # то, что положили, — и через четырнадцать дней исправных снимков не
+  # осталось бы ни одного. Снимок либо полон, либо его нет.
+  while IFS= read -r item; do
+    cp -a "$item" "$SNAP/services/" || {
+      echo "[lvn-backup] не скопировался $item — снимок был бы неполным" >&2
+      exit 1
+    }
+  done < <(find "$CONTENT/services" -mindepth 1 -maxdepth 1 \
+    ! -name client-logs ! -name 'lvn.db' ! -name 'lvn.db-wal' ! -name 'lvn.db-shm')
 fi
-[ -d "$CONTENT/state" ] && cp -a "$CONTENT/state" "$SNAP/state"
+if [ -d "$CONTENT/state" ]; then
+  cp -a "$CONTENT/state" "$SNAP/state" || {
+    echo "[lvn-backup] сейвы игроков не скопировались — снимок был бы неполным" >&2
+    exit 1
+  }
+fi
 
 DB="$CONTENT/services/lvn.db"
 if [ -f "$DB" ]; then
@@ -75,7 +94,6 @@ ARCHIVE="$DEST/lvn-$STAMP.tar.gz"
 tar -czf "$ARCHIVE.part" -C "$SNAP" .
 tar -tzf "$ARCHIVE.part" >/dev/null
 mv "$ARCHIVE.part" "$ARCHIVE"
-chmod 600 "$ARCHIVE"
 log "снимок готов: $ARCHIVE ($(du -h "$ARCHIVE" | cut -f1))"
 
 # ── 3. Ротация ─────────────────────────────────────────────────────────────

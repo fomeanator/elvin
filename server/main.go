@@ -577,6 +577,17 @@ func (s *server) computeVersions(includeManifest bool) map[string]string {
 		if privateRel(rel) {
 			return nil
 		}
+		// СИМВОЛЬНАЯ ССЫЛКА: Walk даёт Lstat, то есть размер и время САМОЙ
+		// ссылки, а читаем мы её цель. Ключ по ссылке не меняется никогда —
+		// правка цели не была бы замечена до перезапуска, и клиент навсегда
+		// остался бы на старом файле. Спрашиваем цель.
+		if info.Mode()&os.ModeSymlink != 0 {
+			st, serr := os.Stat(path)
+			if serr != nil {
+				return nil
+			}
+			info = st
+		}
 		if e, ok := prev[rel]; ok && e.size == info.Size() && e.mod.Equal(info.ModTime()) {
 			next[rel] = e
 			out[rel] = e.sum
