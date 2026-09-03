@@ -121,14 +121,25 @@ namespace Lvn.UI.Screens
             // в баре, и искать её приходилось в чужом файле.
             Lvn.UI.LvnEdges.Follow(this, insets => SetSafeTop(insets.x));
 
-            // Ловушка тапа по верхней кромке — активна только в игре при
-            // скрытом баре. Ниже её 48 юнитов сцена живёт как обычно.
+            // ЛОВУШКА ТАПА ПО ВЕРХНЕЙ КРОМКЕ — активна только в игре при
+            // скрытом баре; ниже её сцена живёт как обычно.
+            //
+            // ВЫСОТА ЗАДАЁТСЯ ОДИН РАЗ И ЗДЕСЬ. Ответов на «какая она» было
+            // три: сорок восемь юнитов, потом пятнадцать процентов экрана
+            // (строкой ниже), а потом ещё раз сорок восемь плюс кромка — в
+            // SetSafeTop, который зовётся при каждом замере выреза. Побеждал
+            // последний: на телефоне с чёлкой зона схлопывалась в полоску
+            // высотой с саму чёлку, и игровой бар переставал вызываться
+            // тапом сверху вообще.
+            //
+            // Вырез сдвигает зону ВНИЗ, а не режет её: за него отвечает `top`,
+            // высота остаётся долей экрана (см. SetSafeTop).
             _tapCatcher = new VisualElement();
             _tapCatcher.style.position = Position.Absolute;
             _tapCatcher.style.left = 0; _tapCatcher.style.right = 0;
-            _tapCatcher.style.top = 0; _tapCatcher.style.height = 48;
+            _tapCatcher.style.top = 0;
+            _tapCatcher.style.height = Length.Percent(TapZonePercent);
             _tapCatcher.style.display = DisplayStyle.None;
-            _tapCatcher.style.height = Length.Percent(15f); // верхние 15% экрана
             _tapCatcher.RegisterCallback<PointerDownEvent>(e =>
             {
                 // Тап по верхней зоне сцены НЕ листает реплику — только зовёт
@@ -407,8 +418,17 @@ namespace Lvn.UI.Screens
             _row.style.marginTop = units;
             _miniPills.style.top = units + 8f;
             _miniProgress.style.top = units + 8f;
-            _tapCatcher.style.height = 48 + units;
+            // Зона тапа ОПУСКАЕТСЯ под вырез, а не сжимается им. Здесь стояла
+            // высота (`48 + units`) — третий ответ на вопрос, у которого один
+            // хозяин: конструктор. На телефоне с чёлкой она перебивала долю
+            // экрана пикселями и оставляла от зоны полоску.
+            _tapCatcher.style.top = units;
         }
+
+        /// <summary>ВЫСОТА ЗОНЫ ТАПА — доля экрана, один ответ на весь класс.
+        /// Проценты, а не юниты: на планшете и на телефоне «верхняя кромка» —
+        /// разное число пикселей, а доля одна.</summary>
+        internal const float TapZonePercent = 15f;
 
         /// <summary>Состояние бара для лога: видно ли его вообще и не застрял
         /// ли он за верхней кромкой (вход анимирует translate).</summary>
