@@ -146,18 +146,20 @@ namespace Lvn.Content
         /// (was attempt N-1) … retry #N in Xs». Разница безобидна ровно до того
         /// дня, когда по этой строке ищут причину: сегодня по ней нашлась
         /// докачка, вечно просившая диапазон за концом файла.</para>
+        ///
+        /// <para>Приписки «чей это цикл» (<c>what:</c>) больше нет: циклов
+        /// стало меньше — пакет ходит тем же заходом, что и всё остальное.</para>
         /// </summary>
-        private async Task WaitBeforeRetryAsync(string url, int attempt, string why,
-                                                CancellationToken ct, string what = null)
+        private async Task WaitBeforeRetryAsync(string url, int attempt, string why, CancellationToken ct)
         {
             float pause = LvnBackoff.DelaySeconds(attempt);
-            Debug.LogWarning($"[lvn-content] {what}{url} attempt {attempt} failed, retry in {pause:F1}s: {why}");
+            Debug.LogWarning($"[lvn-content] {url} attempt {attempt} failed, retry in {pause:F1}s: {why}");
             await RetryPauseAsync(pause, ct);
         }
 
         /// <summary>СДАЛИСЬ — тоже одной строкой.</summary>
-        private static void NoteGaveUp(string url, int attempts, string why, string what = null)
-            => Debug.LogWarning($"[lvn-content] {what}{url} gave up after {attempts} attempts: {why}");
+        private static void NoteGaveUp(string url, int attempts, string why)
+            => Debug.LogWarning($"[lvn-content] {url} gave up after {attempts} attempts: {why}");
 
         private Task RetryPauseAsync(float seconds, CancellationToken ct)
             => !Reachable
