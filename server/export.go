@@ -485,6 +485,33 @@ func (s *server) bundleIntroSeed(zw *zip.Writer, folder string) {
 			}
 		}
 	}
+	// НАБОР ПЕРВОГО КАДРА — то, без чего нельзя показать окно.
+	//
+	// Вуаль запуска держится, пока не приедет интерфейсный арт и полотно
+	// витрины (DownloadPolicy.NeededForFirstFrame). На холодном первом
+	// запуске это ЕДИНСТВЕННОЕ, чего игрок ждёт на самом деле: остальное
+	// витрина рисует заглушками и подставляет по мере приезда. В сиде его не
+	// было, и APK, несущий главу целиком, всё равно шёл в сеть за рамкой
+	// реплики и фоном меню.
+	//
+	// Берутся только БАЗОВЫЕ файлы: ступени качества (@1k, @1440) клиент
+	// сводит к базе сам (ContentLoader.SeedKey), а коды для видеокарты
+	// (.ktx2) втрое тяжелее и в APK не окупаются — этот путь по-прежнему
+	// идёт в сеть, и это осознанный размен.
+	for _, rel := range firstFrameArt(s.content) {
+		urls["/content/"+rel] = true
+	}
+	// Полотно витрины может лежать и вне content/ui — спрашиваем манифест.
+	// Утверждения типа здесь только с проверкой: манифест приходит от автора,
+	// и `ui: null` уронил бы весь экспорт паникой в обработчике.
+	if ui, ok := m["ui"].(map[string]any); ok {
+		if br, ok := ui["browse"].(map[string]any); ok {
+			if cv := str(br["canvas"]); cv != "" {
+				urls[cv] = true
+			}
+		}
+	}
+
 	if len(urls) == 0 {
 		return
 	}
@@ -830,5 +857,40 @@ func asciiSlug(s, fallback string) string {
 	if out == "" {
 		return fallback
 	}
+	return out
+}
+
+// firstFrameArt — базовые картинки интерфейса из content/ui, кроме фонов
+// загрузки (они лежат под ui/loading и относятся к главе, а не к первому
+// кадру). Зеркалит DownloadPolicy.Classify: «/ui/» — интерфейс, «/loading/»
+// проверяется РАНЬШЕ и интерфейсом не считается.
+func firstFrameArt(content string) []string {
+	root := filepath.Join(content, "ui")
+	var out []string
+	_ = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info == nil || info.IsDir() {
+			return nil
+		}
+		rel, rerr := filepath.Rel(content, path)
+		if rerr != nil {
+			return nil
+		}
+		relSlash := filepath.ToSlash(rel)
+		if strings.Contains(strings.ToLower(relSlash), "/loading/") {
+			return nil
+		}
+		name := info.Name()
+		// Ступень качества (@1k, @2k, @1440) — производная от базы: её клиент
+		// найдёт по базовому ключу, а в APK она была бы вторым весом того же.
+		if strings.Contains(name, "@") {
+			return nil
+		}
+		switch strings.ToLower(filepath.Ext(name)) {
+		case ".png", ".jpg", ".jpeg", ".webp":
+			out = append(out, relSlash)
+		}
+		return nil
+	})
+	sort.Strings(out)
 	return out
 }

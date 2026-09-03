@@ -99,3 +99,99 @@ func TestEngineDepsResolveInRealSandbox(t *testing.T) {
 		}
 	}
 }
+
+// СИД НЕСЁТ ПЕРВЫЙ КАДР. Вуаль запуска держится, пока не приедет интерфейсный
+// арт и полотно витрины — на холодном первом запуске это единственное, чего
+// игрок ждёт по-настоящему. В сиде его не было: APK, несущий главу целиком,
+// всё равно шёл в сеть за рамкой реплики и фоном меню.
+func TestSeedCarriesTheFirstFrameArt(t *testing.T) {
+	content := t.TempDir()
+	put := func(rel string, body string) {
+		p := filepath.Join(content, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	put("ui/menu-canvas.jpg", "полотно")
+	put("ui/icons/back.png", "значок")
+	put("ui/menu-canvas@1k.jpg", "ступень качества") // производная — не везём
+	put("ui/loading/ch1.jpg", "фон загрузки главы")  // не первый кадр
+	put("ui/words.en.json", "слова")                 // не картинка
+	put("scripts/agency-ch0.lvn", `{"script":[]}`)
+	put("bg/крит.jpg", "критичный фон главы")
+	put("manifest.json", `{
+		"ui": {"browse": {"canvas": "/content/ui/menu-canvas.jpg"}},
+		"titles": [{"id":"agency","type":"intro","seasons":[{"chapters":[
+			{"id":"agency-ch0","script_url":"/content/scripts/agency-ch0.lvn",
+			 "assets":{"/content/bg/крит.jpg":{"critical":true},
+			           "/content/bg/потом.jpg":{"critical":false}}}
+		]}]}]
+	}`)
+
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	s := &server{content: content}
+	s.bundleIntroSeed(zw, "проект")
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	zr, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	const base = "проект/Assets/StreamingAssets/lvn-seed/"
+	got := map[string]bool{}
+	var index []string
+	for _, f := range zr.File {
+		rel := strings.TrimPrefix(f.Name, base)
+		got[rel] = true
+		if rel == "index.json" {
+			rc, _ := f.Open()
+			var raw bytes.Buffer
+			_, _ = raw.ReadFrom(rc)
+			rc.Close()
+			if err := json.Unmarshal(raw.Bytes(), &index); err != nil {
+				t.Fatalf("опись сида не разобралась: %v", err)
+			}
+		}
+	}
+
+	for _, want := range []string{
+		"content/ui/menu-canvas.jpg", // ровно тот файл, которого ждёт вуаль
+		"content/ui/icons/back.png",
+		"content/scripts/agency-ch0.lvn",
+		"content/bg/крит.jpg",
+	} {
+		if !got[want] {
+			t.Errorf("%s не доехал в сид — на первом запуске за ним пойдут в сеть", want)
+		}
+	}
+	for _, notWant := range []string{
+		"content/ui/menu-canvas@1k.jpg", // ступень качества клиент сводит к базе
+		"content/ui/loading/ch1.jpg",    // фон загрузки — глава, а не первый кадр
+		"content/ui/words.en.json",      // не картинка
+		"content/bg/потом.jpg",          // не критичный
+	} {
+		if got[notWant] {
+			t.Errorf("%s уехал в сид — APK толстеет без пользы", notWant)
+		}
+	}
+	// Опись — то, по чему клиент решает «есть в сиде» без слепых запросов
+	// внутрь APK: файл, которого в ней нет, из APK не достанут никогда.
+	inIndex := map[string]bool{}
+	for _, e := range index {
+		inIndex[e] = true
+	}
+	for rel := range got {
+		if rel == "index.json" {
+			continue
+		}
+		if !inIndex[rel] {
+			t.Errorf("%s лежит в APK, но не назван в описи — клиент его не найдёт", rel)
+		}
+	}
+}
