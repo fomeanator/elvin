@@ -170,129 +170,130 @@ namespace Lvn.Content
             }
         }
 
+        /// <summary>
+        /// ОБОЗ ИДЁТ В НЕСКОЛЬКО ПОЛОС.
+        ///
+        /// <para>Раньше пакет качался СТРОГО ПО ОДНОМУ файлу, а простой между
+        /// файлами закрывали тёплым стартом следующего на 90% текущего. Это
+        /// лечило симптом: полоса сети шириной двенадцать (<see cref="LvnLanes.Wire"/>)
+        /// всё это время держала одиннадцать мест пустыми. Набор первого кадра —
+        /// это десятки МЕЛКИХ файлов (рамка реплики, значки, полотно витрины), и
+        /// их цена — не байты, а круговой рейс на каждый: на мобильной сети
+        /// тридцать файлов по одному это тридцать задержек подряд.</para>
+        ///
+        /// <para>Теперь по списку идут несколько рабочих сразу, а сколько их
+        /// реально поедет, решает та же полоса — воркер сверх её ширины просто
+        /// стоит на входе и ничего не занимает. Бронь для живого (два места)
+        /// продолжает действовать: пакет входит по ступени, и открытая глава
+        /// его подвинет.</para>
+        ///
+        /// <para>Тёплый старт следующего файла УБРАН вместе с очередью: он
+        /// закрывал разрыв, которого больше нет, а его состояние (какой адрес
+        /// уже греется) при нескольких рабочих было бы общим и врало.</para>
+        /// </summary>
         private async Task<byte[]> RunBatchAsync(List<PreloadItem> pending, CancellationToken ct)
         {
-            // Pipeline: at 90% of file N, warm-start file N+1 via a silent
-            // prefetch (no progress counters — avoids the bar jumping backward).
-            // By the time N finishes, N+1's TCP/TLS is already up and data is
-            // flowing, so there's no idle gap between files.
-            Task diskTask = Task.CompletedTask;
-            Task<byte[]> prefetchTask = null;
-            string       prefetchUrl  = null; // URL the prefetch is downloading
+            // Общий курсор по списку: каждый рабочий берёт следующий свободный.
+            int cursor = -1;
+            int workers = BatchWorkerCount(pending.Count);
 
-            for (int i = 0; i < pending.Count; i++)
-            {
-                ct.ThrowIfCancellationRequested();
-                var asset = pending[i];
-                var path  = CachePath(_assetCacheDir, asset.Url, ".bin");
+            var crew = new Task[workers];
+            for (int w = 0; w < workers; w++) crew[w] = WorkerAsync();
+            await Task.WhenAll(crew);
 
-                if (File.Exists(path)) { lock (_underway) BatchDone++; continue; }
-
-                CurrentFileLabel = AliasOf(asset.Url);
-                LastStartedUrl   = asset.Url;
-
-                byte[] body = null;
-                int attempt = 1;
-                while (true)
-                {
-                    try
-                    {
-                        lock (_underway) Progress(asset.Url).Attempt = attempt;
-
-                        // Reuse warm prefetch if it was for this URL and didn't fault.
-                        Task<byte[]> fetchTask;
-                        if (prefetchUrl == asset.Url &&
-                            prefetchTask is { IsFaulted: false, IsCanceled: false })
-                        {
-                            fetchTask    = prefetchTask;
-                            prefetchTask = null;
-                            prefetchUrl  = null;
-                        }
-                        else
-                        {
-                            if (prefetchUrl == asset.Url) { prefetchTask = null; prefetchUrl = null; }
-                            fetchTask = FetchToMemory(asset.Url, ct);
-                        }
-
-                        // Drive the download; fire a silent warm-start for the next
-                        // file once this one crosses 90%.
-                        while (!fetchTask.IsCompleted)
-                        {
-                            ct.ThrowIfCancellationRequested();
-
-                            if (prefetchUrl == null) // not yet decided for next file
-                            {
-                                // Нет записи — значит про этот адрес ещё ничего не
-                                // знают: ноль честнее, чем «неизвестно».
-                                long exp = 0, rec = 0;
-                                lock (_underway)
-                                {
-                                    if (_underway.TryGetValue(asset.Url, out var f))
-                                    { exp = f.Expected; rec = f.Received; }
-                                }
-                                if (exp > 0 && (float)rec / exp >= 0.9f)
-                                {
-                                    var nextUrl = FindNextUncachedUrl(pending, i + 1);
-                                    prefetchUrl  = nextUrl ?? ""; // "" = nothing to prefetch
-                                    if (nextUrl != null)
-                                        prefetchTask = FetchToMemoryPrefetch(nextUrl, ct);
-                                }
-                            }
-
-                            await Task.Yield();
-                        }
-
-                        body = await fetchTask;
-                        // Same integrity rule as DownloadBytes: never cache bytes
-                        // that don't match the version index's sha256. Exact
-                        // entries only — a derived variant's inherited version
-                        // describes its SOURCE, not these bytes.
-                        var expect = IntegrityVersionFor(asset.Url);
-                        if (body != null && expect != null && !Sha256Matches(body, expect))
-                            throw new LvnFetchException(0, "integrity",
-                                "sha256 mismatch for " + asset.Url + " — refetching");
-                        if (prefetchUrl == "") prefetchUrl = null;
-                        break;
-                    }
-                    catch (OperationCanceledException) { throw; }
-                    catch (LvnFetchException ex) when (ex.Status is >= 400 and < 500)
-                    {
-                        Debug.LogWarning($"[lvn-content] preload {asset.Url} permanent {ex.Status}");
-                        if (prefetchUrl == "") prefetchUrl = null;
-                        break;
-                    }
-                    catch (Exception ex)
-                    {
-                        attempt++;
-                        if (attempt > MaxAttempts)
-                        {
-                            NoteGaveUp(asset.Url, MaxAttempts, ex.Message, what: "preload ");
-                            if (prefetchUrl == "") prefetchUrl = null;
-                            break;
-                        }
-                        // Пауза и строка в логе — у общего обряда: правило пауз
-                        // (в офлайне ждём смены состояния, а не часов) и слова
-                        // одни на все три цикла повторов.
-                        await WaitBeforeRetryAsync(asset.Url, attempt, ex.Message, ct, what: "preload ");
-                    }
-                }
-
-                var capPath = path;
-                var capBody = body;
-                await diskTask;
-                diskTask = capBody != null
-                    // Write atomically (staged temp + move): a crash mid-write must
-                    // not leave a truncated .bin, which File.Exists would then treat
-                    // as a valid cache entry forever (permanent boot-art corruption).
-                    ? Task.Run(() => AtomicWriteAllBytes(capPath, capBody), CancellationToken.None)
-                    : Task.CompletedTask;
-
-                lock (_underway) BatchDone++;
-            }
-
-            await diskTask;
             CurrentFileLabel = null;
             return null;
+
+            async Task WorkerAsync()
+            {
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    int i = Interlocked.Increment(ref cursor);
+                    if (i >= pending.Count) return;
+
+                    var asset = pending[i];
+                    var path  = CachePath(_assetCacheDir, asset.Url, ".bin");
+                    // Успел приехать одиночным запросом, пока пакет шёл, — это
+                    // не работа, но в счёте она посчитана.
+                    if (File.Exists(path)) { lock (_underway) BatchDone++; continue; }
+
+                    // Подпись показывает ПОСЛЕДНИЙ начатый файл. При нескольких
+                    // рабочих «текущий» — понятие приблизительное, и честнее
+                    // назвать тот, что тронулся только что, чем молчать.
+                    CurrentFileLabel = AliasOf(asset.Url);
+                    LastStartedUrl   = asset.Url;
+
+                    byte[] body = await FetchOneAsync(asset, ct);
+                    if (body != null)
+                        // Пишем атомарно (временный файл + перенос): оборванная
+                        // на середине запись оставила бы обрезанный .bin, и
+                        // File.Exists считал бы его годным кэшем НАВСЕГДА.
+                        await Task.Run(() => AtomicWriteAllBytes(path, body), CancellationToken.None);
+
+                    lock (_underway) BatchDone++;
+                }
+            }
+        }
+
+        /// <summary>Сколько рабочих ведут пакет.
+        ///
+        /// <para>Ширину даёт ПОЛОСА СЕТИ, а не своё число: два места в ней
+        /// оставлены живому запросу (открытая глава просит картинку, которую
+        /// игрок уже видит пустой), и занимать их пакетом нельзя даже когда
+        /// больше некому. Рабочих сверх работы тоже не бывает: на трёх файлах
+        /// десять рабочих — это девять пустых проходов по курсору.</para>
+        ///
+        /// <para>Один — нижняя граница: пакет из одного файла всё равно должен
+        /// поехать.</para>
+        /// </summary>
+        internal static int BatchWorkerCount(int pending)
+        {
+            int width = Math.Max(1, LvnLanes.Wire.Width - LvnLanes.Wire.KeptForLive);
+            return pending < width ? Math.Max(1, pending) : width;
+        }
+
+        /// <summary>Один файл пакета: повторы, сверка sha256, отказ по 4xx.
+        /// Возвращает байты или null, если файл решено не сохранять.</summary>
+        private async Task<byte[]> FetchOneAsync(PreloadItem asset, CancellationToken ct)
+        {
+            int attempt = 1;
+            while (true)
+            {
+                try
+                {
+                    lock (_underway) Progress(asset.Url).Attempt = attempt;
+                    byte[] body = await FetchToMemory(asset.Url, ct);
+                    // То же правило целостности, что у DownloadBytes: никогда не
+                    // класть в кэш байты, не совпавшие с sha256 из индекса версий.
+                    // Только точные записи — унаследованная версия производного
+                    // варианта описывает ИСТОЧНИК, а не эти байты.
+                    var expect = IntegrityVersionFor(asset.Url);
+                    if (body != null && expect != null && !Sha256Matches(body, expect))
+                        throw new LvnFetchException(0, "integrity",
+                            "sha256 mismatch for " + asset.Url + " — refetching");
+                    return body;
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (LvnFetchException ex) when (ex.Status is >= 400 and < 500)
+                {
+                    Debug.LogWarning($"[lvn-content] preload {asset.Url} permanent {ex.Status}");
+                    return null;
+                }
+                catch (Exception ex)
+                {
+                    attempt++;
+                    if (attempt > MaxAttempts)
+                    {
+                        NoteGaveUp(asset.Url, MaxAttempts, ex.Message, what: "preload ");
+                        return null;
+                    }
+                    // Пауза и строка в логе — у общего обряда: правило пауз (в
+                    // офлайне ждём смены состояния, а не часов) и слова одни на
+                    // все три цикла повторов.
+                    await WaitBeforeRetryAsync(asset.Url, attempt, ex.Message, ct, what: "preload ");
+                }
+            }
         }
 
         // Returns the URL of the first file in pending[fromIdx..] not yet on disk.
