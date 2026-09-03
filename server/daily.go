@@ -7,7 +7,10 @@ package main
 // audit history shows them like any other earn.
 
 import (
-	"encoding/json"
+	"database/sql"
+	"errors"
+	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"sync"
@@ -26,7 +29,8 @@ type dailyReward struct {
 
 type DailyService struct {
 	mu      sync.Mutex
-	dir     string
+	db      *sql.DB
+	dir     string // прежний каталог файлов — только ради разового переезда
 	auth    *AuthService
 	wallet  *WalletService
 	rewards *hotJSON[[]dailyReward] // follows disk edits live
@@ -34,11 +38,19 @@ type DailyService struct {
 	now func() time.Time
 }
 
-func NewDailyService(dir string, auth *AuthService, wallet *WalletService, rewardsPath string) (*DailyService, error) {
+func NewDailyService(dir string, db *sql.DB, auth *AuthService, wallet *WalletService, rewardsPath string) (*DailyService, error) {
+	if db == nil {
+		return nil, errors.New("ежедневная награда без базы")
+	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
-	s := &DailyService{dir: dir, auth: auth, wallet: wallet, now: time.Now,
+	if moved, err := importDailyFiles(db, dir); err != nil {
+		return nil, fmt.Errorf("переезд ежедневок: %w", err)
+	} else if moved > 0 {
+		log.Printf("[daily] в базу перенесено записей: %d", moved)
+	}
+	s := &DailyService{db: db, dir: dir, auth: auth, wallet: wallet, now: time.Now,
 		rewards: newHotJSON(rewardsPath, []dailyReward{})}
 	return s, nil
 }
@@ -51,21 +63,11 @@ func (s *DailyService) Routes(mux *http.ServeMux) {
 // Ошибка чтения — НЕ повод начать серию заново: пустой документ выглядит
 // законно, а сохранится он поверх уцелевшего файла (см. readJSONFile).
 func (s *DailyService) load(userID string) (*dailyDoc, error) {
-	doc := &dailyDoc{}
-	path, err := userFilePath(s.dir, userID)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := readJSONFile(path, doc); err != nil {
-		return nil, err
-	}
-	return doc, nil
+	return dailyLoad(s.db, userID)
 }
 
 func (s *DailyService) save(userID string, doc *dailyDoc) error {
-	data, _ := json.Marshal(doc)
-	// Через дом (см. leaderboard.save): своя схема не синхронизировала запись.
-	return writeUserFile(s.dir, userID, data)
+	return dailySave(s.db, userID, doc)
 }
 
 func (s *DailyService) rewardFor(streak int) dailyReward {

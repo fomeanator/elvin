@@ -7,7 +7,7 @@ import "testing"
 // испытания через диск.
 func newWalletServiceForTest(t *testing.T) *WalletService {
 	t.Helper()
-	s, err := NewWalletService(t.TempDir(), nil, "", false, nil)
+	s, err := NewWalletService(t.TempDir(), testStore(t), nil, "", false, nil)
 	if err != nil {
 		t.Fatalf("кошелёк не завёлся: %v", err)
 	}

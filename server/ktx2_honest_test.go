@@ -25,7 +25,7 @@ func TestРасширениеМожетВрать(t *testing.T) {
 	}{
 		{"honest.png", ".png", png, false},
 		{"honest.jpg", ".jpg", jpg, false},
-		{"liar.jpg", ".png", png, true},  // ровно случай прода
+		{"liar.jpg", ".png", png, true}, // ровно случай прода
 		{"liar.png", ".jpg", jpg, true},
 		{"upper.JPG", ".jpg", jpg, false},
 	}

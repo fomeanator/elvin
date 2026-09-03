@@ -146,7 +146,7 @@ func main() {
 	// One shared title→author index: attribution is stamped at write time, and
 	// both the wallet and analytics need the same answer to the same question.
 	owners := newOwnerIndex(filepath.Join(*contentDir, "manifest.json"))
-	walletSvc, err := NewWalletService(filepath.Join(servicesDir, "wallet"), authSvc,
+	walletSvc, err := NewWalletService(filepath.Join(servicesDir, "wallet"), db, authSvc,
 		filepath.Join(*contentDir, "iap-catalog.json"), *iapDev, owners)
 	if err != nil {
 		log.Fatalf("wallet service: %v", err)
@@ -173,16 +173,16 @@ func main() {
 	// живут в аналитике, а покупки — в кошельке, и без этой связки нельзя
 	// посчитать ни конверсию, ни ARPU.
 	analyticsSvc.payments = walletSvc
-	dailySvc, err := NewDailyService(filepath.Join(servicesDir, "daily"), authSvc, walletSvc,
+	dailySvc, err := NewDailyService(filepath.Join(servicesDir, "daily"), db, authSvc, walletSvc,
 		filepath.Join(*contentDir, "daily-rewards.json"))
 	if err != nil {
 		log.Fatalf("daily service: %v", err)
 	}
-	lbSvc, err := NewLeaderboardService(filepath.Join(servicesDir, "leaderboards"), authSvc)
+	lbSvc, err := NewLeaderboardService(filepath.Join(servicesDir, "leaderboards"), db, authSvc)
 	if err != nil {
 		log.Fatalf("leaderboard service: %v", err)
 	}
-	adsSvc, err := NewAdsService(filepath.Join(servicesDir, "ads"), authSvc, walletSvc,
+	adsSvc, err := NewAdsService(filepath.Join(servicesDir, "ads"), db, authSvc, walletSvc,
 		filepath.Join(*contentDir, "ads.json"))
 	if err != nil {
 		log.Fatalf("ads service: %v", err)
@@ -1095,47 +1095,6 @@ func atomicWrite(dst string, body []byte, perm os.FileMode) error {
 		_ = d.Close()
 	}
 	return nil
-}
-
-// ПУТЬ К ФАЙЛУ ИГРОКА СТРОИТ ТОТ, КТО ЕГО ПРОВЕРЯЕТ.
-//
-// Идентификатор приходит от клиента и становится ИМЕНЕМ ФАЙЛА. Проверка на
-// допустимые символы была — но жила в обработчиках, за десятки строк до места,
-// где путь собирается. Работало это на дисциплине: каждый, кто добавит новое
-// чтение или запись, обязан помнить, что проверку сделали до него. Такие
-// обещания живут ровно до первого нового обработчика, а цена ошибки —
-// произвольный путь на диске сервера.
-//
-// Здесь проверка и сборка неразделимы: получить путь, не проверив имя,
-// НЕЛЬЗЯ — функция просто не отдаст его.
-func userFilePath(dir, userID string) (string, error) {
-	if userID == "" || !reUserFile.MatchString(userID) {
-		return "", fmt.Errorf("недопустимый идентификатор игрока")
-	}
-	return filepath.Join(dir, userID+".json"), nil
-}
-
-// writeUserFile — записать готовые байты в файл игрока.
-//
-// МЕХАНИЗМ ПИСЬМА ОТДЕЛЬНО ОТ ТОГО, ЧТО ПИШУТ. Путь по идентификатору (с
-// проверкой имени, неотделимой от сборки пути), права 0600 и атомарность —
-// одни на все службы. Три из них держали эти четыре строки своей копией:
-// реклама, ежедневные награды и кошелёк.
-//
-// Права здесь не украшение: в файле игрока лежат его баланс и покупки, и
-// 0600 значит «только владелец процесса». Повтори кто-нибудь эти строки в
-// четвёртый раз с 0644 — и записи станут читаемы всем на машине, а заметить
-// это можно только выборочной проверкой прав.
-//
-// Само превращение записи в байты остаётся службе: кошелёк пишет С ОТСТУПАМИ,
-// потому что его файл читают глазами при разборе спорной покупки, а остальные
-// — плотно, потому что их не читают вовсе.
-func writeUserFile(dir, userID string, data []byte) error {
-	path, err := userFilePath(dir, userID)
-	if err != nil {
-		return err
-	}
-	return atomicWrite(path, data, 0o600)
 }
 
 // ОТСУТСТВИЕ ФАЙЛА И ЕГО НЕДОСТУПНОСТЬ — РАЗНЫЕ ОТВЕТЫ.
