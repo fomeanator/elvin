@@ -28,6 +28,20 @@ namespace Lvn
     {
         private readonly Dictionary<LvnSender, LvnFrame> _layers = new Dictionary<LvnSender, LvnFrame>();
 
+        /// <summary>
+        /// ЕСТЬ ЛИ У СЛОЯ ХОТЬ КТО-ТО В КАДРЕ.
+        ///
+        /// <para>Пустой слой истории значит «глава только начинается»; непустой —
+        /// «кадр уже собран», так бывает после реплея с сохранения. Разницу
+        /// спрашивают те, кто кладёт катсцену поверх: прятать и возвращать
+        /// готовый кадр — это переставлять то, что и так стоит правильно.</para>
+        /// </summary>
+        public bool Dressed(LvnSender who)
+        {
+            foreach (var _ in Layer(who).Visible()) return true;
+            return false;
+        }
+
         /// <summary>Слой отправителя; создаётся при первом обращении. История
         /// пишет сюда каждой своей командой, остальные — на время своей
         /// работы.</summary>

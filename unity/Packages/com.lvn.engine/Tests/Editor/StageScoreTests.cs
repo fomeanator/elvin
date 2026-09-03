@@ -172,5 +172,41 @@ namespace Lvn.Tests.Editor
             CollectionAssert.IsEmpty(Visible());
             Assert.IsFalse(_score.HasLayer(LvnSender.Cutscene));
         }
+
+        // ОДЕТА ЛИ СЦЕНА ИСТОРИЕЙ. По этому вопросу приезд через створ решает,
+        // разыгрывать ли себя: поверх готового кадра (возврат с сохранения)
+        // церемония сводилась к «спрятать собеседника и вернуть собеседника» —
+        // четыре растворения ради кадра, который и до них стоял правильно.
+        [Test]
+        public void ПустойСлойИсторииЗначитНачалоГлавы()
+        {
+            Assert.IsFalse(_score.Dressed(LvnSender.Story), "кадр пуст, а слой считает себя одетым");
+        }
+
+        [Test]
+        public void ВыставленныйАктёрЗначитКадрСобран()
+        {
+            StoryShows("agent");
+            Assert.IsTrue(_score.Dressed(LvnSender.Story), "актёр в кадре, а слой считает себя пустым");
+        }
+
+        // Спрятанный не считается: он в списке слоя, но не в кадре. Иначе
+        // приезд молчал бы там, где сцена на деле пуста.
+        [Test]
+        public void СпрятанныйАктёрКадрНеОдевает()
+        {
+            StoryShows("agent");
+            _score.Layer(LvnSender.Story).Actors["agent"] = new LvnFrame.Actor { Visible = false };
+            Assert.IsFalse(_score.Dressed(LvnSender.Story), "спрятанный актёр посчитался за одетый кадр");
+        }
+
+        // Чужой слой не отвечает за историю: катсцена выставляет своих, и
+        // принять их за собранный кадр значит не разыграть приезд там, где надо.
+        [Test]
+        public void КатсценаНеОдеваетСлойИстории()
+        {
+            _score.Layer(LvnSender.Cutscene).Actors["hero"] = new LvnFrame.Actor { Visible = true };
+            Assert.IsFalse(_score.Dressed(LvnSender.Story), "актёр катсцены посчитался за кадр истории");
+        }
     }
 }
