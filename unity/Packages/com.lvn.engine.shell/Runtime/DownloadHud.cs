@@ -343,7 +343,17 @@ namespace Lvn.UI.Screens
                 }
                 else
                 {
-                    _file.text = string.IsNullOrEmpty(t.label) ? LvnWords.Of("downloads.content", "Downloading content") : t.label;
+                    // ОЧЕРЕДЬ, А НЕ ТЕКУЩИЙ ФАЙЛ (решение Ильи 04.09).
+                    //
+                    // Пока обоз шёл по одному файлу, его имя и было ответом на
+                    // «что качается». В несколько полос «текущий» — это тот,
+                    // кто последним тронулся из десяти, и подпись задёргалась
+                    // между ними. Игроку нужен ответ про ВСЮ загрузку: сколько
+                    // осталось. Имя файла остаётся ниже, на строке подробностей,
+                    // где мельтешение не мешает.
+                    _file.text = t.batchTotal > 1
+                        ? LvnWords.Of("downloads.queue", "Downloading {0} of {1}", t.batchDone, t.batchTotal)
+                        : string.IsNullOrEmpty(t.label) ? LvnWords.Of("downloads.content", "Downloading content") : t.label;
                     var activeEntry = ActiveEntry();
                     _kind.text = Humanize(ActiveUrl?.Invoke(), null)
                         + (activeEntry != null ? " · " + activeEntry.Label : "");

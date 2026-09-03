@@ -125,6 +125,23 @@ namespace Lvn.Content
         // finishes, the counters reset to zero so the next batch starts clean.
         public int BatchTotal { get; private set; }
         public int BatchDone { get; private set; }
+
+        /// <summary>
+        /// БАЙТЫ ВСЕГО ПАКЕТА, А НЕ ТОЛЬКО ТЕХ, ЧТО В ПОЛЁТЕ.
+        ///
+        /// <para>Кольцо индикатора считалось как «принято / ожидается», где оба
+        /// числа — сумма по файлам В ПОЛЁТЕ. Пока обоз шёл по одному файлу, это
+        /// случайно совпадало с правдой: один файл и был всей видимой работой.
+        /// Как только он пошёл в десять полос, кольцо начало заполняться и
+        /// откатываться на каждой десятке из сотни — игрок видит не очередь, а
+        /// текущую горсть.</para>
+        ///
+        /// <para>Здесь копится ЗАКРЫТОЕ: байты файлов, которые пакет уже
+        /// дописал. К ним прибавляется принятое в полёте — и получается доля
+        /// всей очереди, которая только растёт.</para>
+        /// </summary>
+        public long BatchClosedBytes { get; private set; }
+
         public string LastStartedUrl { get; private set; }
         public bool BatchActive => BatchTotal > 0 && BatchDone < BatchTotal;
 
@@ -276,7 +293,7 @@ namespace Lvn.Content
         {
             lock (_underway)
             {
-                int n = 0;
+                int n = 0, unknown = 0;
                 string firstUrl = null;
                 long rec = 0, exp = 0;
                 foreach (var kv in _underway)
@@ -292,6 +309,7 @@ namespace Lvn.Content
                     // названия. Признак теперь у записи, а не у формы ключа.
                     if (f.Bundle || f.Work == null) continue;
                     n++;
+                    if (f.Expected <= 0) unknown++;   // заголовок с длиной ещё не пришёл
                     firstUrl ??= kv.Key;
                 }
                 // Имя для полной карточки индикатора: алиас текущего файла
@@ -306,6 +324,33 @@ namespace Lvn.Content
                         int slash = bare.LastIndexOf('/');
                         label = slash >= 0 ? bare.Substring(slash + 1) : bare;
                     }
+                }
+                // ВЕСЬ ПАКЕТ, А НЕ ГОРСТЬ В ПОЛЁТЕ.
+                //
+                // До сюда rec/exp — сумма по файлам, которые едут ПРЯМО
+                // СЕЙЧАС. Пока обоз шёл по одному, это случайно совпадало с
+                // правдой. В десять полос кольцо стало показывать десятку из
+                // сотни: заполнялось и откатывалось на каждой смене десятки.
+                //
+                // К принятому прибавляются байты уже ЗАКРЫТЫХ файлов пакета —
+                // и число перестаёт падать вовсе. Это же чинит скорость: она
+                // считается разностью принятого, а на границе файлов сумма
+                // проваливалась в ноль, и показатель мигал прочерком.
+                //
+                // Вес непочатых файлов неизвестен — за них берётся скромная
+                // оценка (та же, что у полос загрузки). Занизить лучше, чем
+                // завысить: прогресс, который к концу замедляется, игрок
+                // прощает — прыгнувший к завершению читается как обман.
+                if (BatchTotal > 0)
+                {
+                    rec += BatchClosedBytes;
+                    exp += BatchClosedBytes;
+                    int untouched = Math.Max(0, BatchTotal - BatchDone - n);
+                    exp += (unknown + untouched) * DownloadPolicy.UnknownSizeBytes;
+                    // Оценка может оказаться МЕНЬШЕ уже принятого (файл крупнее
+                    // скромной оценки, а длину нам не назвали). Кольцо тогда
+                    // показало бы больше единицы; пусть лучше упрётся в край.
+                    if (exp < rec) exp = rec;
                 }
                 return (n, BatchTotal, BatchDone, rec, exp, label);
             }
