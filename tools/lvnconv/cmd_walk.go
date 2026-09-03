@@ -40,10 +40,10 @@ type walkReport struct {
 	// Развилки — то число, которое нужно автору. «Путей» меньше, чем ветвей:
 	// сходящиеся ветки памятка отсекает, и глава с двумя выборами честно
 	// показывала «путей 1», что читается как «выбор не работает».
-	Forks      int    `json:"forks"`
-	ForksTaken int    `json:"forks_taken"`
-	Paths      int    `json:"paths_completed"`
-	CutDepth   int    `json:"cut_by_depth"`
+	Forks      int `json:"forks"`
+	ForksTaken int `json:"forks_taken"`
+	Paths      int `json:"paths_completed"`
+	CutDepth   int `json:"cut_by_depth"`
 	// РАСПИСАНИЕ КАДРА: что обход узнал про сцену, а не только про
 	// достижимость. Ходим по главе всё равно — и знать, кто в кадре, стоит тех
 	// же шагов; а вопрос «почему герой говорит, когда его нет на экране»
@@ -52,7 +52,7 @@ type walkReport struct {
 	// FrameUncertain — узлы, где кадр зависит от пути. Не беда: в ветвистой
 	// главе это норма, и точный ответ там даёт трасса сохранения. Но число
 	// полезно видеть — оно говорит, насколько сцена вообще предсказуема.
-	FrameUncertain int `json:"frame_uncertain"`
+	FrameUncertain int    `json:"frame_uncertain"`
 	Err            string `json:"error,omitempty"`
 }
 

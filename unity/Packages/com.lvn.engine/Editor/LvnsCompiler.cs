@@ -98,6 +98,28 @@ namespace Lvn.Editor
             ["ui"] = "it is a nested block with its own brace rules; this line-by-line importer cannot parse it",
         };
 
+        /// <summary>Назвать неподдержанную конструкцию ДО разворотов, строкой
+        /// файла автора. Проза внутри «…» не считается: слово «play» в реплике
+        /// — это слово, а не команда.</summary>
+        static void RefuseUnsupported(string src)
+        {
+            int chev = 0;
+            string[] raws = src.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+            for (int i = 0; i < raws.Length; i++)
+            {
+                if (chev > 0) { chev = ChevScan(chev, raws[i], false); continue; }
+                string line = StripLineComment(raws[i]).Trim();
+                if (line.Length == 0 || line.StartsWith("#")) continue;
+                string[] words = SplitFields(line);
+                string first = words.Length > 0 ? words[0] : "";
+                if (UnsupportedSourceOps.TryGetValue(first, out string why))
+                    throw new LvnsCompileException(
+                        $"line {i + 1}: `{first}` is not supported by the Unity .lvns importer — {why}. " +
+                        "Compile with `lvnconv convert` and import the resulting .lvn instead.");
+                chev = ChevronDelta(line) > 0 ? ChevronDelta(line) : 0;
+            }
+        }
+
         /// <summary>Compile source to indented .lvn JSON ({scene?, script}).</summary>
         public static string Compile(string src)
         {
@@ -139,6 +161,15 @@ namespace Lvn.Editor
             // однострочное объявление `func bow(a) { … }` в словарь не
             // попадало — вызов уходил в наррацию и печатался игроку. Go
             // уплощает первым шагом ровно поэтому.
+            // ОТКАЗ ЗВУЧИТ РАНЬШЕ РАЗВОРОТОВ. Проверка на неподдержанные
+            // конструкции стояла в главном цикле — то есть ПОСЛЕ проходов,
+            // которые считают скобки. Блок `ui` до неё не доживал: его
+            // фигурные скобки не имеют отношения к управляющим конструкциям,
+            // и разворот падал с «unmatched '}'» без номера строки. Автор
+            // семи примеров движка получал загадку вместо готового ответа
+            // «этот импортёр `ui` не умеет, соберите через lvnconv».
+            RefuseUnsupported(src);
+
             string flat = string.Join("\n", FlattenInline(src));
             var funcs = CollectFuncs(flat);
             string expanded = ExpandLoops(flat);
@@ -208,6 +239,9 @@ namespace Lvn.Editor
             // inside a block lost its who_id and the stage highlighted nobody.
             if (outerActorMaps != null)
                 foreach (var kv in outerActorMaps) actorMaps[kv.Key] = kv.Value;
+
+            // Атрибуты `choice timeout=…`, ждущие СЛЕДУЮЩЕГО блока опций.
+            JObject pendingChoice = null;
 
             for (int i = 0; i < lines.Count;)
             {
@@ -316,7 +350,13 @@ namespace Lvn.Editor
                         }
                         else break;
                     }
-                    script.Add(new JObject { ["op"] = "choice", ["options"] = options });
+                    var choiceCmd = new JObject { ["op"] = "choice", ["options"] = options };
+                    if (pendingChoice != null) // предшествующая строка `choice timeout=…`
+                    {
+                        foreach (var kv in pendingChoice) choiceCmd[kv.Key] = kv.Value;
+                        pendingChoice = null;
+                    }
+                    script.Add(choiceCmd);
                     EmitWeaves(script, nfNames, weaves);
                     i = j; continue;
                 }
@@ -366,6 +406,17 @@ namespace Lvn.Editor
                     throw new LvnsCompileException(
                         $"line {i + 1}: `{firstWord}` is not supported by the Unity .lvns importer — {why}. " +
                         "Compile with `lvnconv convert` and import the resulting .lvn instead.");
+
+                // `choice timeout=10 timeout_goto=late` — атрибуты СЛЕДУЮЩЕГО
+                // блока опций (выбор на время), собственной командой не
+                // становятся. Порт этого не знал и выдавал ДВА выбора подряд:
+                // первый — пустой, с одним лишь таймаутом (игроку не из чего
+                // выбирать), второй — с вариантами, но уже без срока.
+                if (firstWord == "choice")
+                {
+                    pendingChoice = ParseKeyValueTokens(line.Substring("choice".Length).Trim(), i + 1);
+                    i++; continue;
+                }
 
                 bool isCommand = false;
                 JObject cmd = null;
@@ -864,8 +915,48 @@ namespace Lvn.Editor
                 var pars = ParseKeyValue(paramsStr);
                 foreach (var kv in pars) opt[kv.Key] = Tok(kv.Value);
             }
+            // ЦЕНА И ОТНОШЕНИЯ — НЕ СТРОКИ. Рантайм читает их с проверкой типа:
+            // `o["wallet_cost"] is JObject` и `o["effects"] is JArray`
+            // (LvnPlayer.Choose). Строка эти проверки не проходит — МОЛЧА, без
+            // ошибки: платный вариант становился бесплатным, а прибавка к
+            // отношениям не начислялась вовсе. Через lvnconv та же глава
+            // собиралась верно, так что расхождение видел только тот, кто
+            // импортирует .lvns в редакторе.
+            if (opt["wallet_cost"] is JValue wv && wv.Type == JTokenType.String)
+            {
+                var m = WalletCostRe.Match((string)wv);
+                if (m.Success && double.TryParse(m.Groups[1].Value,
+                        System.Globalization.NumberStyles.Float,
+                        CultureInfo.InvariantCulture, out double amount))
+                    opt["wallet_cost"] = new JObject
+                    {
+                        ["currency"] = m.Groups[2].Value,
+                        ["amount"] = amount,
+                    };
+            }
+            if (opt["effects"] is JValue ev && ev.Type == JTokenType.String)
+            {
+                var effects = new JArray();
+                foreach (string part in ((string)ev).Split(','))
+                {
+                    var m = EffectRe.Match(part.Trim());
+                    if (!m.Success) continue;
+                    if (!int.TryParse(m.Groups[2].Value, NumberStyles.Integer,
+                            CultureInfo.InvariantCulture, out int delta)) continue;
+                    effects.Add(new JObject { ["label"] = m.Groups[1].Value, ["delta"] = delta });
+                }
+                // Ни одной разобранной пары — поле выбрасывается, как в Go:
+                // строка, которую рантайм всё равно не прочтёт, только мешает
+                // сверке round-trip.
+                if (effects.Count > 0) opt["effects"] = effects;
+                else opt.Remove("effects");
+            }
             return opt;
         }
+
+        // Те же выражения, что в Go (convert.go: reWalletCost, reEffect).
+        static readonly Regex WalletCostRe = new Regex(@"^([0-9]+(?:\.[0-9]+)?)\s+(\S+)$");
+        static readonly Regex EffectRe = new Regex(@"^(.+):([+-][0-9]+)$");
 
         static readonly Regex OptParamRe = new Regex(@"(^|[ \t])[a-z_][a-z0-9_]*=");
 
@@ -978,6 +1069,21 @@ namespace Lvn.Editor
 
         // ParseKeyValue throws on malformed input (mirrors Go error return used as
         // a hard failure at choice/anim/legacy-command sites).
+        /// <summary>`key=value …` в JObject — та же разборка, что у команд,
+        /// но результат сразу в форме документа. Отдельный дом нужен потому,
+        /// что атрибуты `choice` ждут своего блока опций и не могут доехать до
+        /// него словарём.</summary>
+        static JObject ParseKeyValueTokens(string s, int lineNo)
+        {
+            var o = new JObject();
+            if (s == "") return o;
+            Dictionary<string, object> pars;
+            try { pars = ParseKeyValue(s); }
+            catch (LvnsCompileException e) { throw new LvnsCompileException($"line {lineNo}: choice: {e.Message}"); }
+            foreach (var kv in pars) o[kv.Key] = Tok(kv.Value);
+            return o;
+        }
+
         static Dictionary<string, object> ParseKeyValue(string s)
         {
             var res = new Dictionary<string, object>();
