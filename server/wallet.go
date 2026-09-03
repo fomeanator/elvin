@@ -498,14 +498,10 @@ func (s *WalletService) AllUserIDs() []string {
 	return ids
 }
 
-// Clawback removes currency (support/ops corrections), flooring at zero —
-// audited like everything else. A non-nil error means nothing was removed.
-
-// Grant credits a user outside an HTTP request (the daily service etc.) —
-// same lock, same audit history as any earn. A non-nil error means nothing
-// was credited (the write goes through a temp file, so a failed save leaves
-// the previous balance intact).
-// Grant — административная выдача валюты.
+// Grant — административная выдача валюты вне HTTP-запроса (ежедневная
+// награда, реклама, админка): тот же замок и та же история, что у любого
+// earn. Ошибка значит «не начислено»: запись идёт через временный файл, и
+// сорвавшееся сохранение оставляет прежний баланс.
 func (s *WalletService) Grant(userID, currency string, amount int64, reason string) error {
 	return s.adminAdjust(userID, currency, amount, "earn", reason)
 }

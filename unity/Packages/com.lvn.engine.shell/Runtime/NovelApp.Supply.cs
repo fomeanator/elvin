@@ -174,10 +174,5 @@ namespace Lvn.UI.Screens
 
 
 
-        // Mobile: persist stats when the app is backgrounded / quit mid-chapter.
-        // Fire-and-forget — the store writes its LOCAL cache synchronously before the
-        // first await, so stats are safe even if the process is suspended immediately.
-        // Desktop/editor: closing the window must save exactly like a mobile
-        // background — otherwise the last lines and unsynced vars are lost.
     }
 }

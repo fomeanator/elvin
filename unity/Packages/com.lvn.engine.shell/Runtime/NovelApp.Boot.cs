@@ -30,10 +30,6 @@ namespace Lvn.UI.Screens
     /// </summary>
     public sealed partial class NovelApp
     {
-        // Точка входа Unity — единственный законный `async void` здесь. Но
-        // упавший бут молчал: исключение уходило в никуда, а игрок оставался
-        // перед вуалью, которая «просто не догружается». Теперь падение видно и
-        // в логе, и на самой вуали.
         /// <summary>
         /// ПРИЛОЖЕНИЕ ЗАКРЫВАЮТ — снятая КОПИЯ ответа, а не сам вопрос.
         ///
@@ -55,6 +51,10 @@ namespace Lvn.UI.Screens
         /// </summary>
         private System.Threading.CancellationToken _quitting;
 
+        // Точка входа Unity — единственный законный `async void` здесь. Но
+        // упавший бут молчал: исключение уходило в никуда, а игрок оставался
+        // перед вуалью, которая «просто не догружается». Теперь падение видно и
+        // в логе, и на самой вуали.
         private async void Start()
         {
             _quitting = destroyCancellationToken;   // до первого await, пока живы
@@ -363,8 +363,12 @@ namespace Lvn.UI.Screens
             }
         }
 
+        // Mobile: persist stats when the app is backgrounded / quit mid-chapter.
+        // Fire-and-forget — the store writes its LOCAL cache synchronously before the
+        // first await, so stats are safe even if the process is suspended immediately.
+        // Desktop/editor: closing the window must save exactly like a mobile
+        // background — otherwise the last lines and unsynced vars are lost.
         private void OnApplicationQuit() => OnApplicationPause(true);
-
 
         private void OnApplicationPause(bool paused)
         {
