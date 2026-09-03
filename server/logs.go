@@ -13,6 +13,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -25,7 +26,22 @@ type ClientLogService struct {
 	mu         sync.Mutex
 	dir        string
 	adminToken string
+	// pruned — за какой день уборка уже прошла. Пустая строка значит «в этой
+	// жизни процесса ещё не прибирались».
+	pruned string
 }
+
+// clientLogKeepDays — сколько суток диагностики держим.
+//
+// Это ДНЕВНИК ОТЛАДКИ, а не история продукта: по нему отвечают на «почему у
+// партнёра падает на этой сборке», и вопрос этот всегда про недавнее. Файлы
+// при этом крупные — сутки живого тестирования дают 37 и 49 МБ (замер на
+// проде 03.09.2026), а уборки не было НИКАКОЙ: 189 МБ накопилось за неполный
+// месяц и продолжало расти, пока не кончился бы диск. Диск на маленьком
+// боксе кончается тихо и разом: первым перестаёт писаться не лог, а кошелёк.
+//
+// Две недели — с запасом на «вернусь к этому после выходных».
+const clientLogKeepDays = 14
 
 func NewClientLogService(dir, adminToken string) (*ClientLogService, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -87,6 +103,7 @@ func (s *ClientLogService) handleIngest(w http.ResponseWriter, r *http.Request) 
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.pruneOldDays(now)
 	path := filepath.Join(s.dir, now.Format("2006-01-02")+".jsonl")
 	if st, err := os.Stat(path); err == nil && st.Size() > clientLogDayMaxSize {
 		http.Error(w, "daily volume cap reached", http.StatusTooManyRequests)
@@ -143,6 +160,39 @@ func clip(s string, max int) string {
 // GET /v1/admin/client-logs?day=YYYY-MM-DD&device=<prefix>&level=error&n=200 —
 // the last n matching lines of a day, newest last. The files are also plain
 // JSONL on disk for jq when the query outgrows this.
+// pruneOldDays убирает дневники старше clientLogKeepDays. Зовётся с приёма
+// пачки под тем же замком и работает ОДИН РАЗ ЗА СУТКИ: пока день не
+// сменился, обход каталога не повторяется, поэтому цена уборки не зависит от
+// того, сколько устройств пишет.
+//
+// Имя файла и есть его дата — разбираем её, а не время правки: правку меняет
+// любой rsync или бэкап, а дата в имени не меняется никогда.
+func (s *ClientLogService) pruneOldDays(now time.Time) {
+	day := now.Format("2006-01-02")
+	if s.pruned == day {
+		return
+	}
+	s.pruned = day
+	cutoff := now.AddDate(0, 0, -clientLogKeepDays)
+	entries, err := os.ReadDir(s.dir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, ".jsonl") {
+			continue
+		}
+		when, perr := time.Parse("2006-01-02", strings.TrimSuffix(name, ".jsonl"))
+		if perr != nil || !when.Before(cutoff) {
+			continue
+		}
+		if os.Remove(filepath.Join(s.dir, name)) == nil {
+			log.Printf("[client-logs] дневник %s старше %d суток — удалён", name, clientLogKeepDays)
+		}
+	}
+}
+
 func (s *ClientLogService) handleTail(w http.ResponseWriter, r *http.Request) {
 	if !adminAllowed(w, r, s.adminToken) {
 		return
