@@ -26,6 +26,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	_ "modernc.org/sqlite"
@@ -34,6 +35,14 @@ import (
 // openStore открывает (и при необходимости создаёт) базу рядом с остальными
 // служебными данными.
 func openStore(dir string) (*sql.DB, error) {
+	// Каталог создаётся ЗДЕСЬ, а не ожидается от вызывающего: базу открывают
+	// первой из служб, до всех, кто заводит services/ сам, — и на пустом
+	// каталоге контента сервер падал на старте («unable to open database
+	// file»). Демо-контент возит services/ в git, поэтому CI этого не видел;
+	// видел любой, кто поднимал сервер на своём каталоге (аудит 03.09.2026).
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return nil, fmt.Errorf("каталог базы %s: %w", dir, err)
+	}
 	path := filepath.Join(dir, "lvn.db")
 	// _journal=WAL — читатели не блокируют писателя; для сервера, который
 	// одновременно отдаёт отчёты и принимает покупки, это не тюнинг, а

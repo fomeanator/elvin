@@ -6,6 +6,7 @@ require (
 	github.com/fomeanator/elvin/tools/lvnconv v0.0.0
 	github.com/nwaples/rardecode v1.1.3
 	golang.org/x/image v0.43.0
+	modernc.org/sqlite v1.56.0
 )
 
 require (
@@ -19,7 +20,6 @@ require (
 	modernc.org/libc v1.74.4 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.56.0 // indirect
 )
 
 replace github.com/fomeanator/elvin/tools/lvnconv => ../tools/lvnconv

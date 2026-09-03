@@ -91,6 +91,15 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # ВТОРОЙ РУБЕЖ ДЛЯ УЧЁТОК ПАНЕЛИ. Соли и хэши паролей живут в
+    # content/services/ и сервером не раздаются (privateRel в server/main.go);
+    # здесь то же самое сказано ещё раз — на случай, если на боксе окажется
+    # бинарь старше сентября 2026, когда файл лежал в публичном корне и
+    # честно отдавался всем по /content/admin-users.json.
+    location ~ ^/content/(.*/)?admin-users\.json$ {
+        return 404;
+    }
+
     # Static content (art, scripts, audio): micro-cached in nginx (see
     # tuning.conf) so player bursts never stack on the Go process; 5m TTL +
     # background revalidation keeps partner re-imports propagating fast.

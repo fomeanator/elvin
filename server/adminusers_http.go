@@ -7,6 +7,7 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -34,13 +35,23 @@ func (s *AdminService) handleLogin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
+	// Источник исчерпал промахи — пароль даже не проверяем: проверка стоит
+	// десятую секунды ядра, и именно её подбор и покупал бы.
+	peer := loginPeer(r)
+	if wait := s.logins.wait(peer); wait > 0 {
+		w.Header().Set("Retry-After", strconv.Itoa(int(wait.Seconds())+1))
+		http.Error(w, "слишком много неудачных попыток входа — подождите", http.StatusTooManyRequests)
+		return
+	}
 	secret, role, err := s.users.Login(body.Login, body.Password)
 	if err != nil {
+		s.logins.fail(peer)
 		// Одна и та же формулировка на неверный логин и неверный пароль:
 		// разные ответы подсказали бы, какие учётки существуют.
 		http.Error(w, "неверный логин или пароль", http.StatusUnauthorized)
 		return
 	}
+	s.logins.clear(peer)
 	http.SetCookie(w, &http.Cookie{
 		Name:     "lvn_admin",
 		Value:    secret,

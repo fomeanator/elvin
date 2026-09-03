@@ -86,7 +86,7 @@ func main() {
 		if len(parts) == 3 && parts[2] != "" {
 			role = parts[2]
 		}
-		users, err := NewAdminUsers(*contentDir)
+		users, err := NewAdminUsers(adminUsersDir(*contentDir))
 		if err != nil {
 			log.Fatalf("не открыть хранилище учёток: %v", err)
 		}
@@ -364,6 +364,12 @@ type server struct {
 	verMu    sync.Mutex
 	verCache map[bool]verCacheEntry // includeManifest -> cached versions
 
+	// hashMu — один обход дерева за раз и охрана hashCache: два одновременных
+	// опроса версии делали бы одну и ту же работу дважды.
+	hashMu    sync.Mutex
+	hashCache map[string]hashEntry // rel → (размер, mtime, sha256) прошлого обхода
+	hashReads int                  // сколько файлов ПРОЧИТАНО за жизнь процесса — для тестов
+
 	userMu    sync.Mutex
 	userLocks map[string]*sync.Mutex // per-user: serializes state PUT + key claim
 }
@@ -439,9 +445,7 @@ func (s *server) contentHandler(dir string) http.Handler {
 		// to hide behind. It is unpublished, unreviewed content the author has
 		// not accepted yet; serving it would publish every rejected version.
 		rel := strings.ToLower(strings.TrimPrefix(r.URL.Path, "/content/"))
-		if strings.HasPrefix(rel, "services/") || strings.HasPrefix(rel, "state/") ||
-			hasDotSegment(rel) || strings.HasSuffix(rel, ".incoming") ||
-			rel == "manifest.draft.json" {
+		if privateRel(rel) {
 			http.Error(w, "not found", http.StatusNotFound)
 			return
 		}
@@ -474,14 +478,59 @@ func hasDotSegment(rel string) bool {
 	return false
 }
 
+// privateRel — путь под корнем контента, который НИКОГДА не уходит игроку и
+// не пишется общей дверью ассетов: служебные данные (кошельки, база, сейвы),
+// редакторская кухня (история, базлайн импорта, припаркованные версии,
+// черновик манифеста) и учётки админки. Вход — путь относительно корня
+// контента, в любом регистре, с прямыми слэшами.
+//
+// Правило стояло тремя копиями — у раздачи, у индекса версий и у офлайн-
+// экспорта — и они разошлись: раздача знала про state/, экспорт не знал ни
+// про что, а про учётки админки не знал никто. Соли и хэши паролей четырёх
+// владельцев раздавались с прода как картинка (аудит 03.09.2026, проверено
+// снаружи). Ответ на вопрос «это служебное?» — один, и живёт здесь.
+func privateRel(rel string) bool {
+	rel = strings.ToLower(strings.TrimLeft(rel, "/"))
+	if strings.HasPrefix(rel, "services/") || strings.HasPrefix(rel, "state/") ||
+		hasDotSegment(rel) || strings.HasSuffix(rel, ".incoming") ||
+		rel == "manifest.draft.json" {
+		return true
+	}
+	base := rel
+	if i := strings.LastIndex(rel, "/"); i >= 0 {
+		base = rel[i+1:]
+	}
+	return base == adminUsersFile
+}
+
+// hashEntry — что индекс версий помнит о файле между обходами. Совпали
+// размер и mtime — файл не перечитывается: его sha256 уже посчитан.
+type hashEntry struct {
+	size int64
+	mod  time.Time
+	sum  string
+}
+
 // computeVersions returns {content-relative-path: sha256} for every served
 // file. includeManifest folds manifest.json into the map (used by the version
 // endpoint so manifest edits register), otherwise it's left out (the asset
 // index is for art/scripts; the manifest is fetched fresh, never versioned).
+//
+// ЧИТАЕТСЯ ТОЛЬКО ИЗМЕНИВШЕЕСЯ. Раньше каждый обход читал и хэшировал КАЖДЫЙ
+// байт дерева, а обход идёт на каждый опрос версии (кэш — две секунды,
+// клиент спрашивает каждые две). На проде это 1,8 с одного ядра из каждых
+// двух, на dev-контенте с .git внутри — девять секунд на ответ (замер
+// 03.09.2026). Теперь обход — это stat каждого файла; байты читаются, когда
+// у файла сменились размер или mtime. Записи сервер делает атомарным
+// переименованием, так что новый файл всегда приходит с новым mtime.
 func (s *server) computeVersions(includeManifest bool) map[string]string {
+	s.hashMu.Lock()
+	defer s.hashMu.Unlock()
+	prev := s.hashCache
+	next := make(map[string]hashEntry, len(prev))
 	out := map[string]string{}
 	_ = filepath.Walk(s.content, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
+		if err != nil {
 			return nil
 		}
 		rel, rerr := filepath.Rel(s.content, path)
@@ -489,6 +538,14 @@ func (s *server) computeVersions(includeManifest bool) map[string]string {
 			return nil
 		}
 		rel = filepath.ToSlash(rel)
+		if info.IsDir() {
+			// Служебные поддеревья не обходятся вовсе: в .git dev-контента
+			// лежат сотни мегабайт, и они хэшировались на каждый опрос.
+			if rel != "." && privateRel(rel+"/") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
 		if rel == "asset-versions.json" || (rel == "manifest.json" && !includeManifest) {
 			return nil
 		}
@@ -510,18 +567,19 @@ func (s *server) computeVersions(includeManifest bool) map[string]string {
 		// reload: save → version change → reload → resume → save → … a loop
 		// of multi-second freezes. This state is API-served, never a
 		// cacheable asset, so it has no business in the version index.
-		if strings.HasPrefix(rel, "services/") || strings.HasPrefix(rel, "state/") {
-			return nil
-		}
 		// Editorial plumbing, not content: history snapshots, the re-import
 		// baseline, parked conflict versions and the unpublished manifest draft
 		// must never bump the version (a backup would otherwise reload every
 		// client). The .incoming case is the live one: an import that ends in
 		// conflicts parks a file next to each live chapter, so a routine
 		// re-import would reload every player mid-chapter over content nobody
-		// has accepted yet.
-		if strings.HasPrefix(rel, ".history/") || strings.HasPrefix(rel, ".lvn-import/") ||
-			strings.HasSuffix(rel, ".incoming") || rel == "manifest.draft.json" {
+		// has accepted yet. Всё это — одно правило со статикой (privateRel).
+		if privateRel(rel) {
+			return nil
+		}
+		if e, ok := prev[rel]; ok && e.size == info.Size() && e.mod.Equal(info.ModTime()) {
+			next[rel] = e
+			out[rel] = e.sum
 			return nil
 		}
 		data, derr := os.ReadFile(path)
@@ -529,9 +587,13 @@ func (s *server) computeVersions(includeManifest bool) map[string]string {
 			return nil
 		}
 		sum := sha256.Sum256(data)
-		out[rel] = hex.EncodeToString(sum[:])
+		e := hashEntry{size: info.Size(), mod: info.ModTime(), sum: hex.EncodeToString(sum[:])}
+		next[rel] = e
+		out[rel] = e.sum
+		s.hashReads++
 		return nil
 	})
+	s.hashCache = next
 	return out
 }
 
@@ -872,6 +934,17 @@ func (s *server) handleAdminAsset(w http.ResponseWriter, r *http.Request) {
 	rel := strings.TrimPrefix(r.URL.Path, "/v1/admin/assets/")
 	if rel == "" || strings.Contains(rel, "..") {
 		http.Error(w, "bad path", http.StatusBadRequest)
+		return
+	}
+	// Служебные пути пишутся своими дверями (учётки — /v1/admin/people,
+	// черновик — /v1/admin/manifest?draft=1, конфликты — их резолвер), а
+	// кошельки, база и сейвы руками не пишутся вовсе. Через общую дверь
+	// ассетов редактор переписывал admin-users.json и становился владельцем,
+	// а заодно рисовал себе любой баланс (аудит 03.09.2026, проверено
+	// живьём). Отказ — всем ролям и ключу машины: у владельца для этого есть
+	// ssh, а не дверь, которая одинаково открыта редактору.
+	if privateRel(rel) {
+		http.Error(w, "служебный путь: у него своя дверь", http.StatusForbidden)
 		return
 	}
 	dst := filepath.Join(s.content, filepath.Clean(rel))

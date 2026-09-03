@@ -395,12 +395,28 @@ func (s *server) bundleContent(zw *zip.Writer, folder string) {
 	base := folder + "/" + bundleDir
 
 	// every served file → StreamingAssets/lvn/content/<rel>
+	//
+	// СЛУЖЕБНОЕ НЕ ЕДЕТ. Здесь копировался каталог ЦЕЛИКОМ, и в APK игрока
+	// уезжали кошельки и база (services/), чужие сейвы (state/), история
+	// правок, .git dev-контента и учётки админки (аудит 03.09.2026). Правило
+	// «что служебное» — одно со статикой и индексом версий: privateRel.
+	// Индекс версий сюда не копируется — он пишется ниже своим, свежим.
 	_ = filepath.Walk(s.content, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
+		if err != nil {
 			return nil
 		}
 		rel, rerr := filepath.Rel(s.content, path)
 		if rerr != nil {
+			return nil
+		}
+		slash := filepath.ToSlash(rel)
+		if info.IsDir() {
+			if slash != "." && privateRel(slash+"/") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if privateRel(slash) || slash == "asset-versions.json" {
 			return nil
 		}
 		raw, derr := os.ReadFile(path)

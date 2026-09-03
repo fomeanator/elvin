@@ -27,15 +27,19 @@ type AdminService struct {
 	// Именованные учётки панели. Пусто — значит вход только по токену
 	// (первый запуск, пока никого не завели).
 	users *AdminUsers
+	// logins — счёт неудачных входов по источнику: подбор пароля упирается
+	// в паузу, а не в ядро прод-бокса (см. failLimiter).
+	logins *failLimiter
 	// writeMu serialises snapshot+write pairs so two parallel panel saves
 	// can't lose a history revision (same-millisecond .bak collision).
 	writeMu sync.Mutex
 }
 
 func NewAdminService(content, token string, auth *AuthService, wallet *WalletService) *AdminService {
-	// Учётки лежат рядом с контентом: там же, где всё остальное состояние
-	// студии, и попадают в те же бэкапы.
-	users, err := NewAdminUsers(content)
+	// Учётки лежат в services/ — рядом с остальным состоянием студии, которое
+	// сервер не раздаёт (см. adminUsersDir: старый файл из корня переезжает
+	// сам).
+	users, err := NewAdminUsers(adminUsersDir(content))
 	if err != nil {
 		log.Printf("[admin] учётные записи недоступны (%v) — вход только по токену", err)
 	}
@@ -45,7 +49,8 @@ func NewAdminService(content, token string, auth *AuthService, wallet *WalletSer
 	if users != nil && !users.Empty() {
 		log.Printf("[admin] вход по имени: заведено учёток — %d", len(users.List()))
 	}
-	return &AdminService{content: content, token: token, auth: auth, wallet: wallet, users: users}
+	return &AdminService{content: content, token: token, auth: auth, wallet: wallet, users: users,
+		logins: newFailLimiter(loginMaxFails, loginWindow)}
 }
 
 func (s *AdminService) Routes(mux *http.ServeMux) {
