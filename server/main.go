@@ -569,6 +569,52 @@ func privateRel(rel string) bool {
 	return base == adminUsersFile
 }
 
+// toolingRel — файл АВТОРСКОЙ КУХНИ, а не игры.
+//
+// В каталоге контента живут не только скрипты и арт. Рядом с ними копятся
+// исходники (`.lvns`, из которых компилируются главы), бэкапы манифеста, что
+// делает деплой (`manifest.json.bak-предеплой-…`, по полмегабайта штука),
+// присланные архивы с ассетами, заметки и черновики редактора (`…lvn~`).
+// Замер 04.09 на живом каталоге: 143 исходника, девять бэкапов манифеста и два
+// архива — и все они попадали и в индекс версий, и в офлайновый набор игры.
+//
+// Цена — не столько байты (на живом каталоге это около процента), сколько
+// ТРЕВОГА: индекс версий сворачивается в общую версию контента, по которой
+// играющий клиент решает, что мир изменился. Каждый бэкап от деплоя и каждая
+// правка авторского комментария в исходнике заставляли всех читающих идти за
+// разницей и перечитывать открытую главу мимо кэша — за файл, которого игрок
+// никогда не увидит.
+//
+// Правило применяется в ДВУХ местах и записано здесь одно: индекс версий
+// (computeVersions) и офлайновый набор экспорта. Раздачу по /content/ оно не
+// трогает: панель читает `.lvns` прямо оттуда, а автору может понадобиться
+// забрать свой архив.
+func toolingRel(rel string) bool {
+	base := strings.ToLower(filepath.Base(strings.ReplaceAll(rel, "\\", "/")))
+	if base == "" || base == "." {
+		return false
+	}
+	// Черновики редакторов: «файл~», «файл.orig», «файл.rej».
+	if strings.HasSuffix(base, "~") || base == ".ds_store" {
+		return true
+	}
+	// Бэкап узнаётся по «.bak» ГДЕ УГОДНО в имени: их делают с меткой времени
+	// на хвосте (manifest.json.bak-predeploy-014142), и расширением это не
+	// ловится.
+	if strings.Contains(base, ".bak") {
+		return true
+	}
+	switch filepath.Ext(base) {
+	case ".lvns", // исходник главы: игра исполняет .lvn, скомпилированный из него
+		".zip", ".7z", ".rar", ".tar", ".gz", ".tgz", // присланные архивы
+		".psd", ".xcf", ".ai", ".aseprite", ".blend", ".kra", // исходники графики
+		".md",                           // заметки студии
+		".orig", ".rej", ".tmp", ".swp": // следы правок и слияний
+		return true
+	}
+	return false
+}
+
 // hashEntry — что индекс версий помнит о файле между обходами. Совпали
 // размер и mtime — файл не перечитывается: его sha256 уже посчитан.
 type hashEntry struct {
@@ -625,6 +671,10 @@ func (s *server) computeVersions(includeManifest bool) map[string]string {
 		// autosave). The source images they derive from are versioned already.
 		base := filepath.Base(rel)
 		if strings.HasSuffix(base, ".astc") || strings.HasSuffix(base, ".ktx2") || strings.Contains(base, downscaleSuffix+".") {
+			return nil
+		}
+		// Авторская кухня в индекс не входит — см. toolingRel.
+		if toolingRel(rel) {
 			return nil
 		}
 		// Runtime state (player saves under state/, analytics/wallets under

@@ -416,7 +416,10 @@ func (s *server) bundleContent(zw *zip.Writer, folder string) {
 			}
 			return nil
 		}
-		if privateRel(slash) || slash == "asset-versions.json" {
+		// Приватное — никогда; авторская кухня (исходники, бэкапы деплоя,
+		// присланные архивы, черновики) — тоже: в набор игры едет игра.
+		// Правило одно на два места, см. toolingRel.
+		if privateRel(slash) || toolingRel(slash) || slash == "asset-versions.json" {
 			return nil
 		}
 		raw, derr := os.ReadFile(path)
