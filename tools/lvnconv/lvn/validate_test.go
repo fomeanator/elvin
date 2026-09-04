@@ -2,6 +2,7 @@ package lvn
 
 import (
 	"github.com/fomeanator/elvin/tools/lvnconv/internal/nearest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -1240,5 +1241,50 @@ func TestОпечаткаВОбычноГлубокомДеревеЛовитс�
 	}
 	if !hasWarn(uiTree(t, tree), `kind="buton"`) {
 		t.Fatalf("на %d-м этаже опечатка перестала ловиться — предел обхода ужали", этажей)
+	}
+}
+
+// КОМАНДА, НАПИСАННАЯ С ЗАГЛАВНОЙ ИЛИ ЧУЖОЙ БУКВОЙ, — ВСЁ РАВНО КОМАНДА.
+//
+// Замер на живом компиляторе: `Actor мира emotion=happy`, `ACTOR …`, `Bg /путь`
+// и `сlear all=1` (кириллическая «с») собираются в РЕПЛИКУ и печатаются
+// игроку, а валидатор молчал — распознаватель ищет строчное ASCII-слово и
+// такие строки не рассматривал вовсе. Заглавную ставит автозамена редактора,
+// кириллический двойник приезжает копипастой из переписки; цена у обеих одна.
+func TestValidate_MistypedOpCaseAndAlphabet(t *testing.T) {
+	for _, tc := range []struct{ text, want string }{
+		{"Actor мира emotion=happy", "actor"},
+		{"ACTOR мира emotion=happy", "actor"},
+		{"\u0430ctor мира emotion=happy", "actor"}, // кириллическая «а» первой
+		{"\u0441lear all=1", "clear"},              // кириллическая «с»
+		{"Bg /content/bg/room.png", "bg"},
+	} {
+		d := parse(t, `{"script":[{"op":"say","text":`+strconv.Quote(tc.text)+`}]}`)
+		iss := Validate(d)
+		if !hasError(iss, "написанная как") {
+			t.Errorf("%q: строка-команда прошла молча — она уедет игроку репликой: %v", tc.text, iss)
+			continue
+		}
+		if !hasError(iss, tc.want) {
+			t.Errorf("%q: не названа настоящая команда %q: %v", tc.text, tc.want, iss)
+		}
+	}
+}
+
+// ПРОЗА НЕ ДОЛЖНА СТАНОВИТЬСЯ НАХОДКОЙ. Правило узкое намеренно: слово обязано
+// ПОСЛЕ приведения точно совпасть с именем команды И строка обязана иметь форму
+// команды. Ложная ошибка здесь дороже пропуска — гейт публикации отказывает по
+// ошибкам, то есть ложное срабатывание запирает автору сохранение.
+func TestValidate_ProseNearOpNamesStaysQuiet(t *testing.T) {
+	for _, text := range []string{
+		"Save the world",  // имя команды, но нет формы команды
+		"Загрузка 5 из 7", // кириллица, не приводится к имени
+		"Text me later",   // форма отсутствует
+		"\u041a\u043b\u0430\u0440\u0430 = \u0441\u0435\u0441\u0442\u0440\u0430", // «Клара = сестра»: форма есть, слово не команда
+	} {
+		d := parse(t, `{"script":[{"op":"say","text":`+strconv.Quote(text)+`}]}`)
+		if iss := Validate(d); hasError(iss, "написанная как") {
+			t.Errorf("%q: проза принята за команду: %v", text, iss)
+		}
 	}
 }
