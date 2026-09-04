@@ -83,18 +83,23 @@ func (r *deltaRing) find(hash string) (map[string]string, bool) {
 type contentDelta struct {
 	Since   string   `json:"since,omitempty"`
 	Version string   `json:"version"`
-	Full    bool     `json:"full,omitempty"`
-	Changed []string `json:"changed"`
-	Removed []string `json:"removed"`
+	Full bool `json:"full,omitempty"`
+	// Изменившиеся — С НОВЫМИ ХЕШАМИ, а не одними путями. Список путей заставил
+	// бы клиента всё равно идти за картой версий целиком (282 КБ), и экономия
+	// свелась бы к манифесту. С хешами он правит свою карту на месте и не идёт
+	// за ней вовсе.
+	Changed map[string]string `json:"changed"`
+	Removed []string          `json:"removed"`
 }
 
 // diffVersions — что поменялось между двумя картами хешей. Удалённые названы
 // отдельно: клиенту мало знать, что файл больше не тот, — ему нужно знать, что
 // файла больше нет, иначе он оставит его в кэше навсегда.
-func diffVersions(from, to map[string]string) (changed, removed []string) {
+func diffVersions(from, to map[string]string) (changed map[string]string, removed []string) {
+	changed = map[string]string{}
 	for path, h := range to {
 		if was, ok := from[path]; !ok || was != h {
-			changed = append(changed, path)
+			changed[path] = h
 		}
 	}
 	for path := range from {
@@ -102,7 +107,6 @@ func diffVersions(from, to map[string]string) (changed, removed []string) {
 			removed = append(removed, path)
 		}
 	}
-	sort.Strings(changed)
 	sort.Strings(removed)
 	return
 }
@@ -117,7 +121,8 @@ func (s *server) handleContentChanges(w http.ResponseWriter, r *http.Request) {
 	s.deltas.remember(now, cur)
 
 	since := r.URL.Query().Get("since")
-	out := contentDelta{Since: since, Version: now, Changed: []string{}, Removed: []string{}}
+	out := contentDelta{Since: since, Version: now,
+		Changed: map[string]string{}, Removed: []string{}}
 
 	switch {
 	case since == "":
@@ -131,9 +136,6 @@ func (s *server) handleContentChanges(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		out.Changed, out.Removed = diffVersions(prev, cur)
-		if out.Changed == nil {
-			out.Changed = []string{}
-		}
 		if out.Removed == nil {
 			out.Removed = []string{}
 		}
