@@ -117,7 +117,7 @@ func walletLoad(db *sql.DB, userID string, seed map[string]int64) (*walletDoc, e
 	// Метки идемпотентности: окно последних, как и было. Ключ в базе не даст
 	// применить повтор в любом случае — это окно нужно, чтобы ОТВЕТИТЬ на
 	// повтор текущим состоянием, а не отказом.
-	rows, err = db.Query(`SELECT op_id FROM wallet_ops WHERE user_id = ? ORDER BY rowid DESC LIMIT 200`, userID)
+	rows, err = db.Query(`SELECT op_id FROM wallet_ops WHERE user_id = ? ORDER BY rowid DESC LIMIT 200 -- appliedOpsWindow`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -227,8 +227,8 @@ func walletSave(db *sql.DB, userID string, doc *walletDoc) error {
 		doc.History = doc.History[len(doc.History)-walletHistoryView:]
 	}
 	doc.dbHistory = len(doc.History)
-	if len(doc.AppliedOps) > 200 {
-		doc.AppliedOps = doc.AppliedOps[len(doc.AppliedOps)-200:]
+	if len(doc.AppliedOps) > appliedOpsWindow {
+		doc.AppliedOps = doc.AppliedOps[len(doc.AppliedOps)-appliedOpsWindow:]
 	}
 	doc.dbOps = len(doc.AppliedOps)
 	doc.dbTxns = len(doc.Transactions)

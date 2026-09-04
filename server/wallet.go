@@ -49,6 +49,12 @@ type walletDoc struct {
 	dbTxns    int
 }
 
+// appliedOpsWindow — сколько последних op_id помнит кошелёк. Это ГОРИЗОНТ
+// идемпотентности: повтор операции безопасен, пока с неё не прошло столько же
+// чужих операций этого игрока. Число объявлено один раз — обрезка в памяти,
+// подрезка при сохранении и выборка из базы обязаны говорить об одном окне.
+const appliedOpsWindow = 200
+
 // regenRule configures a lives/energy-style regenerating currency (from
 // services/energy.json, hot-reloaded). A balance below Cap refills +1 every
 // Interval seconds up to Cap; buying past Cap is allowed and neither regens
@@ -453,8 +459,23 @@ func (s *WalletService) mutate(kind string) http.HandlerFunc {
 		})
 		if req.OpID != "" {
 			doc.AppliedOps = append(doc.AppliedOps, req.OpID)
-			if len(doc.AppliedOps) > 200 {
-				doc.AppliedOps = doc.AppliedOps[len(doc.AppliedOps)-200:]
+			// ОБРЕЗАЯ СПИСОК, ДВИГАЙ И КУРСОР ЗАПИСИ.
+			//
+			// dbOps считает, сколько ПЕРВЫХ элементов ЭТОГО среза уже лежит в
+			// базе, и сохранение пишет хвост AppliedOps[dbOps:]. Обрезка без
+			// сдвига курсора делала длину равной курсору навсегда — хвост
+			// становился пустым, и после двухсот операций НИ ОДИН новый ключ
+			// на диск больше не попадал.
+			//
+			// Замерено: 210 операций, затем покупка на 500 и перезапуск —
+			// повтор той же покупки списывал ВТОРОЙ РАЗ. Ровно тот случай,
+			// ради которого идемпотентность и заведена: связь оборвалась,
+			// клиент повторил, деньги ушли дважды.
+			if drop := len(doc.AppliedOps) - appliedOpsWindow; drop > 0 {
+				doc.AppliedOps = doc.AppliedOps[drop:]
+				if doc.dbOps -= drop; doc.dbOps < 0 {
+					doc.dbOps = 0
+				}
 			}
 		}
 		if err := s.save(userID, doc); err != nil {
