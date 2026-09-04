@@ -158,14 +158,29 @@ its options appear together), but it produces **two** stops — a `say` then a
 Absent/empty `who` compares equal to `null` — narration is narration in both
 runtimes.
 
-## One runtime, on purpose
+## Two runtimes, and the second one is real
 
-There used to be a second player: the browser playground's JS core. It was a
-deliberately partial implementation — flow and text in full, staging forwarded to
-whatever the web renderer drew — and it charged every new op a second
-implementation plus a column in this table. It has been deleted; `runtimes` keeps
-its shape because the field is how a case says who must pass it, and a second
-runtime (a server-side player, another engine) may well arrive later.
+The engine runtime (`LvnPlayer`) is the reference. The browser playground ships a
+second one: `panel/public/play/core.js` — a deliberately partial JS port (flow and
+text in full, staging forwarded to whatever the web renderer draws).
+
+**It was removed on 22.08 and brought back on 28.08** — the sources returned under
+version control and the corpus now plays through the REAL `core.js`, not a stub.
+This paragraph used to say the second runtime had been deleted; it had, and then
+it hadn't, and the reversal was never written down. A reader who trusted the old
+wording would add an op, skip the JS side, and ship a divergence into the
+playground — which is exactly what the table below is a list of.
+
+So: **every new op costs a second implementation.** That is the price of a
+browser demo, and it is paid knowingly. `runtimes` on a case says who must pass
+it; 34 of the 38 cases declare `js`.
+
+**Known blindness, held by a guard.** The browser runner compares stops, variables
+and expressions — it does NOT look at `expect.scene` at all. A staging case
+declaring `js` would pass without checking anything, and its green would lie.
+Building that check out is an investment in a partial runtime, so instead the
+combination is forbidden: `conformance_blindspot_test.go` fails if any case
+declares `js` and expects a scene. Today none do.
 
 The corpus itself is unchanged by that: it describes the LANGUAGE, not any one
 player. Every divergence the JS player once caused is listed below — closed, and

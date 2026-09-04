@@ -417,13 +417,6 @@ namespace Lvn.Content
         }
 
 
-        /// <summary>Fetches the server's content-version index (path → sha256) and
-        /// folds it into the disk-cache key, so changed assets auto-invalidate.
-        /// Call once early in boot, before the verify/preload pass. Always fetched
-        /// fresh (never disk-cached) and mirrored to disk so a later offline
-        /// launch can still resolve versioned cache keys. Network failure is
-        /// non-fatal: fall back to the last persisted index, else legacy url-only
-        /// keys.</summary>
         /// <summary>
         /// НАЛОЖИТЬ РАЗНИЦУ ВМЕСТО ПЕРЕКАЧКИ КАРТЫ.
         ///
@@ -460,6 +453,13 @@ namespace Lvn.Content
             return (changed?.Count ?? 0) + (removed?.Count ?? 0);
         }
 
+        /// <summary>Fetches the server's content-version index (path → sha256) and
+        /// folds it into the disk-cache key, so changed assets auto-invalidate.
+        /// Call once early in boot, before the verify/preload pass. Always fetched
+        /// fresh (never disk-cached) and mirrored to disk so a later offline
+        /// launch can still resolve versioned cache keys. Network failure is
+        /// non-fatal: fall back to the last persisted index, else legacy url-only
+        /// keys.</summary>
         public async Task LoadAssetVersionsAsync(CancellationToken ct = default)
         {
             var persistPath = Path.Combine(_cacheRoot, "asset-versions.json");
