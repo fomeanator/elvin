@@ -120,6 +120,7 @@ func main() {
 	// the exact path wins.
 	mux.HandleFunc("/content/asset-versions.json", srv.handleAssetVersions)
 	mux.HandleFunc("/v1/content/version", srv.handleVersion)
+	mux.HandleFunc("/v1/content/changes", srv.handleContentChanges)
 	ds := newDownscaler() // shared: withDownscale + withKTX2 (@2k source materialization)
 	mux.Handle("/content/", srv.withKTX2(ds, srv.withDownscale(ds, srv.contentHandler(*contentDir))))
 	mux.HandleFunc("/v1/state", srv.handleState)
@@ -363,6 +364,9 @@ type server struct {
 
 	verMu    sync.Mutex
 	verCache map[bool]verCacheEntry // includeManifest -> cached versions
+	// Кольцо последних состояний контента: по нему считается «что именно
+	// изменилось» вместо «забирай всё заново» (см. content_delta.go).
+	deltas   deltaRing
 
 	// hashMu — один обход дерева за раз и охрана hashCache: два одновременных
 	// опроса версии делали бы одну и ту же работу дважды.
@@ -655,7 +659,13 @@ func versionHash(versions map[string]string) string {
 }
 
 func (s *server) handleVersion(w http.ResponseWriter, r *http.Request) {
-	sum := versionHash(s.computeVersionsCached(true))
+	cur := s.computeVersionsCached(true)
+	sum := versionHash(cur)
+	// Кольцо наполняет САМ ОПРОС: он идёт постоянно, а за разницей приходят
+	// редко и уже после смены версии. Запоминать только в обработчике разницы
+	// значило бы не помнить состояние ДО неё — то есть то единственное, от
+	// чего разницу и считают.
+	s.deltas.remember(sum, cur)
 	etag := `"` + sum + `"`
 	w.Header().Set("ETag", etag)
 	w.Header().Set("Cache-Control", "no-store")
