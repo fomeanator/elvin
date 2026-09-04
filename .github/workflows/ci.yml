@@ -101,28 +101,19 @@ jobs:
           go run . probe /tmp/hello.lvn
       # The howto quality gate the docs promise: every authored example
       # compiles AND validates with zero warnings — examples can't rot.
+      #
+      # Гейт ЖИВЁТ В qa/lvns-gate.sh, а не здесь. Прежняя редакция стояла
+      # прямо в этом файле и сверяла ТЕКСТ вывода валидатора с образцом
+      # " 0 warning(s)". На битом скрипте валидатор печатает
+      # "FAIL: 1 error(s), 0 warning(s)" — образцу удовлетворяет, и ошибка
+      # проходила насквозь; код возврата при этом терялся в $(…). Замерено:
+      # глава с опечаткой в имени команды проходила гейт целиком.
+      # Скрипт судит по КОДУ ВОЗВРАТА и умеет падать: -selftest подкладывает
+      # ту самую опечатку и требует отказа.
       - name: compile-gate every authored example (howto + examples)
-        working-directory: tools/lvnconv
         run: |
-          go build -o /tmp/lvnconv .
-          fail=0
-          # The UPM sample is the one .lvns a consumer actually imports through
-          # Unity Samples, and it was outside the glob — free to rot exactly like
-          # the howto examples did before this gate existed.
-          for f in ../../howto/*/*.lvns ../../examples/*.lvns \
-                   ../../unity/Packages/com.lvn.engine/Samples~/*/Resources/*.lvns; do
-            out="/tmp/gate-$(basename "${f%.lvns}").lvn"
-            if ! /tmp/lvnconv convert -i "$f" -o "$out"; then
-              echo "::error file=${f#../../}::convert failed"; fail=1; continue
-            fi
-            v=$(/tmp/lvnconv validate "$out" 2>&1)
-            echo "${f#../../}: $v"
-            case "$v" in
-              *" 0 warning(s)"*) ;;
-              *) echo "::error file=${f#../../}::validator warnings — the gate is 0 warnings"; fail=1;;
-            esac
-          done
-          exit $fail
+          qa/lvns-gate.sh -selftest
+          qa/lvns-gate.sh
 
   lang:
     name: LVNScript grammar contract
