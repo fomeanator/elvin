@@ -47,8 +47,20 @@ func TestManifestRevGate(t *testing.T) {
 		t.Fatalf("PUT с устаревшим rev: код %d, ждали 409", rec.Code)
 	}
 
-	// Свежая копия (rev совпал) — принимается, rev двигается вперёд.
+	// Копия-близнец (rev совпал, содержание то же) принимается, но записью не
+	// становится: rev остаётся прежним — иначе холостое сохранение стоило бы
+	// перезагрузки каталога каждому играющему (TestSavingAnUnchangedManifest…).
 	if rec := putManifest(t, srv, `{"titles":[],"rev":1}`); rec.Code != 200 {
+		t.Fatalf("PUT копии-близнеца: код %d (%s)", rec.Code, rec.Body.String())
+	}
+	raw, _ = os.ReadFile(filepath.Join(dir, "manifest.json"))
+	_ = json.Unmarshal(raw, &m)
+	if m["rev"].(float64) != 1 {
+		t.Fatalf("сохранение без правок сдвинуло rev до %v", m["rev"])
+	}
+
+	// Свежая копия С ПРАВКОЙ — принимается, rev двигается вперёд.
+	if rec := putManifest(t, srv, `{"titles":[{"id":"a","name":"А"}],"rev":1}`); rec.Code != 200 {
 		t.Fatalf("PUT со свежим rev: код %d (%s)", rec.Code, rec.Body.String())
 	}
 	raw, _ = os.ReadFile(filepath.Join(dir, "manifest.json"))
