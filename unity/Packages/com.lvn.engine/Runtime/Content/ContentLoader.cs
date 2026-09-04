@@ -424,6 +424,42 @@ namespace Lvn.Content
         /// launch can still resolve versioned cache keys. Network failure is
         /// non-fatal: fall back to the last persisted index, else legacy url-only
         /// keys.</summary>
+        /// <summary>
+        /// НАЛОЖИТЬ РАЗНИЦУ ВМЕСТО ПЕРЕКАЧКИ КАРТЫ.
+        ///
+        /// <para>Карта версий на живом проекте — 282 КБ, и менялась она целиком
+        /// от правки одной реплики: хеш её скрипта другой, значит и общая
+        /// версия другая, значит забирай всё заново. Сервер умеет назвать
+        /// именно изменившееся (<c>/v1/content/changes</c>); здесь это
+        /// накладывается на месте.</para>
+        ///
+        /// <para>Устаревшие спрайты вычищаются тем же правилом, что и при
+        /// полной загрузке карты: иначе в памяти остался бы декодированный
+        /// вчерашний арт, а на диске лежал бы сегодняшний — и какой из них
+        /// увидит игрок, зависело бы от того, что раньше вытеснится.</para>
+        /// </summary>
+        /// <returns>Сколько записей реально изменилось.</returns>
+        public int ApplyVersionDelta(IReadOnlyDictionary<string, string> changed,
+                                     IReadOnlyCollection<string> removed)
+        {
+            if ((changed == null || changed.Count == 0) &&
+                (removed == null || removed.Count == 0)) return 0;
+
+            Dictionary<string, string> prev, next;
+            lock (_versionsLock)
+            {
+                prev = _versions;
+                next = new Dictionary<string, string>(prev);
+                if (changed != null)
+                    foreach (var kv in changed) next[kv.Key] = kv.Value;
+                if (removed != null)
+                    foreach (var path in removed) next.Remove(path);
+                _versions = next;
+            }
+            EvictStaleSprites(prev, next);
+            return (changed?.Count ?? 0) + (removed?.Count ?? 0);
+        }
+
         public async Task LoadAssetVersionsAsync(CancellationToken ct = default)
         {
             var persistPath = Path.Combine(_cacheRoot, "asset-versions.json");

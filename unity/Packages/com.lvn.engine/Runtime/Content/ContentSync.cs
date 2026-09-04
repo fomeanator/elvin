@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -34,6 +35,11 @@ namespace Lvn.Content
 
         public bool Running => _cts != null;
         public string LastVersion => _lastVersion;
+
+        /// <summary>Версия, которая была ДО последней смены. От неё считается
+        /// разница: к моменту события опрос уже переписал текущую, и спрашивать
+        /// «что изменилось с текущей» значило бы всегда получать пустоту.</summary>
+        public string PreviousVersion { get; private set; }
 
         /// <summary>Raised (on the main thread) when the content version changes.
         /// Never fires for the first baseline poll.</summary>
@@ -91,6 +97,60 @@ namespace Lvn.Content
             Lvn.LvnCancel.Retire(cts);
         }
 
+        /// <summary>Что именно изменилось с названной версии.</summary>
+        public sealed class Delta
+        {
+            /// <summary>Разницу посчитать не от чего — забирать всё.</summary>
+            public bool Full;
+            public string Version;
+            public Dictionary<string, string> Changed = new Dictionary<string, string>();
+            public List<string> Removed = new List<string>();
+
+            /// <summary>Поменялся ли САМ КАТАЛОГ. Только ради него стоит идти за
+            /// манифестом: 435 КБ, и правка одной реплики его не трогает.</summary>
+            public bool ManifestChanged => Full || Changed.ContainsKey(ManifestKey);
+        }
+
+        /// <summary>Имя манифеста в карте версий — по нему узнают, что каталог
+        /// действительно менялся.</summary>
+        public const string ManifestKey = "manifest.json";
+
+        /// <summary>
+        /// СПРОСИТЬ РАЗНИЦУ, А НЕ ЗАБИРАТЬ ВСЁ.
+        ///
+        /// <para>Замер на живом проекте: карта версий 282 КБ, манифест 435 КБ.
+        /// Правка одной реплики меняла хеш её скрипта, значит и общую версию, —
+        /// и клиент забирал 717 КБ, чтобы применить изменение в сотню байт.
+        /// Живое обновление упиралось не в частоту опроса, а в цену ответа.</para>
+        ///
+        /// <para>Отказ сервера — не беда: <c>null</c> значит «не смогли
+        /// спросить», и вызывающий идёт прежним, дорогим, но рабочим путём.
+        /// Новый тракт обязан быть ускорением, а не единственной дорогой.</para>
+        /// </summary>
+        public async Task<Delta> FetchDeltaAsync(string since, CancellationToken ct = default)
+        {
+            string path = _versionPath.Replace("/version", "/changes");
+            if (!string.IsNullOrEmpty(since)) path += "?since=" + Uri.EscapeDataString(since);
+            string json;
+            try { json = await _loader.DownloadScriptText(path, ct, singleAttempt: true); }
+            catch { return null; }
+            try
+            {
+                var o = Newtonsoft.Json.Linq.JObject.Parse(json);
+                var d = new Delta
+                {
+                    Full = (bool?)o["full"] ?? false,
+                    Version = (string)o["version"],
+                };
+                if (o["changed"] is Newtonsoft.Json.Linq.JObject ch)
+                    foreach (var kv in ch) d.Changed[kv.Key] = (string)kv.Value;
+                if (o["removed"] is Newtonsoft.Json.Linq.JArray rm)
+                    foreach (var x in rm) d.Removed.Add((string)x);
+                return d;
+            }
+            catch { return null; }
+        }
+
         /// <summary>Poll once now. Returns true if the version changed since the
         /// previous poll (the first poll only establishes the baseline).</summary>
         public async Task<bool> PollOnceAsync(CancellationToken ct = default)
@@ -100,6 +160,7 @@ namespace Lvn.Content
             catch { return false; }
             var prev = _lastVersion;
             bool changed = AdvanceVersion(ref _lastVersion, v, notifyOnFirst: false);
+            if (changed) PreviousVersion = prev;
             // Диагностический след: без него «а тот ли контент играет?» каждый
             // раз выясняется руками через curl к /v1/content/version.
             if (prev == null && _lastVersion != null)

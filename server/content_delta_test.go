@@ -73,8 +73,11 @@ func TestРазницаНазываетТолькоИзменившееся(t *t
 	if d.Full {
 		t.Fatalf("сервер не смог назвать разницу и попросил забрать всё — ради этого всё и делалось")
 	}
-	if len(d.Changed) != 1 || d.Changed[0] != "scripts/ch1.lvn" {
+	if len(d.Changed) != 1 {
 		t.Errorf("названо не то: changed=%v (ожидалась одна правленая глава)", d.Changed)
+	}
+	if h, ok := d.Changed["scripts/ch1.lvn"]; !ok || h == "" {
+		t.Errorf("правленая глава без нового хеша: %v — клиенту придётся идти за картой версий целиком", d.Changed)
 	}
 	if len(d.Removed) != 0 {
 		t.Errorf("ничего не удаляли, а сервер называет удалённое: %v", d.Removed)

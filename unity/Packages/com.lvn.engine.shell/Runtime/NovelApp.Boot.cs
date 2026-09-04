@@ -677,8 +677,38 @@ namespace Lvn.UI.Screens
 
         private async Task OnContentChangedAsync()
         {
-            LvnLog.Info("[lvn-app] content changed — reloading");
-            try { await _assets.WarmVersionsAsync(); } catch { /* offline */ }
+            // СПРОСИТЬ, ЧТО ИМЕННО ИЗМЕНИЛОСЬ, ПРЕЖДЕ ЧЕМ КАЧАТЬ.
+            //
+            // Замер 04.09: карта версий 282 КБ, манифест 435 КБ. Правка одной
+            // реплики меняет хеш её скрипта, значит и общую версию, — и здесь
+            // забирались все 717 КБ ради изменения в сотню байт. Разница от
+            // сервера стоит около двухсот байт и говорит, надо ли вообще идти за
+            // манифестом: правка реплики каталога не трогает.
+            //
+            // Не смогли спросить (старый сервер, сеть) — идём прежним путём:
+            // новый тракт обязан быть ускорением, а не единственной дорогой.
+            var delta = _sync != null ? await _sync.FetchDeltaAsync(_sync.PreviousVersion) : null;
+            bool precise = delta != null && !delta.Full;
+
+            if (precise)
+            {
+                int n = _assets.Loader.ApplyVersionDelta(delta.Changed, delta.Removed);
+                LvnLog.Info($"[lvn-app] контент сменился — правок {n}, "
+                          + (delta.ManifestChanged ? "каталог тоже" : "каталог тот же"));
+            }
+            else
+            {
+                LvnLog.Info("[lvn-app] content changed — reloading");
+                try { await _assets.WarmVersionsAsync(); } catch { /* offline */ }
+            }
+
+            // КАТАЛОГ НЕ МЕНЯЛСЯ — ЗА НИМ И НЕ ХОДИМ. Это и есть вся экономия:
+            // открытая глава перечитается по уже исправленной карте версий.
+            if (precise && !delta.ManifestChanged)
+            {
+                await HotReloadOpenChapterAsync();
+                return;
+            }
 
             LvnManifest manifest;
             try { manifest = await FetchManifestAsync(); }
