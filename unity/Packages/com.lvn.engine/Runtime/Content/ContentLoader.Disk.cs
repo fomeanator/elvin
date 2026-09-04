@@ -81,10 +81,13 @@ namespace Lvn.Content
             IsVerifying = true;
             lock (_underway)
             {
-                BatchTotal       = urls.Count;
-                BatchDone        = 0;
-                CurrentFileLabel = null;
-                LastStartedUrl   = null;
+                BatchTotal        = urls.Count;
+                BatchDone         = 0;
+                // Сверка кэша — не загрузка: веса ей не нужны, но и чужой план
+                // от прошлого пакета обязан уйти, иначе доля считается по нему.
+                BatchPlannedBytes = 0;
+                CurrentFileLabel  = null;
+                LastStartedUrl    = null;
             }
             var missing = new List<string>();
             foreach (var url in urls)
@@ -99,10 +102,11 @@ namespace Lvn.Content
             }
             lock (_underway)
             {
-                BatchTotal       = 0;
-                BatchDone        = 0;
-                CurrentFileLabel = null;
-                LastStartedUrl   = null;
+                BatchTotal        = 0;
+                BatchDone         = 0;
+                BatchPlannedBytes = 0;
+                CurrentFileLabel  = null;
+                LastStartedUrl    = null;
             }
             IsVerifying = false;
             return missing;

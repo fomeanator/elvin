@@ -105,10 +105,11 @@ namespace Lvn.Content
         /// </summary>
         private void ClearBatchTally()
         {
-            BatchTotal       = 0;
-            BatchDone        = 0;
-            BatchClosedBytes = 0;
-            LastStartedUrl   = null;
+            BatchTotal        = 0;
+            BatchDone         = 0;
+            BatchClosedBytes  = 0;
+            BatchPlannedBytes = 0;
+            LastStartedUrl    = null;
             // Итоги пакета сброшены — записям о загрузках сказать больше
             // нечего. Но ИДУЩУЮ работу сброс итогов не отменяет: раньше здесь
             // стоял Clear целиком, и с переездом задачи в запись он снёс бы
@@ -162,6 +163,12 @@ namespace Lvn.Content
                     BatchTotal       = pending.Count;
                     BatchDone        = 0;
                     BatchClosedBytes = 0;
+                    // ПЛАН ПАКЕТА ИЗВЕСТЕН ЗАРАНЕЕ, если манифест назвал веса.
+                    // Ноль значит «размеров не дали» — тогда доля считается
+                    // по-старому, догадкой, и индикатор про это знает.
+                    long planned = 0;
+                    foreach (var it in pending) if (it.Size > 0) planned += it.Size;
+                    BatchPlannedBytes = planned;
                     LastStartedUrl = pending[0].Url;
                 }
                 return await RunBatchAsync(pending, ct);

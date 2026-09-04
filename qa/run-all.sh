@@ -157,6 +157,19 @@ fi
 # ПОДПИСИ ИНТЕРФЕЙСА. Реестр ключей движка — шаблон словаря для автора; стенд
 # проверяет, что отчёт «что останется английским» находит забытое и не
 # выдумывает долга там, где подпись названа полем секции или тройкой чисел.
+# ЧЕСТНОСТЬ ИНДИКАТОРА ЗАГРУЗКИ. Доля считается планом, а не догадкой о весе
+# непочатых файлов; «осталось» — тем же планом; вставшая загрузка называется
+# вставшей. Стенд считает обе формулы на одном наборе файлов — Unity не нужен.
+if [ -x "$REPO_ROOT/qa/download-progress-check.sh" ]; then
+  gout_dl="$OUT/download-progress.log"
+  if "$REPO_ROOT/qa/download-progress-check.sh" >"$gout_dl" 2>&1; then
+    log "индикатор загрузки: $(tail -1 "$gout_dl")"
+  else
+    log "FAIL: индикатор загрузки — подробности: $gout_dl"
+    fail=1
+  fi
+fi
+
 if [ -x "$REPO_ROOT/qa/ui-words-check.sh" ]; then
   gout_words="$OUT/ui-words.log"
   if "$REPO_ROOT/qa/ui-words-check.sh" >"$gout_words" 2>&1; then

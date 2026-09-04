@@ -153,9 +153,34 @@ namespace Lvn.Content
             if (toDownload.Count == 0) return;
             var items = new List<PreloadItem>(toDownload.Count);
             foreach (var url in toDownload)
-                items.Add(new PreloadItem { Url = url, Kind = DownloadPolicy.Kind(url) });
+                items.Add(new PreloadItem { Url = url, Kind = DownloadPolicy.Kind(url), Size = SizeOf(url) });
             await _loader.StartPreloadBatch(items, ct);
             await _loader.WaitForAll(null, ct);
+        }
+
+        // ВЕС ФАЙЛА ПО МАНИФЕСТУ — чтобы доля загрузки считалась планом, а не
+        // догадкой о непочатых файлах. Здесь это особенно заметно: первый
+        // запуск — самый первый показ индикатора, который игрок вообще видит.
+        private Dictionary<string, long> _sizes;
+        private LvnManifest _sizesOf;
+
+        private long SizeOf(string url)
+        {
+            if (_manifest == null || string.IsNullOrEmpty(url)) return 0;
+            if (_sizes == null || !ReferenceEquals(_sizesOf, _manifest))
+            {
+                _sizes = new Dictionary<string, long>();
+                _sizesOf = _manifest;
+                foreach (var part in LvnParts.OfAll(_manifest))
+                {
+                    if (string.IsNullOrEmpty(part.Url) || part.Size <= 0) continue;
+                    // Ключом — ЭФФЕКТИВНЫЙ адрес: качаем ту же ступень, которую
+                    // покажем, и вес обязан относиться к ней же.
+                    _sizes[DownloadPolicy.Effective(part.Kind, part.Url)] = part.Size;
+                    _sizes[part.Url] = part.Size;
+                }
+            }
+            return _sizes.TryGetValue(url, out var size) ? size : 0;
         }
 
         // ── Phase 2: menu background ──────────────────────────────────────────
@@ -178,7 +203,7 @@ namespace Lvn.Content
 
                 var items = new List<PreloadItem>(changed.Count);
                 foreach (var url in changed)
-                    items.Add(new PreloadItem { Url = url, Kind = DownloadPolicy.Kind(url) });
+                    items.Add(new PreloadItem { Url = url, Kind = DownloadPolicy.Kind(url), Size = SizeOf(url) });
                 await _loader.StartPreloadBatch(items, ct);
                 await _loader.WaitForAll(null, ct);
 

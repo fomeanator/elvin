@@ -276,6 +276,14 @@
   "default": "Downloaded"
  },
  {
+  "key": "dl.eta",
+  "default": "≈{0} left"
+ },
+ {
+  "key": "dl.files_of",
+  "default": "{0} of {1} files"
+ },
+ {
   "key": "dl.get_all",
   "default": "Download all"
  },
@@ -316,6 +324,10 @@
   "default": "Finish downloading"
  },
  {
+  "key": "dl.retrying",
+  "default": "Retrying: {0} files"
+ },
+ {
   "key": "dl.shared",
   "default": "Covers and menu"
  },
@@ -324,12 +336,12 @@
   "default": "Speed"
  },
  {
-  "key": "download.chapter",
-  "default": "Download chapter {n} · ≈{mb} MB"
+  "key": "dl.waiting",
+  "default": "Waiting for the network…"
  },
  {
-  "key": "downloads.all_done",
-  "default": "everything downloaded"
+  "key": "download.chapter",
+  "default": "Download chapter {n} · ≈{mb} MB"
  },
  {
   "key": "downloads.content",
@@ -338,10 +350,6 @@
  {
   "key": "downloads.pending_ops",
   "default": "Events to send: {0}"
- },
- {
-  "key": "downloads.queue",
-  "default": "Downloading {0} of {1}"
  },
  {
   "key": "downloads.queue_chapters",

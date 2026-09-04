@@ -322,7 +322,7 @@ namespace Lvn.UI.Screens
                                              Lvn.Content.LvnParts.OfChapter(ch),
                                              pt => Lvn.Content.LvnPriority.OfChapterPart(pt, current: true)))
                                     if (!string.IsNullOrEmpty(part.Url))
-                                        pack.Add(new Lvn.Content.PreloadItem { Url = part.Url, Kind = part.Kind });
+                                        pack.Add(new Lvn.Content.PreloadItem { Url = part.Url, Kind = part.Kind, Size = part.Size });
                                 if (ct.IsCancellationRequested) return;
                                 await WarmBatch(pack);
                             }
@@ -343,7 +343,7 @@ namespace Lvn.UI.Screens
                     var spare = new System.Collections.Generic.List<Lvn.Content.PreloadItem>();
                     foreach (var part in Lvn.Content.LvnParts.OfCast(manifest))
                         if (!string.IsNullOrEmpty(part.Url))
-                            spare.Add(new Lvn.Content.PreloadItem { Url = part.Url, Kind = part.Kind });
+                            spare.Add(new Lvn.Content.PreloadItem { Url = part.Url, Kind = part.Kind, Size = part.Size });
                     if (ct.IsCancellationRequested) return;
                     await WarmBatch(spare);
                 }
