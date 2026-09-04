@@ -39,7 +39,8 @@ if warmth >= 1 -> end_good
 
 :end_good
 Mara [smile]: Good. It's good that you came back.
-You talked until the rain stopped. ENDING: "Warm light."
+«You talked until the rain stopped.»
+ENDING: "Warm light."
 -> __end
 
 :end_cold

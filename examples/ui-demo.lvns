@@ -28,7 +28,7 @@ ui hud layer=hud when=idle {
     row at=top h=9% pad=3 bg=panel align=center {
       icon name=Energy color=accent
       text «{hp} / {hp_max}» size=lg color=text weight=bold
-      space grow=1
+      panel grow=1        // распорка: растущая пустота между краями ряда
       icon name=Gem color=gold
       text «{gold}» size=lg color=gold weight=bold
     }
