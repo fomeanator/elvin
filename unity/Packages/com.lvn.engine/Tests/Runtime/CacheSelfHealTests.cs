@@ -62,6 +62,25 @@ namespace Lvn.Tests
             return bytes;
         }
 
+        private bool _wasOffline;
+
+        /// <summary>СЕТЬ — ГЛОБАЛЬНОЕ СОСТОЯНИЕ, И ЕГО ОСТАВЛЯЮТ СОСЕДИ.
+        ///
+        /// <para>Проверка офлайна выставляет общий флаг «связи нет», и тест,
+        /// идущий следом, видит его же. В одиночку этот тест был зелёным, а в
+        /// общем прогоне падал с «offline (global status)» — порядок тестов
+        /// решал исход. Объявляем условие явно и возвращаем как было.</para></summary>
+        [SetUp]
+        public void SetUp()
+        {
+            _wasOffline = Lvn.LvnNetworkStatus.ForceOffline;
+            Lvn.LvnNetworkStatus.ForceOffline = false;
+            Lvn.LvnNetworkStatus.MarkOnline("проверка самолечения кэша");
+        }
+
+        [TearDown]
+        public void TearDown() => Lvn.LvnNetworkStatus.ForceOffline = _wasOffline;
+
         [UnityTest]
         public IEnumerator БитыйФайлВКэшеНеОстаётсяНавсегда()
         {
