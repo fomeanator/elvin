@@ -1,0 +1,855 @@
+[
+ {
+  "key": "account.checking",
+  "default": "Checking…"
+ },
+ {
+  "key": "account.delete",
+  "default": "Delete account"
+ },
+ {
+  "key": "account.delete_do",
+  "default": "Delete"
+ },
+ {
+  "key": "account.delete_hint",
+  "default": "Erases progress, purchases and saves. Forever."
+ },
+ {
+  "key": "account.delete_sure",
+  "default": "Really delete?"
+ },
+ {
+  "key": "account.deleting",
+  "default": "Deleting…"
+ },
+ {
+  "key": "account.uid_hint",
+  "default": "Quote it if you contact support"
+ },
+ {
+  "key": "account.unknown",
+  "default": "No connection — will check later"
+ },
+ {
+  "key": "ads.free_title",
+  "default": "Watch an ad — get {0}"
+ },
+ {
+  "key": "ads.left",
+  "default": "{0} of {1} left"
+ },
+ {
+  "key": "ads.recharging",
+  "default": "More in {0}"
+ },
+ {
+  "key": "ads.unlimited",
+  "default": "Available now"
+ },
+ {
+  "key": "ads.watch",
+  "default": "Watch"
+ },
+ {
+  "key": "app.logo",
+  "default": "L"
+ },
+ {
+  "key": "auto",
+  "default": "Auto"
+ },
+ {
+  "key": "autosave",
+  "default": "Autosave"
+ },
+ {
+  "key": "board.all_time",
+  "default": "All time"
+ },
+ {
+  "key": "board.week",
+  "default": "This week"
+ },
+ {
+  "key": "boot.connecting",
+  "default": "connecting…"
+ },
+ {
+  "key": "boot.failed",
+  "default": "startup failed — check the log"
+ },
+ {
+  "key": "boot.loading",
+  "default": "loading…"
+ },
+ {
+  "key": "boot.loading_data",
+  "default": "loading data…"
+ },
+ {
+  "key": "boot.reconnecting",
+  "default": "no connection to the server — reconnecting… ({n})"
+ },
+ {
+  "key": "cancel",
+  "default": "Cancel"
+ },
+ {
+  "key": "chapter.available",
+  "default": "available"
+ },
+ {
+  "key": "chapter.current",
+  "default": "current"
+ },
+ {
+  "key": "chapter.done",
+  "default": "finished"
+ },
+ {
+  "key": "chapter.locked",
+  "default": "locked"
+ },
+ {
+  "key": "chapter.one",
+  "default": "chapter"
+ },
+ {
+  "key": "chapter.other",
+  "default": "chapters"
+ },
+ {
+  "key": "chapters.title",
+  "default": "Chapters"
+ },
+ {
+  "key": "choice_not_enough",
+  "default": "Not enough {currency}: need {amount}"
+ },
+ {
+  "key": "close",
+  "default": "Close"
+ },
+ {
+  "key": "common.cancel",
+  "default": "Cancel"
+ },
+ {
+  "key": "common.close",
+  "default": "Close"
+ },
+ {
+  "key": "common.copied",
+  "default": "Copied"
+ },
+ {
+  "key": "common.done",
+  "default": "Done"
+ },
+ {
+  "key": "common.of",
+  "default": "of"
+ },
+ {
+  "key": "common.off",
+  "default": "Off"
+ },
+ {
+  "key": "common.on",
+  "default": "On"
+ },
+ {
+  "key": "common.reset",
+  "default": "Reset"
+ },
+ {
+  "key": "common.sure",
+  "default": "Sure?"
+ },
+ {
+  "key": "daily.claim",
+  "default": "Claim"
+ },
+ {
+  "key": "daily.claimed",
+  "default": "Claimed"
+ },
+ {
+  "key": "daily.day",
+  "default": "Day {0}"
+ },
+ {
+  "key": "daily.failed",
+  "default": "The server did not confirm it — try again later."
+ },
+ {
+  "key": "daily.failed_title",
+  "default": "Reward not claimed"
+ },
+ {
+  "key": "daily.title",
+  "default": "Daily reward"
+ },
+ {
+  "key": "daily.today",
+  "default": "today"
+ },
+ {
+  "key": "device.download",
+  "default": "Download"
+ },
+ {
+  "key": "device.downloading",
+  "default": "downloading… {0}"
+ },
+ {
+  "key": "device.erase",
+  "default": "Erase"
+ },
+ {
+  "key": "device.finish",
+  "default": "Finish download"
+ },
+ {
+  "key": "device.nothing_yet",
+  "default": "Nothing downloaded yet — chapters load as you read. Download {0} up front to play offline."
+ },
+ {
+  "key": "device.partial",
+  "default": "{0} on the device, {1} left. Chapters load as you read; download them up front to play offline."
+ },
+ {
+  "key": "device.restore",
+  "default": "Restore"
+ },
+ {
+  "key": "device.stored_all",
+  "default": "The whole game is on this device ({0}) — it plays without the internet."
+ },
+ {
+  "key": "dl.all_hint",
+  "default": "Download once and play with no network: chapters, art and music stay on the device."
+ },
+ {
+  "key": "dl.all_title",
+  "default": "The whole game with you"
+ },
+ {
+  "key": "dl.chapter_entry",
+  "default": "{title} — chapter {n}"
+ },
+ {
+  "key": "dl.class_actor",
+  "default": "Characters and outfits"
+ },
+ {
+  "key": "dl.class_audio",
+  "default": "Music and sound"
+ },
+ {
+  "key": "dl.class_chapter_bg",
+  "default": "Chapter screens"
+ },
+ {
+  "key": "dl.class_cover",
+  "default": "Story covers"
+ },
+ {
+  "key": "dl.class_other",
+  "default": "Game files"
+ },
+ {
+  "key": "dl.class_scene_bg",
+  "default": "Scene backdrops"
+ },
+ {
+  "key": "dl.class_script",
+  "default": "Chapter text"
+ },
+ {
+  "key": "dl.class_ui",
+  "default": "Interface"
+ },
+ {
+  "key": "dl.done",
+  "default": "Downloaded"
+ },
+ {
+  "key": "dl.get_all",
+  "default": "Download all"
+ },
+ {
+  "key": "dl.left",
+  "default": "Left"
+ },
+ {
+  "key": "dl.offline_hint",
+  "default": "Everything already downloaded is available: the ticked chapters below open on a plane with no network. Download the whole game and read anywhere; purchases work offline too and sync later."
+ },
+ {
+  "key": "dl.offline_title",
+  "default": "Play offline"
+ },
+ {
+  "key": "dl.pending_offline",
+  "default": "{n} events — purchases and progress are saved on the device and leave for the server as soon as there is a network."
+ },
+ {
+  "key": "dl.pending_sending",
+  "default": "Sending to the server: {n} events (purchases, progress)."
+ },
+ {
+  "key": "dl.pending_title",
+  "default": "Waiting to send"
+ },
+ {
+  "key": "dl.queue_title",
+  "default": "Download queue"
+ },
+ {
+  "key": "dl.queued",
+  "default": "Queued"
+ },
+ {
+  "key": "dl.resume",
+  "default": "Finish downloading"
+ },
+ {
+  "key": "dl.shared",
+  "default": "Covers and menu"
+ },
+ {
+  "key": "dl.speed",
+  "default": "Speed"
+ },
+ {
+  "key": "download.chapter",
+  "default": "Download chapter {n} · ≈{mb} MB"
+ },
+ {
+  "key": "downloads.all_done",
+  "default": "everything downloaded"
+ },
+ {
+  "key": "downloads.content",
+  "default": "Downloading content"
+ },
+ {
+  "key": "downloads.pending_ops",
+  "default": "Events to send: {0}"
+ },
+ {
+  "key": "downloads.queue",
+  "default": "Downloading {0} of {1}"
+ },
+ {
+  "key": "downloads.queue_chapters",
+  "default": "chapters {0}"
+ },
+ {
+  "key": "downloads.queue_files",
+  "default": "files {0}"
+ },
+ {
+  "key": "downloads.resumes",
+  "default": "The download will resume by itself"
+ },
+ {
+  "key": "downloads.syncing",
+  "default": "Syncing"
+ },
+ {
+  "key": "downloads.title",
+  "default": "Downloads"
+ },
+ {
+  "key": "empty",
+  "default": "— empty —"
+ },
+ {
+  "key": "exit",
+  "default": "Exit to menu"
+ },
+ {
+  "key": "font",
+  "default": "Font"
+ },
+ {
+  "key": "font_author",
+  "default": "As authored"
+ },
+ {
+  "key": "gallery",
+  "default": "Gallery"
+ },
+ {
+  "key": "gallery.counter",
+  "default": "{0} unlocked"
+ },
+ {
+  "key": "game.exit",
+  "default": "Menu"
+ },
+ {
+  "key": "game.history",
+  "default": "History"
+ },
+ {
+  "key": "history",
+  "default": "History"
+ },
+ {
+  "key": "hub.continue",
+  "default": "Continue"
+ },
+ {
+  "key": "hub.play",
+  "default": "Play"
+ },
+ {
+  "key": "input_ok",
+  "default": "OK"
+ },
+ {
+  "key": "language",
+  "default": "Language"
+ },
+ {
+  "key": "leaderboard.title",
+  "default": "Leaderboard"
+ },
+ {
+  "key": "leaderboard.you",
+  "default": "You"
+ },
+ {
+  "key": "load",
+  "default": "Load"
+ },
+ {
+  "key": "load_failed",
+  "default": "Could not load this save."
+ },
+ {
+  "key": "menu.settings",
+  "default": "Settings",
+  "field": "settings.menu_label"
+ },
+ {
+  "key": "menu.store",
+  "default": "Store",
+  "field": "store.menu_label"
+ },
+ {
+  "key": "menu.wardrobe",
+  "default": "Wardrobe",
+  "field": "wardrobe.menu_label"
+ },
+ {
+  "key": "nav.gallery",
+  "default": "Gallery"
+ },
+ {
+  "key": "network.chapter_needs",
+  "default": "This chapter needs a connection. Check it and try again."
+ },
+ {
+  "key": "network.reconnecting",
+  "default": "no network — reconnecting…"
+ },
+ {
+  "key": "network.title",
+  "default": "No connection"
+ },
+ {
+  "key": "network.try_later",
+  "default": "No network — later"
+ },
+ {
+  "key": "network.word",
+  "default": "no network"
+ },
+ {
+  "key": "overwrite",
+  "default": "Overwrite"
+ },
+ {
+  "key": "overwrite_q",
+  "default": "Overwrite {0}?"
+ },
+ {
+  "key": "profile.achievements",
+  "default": "Achievements"
+ },
+ {
+  "key": "profile.chapters_read",
+  "default": "Chapters read: {0}"
+ },
+ {
+  "key": "profile.dossier",
+  "default": "STORY RECORD"
+ },
+ {
+  "key": "profile.eyebrow",
+  "default": "PROFILE"
+ },
+ {
+  "key": "profile.level",
+  "default": "Level {0}"
+ },
+ {
+  "key": "profile.relations",
+  "default": "Relationships"
+ },
+ {
+  "key": "profile.relations_empty",
+  "default": "The first choice already bends the story. Start a chapter and your ties appear here."
+ },
+ {
+  "key": "profile.title",
+  "default": "Profile"
+ },
+ {
+  "key": "quick_save",
+  "default": "Quick save"
+ },
+ {
+  "key": "quick_slot",
+  "default": "Quick save"
+ },
+ {
+  "key": "restart.explain",
+  "default": "\\"
+ },
+ {
+  "key": "restart.from_chapter",
+  "default": "Restart from a chapter…"
+ },
+ {
+  "key": "restart.pick_chapter",
+  "default": "Choose a chapter"
+ },
+ {
+  "key": "restart.title",
+  "default": "Restart"
+ },
+ {
+  "key": "restart.whole",
+  "default": "Restart everything"
+ },
+ {
+  "key": "save",
+  "default": "Save"
+ },
+ {
+  "key": "save_failed",
+  "default": "Could not save — storage refused the write."
+ },
+ {
+  "key": "saves.auto",
+  "default": "Autosave"
+ },
+ {
+  "key": "saves.empty",
+  "default": "No saves yet — start reading."
+ },
+ {
+  "key": "saves.load",
+  "default": "Load"
+ },
+ {
+  "key": "saves.title",
+  "default": "Saves"
+ },
+ {
+  "key": "server.connect",
+  "default": "Connect"
+ },
+ {
+  "key": "server.custom",
+  "default": "Your own server (URL up to /api)"
+ },
+ {
+  "key": "server.default",
+  "default": "Default"
+ },
+ {
+  "key": "server.manual",
+  "default": "Choose the server manually"
+ },
+ {
+  "key": "server.title",
+  "default": "Server"
+ },
+ {
+  "key": "settings",
+  "default": "Settings"
+ },
+ {
+  "key": "settings.account_hint",
+  "default": "Keeps progress and purchases on the server"
+ },
+ {
+  "key": "settings.art_quality",
+  "default": "Art quality"
+ },
+ {
+  "key": "settings.art_quality_auto",
+  "default": "Picked for your screen automatically. "
+ },
+ {
+  "key": "settings.art_quality_hint",
+  "default": "A lower step means less traffic and memory. Anything downloaded re-fetches itself in the new quality."
+ },
+ {
+  "key": "settings.copy",
+  "default": "Copy"
+ },
+ {
+  "key": "settings.font",
+  "default": "Font"
+ },
+ {
+  "key": "settings.font_author",
+  "default": "As authored"
+ },
+ {
+  "key": "settings.font_hint",
+  "default": "The typeface for lines and menus"
+ },
+ {
+  "key": "settings.frame_rate",
+  "default": "Frame rate"
+ },
+ {
+  "key": "settings.frame_rate_hint",
+  "default": "30 fps saves battery; 60 animates smoother"
+ },
+ {
+  "key": "settings.full_game",
+  "default": "The whole game"
+ },
+ {
+  "key": "settings.hint",
+  "default": "Sound, story language and full download"
+ },
+ {
+  "key": "settings.language_auto",
+  "default": "Auto"
+ },
+ {
+  "key": "settings.language_hint",
+  "default": "Chapter text; the interface follows it"
+ },
+ {
+  "key": "settings.menu_track",
+  "default": "Menu track"
+ },
+ {
+  "key": "settings.menu_track_hint",
+  "default": "What plays on the storefront"
+ },
+ {
+  "key": "settings.mute_hint",
+  "default": "Turns music and effects fully off"
+ },
+ {
+  "key": "settings.reset",
+  "default": "Reset account"
+ },
+ {
+  "key": "settings.reset_hint",
+  "default": "Wipes progress, purchases and name on this device — the game starts over"
+ },
+ {
+  "key": "settings.restore_purchases",
+  "default": "Restore purchases"
+ },
+ {
+  "key": "settings.restore_purchases_hint",
+  "default": "Tap if purchases went missing after a reinstall"
+ },
+ {
+  "key": "settings.tab_account",
+  "default": "Account"
+ },
+ {
+  "key": "settings.tab_data",
+  "default": "Data"
+ },
+ {
+  "key": "settings.tab_main",
+  "default": "General"
+ },
+ {
+  "key": "settings.tab_reading",
+  "default": "Reading"
+ },
+ {
+  "key": "settings.text_sample",
+  "default": "— And you came anyway. I knew you would."
+ },
+ {
+  "key": "settings.text_size",
+  "default": "Text size"
+ },
+ {
+  "key": "settings.text_size_hint",
+  "default": "Dialogue lines only — the scene stays as authored"
+ },
+ {
+  "key": "settings.title",
+  "default": "Settings"
+ },
+ {
+  "key": "settings.ui_size",
+  "default": "Interface size"
+ },
+ {
+  "key": "settings.ui_size_hint",
+  "default": "Menus, buttons and panels — the scene keeps its framing"
+ },
+ {
+  "key": "shop.best_price",
+  "default": "BEST PRICE"
+ },
+ {
+  "key": "shop.bonus",
+  "default": "+{0} bonus",
+  "field": "store.bonus_text"
+ },
+ {
+  "key": "shop.bundle",
+  "default": "Bundle"
+ },
+ {
+  "key": "shop.bundles",
+  "default": "Bundles"
+ },
+ {
+  "key": "shop.closed",
+  "default": "The store is closed"
+ },
+ {
+  "key": "shop.eyebrow",
+  "default": "TOP UP"
+ },
+ {
+  "key": "shop.loading",
+  "default": "Loading…"
+ },
+ {
+  "key": "shop.offline",
+  "default": "The store is unavailable"
+ },
+ {
+  "key": "shop.popular",
+  "default": "POPULAR"
+ },
+ {
+  "key": "shop.story_bundle",
+  "default": "STORY BUNDLE"
+ },
+ {
+  "key": "shop.title",
+  "default": "Store"
+ },
+ {
+  "key": "shop.value",
+  "default": "BEST VALUE"
+ },
+ {
+  "key": "skip",
+  "default": "Skip"
+ },
+ {
+  "key": "slot",
+  "default": "Slot"
+ },
+ {
+  "key": "stats",
+  "default": "Stats"
+ },
+ {
+  "key": "stats.title",
+  "default": "Your stats"
+ },
+ {
+  "key": "store.go",
+  "default": "Store"
+ },
+ {
+  "key": "text_size",
+  "default": "Text size"
+ },
+ {
+  "key": "time.just_now",
+  "default": "just now"
+ },
+ {
+  "key": "time.stamp_format",
+  "default": "dd.MM HH:mm"
+ },
+ {
+  "key": "title.restart",
+  "default": "Start over"
+ },
+ {
+  "key": "ui_size",
+  "default": "Interface size"
+ },
+ {
+  "key": "unit.decimal",
+  "default": "."
+ },
+ {
+  "key": "unit.gb",
+  "default": "GB"
+ },
+ {
+  "key": "unit.group",
+  "default": ","
+ },
+ {
+  "key": "unit.hours",
+  "default": "h"
+ },
+ {
+  "key": "unit.kbs",
+  "default": "KB/s"
+ },
+ {
+  "key": "unit.mb",
+  "default": "MB"
+ },
+ {
+  "key": "unit.mbs",
+  "default": "MB/s"
+ },
+ {
+  "key": "unit.minutes",
+  "default": "min"
+ },
+ {
+  "key": "wallet.refill_in",
+  "default": "+1 in {t}"
+ },
+ {
+  "key": "wardrobe.mine",
+  "default": "Mine"
+ },
+ {
+  "key": "wardrobe.my_skins",
+  "default": "My skins"
+ },
+ {
+  "key": "wardrobe.none",
+  "default": "None",
+  "field": "wardrobe.remove_text"
+ },
+ {
+  "key": "wardrobe.nothing_yet",
+  "default": "Nothing yet — look through the sections"
+ }
+]

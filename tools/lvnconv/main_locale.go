@@ -26,9 +26,15 @@ func cmdLocale(args []string) {
 	check := fs.Bool("check", false, "report catalog coverage without writing (exit 1 when a catalog misses keys)")
 	audit := fs.String("audit", "", "content dir: сверить каталоги на диске с manifest.languages")
 	prune := fs.Bool("prune", false, "drop catalog keys the script no longer contains")
+	ui := fs.String("ui", "", "manifest.json: какие подписи интерфейса останутся английскими")
+	strict := fs.Bool("strict", false, "с -ui: ненулевой код, если хоть одна подпись не названа")
 	_ = fs.Parse(args)
 	if *audit != "" {
 		cmdLocaleAudit(*audit)
+		return
+	}
+	if *ui != "" {
+		cmdLocaleUi(*ui, *strict)
 		return
 	}
 	if *langs == "" || fs.NArg() == 0 {
@@ -133,4 +139,61 @@ func encodeCatalog(keys []string, merged map[string]string) []byte {
 func report(catPath string, st lvn.CatalogStats) {
 	fmt.Fprintf(os.Stderr, "%s: %d string(s), %d new, %d stale, %d untranslated\n",
 		catPath, st.Total, len(st.Missing), len(st.Stale), st.Untranslated)
+}
+
+// `lvnconv locale -ui <manifest.json>` — ЧТО ИГРОК УВИДИТ ПО-АНГЛИЙСКИ.
+//
+// Подписи движка живут по ключам с английскими умолчаниями, а родное слово
+// кладёт автор. Пока список ключей знали только исходники, пропуск ничем себя
+// не выдавал: игра шла, экран работал, и одна строка посреди русского меню
+// была английской — узнавалось со скриншота игрока.
+//
+// Здесь тот же вопрос задаётся инструменту: реестр подписей (собран из кода,
+// вшит в бинарь) минус то, что автор назвал любым из трёх способов —
+// `ui.words`, `ui.menu.labels`, поле секции.
+func cmdLocaleUi(path string, strict bool) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		die(err.Error())
+	}
+	words := lvn.UiWords()
+	if len(words) == 0 {
+		die("locale -ui: реестр подписей пуст — соберите инструмент заново")
+	}
+	rep, err := lvn.AuditUiWords(data, words)
+	if err != nil {
+		die(err.Error())
+	}
+	fmt.Printf("подписей у движка: %d; не названо проектом: %d\n", rep.Total, len(rep.Missing))
+	for _, w := range rep.Missing {
+		where := ""
+		if w.Field != "" {
+			where = fmt.Sprintf(" (или полем ui.%s)", w.Field)
+		}
+		fmt.Printf("  %-32s игрок увидит %q%s\n", w.Key, w.Default, where)
+	}
+	langs := make([]string, 0, len(rep.Locales))
+	for lang := range rep.Locales {
+		langs = append(langs, lang)
+	}
+	sort.Strings(langs)
+	for _, lang := range langs {
+		miss := rep.Locales[lang]
+		fmt.Printf("перевод %q: не хватает %d из %d\n", lang, len(miss), rep.Total)
+		for _, k := range miss {
+			fmt.Printf("  %s\n", k)
+		}
+	}
+	if strict && (len(rep.Missing) > 0 || anyLocaleGap(rep)) {
+		os.Exit(1)
+	}
+}
+
+func anyLocaleGap(rep lvn.UiWordsReport) bool {
+	for _, miss := range rep.Locales {
+		if len(miss) > 0 {
+			return true
+		}
+	}
+	return false
 }
