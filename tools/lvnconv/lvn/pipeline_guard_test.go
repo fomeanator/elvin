@@ -98,23 +98,55 @@ func TestКомпиляторРазложенПоТемам(t *testing.T) {
 // нему базу и кодировал, — а за file:// стоит чтение с диска, где «%20»
 // означает файл, которого нет.
 
+// СПИСОК, КОТОРЫЙ НАДО ПОМНИТЬ ПОПОЛНЯТЬ, — ЭТО НЕ СТРАЖ.
+//
+// Сверялись ДВА файла из четырёх: `analyze.js` и `index.js` лежали в той же
+// вшитой копии и не проверялись ничем. Совпадали они по случайности — генератор
+// копирует каталог целиком, — то есть держались на дисциплине, а не на правиле.
+// Замер 04.09: все четыре совпадали, и именно поэтому пропажу проверки никто
+// бы не заметил до первой правки мимо `npm run gen`.
+//
+// Теперь сверяется ВСЁ, у чего есть пара в исходниках. Добавили файл в пакет —
+// он под присмотром с первой минуты, а не с той, когда о нём вспомнят.
 func TestКопияГрамматикиВРасширенииНеФорк(t *testing.T) {
 	root := repoRoot(t)
-	for _, name := range []string{"grammar.js", "grammar.json"} {
-		src, err := os.ReadFile(filepath.Join(root, "tools", "lvn-lang", "src", name))
-		if err != nil {
-			t.Fatal(err)
+	srcDir := filepath.Join(root, "tools", "lvn-lang", "src")
+	libDir := filepath.Join(root, "tools", "vscode-lvn", "lib", "lvn-lang")
+
+	entries, err := os.ReadDir(libDir)
+	if err != nil {
+		t.Fatalf("вшитая копия пропала целиком: %v", err)
+	}
+	checked := 0
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
 		}
-		vendored, err := os.ReadFile(filepath.Join(root, "tools", "vscode-lvn", "lib", "lvn-lang", name))
-		if err != nil {
-			t.Fatalf("вшитая копия %s пропала: %v", name, err)
+		name := e.Name()
+		srcPath := filepath.Join(srcDir, name)
+		if _, err := os.Stat(srcPath); err != nil {
+			// У манифеста пакета пары в src/ нет по устройству — он лежит
+			// уровнем выше. Сверять нечего, и придираться не за что.
+			continue
 		}
+		src, err := os.ReadFile(srcPath)
+		if err != nil {
+			t.Fatalf("исходник %s не читается: %v", name, err)
+		}
+		vendored, err := os.ReadFile(filepath.Join(libDir, name))
+		if err != nil {
+			t.Fatalf("вшитая копия %s не читается: %v", name, err)
+		}
+		checked++
 		if string(src) != string(vendored) {
-			t.Fatalf("tools/vscode-lvn/lib/lvn-lang/%s разошлась с правдой.\n"+
+			t.Errorf("tools/vscode-lvn/lib/lvn-lang/%s разошлась с правдой.\n"+
 				"Перегенерируйте обе одним шагом:\n"+
 				"  (cd tools/lvn-lang && npm run gen)\n"+
 				"Пока копия своя, расширение подсказывает другой язык.", name)
 		}
+	}
+	if checked < 2 {
+		t.Fatalf("сверено %d файлов — страж потерял предмет охраны", checked)
 	}
 }
 
