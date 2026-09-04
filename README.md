@@ -138,7 +138,7 @@ Demo content (the demo library's art/audio) lives in
 
 </details>
 
-**Status:** `v0.9` — a complete, working narrative-game engine. Every release
+**Status:** `v0.11.0` — a complete, working narrative-game engine. Every release
 tags all packages together, ships a playable demo APK and re-splits the
 package mirrors. History: the
 [CHANGELOG](unity/Packages/com.lvn.engine/CHANGELOG.md).
