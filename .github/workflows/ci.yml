@@ -15,7 +15,7 @@
 #            grammar.json ↔ grammar.js parity guard) + a regen-diff check so a
 #            hand-edited generated file fails loudly.
 #   panel  — the authoring panel builds (catches broken imports/aliases).
-#   unity  — the engine package's 300+ EditMode tests + the PlayMode smoke via
+#   unity  — the engine package's EditMode suite + the PlayMode smoke via
 #            game-ci, using the committed unity/TestHost project. Needs either
 #            the UNITY_EMAIL + UNITY_PASSWORD secrets (Personal license — Unity
 #            dropped manual .ulf activation for it) or a UNITY_LICENSE .ulf
