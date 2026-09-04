@@ -157,6 +157,22 @@ func main() {
 	walletSvc.EarnDisabled = !*walletEarn
 	// Production nudges: these pins are what stand between "verified" and
 	// "any token/receipt from any app" — silence here has bitten people.
+	// САМЫЕ ГРОМКИЕ РЕЖИМЫ БЫЛИ САМЫМИ ТИХИМИ. Про -wallet-earn сервер говорил,
+	// про непривязанный bundle id говорил — а про два флага, которые отключают
+	// проверку ЦЕЛИКОМ, молчал. Хуже: -auth-dev тут уже участвовал, но лишь
+	// чтобы ПРИГЛУШИТЬ меньшее замечание строкой ниже.
+	//
+	// Замерено: с -iap-dev один и тот же чек, предъявленный трижды, начислил
+	// втрое (500 → 1500) — защита от повтора стоит под условием, которое в этом
+	// режиме не выполняется никогда. С -auth-dev любая строка становится
+	// личностью, причём одна и та же строка — всегда одним и тем же игроком:
+	// узнал чужую строку — стал этим человеком.
+	if *iapDev {
+		log.Printf("WARNING: -iap-dev is ON — ANY receipt is accepted and the same one can be replayed for unlimited grants. Never run production with it")
+	}
+	if *authDev {
+		log.Printf("WARNING: -auth-dev is ON — ANY token is accepted as an identity, and the same string always maps to the same player. Never run production with it")
+	}
 	if *walletEarn {
 		log.Printf("note: /v1/wallet/earn is OPEN — any signed-in device can credit itself (test mode). Set -wallet-earn=false before real IAP/ads payouts")
 	}
@@ -366,7 +382,7 @@ type server struct {
 	verCache map[bool]verCacheEntry // includeManifest -> cached versions
 	// Кольцо последних состояний контента: по нему считается «что именно
 	// изменилось» вместо «забирай всё заново» (см. content_delta.go).
-	deltas   deltaRing
+	deltas deltaRing
 
 	// hashMu — один обход дерева за раз и охрана hashCache: два одновременных
 	// опроса версии делали бы одну и ту же работу дважды.

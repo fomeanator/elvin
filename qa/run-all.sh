@@ -120,7 +120,7 @@ fi
 # сняты 02.09 (пропущенные тесты считаются: пол — про СУЩЕСТВОВАНИЕ проверки,
 # а не про её исполнение). Числа могут только расти.
 FLOOR_GO_tools_lvnconv=699
-FLOOR_GO_server=285
+FLOOR_GO_server=286
 FLOOR_NODE_PANEL=105
 FLOOR_NODE_GRAMMAR=31
 
@@ -135,6 +135,26 @@ floor_check() { # $1 = имя, $2 = сколько прошло, $3 = пол
     log "  $1: $2 тестов (пол $3 — поднимите)"
   fi
 }
+
+# ФОРМАТ ПРОВЕРЯЕТСЯ ЗДЕСЬ, А НЕ ТОЛЬКО В CI.
+#
+# gofmt стоял в ci.yml и нигде больше. За одну ночь два файла разъехались и
+# никто этого не заметил: локальный цикл формат не смотрел, а включён ли
+# workflow на площадке — отсюда не видно (см. таблицу решений в
+# docs/world-position.md). Проверка стоит миллисекунды, а её отсутствие
+# означает красный CI на ровном месте.
+#
+# СУДИТ ВЫВОД, А НЕ КОД ВОЗВРАТА: `gofmt -l` выходит нулём и когда чисто, и
+# когда нет. На этом я попался в тот же вечер.
+if command -v gofmt >/dev/null 2>&1; then
+  fmt_out="$(cd "$GO_ROOT" && gofmt -l server tools/lvnconv 2>/dev/null)"
+  if [ -n "$fmt_out" ]; then
+    log "gofmt: НЕ ОТФОРМАТИРОВАНО — $(echo "$fmt_out" | tr '\n' ' ')"
+    fail=1
+  else
+    log "gofmt: чисто"
+  fi
+fi
 
 if command -v go >/dev/null 2>&1; then
   for mod in tools/lvnconv server; do

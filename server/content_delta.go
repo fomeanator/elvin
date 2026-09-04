@@ -81,9 +81,9 @@ func (r *deltaRing) find(hash string) (map[string]string, bool) {
 // не от чего, забирай полностью»: единственный честный ответ, когда названной
 // версии сервер уже не помнит.
 type contentDelta struct {
-	Since   string   `json:"since,omitempty"`
-	Version string   `json:"version"`
-	Full bool `json:"full,omitempty"`
+	Since   string `json:"since,omitempty"`
+	Version string `json:"version"`
+	Full    bool   `json:"full,omitempty"`
 	// Изменившиеся — С НОВЫМИ ХЕШАМИ, а не одними путями. Список путей заставил
 	// бы клиента всё равно идти за картой версий целиком (282 КБ), и экономия
 	// свелась бы к манифесту. С хешами он правит свою карту на месте и не идёт
