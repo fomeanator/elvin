@@ -43,9 +43,17 @@ if [ "$(count 'ветка про timeromance' "$CONTENT")" -lt 1 ] ||
   exit 2
 fi
 
+# СКРИПТ НЕ ПРОВЕРЯЕТ САМ СЕБЯ, И ЭТО ЕДИНСТВЕННОЕ ИСКЛЮЧЕНИЕ.
+#
+# В нём лежит список искомых слов и подложенный образец для самопроверки —
+# без них он не работает, и на них же он срабатывает. Исключение названо
+# ПОИМЁННО и только одно: «не проверять вон те файлы» — это дыра, которая
+# однажды спрячет настоящую утечку, и растить её нельзя.
+SELF=':!qa/leak-scan.sh'
+
 msgs=$(git log --format="%h %s%n%b" "$RANGE" 2>/dev/null || true)
-adds=$(git diff "$RANGE" --unified=0 2>/dev/null | grep '^+' || true)
-bins=$(git diff "$RANGE" --numstat 2>/dev/null | awk '$1=="-"' || true)
+adds=$(git diff "$RANGE" --unified=0 -- . "$SELF" 2>/dev/null | grep '^+' || true)
+bins=$(git diff "$RANGE" --numstat -- . "$SELF" 2>/dev/null | awk '$1=="-"' || true)
 
 n1=$(count "$msgs" "$CONTENT")
 n2=$(count "$adds" "$CONTENT")
