@@ -114,6 +114,19 @@ if command -v go >/dev/null 2>&1 && command -v rsync >/dev/null 2>&1; then
   fi
 fi
 
+# ГЕЙТ СОДЕРЖИМОГО ЗОВЁТСЯ ОТСЮДА, а не живёт сам по себе. В нём компиляция,
+# строгая проверка и обход всех ветвей раздаваемых образцов — и до этой ночи
+# каждая из трёх стояла только в CI.
+if [ -x "$REPO_ROOT/qa/lvns-gate.sh" ]; then
+  gout_gate="$OUT/lvns-gate.log"
+  if "$REPO_ROOT/qa/lvns-gate.sh" >"$gout_gate" 2>&1; then
+    log "гейт содержимого: $(tail -2 "$gout_gate" | head -1)"
+  else
+    log "FAIL: гейт содержимого — подробности: $gout_gate"
+    fail=1
+  fi
+fi
+
 # ПОЛ ПОКРЫТИЯ Go — та же мера, что у Unity, и по той же причине. Фаза Go
 # смотрела только на провалы: удалённый файл стражей или пакет, выпавший из
 # `./...`, не падает — его просто нет, и прогон остаётся зелёным. Числа
@@ -161,6 +174,17 @@ if command -v go >/dev/null 2>&1; then
     # -count=1 обязателен: стражи читают C#, JS и манифесты — файлы, которых
     # кэш go test не видит. Без флага правка в Unity ломает инвариант, а прогон
     # отвечает «ok (cached)»: страж молчит ровно тогда, когда должен кричать.
+    # ВЕТ БЫЛ ТОЛЬКО В CI. Он ловит то, что компилятор пропускает: неверный
+    # Printf, копию мьютекса, недостижимый код. Проверка стоит секунды, а её
+    # отсутствие означает красный CI на ровном месте — если он вообще включён,
+    # чего отсюда не видно.
+    vout="$(cd "$GO_ROOT/$mod" && go vet ./... 2>&1)"
+    if [ -n "$vout" ]; then
+      log "go vet $mod: ЗАМЕЧАНИЯ — $(echo "$vout" | head -3 | tr '\n' ' ')"
+      fail=1
+    else
+      log "go vet $mod: чисто"
+    fi
     log "go test $mod"
     gout="$OUT/go-$(echo "$mod" | tr / -).log"
     if command -v node >/dev/null 2>&1; then
@@ -191,6 +215,17 @@ if command -v node >/dev/null 2>&1; then
   if [ -d "$REPO_ROOT/panel/node_modules" ]; then
     log "node: тесты панели"
     nout="$OUT/node-panel.log"
+    # ЛИНТ ПАНЕЛИ ТОЖЕ ЖИЛ ТОЛЬКО В CI — и был КРАСЕН: 128 ошибок, из них 116
+    # от разбора сгенерированной Go прослойки, которую исключение обходило по
+    # старому пути. Гейт, красный по построению, не охраняет ничего; за ним и
+    # спрятался живой дефект (рекурсивный report в ScriptSection).
+    #
+    # Сборка панели (npm run build) остаётся ТОЛЬКО в CI намеренно: она тянет
+    # компиляцию wasm, а это минуты на каждый прогон. Исключение названо здесь,
+    # чтобы оно было решением, а не забывчивостью.
+    lout="$OUT/node-panel-lint.log"
+    (cd "$REPO_ROOT/panel" && npm run lint --silent >"$lout" 2>&1) \
+      || { log "FAIL: линт панели — подробности: $lout"; fail=1; }
     (cd "$REPO_ROOT/panel" && npm test --silent >"$nout" 2>&1) \
       || { log "FAIL: npm test в panel/ — подробности: (cd panel && npm test)"; fail=1; }
     ran=$(sed -n 's/.*Tests  *\([0-9][0-9]*\) passed.*/\1/p' "$nout" | tail -1)
