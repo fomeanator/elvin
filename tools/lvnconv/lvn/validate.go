@@ -69,6 +69,73 @@ func commandLike(text string) string {
 	return ""
 }
 
+// cyrLookalike — кириллические буквы, неотличимые на вид от латинских. Строка
+// с такой буквой выглядит как команда и командой не является: разбор её не
+// узнаёт, и она уезжает игроку репликой.
+var cyrLookalike = map[rune]rune{
+	'а': 'a', 'в': 'b', 'е': 'e', 'ё': 'e', 'к': 'k', 'м': 'm', 'н': 'h',
+	'о': 'o', 'р': 'p', 'с': 'c', 'т': 't', 'у': 'y', 'х': 'x',
+	'і': 'i', 'ј': 'j', 'ѕ': 's', 'һ': 'h', 'ԁ': 'd',
+}
+
+// canonOpWord — слово, приведённое к тому виду, в каком пишутся имена команд:
+// нижний регистр и латиница вместо кириллических двойников. Пустая строка
+// значит «после приведения это всё равно не имя команды».
+func canonOpWord(word string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(word) {
+		if l, ok := cyrLookalike[r]; ok {
+			r = l
+		}
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '_':
+			b.WriteRune(r)
+		default:
+			return ""
+		}
+	}
+	return b.String()
+}
+
+// mistypedOp — строка, которая СТАЛА БЫ командой, напиши автор её первое слово
+// строчной латиницей: `Actor мира emotion=happy`, `Bg /content/bg/room.png`,
+// `сlear all=1` (здесь «с» кириллическая).
+//
+// Обе слепоты замерены на живом компиляторе: такие строки собираются в реплику
+// и печатаются игроку, а валидатор молчит — распознаватель команд ищет
+// строчное ASCII-слово и подобные строки не рассматривает вовсе. Ошибки эти
+// делают не глядя: заглавную букву ставит автозамена редактора, кириллический
+// двойник приезжает копипастой из переписки.
+//
+// Узость — предохранитель. Слово обязано ПОСЛЕ приведения точно совпасть с
+// именем настоящей команды (близкие промахи оставлены commandLike, чтобы не
+// ловить прозу), и строка обязана иметь ту же форму команды: присваивание,
+// переход или путь. «Save the world» не подойдёт — формы нет.
+func mistypedOp(text string) (raw, canon string) {
+	fields := strings.Fields(text)
+	if len(fields) < 2 {
+		return "", ""
+	}
+	raw = fields[0]
+	canon = canonOpWord(raw)
+	if canon == "" || canon == raw || !KnownOps[canon] {
+		return "", "" // либо не команда, либо уже написана правильно
+	}
+	rest := text[len(raw):]
+	if strings.Contains(rest, "=") || strings.Contains(rest, "->") {
+		return raw, canon
+	}
+	for _, w := range fields[1:] {
+		if i := strings.IndexByte(w, '/'); i > 0 && i < len(w)-1 || strings.HasPrefix(w, "/") && len(w) > 1 {
+			return raw, canon
+		}
+		if looksLikeValue(w) {
+			return raw, canon
+		}
+	}
+	return "", ""
+}
+
 // looksLikeValue: токен, которого в обычной фразе не встретишь — число
 // (включая дробное и отрицательное) или путь со слэшем внутри слова.
 func looksLikeValue(w string) bool {
@@ -750,11 +817,21 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 			// 91 глава плюс примеры), поэтому цена ложного срабатывания
 			// близка к нулю, а цена пропуска — сцена с мусором в диалоге.
 			if c.Str("who") == "" {
-				if word := commandLike(c.Str("text")); word != "" {
-					if KnownOps[word] {
-						addErr(i, op, fmt.Sprintf("это команда %q, но её синтаксис не разобрался — строка стала репликой и покажется игроку", word))
-					} else if s := nearest.Of(word, knownOpNames(), 2); s != "" {
-						// A near-miss of a real op name (`actro id=…`, `bbg /x.jpg`).
+				word := commandLike(c.Str("text"))
+				if word != "" && KnownOps[word] {
+					addErr(i, op, fmt.Sprintf("это команда %q, но её синтаксис не разобрался — строка стала репликой и покажется игроку", word))
+				} else if raw, canon := mistypedOp(c.Str("text")); canon != "" {
+					// Та же беда, что строкой выше, и та же цена — только слово
+					// написано так, что распознаватель его не увидел.
+					addErr(i, op, fmt.Sprintf(
+						"это команда %q, написанная как %q (заглавные буквы или буква другого алфавита) — строка стала репликой и покажется игроку",
+						canon, raw))
+				} else if len(word) >= 3 {
+					// A near-miss of a real op name (`actro id=…`, `bbg /x.jpg`).
+					// Порог длины — от подсказки, а не от находки: слово короче
+					// трёх букв отстоит на два шага от половины словаря, и совет
+					// выходил наугад («s» — может быть, «bg»?).
+					if s := nearest.Of(word, knownOpNames(), 2); s != "" {
 						addErr(i, op, fmt.Sprintf("похоже на команду с опечаткой: %q — может быть, %q? (строка стала репликой и покажется игроку)", word, s))
 					}
 				}
