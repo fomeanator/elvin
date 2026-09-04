@@ -30,14 +30,30 @@ func TestEveryStageMenuPaneNamesItself(t *testing.T) {
 	dir := filepath.Join(root, "unity/Packages/com.lvn.engine/Runtime/UI")
 	head := regexp.MustCompile(`(?m)^\s*private void (Show\w+|ConfirmOverwrite|LoadFailedNotice|SaveFailedNotice)\([^)]*\)\s*$`)
 
-	var missing []string
+	// ПРЕДМЕТ ОХРАНЫ ОБЯЗАН НАЙТИСЬ.
+	//
+	// Страж жаловался только на НАЙДЕННОЕ. Переименуй файлы или соглашение о
+	// заголовке — совпадений ноль, список пуст, тест зелёный, проверено ничто.
+	// Это худший сорт стража: он не молчит, он УТВЕРЖДАЕТ.
+	//
+	// Числа тут не годятся: «панелей должно быть десять» протухнет при первом
+	// же объединении экранов. Правило структурное — файл, попавший под имя
+	// StageMenu, обязан дать хотя бы одну панель. Замер 04.09: пять файлов,
+	// десять панелей, пустых нет.
+	var missing, mute []string
+	seenFiles := 0
 	for _, f := range csFiles(t, dir) {
 		base := filepath.Base(f)
 		if !strings.HasPrefix(base, "StageMenu") {
 			continue
 		}
+		seenFiles++
 		body := string(mustRead(t, f))
-		for _, m := range head.FindAllStringSubmatchIndex(body, -1) {
+		found := head.FindAllStringSubmatchIndex(body, -1)
+		if len(found) == 0 {
+			mute = append(mute, base)
+		}
+		for _, m := range found {
 			name := body[m[2]:m[3]]
 			// Тело панели: от заголовка до конца — смотрим первые строки.
 			rest := body[m[1]:]
@@ -48,6 +64,15 @@ func TestEveryStageMenuPaneNamesItself(t *testing.T) {
 				missing = append(missing, base+":"+name)
 			}
 		}
+	}
+	if seenFiles == 0 {
+		t.Fatal("файлов StageMenu* не найдено — страж потерял предмет охраны: " +
+			"экраны переименовали, и он молча проверяет пустоту")
+	}
+	if len(mute) > 0 {
+		t.Errorf("файлы StageMenu без единой панели (%d): %v\n"+
+			"Либо соглашение о заголовке панели изменилось — и страж перестал их видеть, "+
+			"либо файл больше не про панели и не должен носить это имя.", len(mute), mute)
 	}
 	if len(missing) > 0 {
 		t.Errorf("панели не называют себя (%d): %v\n"+
