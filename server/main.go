@@ -566,7 +566,13 @@ func privateRel(rel string) bool {
 	if i := strings.LastIndex(rel, "/"); i >= 0 {
 		base = rel[i+1:]
 	}
-	return base == adminUsersFile
+	// ИМЯ ЗАКРЫТО ВМЕСТЕ С ЕГО КОПИЯМИ. Точное сравнение оставляло открытым
+	// всё, что рядом: `admin-users.json` отвечал 404, а `admin-users.json.bak-…`
+	// — двумя сотнями и хэшами паролей внутри (замер 04.09, по проводу). Копии
+	// заводят руками перед правкой ролей, редакторы оставляют `~`-файлы, деплой
+	// кладёт `.bak` с меткой времени — и любая из них открывала то, что закрыт
+	// оригинал. То же для черновика каталога.
+	return strings.HasPrefix(base, adminUsersFile) || strings.HasPrefix(base, "manifest.draft.json")
 }
 
 // toolingRel — файл АВТОРСКОЙ КУХНИ, а не игры.
