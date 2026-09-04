@@ -662,13 +662,25 @@ namespace Lvn.Content
                 var bytes = await Fetch(url, ct);
                 await WriteAllBytesAsync(path, bytes, ct);
             }
-            var fileUrl = "file://" + path;
             var type = Lvn.Content.DownloadPolicy.AudioTypeOf(url);
-            using var req = UnityWebRequestMultimedia.GetAudioClip(fileUrl, type);
-
-            await AwaitRequest(req, req.SendWebRequest(), ct);
-            if (LvnNetWait.Failed(req)) return null;
-            return DownloadHandlerAudioClip.GetContent(req);
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                using var req = UnityWebRequestMultimedia.GetAudioClip("file://" + path, type);
+                await AwaitRequest(req, req.SendWebRequest(), ct);
+                if (!LvnNetWait.Failed(req)) return DownloadHandlerAudioClip.GetContent(req);
+                // Звук из кэша не читается — там мусор. Та же болезнь, что у
+                // картинок: файл остаётся лежать, и сцена молчит при каждом
+                // показе. Выбрасываем и качаем заново ровно один раз.
+                if (attempt == 0)
+                {
+                    LvnLog.Warn($"[lvn-content] {url}: звук из кэша не читается — выбрасываю и качаю заново");
+                    LvnQuiet.Try(() => File.Delete(path));
+                    var again = await Fetch(url, ct);
+                    if (again == null || again.Length == 0) return null;
+                    await WriteAllBytesAsync(path, again, ct);
+                }
+            }
+            return null;
         }
 
 
