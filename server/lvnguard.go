@@ -167,6 +167,7 @@ func (s *server) checkLvn(rel string, data []byte) lvnFindings {
 // их значение известно только в игре.
 func (s *server) missingAssets(doc *lvn.Doc) []string {
 	seen := map[string]bool{}
+	names := dirNames{}
 	var out []string
 	check := func(i int, op, url string) {
 		if url == "" || seen[url] || strings.HasPrefix(url, "http") || strings.ContainsAny(url, "{}") {
@@ -184,6 +185,19 @@ func (s *server) missingAssets(doc *lvn.Doc) []string {
 		st, err := os.Stat(abs)
 		if err != nil {
 			out = append(out, fmt.Sprintf("script[%d] %s: файла нет — %s (ссылка есть, а на диске пусто: игрок увидит пустоту)", i, op, url))
+			return
+		}
+		// НАШЁЛСЯ — НО ТЕМ ЛИ ИМЕНЕМ. Спросить файловую систему мало: у автора
+		// на маке (и на Windows) `Room.png` открывает `room.png`, а `ёлка` в
+		// одной форме юникода — файл, записанный в другой. Раздаёт же контент
+		// Linux, где имя сверяется побайтово, и ровно эта ссылка отдаёт 404.
+		// Проверка, которая молчит на машине автора и говорит только на проде,
+		// приходит слишком поздно — поэтому имя сверяется с каталогом, а не с
+		// удачей файловой системы.
+		if disk, exact := names.exactRel(s.content, clean); !exact && disk != "" {
+			out = append(out, fmt.Sprintf(
+				"script[%d] %s: имя файла разошлось — в ссылке %s, на диске /content/%s; здесь откроется, на сервере игры — нет: игрок увидит пустоту",
+				i, op, url, filepath.ToSlash(disk)))
 			return
 		}
 		if op == "audio" || op == "preload" || st.IsDir() {
@@ -207,6 +221,69 @@ func (s *server) missingAssets(doc *lvn.Doc) []string {
 		}
 	}
 	return out
+}
+
+// dirNames — имена, КАК ОНИ ЗАПИСАНЫ НА ДИСКЕ, по каталогам: у главы ссылок
+// сотни, а каталогов десяток, и читать один и тот же дважды незачем.
+type dirNames map[string][]string
+
+// exactRel сверяет путь ПОСЕГМЕНТНО с содержимым каталогов и возвращает то,
+// как этот путь записан на диске, вместе с признаком побайтового совпадения.
+//
+// Побайтово — потому что так же смотрит на имя Linux, который раздаёт контент
+// игрокам. Расходится оно двумя способами, и оба видны только там: регистр
+// (`Room.png` против `room.png`) и форма юникода (`ё` одним знаком против
+// «е» с надстрочным). Совпадает ли имя с тем, что открывает файловая система
+// автора, решает не сравнение строк, а сам файл: два имени, ведущие к одному
+// узлу, — это одно имя, записанное по-разному.
+//
+// Пустое имя на выходе означает «такого файла нет вовсе» — про это говорит
+// звонящий своими словами, здесь сказать нечего.
+func (d dirNames) exactRel(root, rel string) (string, bool) {
+	cur, disk, exact := root, "", true
+	for _, seg := range strings.Split(filepath.ToSlash(rel), "/") {
+		if seg == "" || seg == "." {
+			continue
+		}
+		entries, ok := d[cur]
+		if !ok {
+			ents, err := os.ReadDir(cur)
+			if err != nil {
+				return "", false
+			}
+			for _, e := range ents {
+				entries = append(entries, e.Name())
+			}
+			d[cur] = entries
+		}
+		found := ""
+		for _, name := range entries {
+			if name == seg {
+				found = name
+				break
+			}
+		}
+		if found == "" {
+			want, err := os.Stat(filepath.Join(cur, seg))
+			if err != nil {
+				return "", false
+			}
+			for _, name := range entries {
+				got, err := os.Stat(filepath.Join(cur, name))
+				if err == nil && os.SameFile(want, got) {
+					found = name
+					break
+				}
+			}
+			if found == "" {
+				return "", false
+			}
+			exact = false
+		}
+		cur = filepath.Join(cur, found)
+		disk = filepath.Join(disk, found)
+	}
+	return disk, exact
 }
 
 // checkImportedScripts runs the SAME gate over every compiled script an import
