@@ -995,7 +995,6 @@ namespace Lvn.Content
             => AtomicWriteAllBytes(path, System.Text.Encoding.UTF8.GetBytes(text ?? ""));
     }
 
-    /// <summary>Lightweight descriptor for a single preload batch entry.</summary>
     /// <summary>
     /// СНИМОК СЕТИ ОДНИМ ЗНАЧЕНИЕМ — то, что индикатор спрашивает у загрузчика
     /// каждые 300 мс.
@@ -1039,6 +1038,7 @@ namespace Lvn.Content
         public bool PlanKnown => PlannedBytes > 0;
     }
 
+    /// <summary>Lightweight descriptor for a single preload batch entry.</summary>
     public sealed class PreloadItem
     {
         public string Url;

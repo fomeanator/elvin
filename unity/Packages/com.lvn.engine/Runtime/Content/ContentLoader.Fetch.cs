@@ -242,7 +242,13 @@ namespace Lvn.Content
         {
             public readonly byte[] Body;
             public readonly long Code;
-            public Fetched(byte[] body, long code) { Body = body; Code = code; }
+            /// <summary>Метка версии файла на сервере — ETag, иначе дата
+            /// правки. Нужна докачке: с ней второй заход спрашивает «дай
+            /// хвост, ЕСЛИ файл тот же», и подменённый файл приезжает целиком
+            /// вместо склейки двух редакций.</summary>
+            public readonly string Validator;
+            public Fetched(byte[] body, long code, string validator = null)
+            { Body = body; Code = code; Validator = validator; }
         }
 
         private async Task<byte[]> GetBytesAsync(string url, CancellationToken ct,
@@ -299,7 +305,8 @@ namespace Lvn.Content
                     }
                     if (req.responseCode is < 200 or >= 300)
                         throw new LvnFetchException((int)req.responseCode, "http_" + req.responseCode, $"GET {full}");
-                    return new Fetched(req.downloadHandler.data ?? Array.Empty<byte>(), req.responseCode);
+                    return new Fetched(req.downloadHandler.data ?? Array.Empty<byte>(), req.responseCode,
+                        req.GetResponseHeader("ETag") ?? req.GetResponseHeader("Last-Modified"));
                 }
                 catch (OperationCanceledException) when (pass.Yielded && !ct.IsCancellationRequested)
                 {
@@ -382,6 +389,7 @@ namespace Lvn.Content
                         if (expect != null && !Sha256Matches(bytes, expect))
                         {
                             LvnQuiet.Try(() => File.Delete(partPath));
+                            DropPartTag(partPath);
                             throw new LvnFetchException(0, "integrity",
                                 "sha256 mismatch for " + url + " — refetching");
                         }
@@ -390,6 +398,7 @@ namespace Lvn.Content
 
                         if (File.Exists(path)) File.Delete(path);
                         File.Move(partPath, path);
+                        DropPartTag(partPath); // кусок стал файлом — метке нечего сторожить
                         return bytes;
                     }
                     catch (OperationCanceledException) { throw; }
@@ -469,6 +478,21 @@ namespace Lvn.Content
         private async Task<byte[]> FetchResumable(string url, string partPath, long resumeFrom, CancellationToken ct)
         {
             lock (_underway) Progress(url).Received = resumeFrom;
+            // МЕТКА ВЕРСИИ ОТ ПЕРВОГО ЗАХОДА — УСЛОВИЕ ВТОРОГО.
+            //
+            // Докачка просит «Range: bytes=N-». Если файл на сервере между
+            // заходами заменили, приезжает хвост НОВОЙ редакции и приклеивается
+            // к голове старой. Замерено на живом сервере: 300 000 байт, из них
+            // 120 000 от прежней версии и 180 000 от новой, sha не совпадает ни
+            // с одной из них (qa/resume-integrity-check.sh). Страховка по
+            // sha256 из индекса версий тут не срабатывает: производные варианты
+            // (@2k, .ktx2) в индекс намеренно не входят — их там ноль на 2924
+            // записи, замерено на живом сервере.
+            //
+            // Поэтому условие ставится самому серверу: «дай хвост, ЕСЛИ файл
+            // тот же». Не тот — придёт 200 с целым файлом, и ниже он честно
+            // перезапишет .part.
+            string validator = ReadPartTag(partPath);
             var got = await GetAsync(url, ct,
                 r =>
                 {
@@ -480,11 +504,17 @@ namespace Lvn.Content
                             lock (_underway) Progress(url).Expected = resumeFrom + sz;
                     }
                 },
-                r => { if (resumeFrom > 0) r.SetRequestHeader("Range", $"bytes={resumeFrom}-"); });
+                r =>
+                {
+                    if (resumeFrom <= 0) return;
+                    r.SetRequestHeader("Range", $"bytes={resumeFrom}-");
+                    if (!string.IsNullOrEmpty(validator)) r.SetRequestHeader("If-Range", validator);
+                });
 
             // Server returned 200 when we asked for 206 → no resume support,
             // overwrite .part with the full fresh response.
             bool overwrite = resumeFrom == 0 || (int)got.Code == 200;
+            WritePartTag(partPath, got.Validator);
             await AppendBytesAsync(partPath, got.Body, overwrite, ct);
 
             lock (_underway)
@@ -496,6 +526,34 @@ namespace Lvn.Content
             }
             return await ReadAllBytesAsync(partPath, ct);
         }
+
+        // МЕТКА ВЕРСИИ ЛЕЖИТ РЯДОМ С КУСКОМ. Сам кусок — это байты, а чей он
+        // — вопрос отдельный, и держать ответ внутри файла значило бы завести
+        // формат с заголовком там, где горячий путь просто дописывает хвост.
+        private static string PartTagPath(string partPath) => partPath + ".tag";
+
+        private static string ReadPartTag(string partPath)
+            => LvnQuiet.Try(() =>
+            {
+                var tag = PartTagPath(partPath);
+                return File.Exists(tag) ? File.ReadAllText(tag).Trim() : null;
+            }, null);
+
+        private static void WritePartTag(string partPath, string validator)
+        {
+            var tag = PartTagPath(partPath);
+            if (string.IsNullOrEmpty(validator))
+            {
+                // Сервер метки не дал — условию неоткуда взяться, и старая
+                // метка от прошлой редакции хуже её отсутствия.
+                LvnQuiet.Try(() => File.Delete(tag));
+                return;
+            }
+            LvnQuiet.Try(() => File.WriteAllText(tag, validator));
+        }
+
+        private static void DropPartTag(string partPath)
+            => LvnQuiet.Try(() => File.Delete(PartTagPath(partPath)));
 
         private static async Task AppendBytesAsync(string path, byte[] data, bool overwrite, CancellationToken ct)
         {
