@@ -132,7 +132,7 @@ fi
 # `./...`, не падает — его просто нет, и прогон остаётся зелёным. Числа
 # сняты 02.09 (пропущенные тесты считаются: пол — про СУЩЕСТВОВАНИЕ проверки,
 # а не про её исполнение). Числа могут только расти.
-FLOOR_GO_tools_lvnconv=702
+FLOOR_GO_tools_lvnconv=703
 FLOOR_GO_server=292
 FLOOR_NODE_PANEL=105
 FLOOR_NODE_GRAMMAR=31
@@ -405,8 +405,22 @@ if [ "$DEVICE" = 1 ]; then
     trap '[ -n "${SRV:-}" ] && kill $SRV 2>/dev/null' EXIT
     sleep 1
     log "Смоук APK на эмуляторе…"
-    "$REPO_ROOT/qa/monkey.sh" "$APK" --server http://127.0.0.1:8099 \
-      | tee "$OUT/device-smoke.log" | tail -3 || fail=1
+    # КОД ВОЗВРАТА СНИМАЕТСЯ ДО КОНВЕЙЕРА, А НЕ ПОСЛЕ НЕГО.
+    #
+    # Здесь стояло `monkey.sh … | tee … | tail -3 || fail=1`, и «||» ловил код
+    # ПОСЛЕДНЕЙ команды конвейера — tail, который успешен почти всегда. Смоук
+    # мог падать сколько угодно: прогон оставался зелёным. Проверено на двух
+    # строках: `( exit 3 ) | tee /dev/null | tail -1 || fail=1` даёт fail=0.
+    #
+    # Единственное такое место из восемнадцати: остальные fail=1 стоят в
+    # обычных if-блоках текущей оболочки и доходят до итога.
+    if ! "$REPO_ROOT/qa/monkey.sh" "$APK" --server http://127.0.0.1:8099 \
+         >"$OUT/device-smoke.log" 2>&1; then
+      log "FAIL: смоук на устройстве — подробности: $OUT/device-smoke.log"
+      fail=1
+    fi
+    tail -3 "$OUT/device-smoke.log" | sed 's/^/  /'
+
     kill $SRV 2>/dev/null; SRV=""
   fi
 fi
