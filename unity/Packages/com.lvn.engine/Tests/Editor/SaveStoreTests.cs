@@ -95,6 +95,48 @@ namespace Lvn.Tests
                 "the future save survives Put/Delete round-trips for when the app updates");
         }
 
+        // СЕЙВ С УСТРОЙСТВА, А НЕ СЛОТ, СОБРАННЫЙ В C#.
+        //
+        // Все проверки рядом строят LvnSaveSlot кодом и пишут через Put, а Put
+        // штампует версию сам. На устройстве игрока лежит другое: JSON, который
+        // записала ПРЕЖНЯЯ сборка, и поля Version в нём может не быть вовсе —
+        // оно появилось позже самого хранилища.
+        //
+        // Такой блоб разбирается со значением ИНИЦИАЛИЗАТОРА поля. Пока схема
+        // первая, это единица и всё сходится. Но инициализатор — тот день, ради
+        // которого заведена вся эта версионность: подняв CurrentVersion до
+        // двойки (как велит докблок над Migrate), старые слоты объявили бы себя
+        // новейшими и МИГРАЦИЯ ПРОШЛА БЫ МИМО них — молча, у всех сразу.
+        //
+        // Поэтому здесь сверка с ЛИТЕРАЛЬНОЙ единицей, а не с CurrentVersion:
+        // «версии нет» обязано значить «первая схема», а не «нынешняя».
+        [Test]
+        public void SaveWrittenBeforeVersioningLoadsAsTheFirstSchema()
+        {
+            LvnSaveStore.Put(TitleA, "slot1", Slot(7, "старая реплика"));
+
+            var key = LvnKeep.Scoped("lvn_slots_", TitleA);
+            var aged = System.Text.RegularExpressions.Regex.Replace(
+                LvnKeep.Get(key, ""), "\"Version\"\\s*:\\s*\\d+\\s*,?", "");
+            // Без этой проверки тест зеленел бы на НЕтронутом блобе и не
+            // доказывал ничего: он обязан сперва стать сейвом без версии.
+            Assert.That(aged, Does.Not.Contain("Version"),
+                        "поле версии не вырезано — проверять нечего");
+            LvnKeep.Put(key, aged);
+
+            var back = LvnSaveStore.Get(TitleA, "slot1");
+            Assert.IsNotNull(back, "сейв прежней сборки перестал открываться — потерян прогресс");
+            Assert.AreEqual(1, back.Version,
+                "слот без поля версии обязан читаться как ПЕРВАЯ схема; равенство "
+                + "CurrentVersion сегодня случайно и рассыплется при первом же подъёме");
+            Assert.AreEqual(7, back.Snap.Index, "снимок доехал не целиком");
+            Assert.AreEqual("старая реплика", back.Preview);
+            // Возвращение в игру держится на ЯКОРЕ, а не на индексе: потеряйся
+            // он — сейв открылся бы и высадил игрока не туда.
+            Assert.AreEqual("scene2", back.Snap.AnchorLabel, "якорь позиции потерян");
+            Assert.AreEqual(3, back.Snap.AnchorSteps);
+        }
+
         [Test]
         public void PutStampsTheCurrentSchemaVersion()
         {

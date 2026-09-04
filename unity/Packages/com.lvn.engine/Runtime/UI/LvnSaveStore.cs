@@ -16,8 +16,19 @@ namespace Lvn.UI
 
         /// <summary>Slot schema version. Older slots are migrated on read;
         /// slots from a NEWER build than this one are refused (a downgraded
-        /// install must not misread them into corrupt state).</summary>
-        public int Version = CurrentVersion;
+        /// install must not misread them into corrupt state).
+        ///
+        /// <para>ИНИЦИАЛИЗАТОР — ЛИТЕРАЛЬНАЯ ЕДИНИЦА, И ЭТО НЕ СТИЛЬ. На
+        /// устройстве игрока лежат сейвы прежних сборок, где поля Version нет
+        /// вовсе: оно появилось позже самого хранилища. Такой блоб разбирается
+        /// со значением ЭТОГО инициализатора. Стой здесь
+        /// <see cref="CurrentVersion"/>, старые слоты объявляли бы себя
+        /// новейшими — и <see cref="LvnSaveStore.Migrate"/> прошла бы мимо них
+        /// молча, ровно в тот день, когда схему подняли и миграцию написали.
+        /// Замерено: при <c>CurrentVersion = 2</c> сейв без версии читался как
+        /// v2. Сторожит <c>SaveWrittenBeforeVersioningLoadsAsTheFirstSchema</c>,
+        /// сверяясь с единицей, а не с текущей схемой.</para></summary>
+        public int Version = 1;
         public LvnPlayer.LvnSnapshot Snap;
         public long SavedAtUnixMs;
         public string ChapterId;
@@ -127,7 +138,8 @@ namespace Lvn.UI
             if (s == null) return null;
             if (s.Version > LvnSaveSlot.CurrentVersion) return null;
             // v1 is the first schema — pre-version slots deserialize as v1 (the
-            // field initializer) and need no transformation. Future steps:
+            // field initializer is a literal 1 for exactly this reason, see
+            // LvnSaveSlot.Version) and need no transformation. Future steps:
             //   if (s.Version == 1) { …upgrade…; s.Version = 2; }
             return s;
         }
