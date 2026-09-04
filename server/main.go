@@ -18,6 +18,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
@@ -1086,6 +1087,16 @@ func (s *server) handleAdminAsset(w http.ResponseWriter, r *http.Request) {
 				writeJSON(w, code, map[string]any{"error": msg, "rejected": true})
 				return
 			}
+			// Гейт вернул пустое тело: присланный каталог совпадает с тем, что
+			// на диске. Отвечаем успехом, но на диск не ходим — иначе холостое
+			// сохранение стоило бы перезагрузки каталога всем играющим.
+			if newBody == nil {
+				writeJSON(w, http.StatusOK, map[string]any{
+					"path": rel, "bytes": len(body), "unchanged": true,
+					"warnings": orEmpty(findings.Warnings),
+				})
+				return
+			}
 			body = newBody
 		}
 		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
@@ -1323,8 +1334,9 @@ func withLog(next http.Handler) http.Handler {
 }
 
 // manifestRevGate — оптимистическая блокировка manifest.json (см. PUT выше).
-// Возвращает тело с уже увеличенным rev, либо (0-код ≠ 0) HTTP-статус и
-// понятное сообщение. Манифест без rev принимается один раз — как миграция
+// Возвращает тело с уже увеличенным rev, либо (код ≠ 0) HTTP-статус и понятное
+// сообщение, либо ПУСТОЕ тело при нулевом коде — «писать нечего, каталог тот
+// же». Манифест без rev принимается один раз — как миграция
 // (на диске rev тоже отсутствует), после этого rev обязателен.
 func (s *server) manifestRevGate(body []byte) ([]byte, int, string) {
 	var incoming map[string]any
@@ -1332,12 +1344,14 @@ func (s *server) manifestRevGate(body []byte) ([]byte, int, string) {
 		return nil, http.StatusBadRequest, "manifest.json: тело не является валидным JSON: " + err.Error()
 	}
 	curRev := 0
+	var cur map[string]any
 	if raw, err := os.ReadFile(filepath.Join(s.content, "manifest.json")); err == nil {
-		var cur map[string]any
 		if json.Unmarshal(raw, &cur) == nil {
 			if v, ok := cur["rev"].(float64); ok {
 				curRev = int(v)
 			}
+		} else {
+			cur = nil
 		}
 	}
 	bodyRev := -1
@@ -1358,6 +1372,25 @@ func (s *server) manifestRevGate(body []byte) ([]byte, int, string) {
 				"внесите правки поверх свежей копии и повторите PUT — rev двигается "+
 				"только вперёд, сервер увеличит его сам.", curRev, have)
 	} else {
+		// СОХРАНЕНИЕ БЕЗ ПРАВОК НЕ ЗАПИСЬ. Открыли каталог в панели, ничего не
+		// тронули, нажали «Сохранить» — и rev уезжал вперёд, а с ним общая
+		// версия контента: каждый играющий шёл за каталогом (в живой студии это
+		// 436 КБ), перечитывал открытую главу мимо кэша и пересобирал фигуры на
+		// сцене. Ради нуля новостей. Сравниваем содержание при выровненном
+		// счётчике; совпало — писать нечего, и rev остаётся прежним: чужая
+		// копия от этого не устареет, потому что ничего не изменилось.
+		if cur != nil {
+			aligned := make(map[string]any, len(incoming))
+			for k, v := range incoming {
+				aligned[k] = v
+			}
+			aligned["rev"] = float64(curRev)
+			mine, e1 := json.Marshal(aligned)
+			theirs, e2 := json.Marshal(cur)
+			if e1 == nil && e2 == nil && bytes.Equal(mine, theirs) {
+				return nil, 0, ""
+			}
+		}
 		incoming["rev"] = curRev + 1
 	}
 	out, err := json.MarshalIndent(incoming, "", "  ")
