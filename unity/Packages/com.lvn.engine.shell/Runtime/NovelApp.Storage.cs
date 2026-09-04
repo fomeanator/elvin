@@ -88,7 +88,7 @@ namespace Lvn.UI.Screens
                         if (string.IsNullOrEmpty(url)) return;
                         var eff = DownloadPolicy.Effective(kind, url);
                         if (!chapterUrls.Add(eff) || loader.IsAssetCached(eff)) return;
-                        items.Add(new Lvn.Content.PreloadItem { Url = eff, Kind = kind });
+                        items.Add(new Lvn.Content.PreloadItem { Url = eff, Kind = kind, Size = size });
                         bytes += size > 0 ? size : DownloadPolicy.UnknownSizeBytes;
                     }
                     foreach (var part in LvnParts.OfChapter(ch)) Add(part.Url, part.Kind, part.Size);
@@ -102,7 +102,7 @@ namespace Lvn.UI.Screens
             foreach (var (url, kind, size) in CollectContentItems())
             {
                 if (chapterUrls.Contains(url) || loader.IsAssetCached(url)) continue;
-                shared.Add(new Lvn.Content.PreloadItem { Url = url, Kind = kind });
+                shared.Add(new Lvn.Content.PreloadItem { Url = url, Kind = kind, Size = size });
                 sharedBytes += size > 0 ? size : DownloadPolicy.UnknownSizeBytes;
             }
             if (shared.Count > 0) _dlCenter.Enqueue(LvnWords.Of("dl.shared", "Covers and menu"), sharedBytes, shared);
@@ -161,7 +161,7 @@ namespace Lvn.UI.Screens
                             if (!had) continue;
                             if (loader.IsAssetCached(eff)) continue;
                             items ??= new List<Lvn.Content.PreloadItem>();
-                            items.Add(new Lvn.Content.PreloadItem { Url = eff, Kind = "sprite" });
+                            items.Add(new Lvn.Content.PreloadItem { Url = eff, Kind = "sprite", Size = kv.Value?.size ?? 0 });
                             bytes += kv.Value?.size ?? DownloadPolicy.UnknownSizeBytes;
                         }
                         if (items != null)
@@ -189,7 +189,7 @@ namespace Lvn.UI.Screens
                 if (string.IsNullOrEmpty(url)) return;
                 var eff = DownloadPolicy.Effective(kind, url);
                 if (loader.IsAssetCached(eff)) return;
-                items.Add(new Lvn.Content.PreloadItem { Url = eff, Kind = kind });
+                items.Add(new Lvn.Content.PreloadItem { Url = eff, Kind = kind, Size = size });
                 bytes += size > 0 ? size : DownloadPolicy.UnknownSizeBytes;
             }
             foreach (var part in LvnParts.OfChapter(ch)) Add(part.Url, part.Kind, part.Size);

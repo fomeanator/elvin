@@ -142,6 +142,11 @@ namespace Lvn.Content
         /// </summary>
         public long BatchClosedBytes { get; private set; }
 
+        /// <summary>Вес всего пакета по манифесту, байт (0 — размеров не дали).
+        /// План известен ЗАРАНЕЕ, поэтому доля считается им, а не догадкой о
+        /// непочатых файлах.</summary>
+        public long BatchPlannedBytes { get; private set; }
+
         public string LastStartedUrl { get; private set; }
         public bool BatchActive => BatchTotal > 0 && BatchDone < BatchTotal;
 
@@ -289,11 +294,11 @@ namespace Lvn.Content
         /// пилюля не ловила рассинхронные числа. Механика загрузки размазана
         /// по фазам (скачать-всё, прелоад главы, стриминг) — здесь их общее
         /// окно.</summary>
-        public (int inflight, int batchTotal, int batchDone, long received, long expected, string label) Transfers()
+        public TransferSnapshot Transfers()
         {
             lock (_underway)
             {
-                int n = 0, unknown = 0;
+                int n = 0, unknown = 0, retrying = 0;
                 string firstUrl = null;
                 long rec = 0, exp = 0;
                 foreach (var kv in _underway)
@@ -310,6 +315,12 @@ namespace Lvn.Content
                     if (f.Bundle || f.Work == null) continue;
                     n++;
                     if (f.Expected <= 0) unknown++;   // заголовок с длиной ещё не пришёл
+                    // ПОВТОР — ЭТО ОБЪЯСНЕНИЕ ОСТАНОВКИ. Файл, ушедший на
+                    // вторую попытку, ждёт сети (пауза перед повтором длится,
+                    // пока сеть не вернётся), и снаружи это выглядит как
+                    // «зависло». Сказать «повтор» дешевле, чем заставлять
+                    // игрока гадать.
+                    if (f.Attempt > 1) retrying++;
                     firstUrl ??= kv.Key;
                 }
                 // Имя для полной карточки индикатора: алиас текущего файла
@@ -344,15 +355,27 @@ namespace Lvn.Content
                 if (BatchTotal > 0)
                 {
                     rec += BatchClosedBytes;
-                    exp += BatchClosedBytes;
-                    int untouched = Math.Max(0, BatchTotal - BatchDone - n);
-                    exp += (unknown + untouched) * DownloadPolicy.UnknownSizeBytes;
-                    // Оценка может оказаться МЕНЬШЕ уже принятого (файл крупнее
-                    // скромной оценки, а длину нам не назвали). Кольцо тогда
-                    // показало бы больше единицы; пусть лучше упрётся в край.
+                    if (BatchPlannedBytes > 0)
+                    {
+                        // ПЛАН, А НЕ ДОГАДКА. Веса файлов манифест назвал ещё до
+                        // первого байта, и знаменатель — их сумма. Догадка ниже
+                        // остаётся ровно для пакетов, чьих весов никто не знает
+                        // (проверка версий, разовый фетч): её цена замерена —
+                        // при реальных 5 % она рисует 36 %.
+                        exp = BatchPlannedBytes;
+                    }
+                    else
+                    {
+                        exp += BatchClosedBytes;
+                        int untouched = Math.Max(0, BatchTotal - BatchDone - n);
+                        exp += (unknown + untouched) * DownloadPolicy.UnknownSizeBytes;
+                    }
+                    // Принято больше плана — так бывает: манифест назвал вес
+                    // прежней редакции файла, а приехала новая. Кольцо не имеет
+                    // права показать больше единицы.
                     if (exp < rec) exp = rec;
                 }
-                return (n, BatchTotal, BatchDone, rec, exp, label);
+                return new TransferSnapshot(n, BatchTotal, BatchDone, rec, exp, BatchPlannedBytes, retrying, label);
             }
         }
 
@@ -973,11 +996,64 @@ namespace Lvn.Content
     }
 
     /// <summary>Lightweight descriptor for a single preload batch entry.</summary>
+    /// <summary>
+    /// СНИМОК СЕТИ ОДНИМ ЗНАЧЕНИЕМ — то, что индикатор спрашивает у загрузчика
+    /// каждые 300 мс.
+    ///
+    /// <para>Здесь стоял кортеж из шести безымянных полей, и читать его на
+    /// стороне индикатора приходилось по порядку: `t.expected` — это план или
+    /// догадка? Ответ жил в другом файле, и от него зависело, что показать
+    /// игроку: долю или спиннер. Имя поля дешевле такого путешествия.</para>
+    /// </summary>
+    public readonly struct TransferSnapshot
+    {
+        /// <summary>Файлов в полёте прямо сейчас.</summary>
+        public readonly int Inflight;
+        /// <summary>Файлов в пакете и сколько из них закрыто.</summary>
+        public readonly int BatchTotal, BatchDone;
+        /// <summary>Принято байт и сколько их ожидается.</summary>
+        public readonly long Received, Expected;
+        /// <summary>Вес пакета по манифесту, 0 — весов не дали. Отличает
+        /// ЗНАНИЕ от догадки: без плана индикатор обязан крутить спиннер, а не
+        /// рисовать почти полное кольцо.</summary>
+        public readonly long PlannedBytes;
+        /// <summary>Файлов, ушедших на повторную попытку. Пауза перед
+        /// повтором длится, пока не вернётся сеть, — снаружи это и есть
+        /// «зависло», и назвать его надо словом.</summary>
+        public readonly int Retrying;
+        /// <summary>Человеческое имя текущего файла (алиас или короткое имя).</summary>
+        public readonly string Label;
+
+        public TransferSnapshot(int inflight, int batchTotal, int batchDone,
+            long received, long expected, long plannedBytes, int retrying, string label)
+        {
+            Inflight = inflight; BatchTotal = batchTotal; BatchDone = batchDone;
+            Received = received; Expected = expected; PlannedBytes = plannedBytes;
+            Retrying = retrying; Label = label;
+        }
+
+        /// <summary>Есть ли работа: файл в полёте или незакрытый пакет.</summary>
+        public bool Working => Inflight > 0 || (BatchTotal > 0 && BatchDone < BatchTotal);
+
+        /// <summary>Известен ли вес работы — тем и отличается доля от догадки.</summary>
+        public bool PlanKnown => PlannedBytes > 0;
+    }
+
     public sealed class PreloadItem
     {
         public string Url;
         public string Kind;
         public string Alias;
+        /// <summary>Вес файла по манифесту, байт (0 — неизвестен).
+        ///
+        /// <para>Ради него всё и заведено: пока план пакета не знал размеров,
+        /// доля считалась «принято / (принято + 64 КБ × непочатые)», а 64 КБ
+        /// против настоящей медианы в четверть мегабайта — занижение на
+        /// порядок. Кольцо от этого уходило почти в полное на первых процентах
+        /// и там стояло: при реальных 5 % оно показывало 36 %, при 26 % — 72 %
+        /// (замер qa/download-progress-check.sh). Размеры лежат в манифесте
+        /// рядом с адресами и раньше просто терялись по дороге сюда.</para></summary>
+        public long Size;
     }
 
     internal static class TaskExtensions

@@ -108,6 +108,9 @@ namespace Lvn.UI.Screens
         private readonly VisualElement _full;
         private ProgressRing _fullRing;
         private Label _file, _kind;
+        private VisualElement _bar, _barFill;
+        private long _lastProgressBytes;
+        private float _lastProgressAt = -1f;
         private Label _vSpeed, _vQueue, _vGot, _vLeft;
         private ScrollView _sections;
         /// <summary>Текущий качаемый url — для человеческой подписи
@@ -235,6 +238,25 @@ namespace Lvn.UI.Screens
             _kind.style.marginTop = LvnTokens.Hair;
             col.Add(_kind);
 
+            // ПОЛОСА — ДЛЯ ГЛАЗА, КОЛЬЦО — ДЛЯ УГЛА ЭКРАНА. Кольцо в кружке
+            // отвечает «идёт ли», но «сколько осталось» глаз читает с полосы
+            // быстрее: у неё есть край, до которого видно расстояние. Живой
+            // репорт был именно про это — «прогресса загрузки не видно».
+            _bar = new VisualElement();
+            _bar.pickingMode = PickingMode.Ignore;
+            _bar.style.height = 6;
+            _bar.style.marginTop = LvnTokens.Space1;
+            _bar.style.backgroundColor = LvnTokens.Faint;
+            LvnChrome.Edged(_bar, 3);
+            _barFill = new VisualElement();
+            _barFill.pickingMode = PickingMode.Ignore;
+            _barFill.style.height = 6;
+            _barFill.style.width = Length.Percent(0);
+            _barFill.style.backgroundColor = LvnTokens.Accent;
+            LvnChrome.Edged(_barFill, 3);
+            _bar.Add(_barFill);
+            col.Add(_bar);
+
             // Поля — ТАБЛИЦЕЙ, по строке на факт (не лапшой через «·»):
             // скорость, очередь, скачано, осталось — всё, что просилось.
             // Поля — матрицей 2×2 (уточнение Ильи 26.08): компактнее, меньше
@@ -267,10 +289,10 @@ namespace Lvn.UI.Screens
         // ── данные ────────────────────────────────────────────────────────────
 
         /// <summary>Скормить свежий снимок сети (таймер оболочки, ~300 мс).</summary>
-        public void Tick((int inflight, int batchTotal, int batchDone, long received, long expected, string label) t)
+        public void Tick(Lvn.Content.TransferSnapshot t)
         {
             float now = Lvn.LvnClock.Wall();
-            bool act = t.inflight > 0 || (t.batchTotal > 0 && t.batchDone < t.batchTotal);
+            bool act = t.Working;
             bool off = Offline?.Invoke() ?? false;
             bool queued = Center != null && (Center.Running || Center.Queue.Count > 0);
             int pend = PendingOps?.Invoke() ?? 0;
@@ -280,17 +302,17 @@ namespace Lvn.UI.Screens
             // события. Скрывается только в настоящем простое.
             bool visible = act || queued || pend > 0;
 
-            if (_lastAt > 0f && t.received >= _lastBytes)
+            if (_lastAt > 0f && t.Received >= _lastBytes)
             {
                 float dt = now - _lastAt;
                 if (dt > 0.05f)
                 {
-                    float inst = (t.received - _lastBytes) / dt;
+                    float inst = (t.Received - _lastBytes) / dt;
                     _speed = _speed <= 0f ? inst : Mathf.Lerp(_speed, inst, 0.35f);
                 }
             }
-            else if (t.received < _lastBytes) _speed = 0f;
-            _lastBytes = t.received;
+            else if (t.Received < _lastBytes) _speed = 0f;
+            _lastBytes = t.Received;
             _lastAt = now;
 
             if (visible)
@@ -316,81 +338,96 @@ namespace Lvn.UI.Screens
                 _miniRing.Glyph = glyph;
                 _fullRing.Glyph = glyph;
 
-                // Кольцо и «Скачано» — ОБЩИЙ прогресс очереди (сумма глав):
-                // байты завершённых глав + текущий батч / все поставленные.
-                // Без очереди: одиночный батч как раньше; стриминг — спиннер.
+                // ОДИН ИСТОЧНИК ПРАВДЫ — ПЛАН, И СЧИТАЕТ ЕГО СЧЕТОВОД.
+                //
+                // Всё, что показывает карточка, выводится из одной пары чисел:
+                // сколько байт поставлено в работу и сколько принято. Прежде
+                // «Скачано» и «Осталось» приходили из РАЗНЫХ мест и честно
+                // расходились на глазах: «296 МБ из 298 МБ» рядом с «осталось
+                // ≈114 МБ» (живой снимок). Второй источник убран отсюда вовсе:
+                // «сколько всего не на устройстве» — другой вопрос, и у него
+                // свой ответ ниже, в секции «вся игра».
                 var (qDone, qTotal) = Center?.Progress ?? (0L, 0L);
-                long batchRec = t.batchTotal > 0 ? t.received : 0; // вне батча — мусор стриминга
-                float frac;
-                if (qTotal > 0)
-                    frac = Mathf.Clamp01((qDone + batchRec) / (float)qTotal);
-                else if (act && t.batchTotal > 0)
-                    frac = t.expected > 0 ? Mathf.Clamp01((float)t.received / t.expected)
-                        : Mathf.Clamp01((float)t.batchDone / Mathf.Max(1, t.batchTotal));
-                else frac = -1f;
-                _miniRing.Progress = frac;
-                _fullRing.Progress = frac;
+                long batchRec = t.BatchTotal > 0 ? t.Received : 0; // вне пакета — мусор стриминга
+                long doneBytes, planBytes;
+                if (qTotal > 0) { planBytes = qTotal; doneBytes = qDone + batchRec; }
+                else if (t.PlanKnown) { planBytes = t.PlannedBytes; doneBytes = t.Received; }
+                else { planBytes = 0; doneBytes = t.Received; }
 
-                if (glyph == RingGlyph.Alert)
+                // Тишина — время с последнего прироста байт. По ней Счетовод
+                // отличает «идёт» от «встало»: застывшая скорость на мёртвой
+                // загрузке была самой обидной ложью этой карточки.
+                if (doneBytes > _lastProgressBytes) { _lastProgressBytes = doneBytes; _lastProgressAt = now; }
+                else if (_lastProgressAt < 0f) _lastProgressAt = now;
+
+                var tally = new Lvn.Content.DownloadTally(doneBytes, planBytes,
+                    t.BatchDone, t.BatchTotal, _speed,
+                    Lvn.Content.DownloadTally.PhaseOf(act || queued, off, pend, now - _lastProgressAt));
+
+                _miniRing.Progress = tally.Fraction;
+                _fullRing.Progress = tally.Fraction;
+                if (_barFill != null)
                 {
-                    _file.text = Lvn.Content.LvnOfflineText.Title;
-                    _kind.text = LvnWords.Of("downloads.resumes", "The download will resume by itself");
+                    // Плана нет — полосе нечего показывать, и она уходит: пустая
+                    // рамка читалась бы как «ноль процентов навсегда».
+                    _bar.style.display = tally.PlanKnown ? DisplayStyle.Flex : DisplayStyle.None;
+                    if (tally.PlanKnown)
+                        _barFill.style.width = Length.Percent(Mathf.Clamp01(tally.Fraction) * 100f);
                 }
-                else if (glyph == RingGlyph.Up)
+
+                switch (tally.State)
                 {
-                    _file.text = LvnWords.Of("downloads.syncing", "Syncing");
-                    _kind.text = LvnWords.Of("downloads.pending_ops", "Events to send: {0}", pend);
+                    case Lvn.Content.DownloadTally.Phase.Offline:
+                        _file.text = Lvn.Content.LvnOfflineText.Title;
+                        _kind.text = LvnWords.Of("downloads.resumes", "The download will resume by itself");
+                        break;
+                    case Lvn.Content.DownloadTally.Phase.Syncing:
+                        _file.text = LvnWords.Of("downloads.syncing", "Syncing");
+                        _kind.text = LvnWords.Of("downloads.pending_ops", "Events to send: {0}", pend);
+                        break;
+                    case Lvn.Content.DownloadTally.Phase.Stalled:
+                        // ЧЕСТНОЕ «ВСТАЛО» вместо бодрой скорости. Байты не
+                        // прибавляются несколько секунд — значит ждём сеть, и
+                        // сказать это словами дешевле, чем заставлять игрока
+                        // догадываться по неподвижным числам.
+                        _file.text = t.Retrying > 0
+                            ? LvnWords.Of("dl.retrying", "Retrying: {0} files", t.Retrying)
+                            : LvnWords.Of("dl.waiting", "Waiting for the network…");
+                        _kind.text = DoneLine(tally);
+                        break;
+                    default:
+                        // ГЛАВНОЕ ЧИСЛО — КРУПНО. Игрок спрашивает «сколько
+                        // осталось», а не «как называется файл»: имя файла
+                        // мельтешит между полосами и уехало строкой ниже.
+                        _file.text = tally.PlanKnown
+                            ? Mb(tally.DoneBytes) + " " + LvnWords.Of("common.of", "of") + " " + Mb(tally.PlanBytes)
+                            : LvnWords.Of("downloads.content", "Downloading content");
+                        _kind.text = DoneLine(tally);
+                        break;
                 }
-                else
-                {
-                    // ОЧЕРЕДЬ, А НЕ ТЕКУЩИЙ ФАЙЛ (решение Ильи 04.09).
-                    //
-                    // Пока обоз шёл по одному файлу, его имя и было ответом на
-                    // «что качается». В несколько полос «текущий» — это тот,
-                    // кто последним тронулся из десяти, и подпись задёргалась
-                    // между ними. Игроку нужен ответ про ВСЮ загрузку: сколько
-                    // осталось. Имя файла остаётся ниже, на строке подробностей,
-                    // где мельтешение не мешает.
-                    _file.text = t.batchTotal > 1
-                        ? LvnWords.Of("downloads.queue", "Downloading {0} of {1}", t.batchDone, t.batchTotal)
-                        : string.IsNullOrEmpty(t.label) ? LvnWords.Of("downloads.content", "Downloading content") : t.label;
-                    var activeEntry = ActiveEntry();
-                    _kind.text = Humanize(ActiveUrl?.Invoke(), null)
-                        + (activeEntry != null ? " · " + activeEntry.Label : "");
-                }
+
                 if (_expanded)
                 {
-                    // ПОСЛЕДНЕЕ ИЗВЕСТНОЕ, А НЕ ПРОЧЕРК. Между файлами мгновенная
-                    // скорость падает в ноль на доли секунды, и показатель мигал
-                    // «—» — читалось как «встало», хотя загрузка идёт. Прочерк
-                    // остаётся только до первого замера.
+                    // Скорость: пока байты идут — последняя известная (между
+                    // файлами мгновенная проваливается в ноль и мигала бы
+                    // прочерком); встали — честный прочерк.
                     if (_speed > 1024f) _speedLast = _speed;
-                    ScreenUi.SetValue(_vSpeed, _speedLast > 0f ? Speed(_speedLast) : "—");
-                    int filesLeft = t.batchTotal > 0 ? Mathf.Max(0, t.batchTotal - t.batchDone) : t.inflight;
+                    bool moving = tally.State == Lvn.Content.DownloadTally.Phase.Running;
+                    ScreenUi.SetValue(_vSpeed, moving && _speedLast > 0f ? Speed(_speedLast) : "—");
+
+                    int filesLeft = t.BatchTotal > 0 ? Mathf.Max(0, t.BatchTotal - t.BatchDone) : t.Inflight;
                     int chLeft = 0;
                     if (Center != null) foreach (var e in Center.Queue) if (!e.Active) chLeft++;
                     ScreenUi.SetValue(_vQueue, chLeft > 0
                         ? LvnWords.Of("downloads.queue_chapters", "chapters {0}", chLeft) + " · "
                           + LvnWords.Of("downloads.queue_files", "files {0}", filesLeft)
                         : LvnWords.Of("downloads.queue_files", "files {0}", filesLeft));
-                    ScreenUi.SetValue(_vGot, qTotal > 0
-                        ? Mb(qDone + batchRec) + " " + LvnWords.Of("common.of", "of") + " " + Mb(qTotal)
-                        : Mb(t.received) + (t.expected > 0 ? " " + LvnWords.Of("common.of", "of") + " " + Mb(t.expected) : ""));
-                    // ОДИН ВОПРОС — ОДИН ОТВЕТ. Рядом стояли два числа из разных
-                    // источников: «скачано X из Y» считал ПЛАН очереди, а
-                    // «осталось» — правду с диска, и они честно расходились
-                    // («94,8 из 139» при «осталось 60,1» — живой скрин). Пока
-                    // очередь идёт, остаток — это ЕЁ остаток; сколько всего не
-                    // на устройстве, отвечает «игра целиком» в настройках.
-                    if (qTotal > 0)
-                        ScreenUi.SetValue(_vLeft, Mb(System.Math.Max(0L, qTotal - (qDone + batchRec))));
-                    else if (now - _lastMissingAt > 3f)
-                    {
-                        _lastMissingAt = now;
-                        var miss = MissingInfo?.Invoke() ?? (0, 0);
-                        ScreenUi.SetValue(_vLeft, miss.Item2 > 0 ? Lvn.Content.LvnBytes.Approx(miss.Item1)
-                            : LvnWords.Of("downloads.all_done", "everything downloaded"));
-                    }
+
+                    // Оба числа — из плана, и потому не могут разойтись.
+                    ScreenUi.SetValue(_vGot, tally.PlanKnown
+                        ? Mb(tally.DoneBytes) + " " + LvnWords.Of("common.of", "of") + " " + Mb(tally.PlanBytes)
+                        : Mb(tally.DoneBytes));
+                    ScreenUi.SetValue(_vLeft, tally.PlanKnown ? Mb(tally.LeftBytes) : "—");
                 }
                 if (_expanded && Center != null && _centerDirty)
                 {
@@ -418,6 +455,23 @@ namespace Lvn.UI.Screens
                     });
                 }
             }
+        }
+
+        /// <summary>Строка подробностей под главным числом: сколько файлов
+        /// сделано, что именно едет и сколько это ещё займёт. Одна на все
+        /// состояния — иначе карточка рассказывает разное об одном и том же.</summary>
+        private string DoneLine(Lvn.Content.DownloadTally tally)
+        {
+            var parts = new List<string>(3);
+            if (tally.TotalFiles > 1)
+                parts.Add(LvnWords.Of("dl.files_of", "{0} of {1} files", tally.DoneFiles, tally.TotalFiles));
+            var what = Humanize(ActiveUrl?.Invoke(), null);
+            if (!string.IsNullOrEmpty(what)) parts.Add(what);
+            var entry = ActiveEntry();
+            if (entry != null && !string.IsNullOrEmpty(entry.Label)) parts.Add(entry.Label);
+            float eta = tally.EtaSeconds;
+            if (eta >= 1f) parts.Add(LvnWords.Of("dl.eta", "≈{0} left", Lvn.UI.LvnTimeWords.Coarse((long)eta)));
+            return string.Join(" · ", parts);
         }
 
         private bool _shown;
