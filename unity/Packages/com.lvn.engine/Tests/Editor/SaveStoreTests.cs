@@ -18,6 +18,8 @@ namespace Lvn.Tests
         {
             PlayerPrefs.DeleteKey("lvn_slots_" + TitleA);
             PlayerPrefs.DeleteKey("lvn_slots_" + TitleB);
+            PlayerPrefs.DeleteKey("lvn_slots_" + TitleA + ".bak");
+            PlayerPrefs.DeleteKey("lvn_slots_" + TitleB + ".bak");
         }
 
         private static LvnSaveSlot Slot(int index, string preview = "линия")
@@ -164,12 +166,55 @@ namespace Lvn.Tests
             Assert.IsNull(LvnSaveStore.LoadThumb(TitleA, "never-existed"), "absent file → null, no throw");
         }
 
+        /// <summary>
+        /// ПОРЧА БЛОКА НЕ УНОСИТ ВСЕ СОХРАНЕНИЯ РАЗОМ.
+        ///
+        /// <para>Слоты новеллы лежат ОДНОЙ строкой: один испорченный символ —
+        /// и читается пустота, то есть у игрока исчезают все сейвы сразу,
+        /// вместе с автосохранением. Прогресс (докуда дошёл) живёт в трёх
+        /// домах и переживает это, а слоты — только в одном.</para>
+        ///
+        /// <para>Условие: блок испорчен — сохранения обязаны найтись. Цена
+        /// известна и мала: теряется максимум последняя запись.</para>
+        /// </summary>
+        [Test]
+        public void ПорчаБлокаНеУноситВсеСохранения()
+        {
+            LvnSaveStore.Put(TitleA, "slot1", Slot(3));
+            LvnSaveStore.Put(TitleA, "auto", Slot(7));
+
+            PlayerPrefs.SetString("lvn_slots_" + TitleA, "{битые байты");
+
+            var slots = LvnSaveStore.Slots(TitleA);
+            Assert.AreEqual(2, slots.Count,
+                "испорченный блок унёс все сохранения игрока — включая автосейв");
+            Assert.AreEqual(7, LvnSaveStore.Get(TitleA, "auto").Snap.Index,
+                "автосохранение не восстановилось");
+        }
+
+        /// <summary>Забвение обязано уносить и запасную копию: иначе «удалить
+        /// всё» оставляет сейвы лежать под другим ключом.</summary>
+        [Test]
+        public void ЗабвениеУноситИЗапаснуюКопию()
+        {
+            LvnSaveStore.Put(TitleA, "slot1", Slot(1));
+            LvnSaveStore.Put(TitleA, "slot1", Slot(2)); // вторая запись рождает копию
+            LvnSaveStore.DeleteAll(TitleA);
+
+            PlayerPrefs.SetString("lvn_slots_" + TitleA, "{битые байты");
+            Assert.AreEqual(0, LvnSaveStore.Slots(TitleA).Count,
+                "после забвения сохранения всплыли из запасной копии");
+        }
+
         [Test]
         public void MissingAndCorruptDataDegradeToEmpty()
         {
             Assert.IsNull(LvnSaveStore.Get(TitleA, "nope"));
             Assert.AreEqual(0, LvnSaveStore.Slots(TitleA).Count);
 
+            // Битый блок И НИ ОДНОЙ ЗАПИСИ ДО НЕГО: спасать нечем, и это
+            // законная пустота, а не потеря. Случай «было что спасать»
+            // проверяет ПорчаБлокаНеУноситВсеСохранения.
             PlayerPrefs.SetString("lvn_slots_" + TitleA, "{не json вовсе");
             Assert.AreEqual(0, LvnSaveStore.Slots(TitleA).Count, "corrupt store reads as empty, never throws");
 
