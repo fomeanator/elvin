@@ -157,7 +157,7 @@ export default function ScriptSection({ creds, notify, titleId, setStatus }) {
   // одно, приёмника два, и держались они в согласии руками — три места, в
   // каждом по паре строк. Забудь вторую, и шапка покажет прошлый итог рядом со
   // свежим: автор чинит ошибку, ошибка исчезает из плашки и остаётся наверху.
-  const report = (s) => { report(s); };
+  const report = (s) => { setStat(s); setStatus?.(s); };
   const [showPreview, setShowPreview] = useState(true);
   const [showProblems, setShowProblems] = useState(true);
   const [showDocs, setShowDocs] = useState(false);
