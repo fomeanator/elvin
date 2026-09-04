@@ -112,20 +112,41 @@ namespace Lvn.UI
 
         // The store as persisted, no version gate — the WRITE path works on this
         // so a hidden newer-schema slot survives unrelated Put/Delete round-trips.
+        /// <summary>Ключ запасной копии блока — рядом с основным.
+        ///
+        /// <para>Все слоты новеллы лежат ОДНОЙ строкой: один испорченный символ
+        /// — и у игрока исчезают разом все сохранения, включая автосейв.
+        /// Замерено прогоном (<c>ПорчаБлокаНеУноситВсеСохранения</c>): битый
+        /// блок читался как пустой, и первая же следующая запись затирала его
+        /// навсегда. Прогресс — докуда дошёл — живёт в трёх домах и это
+        /// переживает; слоты жили в одном.</para></summary>
+        private static string BackupKey(string titleId) => Key(titleId) + ".bak";
+
+        private static Dictionary<string, LvnSaveSlot> Parse(string json)
+        {
+            if (string.IsNullOrEmpty(json)) return null;
+            try { return JsonConvert.DeserializeObject<Dictionary<string, LvnSaveSlot>>(json); }
+            catch { return null; }
+        }
+
         private static Dictionary<string, LvnSaveSlot> Raw(string titleId)
         {
             var json = LvnKeep.Get(Key(titleId), "");
             if (string.IsNullOrEmpty(json)) return new Dictionary<string, LvnSaveSlot>();
-            try
+            var parsed = Parse(json);
+            if (parsed != null) return parsed;
+
+            // ОСНОВНОЙ БЛОК НЕ ЧИТАЕТСЯ — ПОДНИМАЕМ ЗАПАСНОЙ. Теряется при этом
+            // максимум последняя запись, а не вся история прохождения.
+            var spare = Parse(LvnKeep.Get(BackupKey(titleId), ""));
+            if (spare != null && spare.Count > 0)
             {
-                return JsonConvert.DeserializeObject<Dictionary<string, LvnSaveSlot>>(json)
-                       ?? new Dictionary<string, LvnSaveSlot>();
+                Debug.LogWarning("[lvn] блок сохранений не читается — поднял запасную копию ("
+                               + spare.Count + " слот(ов); потеряна максимум последняя запись)");
+                return spare;
             }
-            catch (Exception e)
-            {
-                Debug.LogWarning("[lvn] save slots unreadable (" + e.Message + ") — starting empty");
-                return new Dictionary<string, LvnSaveSlot>();
-            }
+            Debug.LogWarning("[lvn] блок сохранений не читается, запасной копии нет — начинаю с пустого");
+            return new Dictionary<string, LvnSaveSlot>();
         }
 
         /// <summary>Bring a slot up to <see cref="LvnSaveSlot.CurrentVersion"/>.
@@ -183,13 +204,26 @@ namespace Lvn.UI
             foreach (var slot in new List<string>(Raw(titleId).Keys))
                 Delete(titleId, slot);
             LvnKeep.Drop(Key(titleId));
+            // Забвение уносит и запас: иначе «удалить всё» оставляет сохранения
+            // лежать под соседним ключом.
+            LvnKeep.Drop(BackupKey(titleId));
         }
 
         private static bool Write(string titleId, Dictionary<string, LvnSaveSlot> all)
         {
             try
             {
-                LvnKeep.Put(Key(titleId), JsonConvert.SerializeObject(all));
+                var json = JsonConvert.SerializeObject(all);
+                LvnKeep.Put(Key(titleId), json);
+                // ЗАПАС ПИШЕТСЯ ПОСЛЕ ОСНОВНОГО, А НЕ ДО.
+                //
+                // Первая редакция клала в запас ПРЕЖНЕЕ состояние — и запас
+                // всегда отставал на одну запись: замер показал один слот из
+                // двух («Expected: 2, But was: 1»). Копия того, что только что
+                // записано, отставать не может, и порча основного блока не
+                // стоит игроку уже ничего. Цена — вторая запись того же JSON;
+                // миниатюры лежат отдельными файлами, так что это килобайты.
+                if (!string.IsNullOrEmpty(json)) LvnKeep.Put(BackupKey(titleId), json);
                 return true;
             }
             catch (Exception e)
