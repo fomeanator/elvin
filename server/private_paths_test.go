@@ -192,3 +192,44 @@ func TestOpenStoreCreatesItsDirectory(t *testing.T) {
 	}
 	db.Close()
 }
+
+// Закрытое имя закрыто вместе с копиями.
+//
+// Замер 04.09 по проводу: `admin-users.json` отвечал 404, а лежавший рядом
+// `admin-users.json.bak-20260904` — двумя сотнями и хэшами паролей внутри.
+// Копии заводят руками перед правкой ролей, редакторы оставляют `~`-файлы,
+// деплой кладёт `.bak` с меткой времени. Точное сравнение имени закрывало
+// оригинал и открывало всё остальное.
+func TestPrivateRelCoversCopiesOfClosedFiles(t *testing.T) {
+	closed := []string{
+		"admin-users.json",
+		"admin-users.json.bak-20260904",
+		"admin-users.json~",
+		"admin-users.json.old",
+		"ADMIN-USERS.JSON.BAK-20260904",
+		"manifest.draft.json",
+		"manifest.draft.json.bak",
+		"services/wallet/u_1.json",
+		"state/u_1.json",
+		".history/old.lvn",
+		"bg/x.jpg.incoming",
+	}
+	for _, rel := range closed {
+		if !privateRel(rel) {
+			t.Errorf("%q отдаётся по проводу — это чужие деньги, чужой прогресс или ключи от студии", rel)
+		}
+	}
+
+	open := []string{
+		"manifest.json",           // каталог игр — публичный по устройству
+		"scripts/chapter-01.lvn",  // игра
+		"scripts/chapter-01.lvns", // исходник: панель читает его именно отсюда
+		"bg/room.jpg",
+		"admin-panel/index.html", // не файл учёток, а страница
+	}
+	for _, rel := range open {
+		if privateRel(rel) {
+			t.Errorf("%q закрыт — игра или редактор его не получат", rel)
+		}
+	}
+}

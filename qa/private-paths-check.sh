@@ -52,6 +52,12 @@ printf 'старая правка %s' "$MARK" > "$C/.history/old.lvn"
 printf '{"titles":[],"note":"%s"}' "$MARK" > "$C/manifest.draft.json"
 printf 'входящее %s' "$MARK" > "$C/bg/x.jpg.incoming"
 printf '{"admins":["%s"]}' "$MARK" > "$C/admin-users.json"
+# КОПИИ ЗАКРЫТОГО ФАЙЛА. Их заводят руками перед правкой ролей, их оставляет
+# редактор и деплой — и до 04.09 сам admin-users.json отвечал 404, а его
+# бэкап отдавался двумя сотнями вместе с хэшами паролей.
+printf '{"admins":["%s"]}' "$MARK" > "$C/admin-users.json.bak-20260904"
+printf '{"admins":["%s"]}' "$MARK" > "$C/admin-users.json~"
+printf '{"titles":[],"note":"%s"}' "$MARK" > "$C/manifest.draft.json.bak"
 if [ -n "$BITE" ]; then
   printf 'публичная картинка с меткой %s' "$MARK" > "$C/bg/room.jpg"
 else
@@ -79,11 +85,14 @@ try() { # путь → печатает код и ловит метку в те�
   fi
 }
 
+tried=0
 for path in \
   /content/services/lvn.db /content/services/users.json \
   /content/services/wallet/u_1.json /content/state/u_1.json \
   /content/.history/old.lvn /content/manifest.draft.json \
   /content/bg/x.jpg.incoming /content/admin-users.json \
+  /content/admin-users.json.bak-20260904 /content/admin-users.json~ \
+  /content/manifest.draft.json.bak /content/ADMIN-USERS.JSON.BAK-20260904 \
   /content/SERVICES/wallet/u_1.json /content/State/u_1.json \
   /content/./services/wallet/u_1.json /content/bg/../state/u_1.json \
   //content//state//u_1.json '/content/services%2fwallet%2fu_1.json' \
@@ -92,6 +101,7 @@ for path in \
   /content/bg/room.jpg
 do
   try "$path"
+  tried=$((tried + 1))
 done
 # Последним стоит ПУБЛИЧНЫЙ путь — он и делает мерку проверяемой: при -bite
 # метка лежит именно в нём, и не найти её значит не уметь искать вообще.
@@ -115,4 +125,4 @@ if [ "$leaks" -gt 0 ]; then
   echo "РВЁТСЯ: приватное ушло по проводу ($leaks путей) — это чужие деньги и чужой прогресс"
   exit 1
 fi
-echo "держит: 19 путей (18 обходов к приватному плюс публичный) — ни одного ответа с данными; публичное отдаётся"
+echo "держит: $tried путей (обходы к приватному плюс публичный) — ни одного ответа с данными; публичное отдаётся"
