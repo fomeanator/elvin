@@ -123,6 +123,9 @@ namespace Lvn.Tests
                     }
                 }
                 Assert.IsTrue(healthy, "локальный сервер не ответил на /healthz за 10с");
+                // Ещё раз, уже после проверки связи: между SetUp и этой строкой
+                // сеть мог пометить офлайном чужой доживающий тест.
+                LvnNetworkStatus.MarkOnline("сервер стенда отвечает");
 
                 loader = new ContentLoader($"http://127.0.0.1:{port}", cache);
                 const string url = "/content/art/pic.png";

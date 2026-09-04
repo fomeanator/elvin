@@ -146,6 +146,12 @@ namespace Lvn.Tests
                 UnityEngine.Object.Destroy(go);
                 try { if (!proc.HasExited) proc.Kill(); } catch { /* уже умер */ }
                 try { Directory.Delete(stand, true); } catch { /* временный каталог */ }
+                // ЗА СОБОЙ ГАСИМ И СЕТЕВОЙ СТАТУС. Задачи снесённого NovelApp
+                // доживают свой круг уже за пределами теста, упираются в
+                // погашенный сервер и помечают сеть офлайном — глобально. У
+                // соседа это выглядело как «offline (global status)» на ровном
+                // месте, и исход решал порядок тестов.
+                LvnNetworkStatus.MarkOnline("конец проверки каталога");
             }
         }
     }
