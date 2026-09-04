@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 using Lvn;
@@ -28,56 +27,6 @@ namespace Lvn.Tests
     /// </summary>
     public class OfflinePlaythroughTests
     {
-        // Крошечный сервер на свободном порту. Гасится совсем, а не «отвечает
-        // ошибкой»: разница между «сервер сказал нет» и «сервера нет» — это
-        // разные ветки в загрузчике, и офлайн живёт во второй.
-        private sealed class MiniServer : IDisposable
-        {
-            private readonly HttpListener _l = new HttpListener();
-            private readonly Dictionary<string, byte[]> _files;
-            public readonly string Root;
-
-            public MiniServer(Dictionary<string, byte[]> files)
-            {
-                _files = files;
-                int port = FreePort();
-                Root = $"http://127.0.0.1:{port}/";
-                _l.Prefixes.Add(Root);
-                _l.Start();
-                Serve();
-            }
-
-            private static int FreePort()
-            {
-                var s = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
-                s.Start();
-                int p = ((IPEndPoint)s.LocalEndpoint).Port;
-                s.Stop();
-                return p;
-            }
-
-            private async void Serve()
-            {
-                while (_l.IsListening)
-                {
-                    HttpListenerContext ctx;
-                    try { ctx = await _l.GetContextAsync(); }
-                    catch { return; }   // погашен — это конец работы, не ошибка
-                    var path = ctx.Request.Url.AbsolutePath.TrimStart('/');
-                    if (_files.TryGetValue(path, out var body))
-                    {
-                        ctx.Response.StatusCode = 200;
-                        ctx.Response.ContentLength64 = body.Length;
-                        await ctx.Response.OutputStream.WriteAsync(body, 0, body.Length);
-                    }
-                    else ctx.Response.StatusCode = 404;
-                    ctx.Response.Close();
-                }
-            }
-
-            public void Dispose() { try { _l.Stop(); _l.Close(); } catch { } }
-        }
-
         private const string ScriptPath = "content/ch.lvn";
         private const string AssetPath = "content/bg/room.jpg";
         private const string Chapter = @"{""scene"":""offline"",""script"":[
@@ -134,7 +83,7 @@ namespace Lvn.Tests
             };
 
             string root;
-            using (var srv = new MiniServer(files))
+            using (var srv = new TestHttpServer(files))
             {
                 root = srv.Root;
                 using var online = new ContentLoader(root, _cache);
@@ -185,7 +134,7 @@ namespace Lvn.Tests
         {
             var files = new Dictionary<string, byte[]> { [ScriptPath] = Encoding.UTF8.GetBytes(Chapter) };
             string root;
-            using (var srv = new MiniServer(files)) root = srv.Root;
+            using (var srv = new TestHttpServer(files)) root = srv.Root;
 
             using var loader = new ContentLoader(root, _cache);
             var t = loader.DownloadScriptText("/" + ScriptPath);   // без кэша: чистая проверка провода
