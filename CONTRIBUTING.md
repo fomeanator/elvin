@@ -55,9 +55,11 @@ cd tools/lvnconv && go run . convert -i ../../examples/hello.ink -o /tmp/h.lvn &
 CI runs `gofmt`, `go vet`, `go build`, `go test` on every module plus a convert
 → validate smoke test. Keep it green; format with `gofmt -w` before pushing.
 
-The Unity package (`unity/Packages/com.lvn.engine`) isn't covered by CI yet —
-if you change it, build it once in Unity (2021.3+, with
-`com.unity.nuget.newtonsoft-json`) and say so in the PR.
+The Unity package **is** covered: a `unity` job runs the EditMode suite and the
+PlayMode smoke on a self-hosted mac runner (pushes to the canonical repo only —
+a fork can't reach that runner). If you change the package and CI is out of
+reach, run `qa/run-all.sh` locally and say so in the PR; `qa/csharp-check.sh`
+compiles the packages without occupying the editor.
 
 ## Pull requests
 
