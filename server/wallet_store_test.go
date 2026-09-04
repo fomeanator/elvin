@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -246,5 +247,64 @@ func TestWalletImportDoesNotDoubleOnRetry(t *testing.T) {
 	}
 	if balance != 250 {
 		t.Errorf("баланс %d, а в файле было 250", balance)
+	}
+}
+
+// ПОСЛЕ ОКНА ИДЕМПОТЕНТНОСТИ НОВЫЕ КЛЮЧИ ОБЯЗАНЫ ПРОДОЛЖАТЬ ЛОЖИТЬСЯ НА ДИСК.
+//
+// Сохранение пишет ХВОСТ: AppliedOps[dbOps:], где dbOps — сколько первых
+// элементов текущего среза уже в базе. Обработчик, обрезая список до окна,
+// когда-то не двигал курсор — и длина навсегда становилась равной курсору.
+// Хвост пустел, и после двухсот операций НИ ОДИН новый ключ на диск больше не
+// попадал. В памяти всё выглядело исправно, поэтому повтор ловился... пока
+// сервер не перезапускали.
+//
+// Замерено живьём до починки: 210 операций, покупка на 500, перезапуск, повтор
+// той же покупки — списалось ВТОРОЙ РАЗ. Ровно тот случай, ради которого
+// идемпотентность и заведена: связь оборвалась, клиент повторил.
+//
+// Здесь та же проверка без сервера: пишем больше окна и требуем, чтобы
+// последний ключ доехал до базы.
+func TestAppliedOpsKeepReachingDiskPastTheWindow(t *testing.T) {
+	dir := t.TempDir()
+	db, err := openStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	doc := &walletDoc{Balances: map[string]int64{"soft": 1}, Inventory: map[string]int64{}}
+	// Ровно так это делает обработчик: добавили ключ, обрезали окно, сохранили.
+	for i := 0; i < appliedOpsWindow+25; i++ {
+		doc.AppliedOps = append(doc.AppliedOps, "ключ-"+strconv.Itoa(i))
+		if drop := len(doc.AppliedOps) - appliedOpsWindow; drop > 0 {
+			doc.AppliedOps = doc.AppliedOps[drop:]
+			if doc.dbOps -= drop; doc.dbOps < 0 {
+				doc.dbOps = 0
+			}
+		}
+		if err := walletSave(db, "u1", doc); err != nil {
+			t.Fatalf("сохранение на шаге %d: %v", i, err)
+		}
+	}
+
+	var total int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM wallet_ops WHERE user_id = 'u1'`).Scan(&total); err != nil {
+		t.Fatal(err)
+	}
+	// Порог на ПРОСМОТРЕННОЕ: если бы запись встала, здесь было бы ровно окно.
+	if total <= appliedOpsWindow {
+		t.Errorf("запись ключей встала на окне: в базе %d при %d записанных — "+
+			"повтор свежей операции после перезапуска спишет второй раз",
+			total, appliedOpsWindow+25)
+	}
+
+	last := "ключ-" + strconv.Itoa(appliedOpsWindow+24)
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM wallet_ops WHERE user_id = 'u1' AND op_id = ?`, last).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Errorf("последний ключ %q не доехал до диска — именно его и повторит клиент", last)
 	}
 }
