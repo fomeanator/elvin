@@ -233,6 +233,42 @@ if command -v node >/dev/null 2>&1; then
   else
     log "WARN: panel/node_modules нет — тесты панели пропущены (npm i --prefix panel)"
   fi
+  # СИНХРОН ГРАММАТИКИ БЫЛ ТОЛЬКО В CI — последний из четырёх пробелов,
+  # найденных сверкой шагов workflow с фазами цикла.
+  #
+  # Договор языка живёт в ОДНОМ файле — tools/lvn-lang/src/grammar.json, — а
+  # grammar.js из него генерируется. Отстань генерат, и редактор подсвечивает
+  # один язык, а компилятор разбирает другой.
+  #
+  # ГЕНЕРИРУЕМ В СТОРОНУ, А НЕ В ДЕРЕВО. Приём «сгенерировать поверх и сравнить»
+  # (так делает CI, где дерево одноразовое) здесь ВРЕДЕН дважды: он оставляет
+  # правки в рабочем дереве и, главное, ЧИНИТ вшитую копию расширения — а её
+  # побайтово сторожит отдельный тест. Запусти генератор до него, и страж
+  # увидит согласие, которое сам же прогон и навёл. Замерено: испорченная на
+  # один пробел копия после генератора стала неотличима от источника.
+  if [ -f "$REPO_ROOT/tools/lvn-lang/scripts/gen.mjs" ] && command -v node >/dev/null 2>&1; then
+    GTMP="$(mktemp -d)"
+    mkdir -p "$GTMP/tools/vscode-lvn/lib"
+    cp -R "$REPO_ROOT/tools/lvn-lang" "$GTMP/tools/lvn-lang"
+    cp -R "$REPO_ROOT/tools/vscode-lvn/lib/lvn-lang" "$GTMP/tools/vscode-lvn/lib/lvn-lang"
+    if (cd "$GTMP/tools/lvn-lang" && node scripts/gen.mjs >/dev/null 2>&1); then
+      gdiff=""
+      for rel in tools/lvn-lang/src/grammar.js tools/vscode-lvn/lib/lvn-lang/grammar.js \
+                 tools/vscode-lvn/lib/lvn-lang/grammar.json; do
+        cmp -s "$GTMP/$rel" "$REPO_ROOT/$rel" || gdiff="$gdiff $rel"
+      done
+      if [ -z "$gdiff" ]; then
+        log "грамматика: генерат в синхроне с источником"
+      else
+        log "FAIL: генерат грамматики отстал —$gdiff — (cd tools/lvn-lang && npm run gen) и закоммитьте"
+        fail=1
+      fi
+    else
+      log "WARN: генератор грамматики не отработал — синхрон не проверен"
+    fi
+    rm -rf "$GTMP"
+  fi
+
   log "node: грамматика"
   gram="$OUT/node-grammar.log"
   (cd "$REPO_ROOT/tools/lvn-lang" && node --test >"$gram" 2>&1) \
