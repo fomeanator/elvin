@@ -120,7 +120,7 @@ fi
 # сняты 02.09 (пропущенные тесты считаются: пол — про СУЩЕСТВОВАНИЕ проверки,
 # а не про её исполнение). Числа могут только расти.
 FLOOR_GO_tools_lvnconv=695
-FLOOR_GO_server=281
+FLOOR_GO_server=282
 FLOOR_NODE_PANEL=105
 FLOOR_NODE_GRAMMAR=31
 
