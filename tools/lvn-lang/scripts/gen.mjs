@@ -85,6 +85,13 @@ console.log("generated src/grammar.js from grammar.json");
 const vendored = join(root, "../vscode-lvn/lib/lvn-lang");
 if (existsSync(vendored)) {
   writeFileSync(join(vendored, "grammar.js"), out);
-  writeFileSync(join(vendored, "grammar.json"), readFileSync(join(root, "src/grammar.json"), "utf8"));
+  // ОБНОВЛЯЕТСЯ ВСЁ, ЧТО СВЕРЯЕТСЯ. Копировались только две грамматики, а
+  // рядом лежали analyze.js и index.js, перенесённые однажды руками: их не
+  // обновлял никто, и совпадали они по случайности. Страж теперь сверяет всё,
+  // у чего есть пара, — значит и обновлять надо всё, иначе он будет краснеть
+  // на том, что нечем починить.
+  for (const name of ["grammar.json", "analyze.js", "index.js"]) {
+    writeFileSync(join(vendored, name), readFileSync(join(root, "src", name), "utf8"));
+  }
   console.log("updated tools/vscode-lvn/lib/lvn-lang from the same source");
 }
