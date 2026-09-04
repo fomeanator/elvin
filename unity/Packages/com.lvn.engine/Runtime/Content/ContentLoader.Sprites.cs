@@ -244,7 +244,33 @@ namespace Lvn.Content
                     if (bytes == null || bytes.Length == 0) return null;
                     sw.Restart();
                     tex = AssetMemory.Decode(bytes);
-                    if (tex == null) return null;
+                    if (tex == null)
+                    {
+                        // БИТОЕ НЕ ДОЛЖНО ЗАЛИПАТЬ — то же правило, что у
+                        // кодированного пути с 27.08, и та же причина.
+                        //
+                        // Кэш ассетов — файл на диске игрока, и он бывает
+                        // испорчен: обрыв на записи, склейка двух редакций у
+                        // докачки, сбой файловой системы. Прочитанный отсюда
+                        // мусор не декодится, а сам файл остаётся лежать — и
+                        // читается снова при каждом показе. У варианта арта
+                        // версии нет вовсе, значит ключ кэша постоянный: на
+                        // этом месте у игрока НАВСЕГДА пустота, и лечит только
+                        // переустановка. Замерено живым прогоном против
+                        // настоящего сервера (CacheSelfHealTests).
+                        //
+                        // Поэтому: выбрасываем байты и ходим за целыми РОВНО
+                        // ОДИН раз. Один — потому что второй промах означает
+                        // «сервер отдаёт непонятное», а это уже не наша порча,
+                        // и вечный круг запросов делу не поможет.
+                        LvnLog.Warn($"[lvn-content] {url}: байты не читаются — выбрасываю из кэша и качаю заново");
+                        DeleteCachedAsset(url);
+                        var fresh = await DownloadAssetBytes(url, ct);
+                        if (fresh == null || fresh.Length == 0) return null;
+                        sw.Restart();
+                        tex = AssetMemory.Decode(fresh);
+                        if (tex == null) return null;
+                    }
                 }
                 long decodeMs = sw.ElapsedMilliseconds;
                 // No platform pays full price for oversized art: phones must not
