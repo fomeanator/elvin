@@ -64,7 +64,7 @@ func TestКольцоСчитаетВесьПакет(t *testing.T) {
 	if !strings.Contains(src, "BatchClosedBytes") {
 		t.Fatalf("%s: нет счёта закрытых байт пакета — кольцу нечем мерить очередь", rel)
 	}
-	i := strings.Index(src, "public (int inflight, int batchTotal")
+	i := strings.Index(src, "public TransferSnapshot Transfers()")
 	if i < 0 {
 		t.Fatalf("%s: не найден Transfers() — страж потерял предмет охраны", rel)
 	}
@@ -72,8 +72,15 @@ func TestКольцоСчитаетВесьПакет(t *testing.T) {
 	if j := strings.Index(body, "\n        }"); j > 0 {
 		body = body[:j]
 	}
-	// ОБА слагаемых, а не одно: упоминания мало — принятое и ожидаемое
-	// должны расти вместе, иначе кольцо уедет за единицу или застынет.
+	// ПЛАН — ПЕРВЫЙ ОТВЕТ. Веса файлов известны из манифеста до первого байта,
+	// и знаменатель берётся оттуда: догадка «принято + 64 КБ × непочатые»
+	// занижала его на порядок и держала кольцо у полного (замер — 61,9 п.п.,
+	// qa/download-progress-check.sh).
+	if !strings.Contains(body, "exp = BatchPlannedBytes") {
+		t.Errorf("%s: в Transfers() доля считается не планом пакета.\n"+
+			"Кольцо снова уедет к полному на первых процентах.", rel)
+	}
+	// Догадка остаётся ЗАПАСНОЙ веткой — для пакетов, чьих весов никто не дал.
 	for _, want := range []string{"rec += BatchClosedBytes", "exp += BatchClosedBytes"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("%s: в Transfers() нет «%s».\n"+

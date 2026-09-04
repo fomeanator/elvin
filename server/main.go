@@ -478,8 +478,42 @@ func (s *server) contentHandler(dir string) http.Handler {
 		} else {
 			w.Header().Set("Cache-Control", "public, max-age=604800, immutable")
 		}
+		// ЭТАГ — РАДИ ДОКАЧКИ, А НЕ РАДИ КЭША.
+		//
+		// Оборванная загрузка продолжается запросом «Range: bytes=N-». Если
+		// файл между двумя заходами заменили, клиент получает ХВОСТ НОВОЙ
+		// версии и приклеивает его к голове старой: замерено на живом сервере
+		// — 300 000 байт, из них 120 000 от прежней редакции и 180 000 от
+		// новой, и ни одна проверка этого не видит (qa/resume-integrity-check.sh).
+		//
+		// Лечит это «If-Range»: сервер сам решает, отдать хвост или файл
+		// целиком. Но условному запросу нужен СИЛЬНЫЙ валидатор, а FileServer
+		// своего ETag не ставит вовсе — оставалась дата с секундной точностью,
+		// которая двух правок в одну секунду не различает.
+		if etag := fileETag(dir, strings.TrimPrefix(r.URL.Path, "/content/")); etag != "" {
+			w.Header().Set("ETag", etag)
+		}
 		fs.ServeHTTP(w, r)
 	})
+}
+
+// fileETag — сильный валидатор файла: размер и время правки. Пустая строка,
+// если пути нет или он ведёт наружу дерева контента (тогда ответит сам
+// FileServer, и добавлять ему заголовок нечего).
+//
+// Сильный он потому, что этого требует «If-Range»: со слабым валидатором
+// сервер обязан игнорировать условие и отдать хвост — то есть ровно то, от
+// чего мы защищаемся.
+func fileETag(dir, rel string) string {
+	if rel == "" || hasDotSegment(rel) {
+		return ""
+	}
+	clean := filepath.Clean("/" + filepath.FromSlash(rel))[1:]
+	info, err := os.Stat(filepath.Join(dir, clean))
+	if err != nil || info.IsDir() {
+		return ""
+	}
+	return fmt.Sprintf("\"%x-%x\"", info.Size(), info.ModTime().UnixNano())
 }
 
 // hasDotSegment reports whether any path segment starts with a dot. Nothing a
