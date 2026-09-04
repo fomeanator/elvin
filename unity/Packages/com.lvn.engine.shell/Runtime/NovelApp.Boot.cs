@@ -730,6 +730,15 @@ namespace Lvn.UI.Screens
         private async Task<bool> AdoptManifestAsync(LvnManifest manifest)
         {
             if (manifest == null) return false;
+            // ПУСТОЙ КАТАЛОГ ПОВЕРХ НЕПУСТОГО НЕ ПРИНИМАЕТСЯ — ни на экраны,
+            // ни в офлайновую копию. Почему именно так, с числами и замером, —
+            // у правила (NovelApp.Manifest: EmptyOverNonEmpty).
+            if (EmptyOverNonEmpty(manifest))
+            {
+                LvnLog.Warn("[lvn-app] живое обновление принесло пустой каталог — не принимаю, "
+                          + "витрина и офлайновая копия остаются прежними");
+                return false;
+            }
             // ВАЖЕН ТОЛЬКО САМЫЙ НОВЫЙ КАТАЛОГ.
             //
             // Поводов принять его два — «сервер сказал, что контент сменился» и

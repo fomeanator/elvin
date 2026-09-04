@@ -171,9 +171,41 @@ namespace Lvn.UI.Screens
                 }
             }
         }
+        /// <summary>
+        /// ПУСТОЙ КАТАЛОГ ПОВЕРХ НЕПУСТОГО — ЭТО НЕ НОВОСТЬ, А АВАРИЯ.
+        ///
+        /// <para>Сервер, у которого манифест пропал или не читается, отвечает не
+        /// ошибкой, а <c>200 {"titles":[]}</c>: «свежая установка ещё ничего не
+        /// опубликовала» и «выкладка сломалась» выглядят с провода одинаково
+        /// (замерено живым сервером, qa/empty-manifest-check.sh). Кривая
+        /// выкладка, записавшая пустой манифест, — тот же случай.</para>
+        ///
+        /// <para>Для игрока разница огромна: принять такой каталог значит не
+        /// только показать пустую витрину, но и ЗАТЕРЕТЬ офлайновую копию —
+        /// после чего пустой станет и игра без сети. Замерено живым прогоном
+        /// (CatalogGuardTests): офлайновая копия действительно затиралась.</para>
+        ///
+        /// <para>Правило поэтому простое: пустой каталог принимается ТОЛЬКО
+        /// когда своего ещё нет. Настоящее «автор снял всё с публикации» от
+        /// аварии не отличить, и выбор здесь в пользу игрока: он теряет не
+        /// библиотеку, а несколько минут актуальности.</para>
+        /// </summary>
+        private static bool EmptyOverNonEmpty(LvnManifest fresh)
+        {
+            if (fresh?.titles != null && fresh.titles.Count > 0) return false;
+            var cached = LoadCachedManifest();
+            return cached?.titles != null && cached.titles.Count > 0;
+        }
+
         private static void CacheManifest(LvnManifest m)
         {
             if (m == null) return;
+            if (EmptyOverNonEmpty(m))
+            {
+                LvnLog.Warn("[lvn-app] сервер отдал пустой каталог, а свой не пуст — "
+                          + "офлайновая копия сохранена (похоже на сломанную выкладку)");
+                return;
+            }
             try
             {
                 LvnKeep.Put(ManifestCacheKey, Newtonsoft.Json.JsonConvert.SerializeObject(m));
