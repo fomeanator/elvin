@@ -437,8 +437,19 @@ const verCacheTTL = 2 * time.Second
 func (s *server) handleManifest(w http.ResponseWriter, r *http.Request) {
 	data, err := os.ReadFile(filepath.Join(s.content, "manifest.json"))
 	if err != nil {
-		// A fresh install has no manifest yet — return an empty one, not a 500.
-		writeJSON(w, http.StatusOK, map[string]any{"titles": []any{}})
+		// СВЕЖАЯ УСТАНОВКА И СЛОМАННАЯ ВЫКЛАДКА — РАЗНЫЕ ОТВЕТЫ.
+		//
+		// Пустой каталог законен ровно в одном случае: публиковать ещё нечего,
+		// файла нет. Файл, который ЕСТЬ, но не читается (права, полудописанная
+		// выкладка, сбой диска), — это наша беда, и отвечать на неё «игр нет»
+		// значит рассказать игроку про пустую библиотеку. Замерено: до этой
+		// правки оба случая давали 200 и пустой каталог.
+		if os.IsNotExist(err) {
+			writeJSON(w, http.StatusOK, map[string]any{"titles": []any{}})
+			return
+		}
+		log.Printf("manifest unreadable: %v", err)
+		http.Error(w, "manifest unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
