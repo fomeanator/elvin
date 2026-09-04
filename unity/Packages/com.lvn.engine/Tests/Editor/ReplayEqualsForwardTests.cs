@@ -88,7 +88,10 @@ namespace Lvn.Tests
                     var id = (string)c["id"];
                     if (string.IsNullOrEmpty(id)) continue;
                     // show отсутствует — команда меняет облик, не присутствие.
-                    bool? show = c["show"] != null ? (bool?)c["show"] : null;
+                    // Читаем СЛОВАРЁМ, а не приведением: `show=no` доезжает
+                    // строкой, и приведение молча оставило бы скрытого в кадре
+                    // (страж TestNobodyCastsShowToBool ловит именно это).
+                    bool? show = LvnBool.Parse(c["show"]);
                     actors.TryGetValue(id, out var prev);
                     bool visible = show ?? (prev != null && prev.StartsWith("+"));
                     var axes = c["axes"]?.ToString(Newtonsoft.Json.Formatting.None)
