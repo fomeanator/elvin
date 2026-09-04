@@ -279,3 +279,85 @@ func TestGateReportsMissingAssets(t *testing.T) {
 		}
 	}
 }
+
+// ИМЯ ФАЙЛА СВЕРЯЕТСЯ С ДИСКОМ, А НЕ С УДАЧЕЙ ФАЙЛОВОЙ СИСТЕМЫ.
+//
+// Контент собирают на маке (и на Windows), а раздаёт его Linux. Там, где у
+// автора `Room.png` спокойно открывает `room.png`, у игрока приходит 404 и
+// пустой экран. Пока гейт спрашивал существование через os.Stat, он молчал
+// ровно на той машине, где автор ещё мог всё исправить, и говорил только на
+// проде — то есть после выкладки. Замерено стендом qa/asset-case-check.sh:
+// одна и та же публикация даёт предупреждение на регистрозависимом томе и
+// не даёт на обычном.
+//
+// Тот же счёт форме юникода: «ё» одним знаком и «е» с надстрочным — разные
+// имена для Linux и одно для macOS.
+func TestGateCatchesNameMismatchOnAnyFilesystem(t *testing.T) {
+	dir := t.TempDir()
+	content := filepath.Join(dir, "content")
+	if err := os.MkdirAll(filepath.Join(content, "bg"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// На диске — точные имена: строчное латинское и «ёлка» одним знаком (NFC).
+	for _, name := range []string{"room.png", "\u0451\u043b\u043a\u0430.png"} {
+		if err := os.WriteFile(filepath.Join(content, "bg", name), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Прощает ли файловая система стенда регистр — от этого зависит не наличие
+	// предупреждения, а его текст: где файл открывается, гейт обязан назвать
+	// настоящее имя; где нет — сказать, что файла нет.
+	_, err := os.Stat(filepath.Join(content, "bg", "Room.png"))
+	caseBlind := err == nil
+
+	s := &server{content: content}
+	doc := []byte(`{"scene":"t","script":[
+		{"op":"bg","sprite_url":"/content/bg/Room.png"},
+		{"op":"bg","sprite_url":"/content/bg/\u0435\u0308\u043b\u043a\u0430.png"}
+	]}`)
+	f := s.checkLvn("scripts/t.lvn", doc)
+	if f.blocked() {
+		t.Fatalf("расхождение имени не блокирует запись (арт зальют завтра): %v", f.Errors)
+	}
+	if len(f.Warnings) != 2 {
+		t.Fatalf("ожидались два предупреждения (регистр и форма юникода), получено %d: %v",
+			len(f.Warnings), f.Warnings)
+	}
+	for _, w := range f.Warnings {
+		said := strings.Contains(w, "имя файла разошлось") || strings.Contains(w, "файла нет")
+		if !said {
+			t.Errorf("предупреждение не про имя: %s", w)
+		}
+		if caseBlind && !strings.Contains(w, "имя файла разошлось") {
+			t.Errorf("на регистронезависимом томе гейт обязан назвать настоящее имя, а сказал: %s", w)
+		}
+	}
+	if caseBlind {
+		// Настоящее имя — половина пользы: без него автор ищет опечатку глазами.
+		if !strings.Contains(strings.Join(f.Warnings, " "), "/content/bg/room.png") {
+			t.Errorf("гейт не назвал имя, под которым файл лежит на диске: %v", f.Warnings)
+		}
+	}
+	t.Logf("регистронезависимая файловая система: %v; предупреждения: %v", caseBlind, f.Warnings)
+}
+
+// ТОЧНОЕ ИМЯ НЕ ДОЛЖНО ПУГАТЬ АВТОРА. Посегментная сверка проходит по
+// каталогам, и кириллица с вложенностью — обычный для нас случай: ложное
+// «имя разошлось» на здоровом контенте стоило бы дороже пропущенного.
+func TestGateStaysQuietOnExactNames(t *testing.T) {
+	dir := t.TempDir()
+	deep := filepath.Join(dir, "content", "sprites", "\u0413\u0435\u0440\u043e\u0438\u043d\u044f")
+	if err := os.MkdirAll(deep, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(deep, "\u0438\u0434\u043b\u0435.png"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := &server{content: filepath.Join(dir, "content")}
+	doc := []byte(`{"scene":"t","script":[
+		{"op":"actor","id":"a","sprite_url":"/content/sprites/\u0413\u0435\u0440\u043e\u0438\u043d\u044f/\u0438\u0434\u043b\u0435.png"}
+	]}`)
+	if f := s.checkLvn("scripts/t.lvn", doc); len(f.Warnings) != 0 || f.blocked() {
+		t.Fatalf("точная ссылка вызвала жалобу: errors=%v warnings=%v", f.Errors, f.Warnings)
+	}
+}
