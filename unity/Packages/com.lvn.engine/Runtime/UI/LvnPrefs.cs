@@ -24,25 +24,37 @@ namespace Lvn.UI
         private static bool _autoAdvance, _reduceMotion, _skipReadOnly;
         private static bool _soundOn = true;
 
+        /// <summary>Перечитать настройки из книжки. Дверь для испытаний: в игре
+        /// они читаются один раз за запуск, а проверке нужно подсунуть значения
+        /// «прежней сборки» и посмотреть, что эта с ними сделает.</summary>
+        internal static void Reload()
+        {
+            _loaded = false;
+            EnsureLoaded();
+        }
+
         private static void EnsureLoaded()
         {
             if (_loaded) return;
             _loaded = true;
-            _textSpeed = LvnKeep.Get(P + "text_speed", 1f);
+            _textSpeed = Mathf.Clamp(LvnKeep.Get(P + "text_speed", 1f),
+                LvnSettingsCatalog.TextSpeedMin, LvnSettingsCatalog.TextSpeedMax);
             _autoAdvance = LvnKeep.Get(P + "auto_advance", 0) == 1;
-            _autoDelayScale = LvnKeep.Get(P + "auto_delay", 1f);
-            _volMusic = LvnKeep.Get(P + "vol_music", 1f);
-            _volAmbient = LvnKeep.Get(P + "vol_ambient", 1f);
-            _volSfx = LvnKeep.Get(P + "vol_sfx", 1f);
-            _volVoice = LvnKeep.Get(P + "vol_voice", 1f);
+            _autoDelayScale = Mathf.Clamp(LvnKeep.Get(P + "auto_delay", 1f),
+                LvnSettingsCatalog.AutoDelayMin, LvnSettingsCatalog.AutoDelayMax);
+            _volMusic = Mathf.Clamp01(LvnKeep.Get(P + "vol_music", 1f));
+            _volAmbient = Mathf.Clamp01(LvnKeep.Get(P + "vol_ambient", 1f));
+            _volSfx = Mathf.Clamp01(LvnKeep.Get(P + "vol_sfx", 1f));
+            _volVoice = Mathf.Clamp01(LvnKeep.Get(P + "vol_voice", 1f));
             _reduceMotion = LvnKeep.Get(P + "reduce_motion", 0) == 1;
             _skipReadOnly = LvnKeep.Get(P + "skip_read_only", 0) == 1;
-            _dialogOpacity = LvnKeep.Get(P + "dialog_opacity", 1f);
-            _textScale = LvnKeep.Get(P + "text_scale", 1f);
-            _uiScale = LvnKeep.Get(P + "ui_scale", 1f);
+            _dialogOpacity = Mathf.Clamp(LvnKeep.Get(P + "dialog_opacity", 1f),
+                LvnSettingsCatalog.BoxOpacityMin, LvnSettingsCatalog.BoxOpacityMax);
+            _textScale = LvnKnobs.ClampScale(LvnKeep.Get(P + "text_scale", 1f));
+            _uiScale = LvnKnobs.ClampScale(LvnKeep.Get(P + "ui_scale", 1f));
             _fontFamily = LvnKeep.Get(P + "font_family", "");
-            _textWeight = LvnKeep.Get(P + "text_weight", 0f);
-            _uiWeight = LvnKeep.Get(P + "ui_weight", 0f);
+            _textWeight = Mathf.Clamp(LvnKeep.Get(P + "text_weight", 0f), -1f, 1f);
+            _uiWeight = Mathf.Clamp(LvnKeep.Get(P + "ui_weight", 0f), -1f, 1f);
             _soundOn = LvnKeep.Get(P + "sound_on", 1) == 1;
             _locale = LvnKeep.Get(P + "locale", "");
             _artQuality = LvnKeep.Get(P + "art_quality", "");
@@ -51,6 +63,24 @@ namespace Lvn.UI
             _menuTrack = LvnKeep.Get(P + "menu_track", "");
             _menuFavorite = LvnKeep.Get(P + "menu_favorite", "");
             _targetFps = LvnKeep.Get(P + "target_fps", 60) == 30 ? 30 : 60;
+
+            // ЧИТАЕМ ЧУЖУЮ СБОРКУ. Настройки пишутся через ручки, а ручки
+            // зажимают значение пределами каталога — но пределы принадлежат
+            // СБОРКЕ и меняются вместе с ней, а число лежит на устройстве с
+            // прошлого раза. Замер 05.09: значения прежней сборки читались как
+            // есть — прозрачность окна 0 (окно диалога исчезает, текст висит на
+            // голом фоне), масштаб текста 100 (интерфейс нечитаем), громкость
+            // −5. Из такого состояния игрок не выберется: настройки открываются
+            // тем же интерфейсом, который сломан. Поэтому зажим стоит ПРЯМО В
+            // ЧТЕНИИ выше — теми же пределами, что и на записи.
+            //
+            // Ступень качества, которой в этой сборке нет, игру не роняет, но
+            // означает промах мимо варианта на КАЖДОМ ассете (сервер отвечает
+            // 404, клиент берёт оригинал). Пустая строка значит «выбери по
+            // экрану» — честное умолчание.
+            if (_artQuality != "" && _artQuality != "2k" && _artQuality != "1440" && _artQuality != "1k")
+                _artQuality = "";
+
             TypewriterClock.UserSpeedMultiplier = _textSpeed;
         }
 
