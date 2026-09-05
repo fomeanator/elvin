@@ -55,9 +55,60 @@ namespace Lvn
             // Пока играет ТОТ ЖЕ человек, ключи прежние — ни одна существующая
             // запись не переезжает и не теряется. Чужой аккаунт получает своё
             // пространство приставкой.
-            if (string.IsNullOrEmpty(_owner) || _owner == первый) return prefix + name;
-            return prefix + _owner + "." + name;
+            var key = (string.IsNullOrEmpty(_owner) || _owner == первый)
+                ? prefix + name
+                : prefix + _owner + "." + name;
+            Note(key);
+            return key;
         }
+
+        /// <summary>
+        /// РЕЕСТР ЛИЧНЫХ КЛЮЧЕЙ — чтобы «удалите меня» можно было исполнить.
+        ///
+        /// <para>Записная книжка устройства не умеет перечислять то, что в ней
+        /// лежит: ключи можно только спрашивать по имени. Пока это никого не
+        /// беспокоило, но у кнопки «удалить аккаунт» половина работы — на
+        /// телефоне: сохранения, прогресс, галерея, «прочитано». Замер 05.09:
+        /// сервер стирал свою половину честно, а на устройстве оставалось всё.
+        /// Поэтому книжка запоминает, какие личные ключи выдавала, — и по этому
+        /// списку умеет забыть игрока целиком.</para>
+        ///
+        /// <para>Список хранится рядом с данными и переживает перезапуск: иначе
+        /// удаление после перезапуска стирало бы только то, к чему игра успела
+        /// обратиться в этой сессии.</para>
+        /// </summary>
+        private static void Note(string key)
+        {
+            if (_known == null) LoadKnown();
+            if (!_known.Add(key)) return;
+            Jot(PKeys, string.Join("\n", _known));
+        }
+
+        private static void LoadKnown()
+        {
+            _known = new System.Collections.Generic.HashSet<string>();
+            var raw = Get(PKeys, "");
+            if (string.IsNullOrEmpty(raw)) return;
+            foreach (var k in raw.Split('\n'))
+                if (!string.IsNullOrEmpty(k)) _known.Add(k);
+        }
+
+        /// <summary>Забыть ВСЕ личные данные, выданные книжкой: сохранения,
+        /// прогресс, галерею, прочитанное, статы. Настройки устройства (язык,
+        /// громкость, размер шрифта) не трогает — они не про игрока.</summary>
+        public static void ForgetPlayerData()
+        {
+            if (_known == null) LoadKnown();
+            using (Batch())
+            {
+                foreach (var k in _known) Drop(k);
+                Drop(PKeys);
+            }
+            _known.Clear();
+        }
+
+        private static System.Collections.Generic.HashSet<string> _known;
+        private const string PKeys = "lvn.local.keys";
 
         /// <summary>
         /// ЧЬИ ЭТО ДАННЫЕ. Сохранения, прогресс, галерея, прочитанное и статы
