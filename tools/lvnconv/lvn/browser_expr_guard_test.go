@@ -1,6 +1,7 @@
 package lvn
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -288,9 +289,17 @@ func TestBrowserPlayerPlaysTheCorpus(t *testing.T) {
 	if err := os.WriteFile(casesPath, payload, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	out, err := exec.Command(node, runner, core, casesPath).CombinedOutput()
+	// ОТВЕТ ЧИТАЕМ СО СТАНДАРТНОГО ВЫВОДА, А ЖАЛОБЫ — ОТДЕЛЬНО. Плеер вправе
+	// предупреждать (например «в этом выборе ни один вариант не доступен —
+	// иду дальше»), и такие строки идут в stderr. Смешанный поток ломал разбор
+	// JSON, то есть законное предупреждение роняло сверку — а показать его при
+	// разборе всё равно надо, иначе искать причину не по чему.
+	cmd := exec.Command(node, runner, core, casesPath)
+	var errBuf bytes.Buffer
+	cmd.Stderr = &errBuf
+	out, err := cmd.Output()
 	if err != nil {
-		t.Fatalf("node не смог прогнать корпус: %v\n%s", err, out)
+		t.Fatalf("node не смог прогнать корпус: %v\n%s\n%s", err, out, errBuf.String())
 	}
 	var got []struct {
 		ID     string           `json:"id"`

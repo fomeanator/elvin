@@ -889,6 +889,29 @@ func ValidateExt(d *Doc, ext *ExtGrammar) []Issue {
 			} else if c["timeout"] != nil {
 				addWarn(i, op, "timeout without timeout_goto — nowhere to go when time runs out")
 			}
+			// ВЫБОР, У КОТОРОГО ВСЕ ВАРИАНТЫ УСЛОВНЫЕ. Порог стата и выражение
+			// прячут вариант целиком — не «серым», а совсем, — и если условны
+			// ВСЕ, найдётся набор статов, при котором игроку не покажут ни
+			// одной кнопки. Рантайм с 05.09 в такой выбор не встаёт (идёт
+			// дальше и пишет в журнал), но для автора это всё равно дыра в
+			// истории: развилка, которая молча исчезает. Единственный
+			// безусловный вариант — «Уйти», «Промолчать» — закрывает её.
+			gated := 0
+			for _, o := range opts {
+				om, ok := o.(map[string]any)
+				if !ok {
+					continue
+				}
+				oc := Cmd(om)
+				if oc.Str("requires_stat") != "" || oc.Str("expr") != "" {
+					gated++
+				}
+			}
+			if len(opts) > 0 && gated == len(opts) {
+				addWarn(i, op, fmt.Sprintf(
+					"все %d варианта(ов) закрыты условием — при неподходящих статах игрок не увидит ни одной кнопки; "+
+						"добавьте безусловный вариант («Уйти», «Промолчать»)", len(opts)))
+			}
 			for oi, o := range opts {
 				om, ok := o.(map[string]any)
 				if !ok {

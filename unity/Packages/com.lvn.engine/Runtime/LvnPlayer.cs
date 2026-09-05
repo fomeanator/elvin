@@ -526,23 +526,53 @@ namespace Lvn
                         break;
 
                     case "choice":
-                        // A choice directly after a say is the same beat (the line
-                        // and its options show together) — the say already pushed.
-                        bool paired = _ip > 0 && _script[_ip - 1] is JObject prevCmd
-                                      && (string)prevCmd["op"] == "say"
-                                      && !IsLegacyHintSpeaker(TextInterpolation.Apply(
-                                          LocalizedWho((string)prevCmd["who"]), Vars));
-                        if (!paired) PushHistory();
                         {
                             var built = BuildOptions(c);
-                            _stage.ShowChoice(built);
-                            _choiceShownAt = LvnClock.Now();
                             // В сценарии вариантов может быть больше, чем игрок
                             // увидит: закрытые гейтом до показа не доходят
                             // вовсе. Разница «написано три, доступен один» и
                             // есть ощущение развилки — считаем оба числа.
                             int written = (c["options"] as JArray)?.Count ?? 0;
-                            try { ChoiceShown?.Invoke(written, built?.Count ?? 0, _ip); }
+
+                            // НИ ОДНОГО ВАРИАНТА — НЕ ВСТАЁМ.
+                            //
+                            // Если все варианты закрыты порогом стата или
+                            // условием, показывать нечего, и прежний код всё
+                            // равно показывал: пустую стопку и ожидание выбора,
+                            // которого игрок сделать не может. Замер 05.09:
+                            // «choice:0», AtChoice=true, и каждый следующий тап
+                            // снова «choice:0» — глава стояла навсегда, выход
+                            // только через меню.
+                            //
+                            // Идём дальше по скрипту: это единственный шаг, не
+                            // теряющий игрока и не требующий от автора нового
+                            // синтаксиса. Автор узнаёт об этом строкой в
+                            // журнале и числом в телеметрии (написано N,
+                            // показано 0), а инструмент предупреждает ещё на
+                            // публикации (lvnconv validate).
+                            if (built.Count == 0)
+                            {
+                                try { ChoiceShown?.Invoke(written, 0, _ip); }
+                                catch { /* телеметрия не смеет ронять главу */ }
+                                Log?.Invoke($"    [выбор] ни один из {written} вариантов не прошёл условие — иду дальше");
+                                Warn?.Invoke($"[lvn-player] выбор на шаге {_ip}: ни один из {written} "
+                                           + "вариантов не доступен при текущих статах — играть было бы нечем, "
+                                           + "продолжаю со следующей команды");
+                                _ip++;
+                                break;
+                            }
+
+                            // A choice directly after a say is the same beat (the
+                            // line and its options show together) — the say
+                            // already pushed.
+                            bool paired = _ip > 0 && _script[_ip - 1] is JObject prevCmd
+                                          && (string)prevCmd["op"] == "say"
+                                          && !IsLegacyHintSpeaker(TextInterpolation.Apply(
+                                              LocalizedWho((string)prevCmd["who"]), Vars));
+                            if (!paired) PushHistory();
+                            _stage.ShowChoice(built);
+                            _choiceShownAt = LvnClock.Now();
+                            try { ChoiceShown?.Invoke(written, built.Count, _ip); }
                             catch { /* телеметрия не смеет ронять главу */ }
                         }
                         return;

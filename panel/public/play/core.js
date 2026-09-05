@@ -236,7 +236,8 @@ export class Player {
           const text = interpolate(c.text, this.vars);
           this.ip++;
           // A choice directly after shows together with its prompt line.
-          if (this.ip < this.script.length && this.script[this.ip].op === "choice") {
+          if (this.ip < this.script.length && this.script[this.ip].op === "choice"
+              && this.visibleOptions(this.script[this.ip]).length > 0) {
             const ch = this.pauseChoice(this.script[this.ip]);
             ch.who = who; ch.text = text; ch.style = c.style;
             return ch;
@@ -244,6 +245,18 @@ export class Player {
           return { type: "say", who, text, style: c.style };
         }
         case "choice":
+          // НИ ОДНОГО ВАРИАНТА — НЕ ВСТАЁМ. Все закрыты порогом стата или
+          // условием: показывать нечего, а прежний код всё равно показывал —
+          // пустую стопку и ожидание выбора, которого игрок сделать не может.
+          // Тот же закон, что и в LvnPlayer: идём дальше по скрипту.
+          if (this.visibleOptions(c).length === 0) {
+            if (typeof console !== "undefined" && console.warn) {
+              console.warn(`[lvn-play] выбор на шаге ${this.ip}: ни один из ` +
+                           `${(c.options || []).length} вариантов не доступен — иду дальше`);
+            }
+            this.ip++;
+            break;
+          }
           this.pausedIp = this.ip;
           return this.pauseChoice(c);
         case "input":
@@ -272,6 +285,18 @@ export class Player {
 
   pauseChoice(c) {
     this._choice = c;
+    const options = this.visibleOptions(c);
+    return {
+      type: "choice",
+      options,
+      timeout: typeof c.timeout === "number" ? c.timeout : 0,
+      hasTimeoutBranch: !!c.timeout_goto,
+    };
+  }
+
+  /** Варианты, прошедшие условие: порог стата и выражение. Пустой список
+   *  значит «показывать нечего» — см. case "choice" в advance(). */
+  visibleOptions(c) {
     const options = [];
     (c.options || []).forEach((o, i) => {
       if (o.expr !== undefined && o.expr !== "") {
@@ -289,12 +314,7 @@ export class Player {
       }
       options.push({ index: i, text: interpolate(o.text, this.vars), cost: o.cost });
     });
-    return {
-      type: "choice",
-      options,
-      timeout: typeof c.timeout === "number" ? c.timeout : 0,
-      hasTimeoutBranch: !!c.timeout_goto,
-    };
+    return options;
   }
 
   /** Resolve a shown choice by the option's original index. */

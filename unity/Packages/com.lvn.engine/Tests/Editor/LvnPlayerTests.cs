@@ -85,22 +85,30 @@ namespace Lvn.Tests
         [Test]
         public void OnceOnlyOptionFiltersAfterChosen()
         {
+            // Рядом с одноразовым вариантом стоит безусловный «уйти»: без него
+            // второй заход оставлял выбор ВОВСЕ без вариантов, и проверка
+            // закрепляла ровно тот тупик, из которого игрок не выбирался
+            // (см. DeadEndChoiceTests и «Игрок не застревает навсегда» в
+            // docs/world-position.md). Смысл проверки — фильтрация после
+            // выбора — от соседа не страдает.
             var json = @"{""script"":[
                 {""op"":""label"",""id"":""hub""},
                 {""op"":""choice"",""options"":[
                     {""text"":""once"",""expr"":""__o == 0"",""body"":[
                         {""op"":""set"",""key"":""__o"",""value"":1},
-                        {""op"":""goto"",""label"":""hub""}]}
+                        {""op"":""goto"",""label"":""hub""}]},
+                    {""text"":""уйти"",""goto"":""__end""}
                 ]}
             ]}";
             var p = Play(json, out var stage);
 
             p.Advance();
-            Assert.AreEqual(1, stage.Options.Count, "first visit: option visible");
+            Assert.AreEqual(2, stage.Options.Count, "first visit: option visible");
 
             p.Choose(stage.Options[0].Index);
             p.Advance();
-            Assert.AreEqual(0, stage.Options.Count, "after choosing: gated out");
+            Assert.AreEqual(1, stage.Options.Count, "after choosing: gated out");
+            Assert.AreEqual("уйти", stage.Options[0].Text, "остаться должен безусловный вариант");
         }
 
         [Test]
