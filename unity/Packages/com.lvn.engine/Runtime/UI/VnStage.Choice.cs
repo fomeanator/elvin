@@ -57,6 +57,14 @@ namespace Lvn.UI
             NotifyUiStage();
             ChoicesVisibleChanged?.Invoke(visible);
         }
+        // Что уже оплачено в ЭТОЙ главе: «индекс развилки:номер варианта».
+        // Живёт вне снимков (иначе откат унёс бы отметку) и до конца главы —
+        // новую главу начинают с чистого счёта.
+        private readonly System.Collections.Generic.HashSet<string> _paidChoices
+            = new System.Collections.Generic.HashSet<string>();
+
+        private string PaidKey(LvnOption o) => (_player?.Index ?? -1) + ":" + o.Index;
+
         private void OnChoiceSelected(int index)
         {
             if (_choiceCommitInFlight) return;
@@ -68,8 +76,18 @@ namespace Lvn.UI
 
             // A wallet-priced option must clear the spend BEFORE it consumes the
             // choice — a refused spend leaves the menu up (nothing advanced).
+            //
+            // ЗА ОДНУ ВЕТКУ ПЛАТЯТ ОДИН РАЗ. Откат («назад») возвращает игрока
+            // на развилку вместе с деньгами на счету — но НЕ вместе с уже
+            // купленной веткой: замер 05.09 показал два списания за один и тот
+            // же вариант (откатился, ткнул тот же — заплатил снова). То же
+            // самое выходило и без отката: ушёл в даровую ветку, вернулся,
+            // выбрал платную ещё раз. Оплаченное в этой главе помним отдельно
+            // от откатываемого состояния — иначе откат стирал бы и память об
+            // оплате, ради которой она заведена.
             if (found && !string.IsNullOrEmpty(picked.WalletCurrency)
-                && picked.WalletAmount > 0 && ChoiceSpend != null)
+                && picked.WalletAmount > 0 && ChoiceSpend != null
+                && !_paidChoices.Contains(PaidKey(picked)))
             {
                 // ВЫБОР ЗАНЯТ УЖЕ СЕЙЧАС, а не после ответа кошелька. Поход за
                 // деньгами идёт через сеть, и без этой пометки второе нажатие
@@ -99,6 +117,7 @@ namespace Lvn.UI
                 PaintChoiceEnabled();   // симметрично отказу ниже: стопка не остаётся погашенной
                 return;
             }
+            if (paid) _paidChoices.Add(PaidKey(picked));
             if (!paid)
             {
                 // Слово авторское: фраза была вписана в движок по-русски, и
