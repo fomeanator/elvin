@@ -15,11 +15,34 @@ namespace Lvn.UI
     /// </summary>
     public static class LvnReadStore
     {
+        static LvnReadStore()
+        {
+            // Уход в фон — самый частый способ закрыть игру на телефоне, и
+            // накопленное между фиксациями обязано уехать в книжку ВМЕСТЕ с
+            // ней. Без этой подписки экономия на горячем пути обернулась бы
+            // потерей нескольких последних отметок — того самого, что она
+            // экономить не должна.
+            Application.focusChanged += focused => { if (!focused) FlushNow(); };
+            Application.quitting += FlushNow;
+        }
+
         private static string Key(string titleId) => LvnKeep.Scoped("lvn.read.", titleId);
 
         // One live set per title; loaded lazily, written back coalesced.
         private static readonly Dictionary<string, HashSet<ulong>> _cache
             = new Dictionary<string, HashSet<ulong>>();
+        // ГОТОВАЯ СТРОКА РЯДОМ С НАБОРОМ — и это не кэш ради кэша.
+        //
+        // Строка собиралась заново ИЗ ВСЕГО набора на каждой прочитанной
+        // реплике, а набор растёт по всей новелле, а не по главе. Замер 05.09:
+        // 1000 реплик — 1206 мс, 3000 — 4070 мс, 9000 — 17756 мс, то есть от
+        // 1,2 до 2,0 мс на КАЖДЫЙ тап, на маке с SSD; на телефоне дороже.
+        // Теперь новый хэш дописывается в хвост (амортизированно постоянная
+        // цена), а в записную книжку строка уходит вместе с фиксацией — раз в
+        // SaveEvery реплик, а не каждую.
+        private static readonly Dictionary<string, System.Text.StringBuilder> _text
+            = new Dictionary<string, System.Text.StringBuilder>();
+        private static readonly HashSet<string> _dirty = new HashSet<string>();
         private static int _sinceSave;
         private const int SaveEvery = 10; // реплик между фиксациями карандаша
 
@@ -50,6 +73,8 @@ namespace Lvn.UI
                     if (ulong.TryParse(part, System.Globalization.NumberStyles.HexNumber, null, out var v))
                         set.Add(v);
             _cache[key] = set;
+            var sb = new System.Text.StringBuilder(raw ?? "");
+            _text[key] = sb;
             return set;
         }
 
@@ -63,21 +88,33 @@ namespace Lvn.UI
         {
             var set = Load(titleId);
             if (!set.Add(Hash(who, text))) return false;
-            var sb = new System.Text.StringBuilder(set.Count * 17);
-            foreach (var v in set)
-            {
-                if (sb.Length > 0) sb.Append(',');
-                sb.Append(v.ToString("x"));
-            }
-            // Карандашом: реплика метится читанной на каждом клике, и полный
-            // флаш на каждую был бы кадром в самом горячем месте игры.
-            LvnKeep.Jot(Key(titleId), sb.ToString());
+            var key = Key(titleId);
+            var sb = _text[key];
+            if (sb.Length > 0) sb.Append(',');
+            sb.Append(Hash(who, text).ToString("x"));
+            _dirty.Add(key);
+            // Карандашом и НЕ КАЖДУЮ РЕПЛИКУ: строка со всем прочитанным
+            // отдаётся книжке вместе с фиксацией. Между фиксациями она живёт в
+            // памяти — ровно те же несколько реплик, которые и так объявлены
+            // допустимой потерей (SaveEvery), и ни одной больше.
             if (++_sinceSave >= SaveEvery)
             {
                 _sinceSave = 0;
+                WriteDirty();
                 LvnKeep.Flush();
             }
             return true;
+        }
+
+        /// <summary>Отдать книжке всё накопленное. Зовётся при фиксации и при
+        /// любом чтении наружу, которому нужна согласованность с диском.</summary>
+        private static void WriteDirty()
+        {
+            if (_dirty.Count == 0) return;
+            foreach (var key in _dirty)
+                if (_text.TryGetValue(key, out var sb))
+                    LvnKeep.Jot(key, sb.ToString());
+            _dirty.Clear();
         }
 
         /// <summary>How many distinct lines this title has recorded as read.</summary>
@@ -86,8 +123,19 @@ namespace Lvn.UI
         /// <summary>Forget a title's read history ("reset progress").</summary>
         public static void Clear(string titleId)
         {
-            _cache.Remove(Key(titleId));
-            LvnKeep.Drop(Key(titleId));
+            var key = Key(titleId);
+            _cache.Remove(key);
+            _text.Remove(key);
+            _dirty.Remove(key);
+            LvnKeep.Drop(key);
+        }
+
+        /// <summary>Немедленно записать накопленное — для хоста, который уходит
+        /// в фон или закрывается раньше, чем набежит SaveEvery.</summary>
+        public static void FlushNow()
+        {
+            WriteDirty();
+            LvnKeep.Flush();
         }
     }
 }
