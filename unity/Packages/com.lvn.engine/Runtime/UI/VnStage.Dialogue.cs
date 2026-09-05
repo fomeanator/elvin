@@ -425,7 +425,10 @@ namespace Lvn.UI
             // actors keep their (looping) animations running and bleed into the menu
             // or the next chapter. ResetStage stops coroutines, removes actors,
             // clears the background and FX.
-            ResetStage();
+            // Сцену прибираем, ЖУРНАЛ ОСТАВЛЯЕМ: глава дочитана, и «перечитать,
+            // что было» — обычное желание игрока именно в этот момент. Новая
+            // глава очистит журнал своим Play.
+            ResetStage(keepBacklog: true);
             _dialogue.SetSpeaker(null);
             _dialogue.SetText(string.Empty);
         }
