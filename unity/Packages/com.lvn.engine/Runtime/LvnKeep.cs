@@ -49,7 +49,43 @@ namespace Lvn
         /// <para>Здесь ответ один: нет имени — «default».</para>
         /// </summary>
         public static string Scoped(string prefix, string id)
-            => prefix + (string.IsNullOrEmpty(id) ? "default" : id);
+        {
+            var name = string.IsNullOrEmpty(id) ? "default" : id;
+            var первый = Get(POwner, "");
+            // Пока играет ТОТ ЖЕ человек, ключи прежние — ни одна существующая
+            // запись не переезжает и не теряется. Чужой аккаунт получает своё
+            // пространство приставкой.
+            if (string.IsNullOrEmpty(_owner) || _owner == первый) return prefix + name;
+            return prefix + _owner + "." + name;
+        }
+
+        /// <summary>
+        /// ЧЬИ ЭТО ДАННЫЕ. Сохранения, прогресс, галерея, прочитанное и статы
+        /// лежат на устройстве под именем новеллы — и только под ним.
+        ///
+        /// <para>Замер 05.09 на живом сервере: первый игрок сохранился, второй
+        /// вошёл СВОИМ аккаунтом на том же телефоне — и увидел чужой сейв и
+        /// чужое «прочитано» (кошелёк при этом сбросился правильно: у денег
+        /// такое правило было, у прохождения — нет). Дальше он продолжает чужую
+        /// главу и перезаписывает чужие слоты.</para>
+        ///
+        /// <para>Правило: ключи БЕЗ приставки принадлежат тому, кто вошёл здесь
+        /// первым, — поэтому у всех, кто уже играет, ничего не меняется и
+        /// ничего не переезжает. Любой другой аккаунт получает собственное
+        /// пространство, а вернувшийся первый — снова своё.</para>
+        /// </summary>
+        public static void NoteOwner(string userId)
+        {
+            _owner = userId ?? "";
+            if (string.IsNullOrEmpty(_owner)) return;
+            if (!Has(POwner)) Put(POwner, _owner);   // первый забирает прежние ключи
+        }
+
+        /// <summary>Кому принадлежат данные прямо сейчас (пусто — игра без входа).</summary>
+        public static string Owner => _owner;
+
+        private static string _owner = "";
+        private const string POwner = "lvn.local.owner";
         private static int _batch;      // глубина открытых пачек
         private static bool _pending;   // есть незафиксированное карандашное
 

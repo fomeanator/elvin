@@ -55,6 +55,7 @@ namespace Lvn.Services
                 LvnKeep.Put(PUser, resp.user_id);
             }
             LvnWallet.NoteUser(resp.user_id); // bind (or reset) the offline wallet to this account
+            Lvn.LvnKeep.NoteOwner(resp.user_id); // и всё прохождение на устройстве — тоже его
             SignedInChanged?.Invoke(resp.user_id);
             return true;
         }
@@ -100,6 +101,7 @@ namespace Lvn.Services
             // Cross-device recovery may have switched ACCOUNTS on this device —
             // the previous user's offline wallet must not leak into this one.
             LvnWallet.NoteUser(resp.user_id);
+            Lvn.LvnKeep.NoteOwner(resp.user_id); // чужие сейвы и «прочитано» этому игроку не принадлежат
             SignedInChanged?.Invoke(resp.user_id);
             return true;
         }
