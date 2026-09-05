@@ -258,6 +258,10 @@ namespace Lvn.UI
             _cast = SpriteComposer.ParseCast(doc.Cast);
             PrewarmGlyphs(doc); // rasterize the chapter's glyphs NOW, not mid-typewriter
             ResetStage();
+            // Оплаченные ветки — счёт ЭТОЙ главы. Чистится при её старте, а не
+            // в общей уборке сцены: уборку зовёт и откат, и там отметка обязана
+            // уцелеть — ради неё она и заведена.
+            _paidChoices.Clear();
             _player = new LvnPlayer(doc, this);
             _player.Strings = Strings; // localization catalog (text_id → string), if any
             if (SeedVars != null)      // carry stats in before the init defaults run
