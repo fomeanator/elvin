@@ -115,7 +115,26 @@ func (s *server) checkManifest(data []byte) lvnFindings {
 // ext-grammar sidecar, so an unwritten file (an importer's output) checks
 // exactly like a saved one.
 func (s *server) checkLvn(rel string, data []byte) lvnFindings {
+	return s.checkLvnAt(rel, data, nil)
+}
+
+// checkLvnAt — та же проверка, но с КАРТОЙ СТРОК исходника, когда она есть
+// (публикация .lvns компилирует его сама и карту знает).
+//
+// Без карты находка адресуется номером команды: «script[2]». Для автора и для
+// ИИ-агента, который прислал текст главы, это адрес в файле, которого они не
+// писали. Замер 05.09: ошибка в шестой строке главы приезжала как «script[2]»,
+// а соседняя ошибка компиляции в том же ответе честно говорила «line 5» — один
+// запрос, два разных языка адресации.
+func (s *server) checkLvnAt(rel string, data []byte, srcLine []int) lvnFindings {
 	var f lvnFindings
+	// Адрес находки: строка автора, если знаем её, иначе номер команды.
+	where := func(is lvn.Issue) string {
+		if is.Index >= 0 && is.Index < len(srcLine) && srcLine[is.Index] > 0 {
+			return fmt.Sprintf("line %d: %s: %s", srcLine[is.Index], is.Op, is.Msg)
+		}
+		return is.String()
+	}
 
 	// The engine's own loader (LvnDocument.Parse) demands a JSON OBJECT with a
 	// "script" array and throws otherwise — lvn.Parse is laxer (a document
@@ -142,9 +161,9 @@ func (s *server) checkLvn(rel string, data []byte) lvnFindings {
 	}
 	for _, is := range lvn.ValidateExt(doc, ext) {
 		if is.Sev == lvn.SevError {
-			f.Errors = append(f.Errors, is.String())
+			f.Errors = append(f.Errors, where(is))
 		} else {
-			f.Warnings = append(f.Warnings, is.String())
+			f.Warnings = append(f.Warnings, where(is))
 		}
 	}
 

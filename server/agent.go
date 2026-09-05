@@ -248,7 +248,7 @@ func (s *server) handleAgentPublish(w http.ResponseWriter, r *http.Request) {
 	// чем на одну главу всегда выносит общие механики в отдельный файл, то
 	// есть первая же настоящая игра упирается в это. Каталог тот же, куда
 	// ляжет результат, поэтому include видит ровно то, что увидит IDE.
-	compiled, err := s.compileInScripts(req)
+	compiled, srcLine, err := s.compileInScripts(req)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{
 			"ok": false, "stage": "compile", "error": err.Error(),
@@ -259,7 +259,7 @@ func (s *server) handleAgentPublish(w http.ResponseWriter, r *http.Request) {
 	// 2. Тот же структурный гейт, через который проходит любая запись скрипта
 	// (lvnguard.go). Отказ — до единой записи на диск, поэтому неудачная
 	// публикация оставляет прошлую версию игры нетронутой.
-	findings := s.checkLvn(rel, compiled)
+	findings := s.checkLvnAt(rel, compiled, srcLine)
 	if findings.blocked() {
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{
 			"ok": false, "stage": "check", "errors": orEmpty(findings.Errors),
@@ -551,24 +551,24 @@ func (s *server) rebuildDependents(changed string) ([]string, map[string]string)
 // начинается с точки: статика отказывает любому пути с сегментом на точку
 // (hasDotSegment), поэтому даже в окне между записью и удалением исходник
 // нельзя скачать.
-func (s *server) compileInScripts(req publishReq) ([]byte, error) {
+func (s *server) compileInScripts(req publishReq) ([]byte, []int, error) {
 	dir := filepath.Join(s.content, "scripts")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	tmp, err := os.CreateTemp(dir, fmt.Sprintf(".publish-%s-*.lvns", req.ID))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer os.Remove(tmp.Name())
 	if _, err := tmp.WriteString(req.Lvns); err != nil {
 		tmp.Close()
-		return nil, err
+		return nil, nil, err
 	}
 	if err := tmp.Close(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return importer.CompileLvnsFile(tmp.Name())
+	return importer.CompileLvnsFileWithLines(tmp.Name())
 }
 
 // writeContentFile пишет файл под контент-корнем со снапшотом в историю.

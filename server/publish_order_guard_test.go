@@ -37,7 +37,10 @@ func TestPublishChecksBeforeItWrites(t *testing.T) {
 		body = body[:len(handler)+end]
 	}
 
-	check := strings.Index(body, "checkLvn(")
+	// Якорь по ИМЕНИ без скобки: у гейта есть вариант с картой строк
+	// (checkLvnAt), и страж, привязанный к «checkLvn(», промахнулся мимо него
+	// в тот же день, когда карта появилась.
+	check := strings.Index(body, "checkLvn")
 	write := strings.Index(body, "writeContentFile(")
 
 	// Оба якоря обязаны найтись: пропажа любого означает, что страж смотрит не
