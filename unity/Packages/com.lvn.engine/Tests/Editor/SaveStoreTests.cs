@@ -16,9 +16,9 @@ namespace Lvn.Tests
         [TearDown]
         public void Clean()
         {
-            PlayerPrefs.DeleteKey("lvn_slots_" + TitleA);
+            PlayerPrefs.DeleteKey(Lvn.LvnKeep.Scoped("lvn_slots_", TitleA));
             PlayerPrefs.DeleteKey("lvn_slots_" + TitleB);
-            PlayerPrefs.DeleteKey("lvn_slots_" + TitleA + ".bak");
+            PlayerPrefs.DeleteKey(Lvn.LvnKeep.Scoped("lvn_slots_", TitleA) + ".bak");
             PlayerPrefs.DeleteKey("lvn_slots_" + TitleB + ".bak");
         }
 
@@ -83,8 +83,8 @@ namespace Lvn.Tests
             // Simulate a save written by a future build (schema v99): this build
             // must not load it into corrupt state — and must not destroy it.
             LvnSaveStore.Put(TitleA, "future", Slot(1));
-            var json = PlayerPrefs.GetString("lvn_slots_" + TitleA);
-            PlayerPrefs.SetString("lvn_slots_" + TitleA, json.Replace("\"Version\":1", "\"Version\":99"));
+            var json = PlayerPrefs.GetString(Lvn.LvnKeep.Scoped("lvn_slots_", TitleA));
+            PlayerPrefs.SetString(Lvn.LvnKeep.Scoped("lvn_slots_", TitleA), json.Replace("\"Version\":1", "\"Version\":99"));
 
             Assert.IsNull(LvnSaveStore.Get(TitleA, "future"), "a newer-schema slot is invisible");
             Assert.AreEqual(0, LvnSaveStore.Slots(TitleA).Count);
@@ -93,7 +93,7 @@ namespace Lvn.Tests
             LvnSaveStore.Put(TitleA, "slot1", Slot(2));
             LvnSaveStore.Delete(TitleA, "slot1");
             StringAssert.Contains("\"Version\":99",
-                PlayerPrefs.GetString("lvn_slots_" + TitleA),
+                PlayerPrefs.GetString(Lvn.LvnKeep.Scoped("lvn_slots_", TitleA)),
                 "the future save survives Put/Delete round-trips for when the app updates");
         }
 
@@ -183,7 +183,7 @@ namespace Lvn.Tests
             LvnSaveStore.Put(TitleA, "slot1", Slot(3));
             LvnSaveStore.Put(TitleA, "auto", Slot(7));
 
-            PlayerPrefs.SetString("lvn_slots_" + TitleA, "{битые байты");
+            PlayerPrefs.SetString(Lvn.LvnKeep.Scoped("lvn_slots_", TitleA), "{битые байты");
 
             var slots = LvnSaveStore.Slots(TitleA);
             Assert.AreEqual(2, slots.Count,
@@ -201,7 +201,7 @@ namespace Lvn.Tests
             LvnSaveStore.Put(TitleA, "slot1", Slot(2)); // вторая запись рождает копию
             LvnSaveStore.DeleteAll(TitleA);
 
-            PlayerPrefs.SetString("lvn_slots_" + TitleA, "{битые байты");
+            PlayerPrefs.SetString(Lvn.LvnKeep.Scoped("lvn_slots_", TitleA), "{битые байты");
             Assert.AreEqual(0, LvnSaveStore.Slots(TitleA).Count,
                 "после забвения сохранения всплыли из запасной копии");
         }
@@ -215,7 +215,7 @@ namespace Lvn.Tests
             // Битый блок И НИ ОДНОЙ ЗАПИСИ ДО НЕГО: спасать нечем, и это
             // законная пустота, а не потеря. Случай «было что спасать»
             // проверяет ПорчаБлокаНеУноситВсеСохранения.
-            PlayerPrefs.SetString("lvn_slots_" + TitleA, "{не json вовсе");
+            PlayerPrefs.SetString(Lvn.LvnKeep.Scoped("lvn_slots_", TitleA), "{не json вовсе");
             Assert.AreEqual(0, LvnSaveStore.Slots(TitleA).Count, "corrupt store reads as empty, never throws");
 
             // And a write recovers it.
