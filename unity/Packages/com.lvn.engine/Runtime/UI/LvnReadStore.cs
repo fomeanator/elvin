@@ -24,6 +24,9 @@ namespace Lvn.UI
             // экономить не должна.
             Application.focusChanged += focused => { if (!focused) FlushNow(); };
             Application.quitting += FlushNow;
+            // Игрока забыли — забываем и мы: набор в памяти иначе продолжит
+            // отвечать «читал» и вернётся на диск с первой же новой отметкой.
+            LvnKeep.Wiped += ForgetInMemory;
         }
 
         private static string Key(string titleId) => LvnKeep.Scoped("lvn.read.", titleId);
@@ -128,6 +131,16 @@ namespace Lvn.UI
             _text.Remove(key);
             _dirty.Remove(key);
             LvnKeep.Drop(key);
+        }
+
+        /// <summary>Забыть всё, что держим в памяти (после «забыть игрока»).
+        /// Ничего не пишет: диск уже стёрт, и запись вернула бы стёртое.</summary>
+        private static void ForgetInMemory()
+        {
+            _cache.Clear();
+            _text.Clear();
+            _dirty.Clear();
+            _sinceSave = 0;
         }
 
         /// <summary>Немедленно записать накопленное — для хоста, который уходит
