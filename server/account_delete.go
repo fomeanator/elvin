@@ -6,6 +6,7 @@ package main
 // теле — чтобы случайный вызов (ретрай, любопытный прокси) не стёр игрока.
 
 import (
+	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -16,6 +17,8 @@ import (
 
 type accountEraser struct {
 	auth *AuthService
+	// db — та же база, где лежат деньги: удаление обязано доходить и до неё.
+	db *sql.DB
 	// Пер-юзерные файлы сервисов: <dir>/<uid>.json. Кошелёк здесь обязателен,
 	// остальные — лучшая практика (данных там немного, но они тоже персональные).
 	userFileDirs []string
@@ -51,6 +54,18 @@ func (e *accountEraser) handleDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	if e.srv != nil {
 		e.srv.deleteStatesOf(uid)
+	}
+	// ДЕНЬГИ И СЛЕД — В БАЗЕ, И УДАЛЕНИЕ ОБЯЗАНО ДОХОДИТЬ ДО НЕЁ. Кошелёк,
+	// журнал, дневная награда, рекорды и отзывы переехали в SQLite, а
+	// удалялись по-прежнему файлы, которых там уже нет. Чеки уходят вместе со
+	// всем остальным: аккаунта нет, и держать закрепление значило бы запретить
+	// игроку предъявить СВОЙ чек, когда он начнёт заново.
+	if e.db != nil {
+		if err := purgeUserRows(e.db, uid); err != nil {
+			log.Printf("[account] строки игрока %s не стёрты: %v", uid, err)
+			http.Error(w, "delete failed", http.StatusInternalServerError)
+			return
+		}
 	}
 	log.Printf("[account] игрок %s удалил аккаунт", uid)
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})

@@ -629,6 +629,26 @@ func (s *WalletService) handleIAP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if txID != "" {
+		// ЧЕЙ ЭТО ЧЕК. Список внутри кошелька отвечает только на «начисляли ли
+		// МЫ ЕМУ по нему»; на «не начисляли ли по нему КОМУ-ТО ЕЩЁ» отвечает
+		// глобальный владелец. Без него один чек кормил сколько угодно
+		// аккаунтов (замер: три подряд, по 100 монет каждому).
+		owner, cerr := claimReceipt(s.db, txID, userID, time.Now().UTC().Format(time.RFC3339))
+		if cerr != nil {
+			log.Printf("wallet: закрепить чек %s за %s: %v", txID, userID, cerr)
+			http.Error(w, "wallet unavailable", http.StatusInternalServerError)
+			return
+		}
+		if owner != userID {
+			// Отказ говорит, ЧТО делать: покупка не пропала, она принадлежит
+			// другому аккаунту, и вернуть её можно входом в него. Это же
+			// единственный честный ответ и на «поделился чеком с другом».
+			log.Printf("[iap] чек %s предъявлен игроком %s, принадлежит %s", txID, userID, owner)
+			http.Error(w,
+				"receipt belongs to another account: sign in with it to restore the purchase",
+				http.StatusConflict)
+			return
+		}
 		for _, t := range doc.Transactions {
 			if t == txID {
 				// Already granted — idempotent OK with the current state, so a
