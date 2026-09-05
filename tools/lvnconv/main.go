@@ -547,9 +547,18 @@ func cmdValidate(args []string) {
 	}
 	// .lvns тоже: автор пишет именно его, и «проверь мою главу» не должно
 	// требовать сначала скомпилировать её руками.
-	doc, err := loadForWalk(fs.Arg(0))
+	doc, srcLine, err := loadWithSrcLines(fs.Arg(0))
 	if err != nil {
 		die("validate: " + err.Error())
+	}
+	// АВТОРУ — СТРОКА, А НЕ НОМЕР КОМАНДЫ. `script[3]` это адрес в файле,
+	// которого автор не писал; строка — в том, что открыто у него на экране.
+	// Для .lvn карты нет и быть не может — там сообщение остаётся прежним.
+	where := func(is lvn.Issue) string {
+		if is.Index >= 0 && is.Index < len(srcLine) && srcLine[is.Index] > 0 {
+			return fmt.Sprintf("%s:%d %s: %s", filepath.Base(fs.Arg(0)), srcLine[is.Index], is.Op, is.Msg)
+		}
+		return is.String()
 	}
 
 	// Host-op declarations widen the known world per project: explicit flag
@@ -579,15 +588,15 @@ func cmdValidate(args []string) {
 		switch is.Sev {
 		case lvn.SevError:
 			errs++
-			fmt.Fprintln(os.Stderr, "error: "+is.String())
+			fmt.Fprintln(os.Stderr, "error: "+where(is))
 		case lvn.SevNote:
 			// Заметка не находка: она объясняет, чего проверка НЕ сказала, и
 			// потому не участвует в -strict.
 			notes++
-			fmt.Fprintln(os.Stderr, "note: "+is.String())
+			fmt.Fprintln(os.Stderr, "note: "+where(is))
 		default:
 			warns++
-			fmt.Fprintln(os.Stderr, "warning: "+is.String())
+			fmt.Fprintln(os.Stderr, "warning: "+where(is))
 		}
 	}
 	if errs > 0 || (*strict && warns > 0) {
