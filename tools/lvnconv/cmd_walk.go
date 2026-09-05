@@ -134,22 +134,36 @@ func walkFile(path string, depth int) walkReport {
 // loadForWalk принимает и скомпилированный .lvn, и авторский .lvns — обход
 // нужен ровно там, где новеллу пишут.
 func loadForWalk(path string) (*lvn.Doc, error) {
+	d, _, err := loadWithSrcLines(path)
+	return d, err
+}
+
+// loadWithSrcLines — то же, плюс КАРТА СТРОК ИСХОДНИКА, когда он у нас есть.
+//
+// Компилятор .lvns знает, какая строка автора породила какую команду
+// (Doc.SrcLine), но в .lvn эта карта не едет — она нужна только инструментам.
+// Без неё проверка говорит автору «script[3]»: номер команды в файле, которого
+// автор не писал и не открывает. Замер 05.09: ошибка в восьмой строке главы
+// называлась «script[3]».
+func loadWithSrcLines(path string) (*lvn.Doc, []int, error) {
 	if strings.EqualFold(filepath.Ext(path), ".lvns") {
 		src, err := lvns.ConvertFile(path)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		raw, err := json.Marshal(src)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		return lvn.Parse(raw)
+		d, err := lvn.Parse(raw)
+		return d, src.SrcLine, err
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return lvn.Parse(data)
+	d, err := lvn.Parse(data)
+	return d, nil, err
 }
 
 func printWalkReports(reports []walkReport, quiet bool, depth int) {
