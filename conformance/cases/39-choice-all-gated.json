@@ -1,0 +1,68 @@
+{
+  "id": "choice-all-gated",
+  "title": "A choice whose every option is gated out does not stall the story",
+  "why": "Замер 05.09: оба плеера показывали пустую стопку вариантов и ждали выбора, которого игрок сделать не может — глава стояла навсегда, выход только через меню. Ни одна кнопка не доступна значит «показывать нечего», а не «стоять здесь»: курсор идёт дальше, а автор узнаёт об этом из журнала и из предупреждения lvnconv validate.",
+  "runtimes": [
+    "csharp",
+    "js"
+  ],
+  "doc": {
+    "scene": "conformance",
+    "script": [
+      {
+        "op": "set",
+        "key": "strength",
+        "value": 1
+      },
+      {
+        "op": "say",
+        "text": "Дверь заперта."
+      },
+      {
+        "op": "choice",
+        "options": [
+          {
+            "text": "Выломать",
+            "requires_stat": "strength",
+            "min": 5,
+            "goto": "force"
+          },
+          {
+            "text": "Подобрать отмычку",
+            "expr": "strength > 3",
+            "goto": "force"
+          }
+        ]
+      },
+      {
+        "op": "say",
+        "text": "Ты остаёшься снаружи."
+      },
+      {
+        "op": "goto",
+        "label": "__end"
+      },
+      {
+        "op": "label",
+        "id": "force"
+      },
+      {
+        "op": "say",
+        "text": "Дверь вылетает."
+      }
+    ]
+  },
+  "expect": {
+    "stops": [
+      {
+        "say": "Дверь заперта."
+      },
+      {
+        "say": "Ты остаёшься снаружи."
+      },
+      {
+        "end": true
+      }
+    ]
+  }
+}
