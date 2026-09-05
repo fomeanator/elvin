@@ -80,6 +80,15 @@ type regenView struct {
 type walletResponse struct {
 	*walletDoc
 	RegenState map[string]regenView `json:"regen,omitempty"`
+	// ЧАСЫ СЕРВЕРА. Восполнение приходит абсолютной меткой
+	// (next_refill_unix), и клиент считал «сколько осталось» вычитанием
+	// СВОЕГО «сейчас» — то есть верил часам устройства. Замер 05.09: игрок с
+	// часами, переведёнными на сутки вперёд, видит «энергия восстановилась»,
+	// а сервер на трату отвечает отказом; часы, отставшие на час (обычное
+	// дело после разряда), наоборот, заставляют ждать лишнее время при уже
+	// начисленной энергии. С этим полем клиент знает поправку и считает по
+	// серверному времени.
+	Now int64 `json:"now"`
 }
 
 type walletEntry struct {
@@ -290,7 +299,9 @@ func (s *WalletService) regenState(doc *walletDoc, now time.Time) map[string]reg
 
 // writeDoc encodes the wallet plus computed regen state to the client.
 func (s *WalletService) writeDoc(w http.ResponseWriter, doc *walletDoc) {
-	writeJSON(w, http.StatusOK, walletResponse{walletDoc: doc, RegenState: s.regenState(doc, s.now())})
+	now := s.now()
+	writeJSON(w, http.StatusOK, walletResponse{
+		walletDoc: doc, RegenState: s.regenState(doc, now), Now: now.Unix()})
 }
 
 func (s *WalletService) Routes(mux *http.ServeMux) {

@@ -162,7 +162,8 @@ namespace Lvn.UI.Screens
             bool refilling = LvnWallet.BelowCap(_currency) && r.NextRefillUnix > 0;
             if (!refilling) { _timer.style.display = DisplayStyle.None; return; }
 
-            long left = r.NextRefillUnix - DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            // Через дом кошелька: он держит поправку на часы устройства.
+            long left = LvnWallet.SecondsUntilRefill(_currency);
             if (left <= 0)
             {
                 // Время пришло, свежий баланс ещё едет — просим его, но не чаще
