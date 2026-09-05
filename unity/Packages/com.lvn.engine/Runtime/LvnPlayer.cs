@@ -287,6 +287,7 @@ namespace Lvn
                         _labels[id] = i;
                 }
             }
+            BuildAnchorMap();
         }
 
         /// <summary>Restore a saved position and state (for autosave/resume).</summary>

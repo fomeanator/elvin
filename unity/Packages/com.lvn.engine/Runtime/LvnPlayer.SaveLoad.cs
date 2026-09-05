@@ -321,17 +321,54 @@ namespace Lvn
         // `__nf…`, `__end…`): those names belong to the lowering, not to the story,
         // and a save must have a second anchor that survives the compiler changing
         // its mind about them.
+        // КАРТА ЯКОРЕЙ: для каждой позиции — индекс ближайшей метки слева.
+        // Две: по любым меткам и по авторским (не `__`-минтованным).
+        //
+        // Раньше якорь искался сканированием НАЗАД на каждом бите — а снимок
+        // берётся на каждом бите, и якорей в нём два плюс по одному на кадр
+        // стека. В главе без меток (кинетическая новелла — целый жанр, и
+        // импортированные главы тоже небогаты метками) это давало квадрат:
+        // замер 05.09 на прогоне без единой метки — 500 реплик 67 мс, 2000 —
+        // 961 мс, 6000 — 8662 мс, то есть 1,4 мс на КАЖДЫЙ тап и растёт по
+        // ходу чтения. Те же главы с метками через 50 реплик: 8 / 34 / 112 мс.
+        // Один проход при загрузке скрипта делает поиск постоянным.
+        private int[] _prevLabelAt;
+        private int[] _prevAuthorLabelAt;
+
+        private void BuildAnchorMap()
+        {
+            int n = _script.Count;
+            _prevLabelAt = new int[n];
+            _prevAuthorLabelAt = new int[n];
+            int last = -1, lastAuthor = -1;
+            for (int i = 0; i < n; i++)
+            {
+                _prevLabelAt[i] = last;
+                _prevAuthorLabelAt[i] = lastAuthor;
+                if (!(_script[i] is JObject c) || (string)c["op"] != "label") continue;
+                var id = (string)c["id"];
+                last = i;
+                if (id != null && !id.StartsWith("__", StringComparison.Ordinal)) lastAuthor = i;
+            }
+        }
+
         private (string label, int steps) AnchorOf(int index, bool authorLabelsOnly = false)
         {
             int from = System.Math.Min(index, _script.Count) - 1;
-            for (int i = from; i >= 0; i--)
+            if (from < 0) return (null, index);
+            if (_prevLabelAt == null || _prevLabelAt.Length != _script.Count) BuildAnchorMap();
+            // Метка НА позиции from тоже годится: карта хранит ближайшую строго
+            // слева, поэтому саму позицию проверяем отдельно — иначе якорь у
+            // строки сразу за меткой уехал бы к предыдущей.
+            if (_script[from] is JObject self && (string)self["op"] == "label")
             {
-                if (!(_script[i] is JObject c) || (string)c["op"] != "label") continue;
-                var id = (string)c["id"];
-                if (authorLabelsOnly && (id == null || id.StartsWith("__", StringComparison.Ordinal))) continue;
-                return (id, index - i);
+                var selfId = (string)self["id"];
+                if (!authorLabelsOnly || (selfId != null && !selfId.StartsWith("__", StringComparison.Ordinal)))
+                    return (selfId, index - from);
             }
-            return (null, index);
+            int at = authorLabelsOnly ? _prevAuthorLabelAt[from] : _prevLabelAt[from];
+            if (at < 0) return (null, index);
+            return ((string)((JObject)_script[at])["id"], index - at);
         }
 
         // Resolve an anchor back to an index in the CURRENT script (call after _labels
@@ -395,6 +432,7 @@ namespace Lvn
                     var id = (string)c["id"];
                     if (!string.IsNullOrEmpty(id)) _labels[id] = i;
                 }
+            BuildAnchorMap();   // текст сменился — карта якорей вместе с ним
 
             if (aligned)
             {
