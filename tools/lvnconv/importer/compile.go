@@ -39,11 +39,27 @@ func CompileLvns(src string) ([]byte, error) {
 // mechanics file is the whole reason include exists — so an HTTP publish that
 // only had CompileLvns hit a wall on the author's second chapter.
 func CompileLvnsFile(path string) ([]byte, error) {
+	data, _, err := CompileLvnsFileWithLines(path)
+	return data, err
+}
+
+// CompileLvnsFileWithLines — то же, плюс КАРТА СТРОК: SrcLine[i] это строка
+// исходника, породившая команду i.
+//
+// Карта не едет в .lvn (она нужна инструментам, а не игре), поэтому всякий, кто
+// хочет назвать автору место ошибки, обязан взять её здесь. Замер 05.09:
+// публикация через API отвечала «script[2]» — номер команды в файле, которого
+// автор не писал; при этом ошибка КОМПИЛЯЦИИ рядом честно говорила «line 5».
+func CompileLvnsFileWithLines(path string) ([]byte, []int, error) {
 	doc, err := lvns.ConvertFile(path)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return marshalDoc(doc)
+	data, err := marshalDoc(doc)
+	if err != nil {
+		return nil, nil, err
+	}
+	return data, doc.SrcLine, nil
 }
 
 func marshalDoc(doc any) ([]byte, error) {
