@@ -480,13 +480,26 @@ namespace Lvn.UI
         /// actors, the background and effect veils left on screen by the previous
         /// chapter (or a live hot-reload) bleed into the new one — e.g. a character
         /// standing on the very first beat, before any <c>actor</c> command runs.
+        ///
+        /// <para>ЖУРНАЛ РЕПЛИК — ОТДЕЛЬНЫЙ ВОПРОС. Прибрать сцену нужно и когда
+        /// глава СМЕНИЛАСЬ, и когда она КОНЧИЛАСЬ, а журнал в этих двух случаях
+        /// ведёт себя по-разному: у новой главы своя история и старая ей чужая,
+        /// а дочитанная глава свою историю обязана сохранить — «перечитать, что
+        /// было» это ровно то, зачем журнал и открывают. Замер 05.09: после
+        /// последней строки журнал был полон, после конца главы — пуст.</para>
         /// </summary>
-        private void ResetStage()
+        private void ResetStage(bool keepBacklog = false)
         {
             // Кто и когда стирает сцену — ключ к «белому полотну после главы»:
             // уборка, пришедшая ПОСЛЕ постановки меню, снимает его фон.
             LvnLog.Trace($"[lvn-stage] ResetStage → epoch={_stageEpoch}\n{StackTraceUtility.ExtractStackTrace()}");
+            // Журнал уборка сцены сносит вместе со всем прочим; дочитанной главе
+            // он нужен — сохраняем и возвращаем на место.
+            var журнал = keepBacklog
+                ? new List<(string who, string text, string style)>(_backlog)
+                : null;
             EndChapterFrame();
+            if (журнал != null) _backlog.AddRange(журнал);
             // ── дальше — то, что уборка сносит, а передача кадра оставляет ──
             //
             // ТЕМП ПЕЧАТИ — НАСТРОЙКА ГЛАВЫ, А НЕ ИГРЫ. `text_pace` пишет

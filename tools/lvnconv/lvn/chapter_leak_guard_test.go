@@ -78,7 +78,7 @@ func TestChapterStateDoesNotOutliveTheChapter(t *testing.T) {
 	})
 
 	reset := stripComments(string(mustRead(t, filepath.Join(uiDir, "VnStage.Playback.cs"))))
-	i := strings.Index(reset, "private void ResetStage()")
+	i := strings.Index(reset, "private void ResetStage(bool")
 	if i < 0 {
 		t.Fatal("уборки сцены нет — якорь стража промахнулся")
 	}

@@ -67,10 +67,10 @@ func TestTextPaceIsClearedWithTheChapter(t *testing.T) {
 	root := repoRoot(t)
 	src := stripComments(string(mustRead(t, filepath.Join(root,
 		"unity", "Packages", "com.lvn.engine", "Runtime", "UI", "VnStage.Playback.cs"))))
-	if !strings.Contains(src, "private void ResetStage()") {
+	if !strings.Contains(src, "private void ResetStage(bool") {
 		t.Fatal("уборки сцены нет — якорь стража промахнулся")
 	}
-	body := src[strings.Index(src, "private void ResetStage()"):]
+	body := src[strings.Index(src, "private void ResetStage(bool"):]
 	if i := strings.Index(body, "\n        }"); i > 0 {
 		body = body[:i]
 	}
