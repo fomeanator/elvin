@@ -65,6 +65,52 @@ namespace Lvn.Services
         public static IReadOnlyDictionary<string, RegenInfo> Regen { get { EnsureLoaded(); return _regen; } }
         private static Dictionary<string, RegenInfo> _regen = new Dictionary<string, RegenInfo>();
 
+        /// <summary>
+        /// СКОЛЬКО ЖДАТЬ ДО ВОСПОЛНЕНИЯ — ОДИН ОТВЕТ И НЕ ПО ЧАСАМ УСТРОЙСТВА.
+        ///
+        /// <para>Сервер присылает абсолютную метку следующего начисления, и
+        /// «сколько осталось» считалось вычитанием ЛОКАЛЬНОГО «сейчас» — в двух
+        /// местах интерфейса, каждое своей строкой. Часы устройства при этом
+        /// принадлежат игроку: замер 05.09 на живом сервере — при часах,
+        /// переведённых на сутки вперёд, счётчик показывает «готово», а сервер
+        /// на трату отвечает отказом; при отставших часах игрок ждёт лишнее,
+        /// хотя энергия уже начислена.</para>
+        ///
+        /// <para>Поправку берём из ответа сервера (поле <c>now</c>), а бег
+        /// времени между ответами — из МОНОТОННЫХ часов приложения, чтобы
+        /// перевод системных часов прямо во время игры тоже ничего не сдвинул.
+        /// Нет поля (старый сервер) — честно падаем на прежнее поведение.</para>
+        /// </summary>
+        public static long SecondsUntilRefill(string currency)
+        {
+            if (!Regen.TryGetValue(currency ?? "", out var r) || r.NextRefillUnix <= 0) return 0;
+            long left = r.NextRefillUnix - ServerNowUnix();
+            return left > 0 ? left : 0;
+        }
+
+        /// <summary>Текущее время СЕРВЕРА, как его видит клиент.</summary>
+        public static long ServerNowUnix()
+        {
+            if (_serverNow <= 0) return DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            return _serverNow + (long)(Lvn.LvnClock.Wall() - _serverNowAt);
+        }
+
+        private static long _serverNow;      // «сейчас» из последнего ответа
+        private static float _serverNowAt;   // монотонная отметка того же мига
+
+        /// <summary>Забыть поправку — для испытаний, где проверяется поведение
+        /// клиента, НИКОГДА не видевшего серверного времени (старый сервер).
+        /// В живой игре поправка живёт до конца процесса: часы серверов между
+        /// собой согласованы, и терять её незачем.</summary>
+        internal static void ForgetServerClock() { _serverNow = 0; _serverNowAt = 0f; }
+
+        private static void NoteServerNow(long unix)
+        {
+            if (unix <= 0) return;
+            _serverNow = unix;
+            _serverNowAt = Lvn.LvnClock.Wall();
+        }
+
         /// <summary>A regenerating currency's live refill state (from /v1/wallet's
         /// computed <c>regen</c> block).</summary>
         public struct RegenInfo
@@ -381,6 +427,7 @@ namespace Lvn.Services
                 _balances = ToMap(doc["balances"] as JObject);
                 _inventory = ToMap(doc["inventory"] as JObject);
                 _regen = ParseRegen(doc["regen"] as JObject);
+                NoteServerNow((long?)doc["now"] ?? 0);
                 PersistMirror();
                 Changed?.Invoke();
                 return true;

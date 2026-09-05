@@ -101,8 +101,11 @@ namespace Lvn.UI.Screens
         // wallet's computed refill state. Empty when the currency isn't regenerating.
         private static string RefillHint(string currency)
         {
-            if (!Lvn.Services.LvnWallet.Regen.TryGetValue(currency, out var r) || r.NextRefillUnix <= 0) return "";
-            long rem = r.NextRefillUnix - System.DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            // Сколько ждать — спрашиваем у КОШЕЛЬКА: он один знает поправку на
+            // часы устройства (сервер называет своё «сейчас»), а две копии
+            // вычитания однажды разойдутся — и разошлись бы именно на игроке с
+            // неверными часами.
+            long rem = Lvn.Services.LvnWallet.SecondsUntilRefill(currency);
             if (rem <= 0) return "";
             // Словесный вид — тот же дом, что и цифровой в шапке: одно ожидание
             // не имеет права округляться в двух местах по-разному.
