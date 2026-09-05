@@ -220,6 +220,24 @@ var migrations = []string{
 		PRIMARY KEY (user_id, placement)
 	);
 	`,
+	// 5. ЧЕК — ПЛАТЁЖ, А НЕ КУПОН. Защита от повторной выдачи стояла В КОШЕЛЬКЕ
+	// ПОКУПАТЕЛЯ (wallet_receipts, ключ user_id+txn), то есть отвечала только на
+	// вопрос «не начисляли ли МЫ ЕМУ по этому чеку». Замер 04.09: один и тот же
+	// чек, предъявленный тремя разными аккаунтами, начислил валюту трижды —
+	// покупку за доллар можно раздать друзьям текстом. Владелец транзакции
+	// теперь глобальный: первый предъявитель закрепляет её за собой, остальным
+	// отказ с подсказкой войти в тот аккаунт.
+	`
+	CREATE TABLE IF NOT EXISTS iap_receipt_owner (
+		txn      TEXT PRIMARY KEY,
+		user_id  TEXT NOT NULL,
+		ts       TEXT NOT NULL DEFAULT ''
+	);
+	-- Уже начисленное закрепляем за тем, кто предъявил чек РАНЬШЕ: в SQLite
+	-- min() выбирает строку целиком, поэтому user_id берётся из неё же.
+	INSERT OR IGNORE INTO iap_receipt_owner (txn, user_id, ts)
+		SELECT txn, user_id, min(ts) FROM wallet_receipts GROUP BY txn;
+	`,
 }
 
 func migrate(db *sql.DB) error {

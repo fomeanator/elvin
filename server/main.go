@@ -237,6 +237,7 @@ func main() {
 	// «Удалить аккаунт» — стор-требование: игрок стирает свои данные сам.
 	(&accountEraser{
 		auth: authSvc,
+		db:   db,
 		userFileDirs: []string{
 			filepath.Join(servicesDir, "wallet"),
 			filepath.Join(servicesDir, "daily"),

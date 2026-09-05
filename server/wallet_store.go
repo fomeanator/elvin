@@ -361,3 +361,54 @@ func importWalletFiles(db *sql.DB, dir string) (moved int, err error) {
 	}
 	return moved, nil
 }
+
+// claimReceipt закрепляет транзакцию магазина за игроком и возвращает того,
+// кто владеет ею НА САМОМ ДЕЛЕ.
+//
+// Первый предъявитель становится владельцем; всем последующим возвращается он
+// же, и вызывающий по этому различает «мой чек, начисляли — повтор» и «чужой
+// чек». Ключ — первичный, поэтому гонка двух одновременных предъявлений
+// решается базой, а не порядком чтения.
+func claimReceipt(db *sql.DB, txn, userID, ts string) (owner string, err error) {
+	if _, err := db.Exec(
+		`INSERT OR IGNORE INTO iap_receipt_owner (txn, user_id, ts) VALUES (?, ?, ?)`,
+		txn, userID, ts); err != nil {
+		return "", err
+	}
+	if err := db.QueryRow(`SELECT user_id FROM iap_receipt_owner WHERE txn = ?`, txn).Scan(&owner); err != nil {
+		return "", err
+	}
+	return owner, nil
+}
+
+// purgeUserRows стирает ВСЁ состояние игрока в базе — то, что «удалить
+// аккаунт» обязано унести с собой.
+//
+// Замер 04.09: удаление стирало учётку (users, user_providers) и файлы
+// сервисов, но кошельки к тому времени уже переехали в базу, а список
+// удаляемого остался прежним. После «удалить аккаунт» в базе оставались
+// кошелёк, баланс, две записи журнала, дневная награда и рекорд в таблице
+// лидеров — с именем игрока, который просил себя забыть.
+//
+// Список таблиц явный, а не «всё, где есть user_id»: новая таблица должна
+// попадать сюда осознанно, и лучше пусть о ней напомнит тест, чем магия
+// перечисления схемы промолчит на первой же таблице с другим именем колонки.
+func purgeUserRows(db *sql.DB, userID string) error {
+	tables := []string{
+		"wallets", "wallet_balances", "wallet_inventory", "wallet_ledger",
+		"wallet_ops", "wallet_receipts", "iap_receipt_owner",
+		"leaderboard", "daily_claims", "ad_users", "ad_placements",
+		"feedback",
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, t := range tables {
+		if _, err := tx.Exec(`DELETE FROM `+t+` WHERE user_id = ?`, userID); err != nil {
+			return fmt.Errorf("%s: %w", t, err)
+		}
+	}
+	return tx.Commit()
+}
