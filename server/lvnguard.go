@@ -233,6 +233,21 @@ func (s *server) missingAssets(doc *lvn.Doc) []string {
 		switch c.Op() {
 		case "bg", "actor", "obj":
 			check(i, c.Op(), c.Str("sprite_url"))
+			// СКЕЛЕТ НАЗЫВАЕТСЯ ОДНИМ АДРЕСОМ — и проверять его надо так же.
+			// Короткий синтаксис (`actor spine="…/hero.json"`) заведён 06.09, а
+			// гейт о нём не знал: замер показал, что битую ссылку на скелет он
+			// пропускал молча. Комплект известен по одному адресу, значит
+			// спросить можно и разметку, и атлас; страницы называет сам атлас,
+			// их гейт не читает — это его честная граница.
+			if sp := c.Str("spine"); sp != "" {
+				check(i, "spine", sp)
+				check(i, "spine", spineAtlasOf(sp))
+			}
+			check(i, "spine_bg", c.Str("spine_bg"))
+		case "say":
+			// ОЗВУЧКА РЕПЛИКИ. Тишина неотличима от «здесь не озвучено»: игрок
+			// не жалуется, автор не узнаёт. Гейт для того и есть.
+			check(i, "voice", c.Str("voice"))
 		case "audio":
 			check(i, "audio", c.Str("url"))
 		case "preload":
@@ -355,4 +370,25 @@ func checkLvnEnvelope(data []byte) error {
 		return fmt.Errorf(`not a .lvn document: "script" is not an array`)
 	}
 	return nil
+}
+
+// spineAtlasOf — адрес атласа рядом со скелетом: hero.json → hero.atlas.txt.
+// Правило то же, что у движка (LvnSpineRef.FromUrl); держать его здесь копией
+// приходится потому, что сервер на Go, а движок на C# — расхождение поймает
+// стенд qa/spine-kit-check.sh.
+func spineAtlasOf(skeleton string) string {
+	if skeleton == "" {
+		return ""
+	}
+	base := skeleton
+	for _, ext := range []string{".json", ".skel.bytes", ".skel"} {
+		if strings.HasSuffix(strings.ToLower(base), ext) {
+			base = base[:len(base)-len(ext)]
+			break
+		}
+	}
+	if base == skeleton {
+		return "" // не похоже на скелет — атлас выдумывать не станем
+	}
+	return base + ".atlas.txt"
 }
