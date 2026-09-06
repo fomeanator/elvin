@@ -7,6 +7,32 @@ using UnityEngine;
 
 namespace Lvn.UI.Screens
 {
+    internal static class ArtBoxPurgePolicy
+    {
+        internal static bool IsCurrent(string purgeSuffix, string preferredSuffix)
+            => !string.IsNullOrEmpty(purgeSuffix) && purgeSuffix == preferredSuffix;
+
+        // Текущий выбор передаётся явно: решение должно проверяться без сцены
+        // и без изменения глобальной настройки игрока. Адрес уже несёт ступень
+        // показа; null вместо адреса перекачки означает, что работы нет.
+        internal static (IReadOnlyList<string> DeleteUrls, string ReloadUrl) Decide(
+            string variantUrl, string purgeSuffix, string preferredSuffix,
+            IReadOnlyList<string> qualityVariants)
+        {
+            if (!IsCurrent(purgeSuffix, preferredSuffix)
+                || string.IsNullOrEmpty(variantUrl) || !variantUrl.Contains(purgeSuffix))
+                return (Array.Empty<string>(), null);
+
+            var deleteUrls = new List<string>();
+            foreach (var suffix in qualityVariants)
+                if (suffix != purgeSuffix)
+                    deleteUrls.Add(variantUrl.Replace(purgeSuffix, suffix));
+            // Наличие старых файлов и отсутствие нового проверяет загрузчик:
+            // здесь выбирается лишь адрес возможной перекачки, без чтения диска.
+            return (deleteUrls, deleteUrls.Count > 0 ? variantUrl : null);
+        }
+    }
+
     /// <summary>
     /// ХРАНИЛИЩЕ И ЗАГРУЗКИ — часть <see cref="NovelApp"/>: что игра уже
     /// скачала, чего ей не хватает, как забрать всё целиком и как вычистить
@@ -134,47 +160,63 @@ namespace Lvn.UI.Screens
             var m = _manifest;
             if (loader == null || m?.titles == null) return;
             string cur = keepSuffix;
-            var others = new List<string>();
-            foreach (var sfx in Lvn.Content.DownloadPolicy.QualityVariants)
-                if (sfx != cur) others.Add(sfx);
+            if (!ArtBoxPurgePolicy.IsCurrent(cur, DownloadPolicy.PreferredSuffix)) return;
             var redo = new List<(string label, long bytes, List<Lvn.Content.PreloadItem> items)>();
             int removed = 0;
-            await Task.Run(() =>
+            bool completed = await Task.Run(() =>
             {
                 var seen = new HashSet<string>();
                 foreach (var t in m.titles)
                 {
+                    if (!ArtBoxPurgePolicy.IsCurrent(cur, DownloadPolicy.PreferredSuffix)) return false;
                     if (t == null) continue;
                     foreach (var ch in t.ChaptersOf())
                     {
+                        if (!ArtBoxPurgePolicy.IsCurrent(cur, DownloadPolicy.PreferredSuffix)) return false;
                         if (ch?.assets == null) continue;
                         List<Lvn.Content.PreloadItem> items = null;
                         long bytes = 0;
                         foreach (var kv in ch.assets)
                         {
+                            if (!ArtBoxPurgePolicy.IsCurrent(cur, DownloadPolicy.PreferredSuffix)) return false;
                             if ((kv.Value?.kind ?? "sprite") != "sprite") continue;
                             var eff = DownloadPolicy.DownscaleVariant(kv.Key);
-                            if (eff == null || !seen.Add(eff)) continue;
+                            var decision = ArtBoxPurgePolicy.Decide(eff, cur,
+                                DownloadPolicy.PreferredSuffix, DownloadPolicy.QualityVariants);
+                            if (decision.ReloadUrl == null || !seen.Add(decision.ReloadUrl)) continue;
                             bool had = false;
-                            foreach (var sfx in others)
-                                if (loader.DeleteCachedAsset(eff.Replace(cur, sfx))) { had = true; removed++; }
+                            foreach (var url in decision.DeleteUrls)
+                            {
+                                // Между файлами игрок может выбрать другой бокс:
+                                // старое решение больше не разрешает его удалять.
+                                if (!ArtBoxPurgePolicy.IsCurrent(cur, DownloadPolicy.PreferredSuffix)) return false;
+                                if (loader.DeleteCachedAsset(url)) { had = true; removed++; }
+                            }
+                            if (!ArtBoxPurgePolicy.IsCurrent(cur, DownloadPolicy.PreferredSuffix)) return false;
                             if (!had) continue;
-                            if (loader.IsAssetCached(eff)) continue;
+                            if (loader.IsAssetCached(decision.ReloadUrl)) continue;
                             items ??= new List<Lvn.Content.PreloadItem>();
-                            items.Add(new Lvn.Content.PreloadItem { Url = eff, Kind = "sprite", Size = kv.Value?.size ?? 0 });
+                            items.Add(new Lvn.Content.PreloadItem { Url = decision.ReloadUrl, Kind = "sprite", Size = kv.Value?.size ?? 0 });
                             bytes += kv.Value?.size ?? DownloadPolicy.UnknownSizeBytes;
                         }
                         if (items != null)
                             redo.Add((ChapterEntryLabel(t, ch), bytes, items));
                     }
                 }
+                return true;
             });
+            // Даже готовый список устаревает за время ожидания рабочего потока.
+            // Прерванный обход не возобновляем, если игрок успел выбрать cur снова.
+            if (!completed || !ArtBoxPurgePolicy.IsCurrent(cur, DownloadPolicy.PreferredSuffix)) return;
             LvnLog.Trace($"[lvn-content] качество арта: чужие боксы вычищены ({removed} файлов), "
                 + $"перекачка {redo.Count} глав в {cur}");
             if (redo.Count == 0) return;
             _dlCenter ??= new Lvn.UI.Screens.DownloadCenter(loader);
             foreach (var (label, bytes, items) in redo)
+            {
+                if (!ArtBoxPurgePolicy.IsCurrent(cur, DownloadPolicy.PreferredSuffix)) return;
                 _dlCenter.Enqueue(label, bytes, items);
+            }
         }
 
         // Докачка одной главы очередью центра (кнопка «Скачать главу N»).
