@@ -97,7 +97,7 @@ namespace Lvn.Content
         }
 
         internal Sprite CacheSpriteForTest(string url, Sprite sprite, long bytes)
-            => CacheSprite(url, sprite, bytes);
+            => CacheSprite(url, SpriteCacheKey(url), sprite, bytes);
 
         internal Sprite CachedSpriteForTest(string url)
         {
@@ -105,7 +105,7 @@ namespace Lvn.Content
                 return _spriteCache.TryGetValue(url, out var e) ? e.Sprite : null;
         }
 
-        private Sprite CacheSprite(string url, Sprite sprite, long bytes)
+        internal Sprite CacheSprite(string url, string key, Sprite sprite, long bytes)
         {
             // Честная бухгалтерия вместо оценок вызывающих: w*h*4 не считал
             // мип-цепочку (+33% у всего крупного арта), а KTX2-путь записывал
@@ -117,25 +117,40 @@ namespace Lvn.Content
                 long honest = UnityEngine.Profiling.Profiler.GetRuntimeMemorySizeLong(tex);
                 if (honest > 0) bytes = honest;
             }
-            List<SpriteEntry> victims;
-            lock (_spriteCache)
+            List<SpriteEntry> victims = null;
+            lock (_versionsLock)
             {
-                // ТОТ ЖЕ URL УЖЕ МОГ ЛЕЖАТЬ В КЭШЕ (гонка двух декодов, живое
-                // обновление файла). Простая перезапись словаря теряла старую
-                // запись целиком: её байты навсегда оставались в учёте, а её
-                // ПИНЫ исчезали — сцена держала спрайт, о котором кэш больше
-                // не знал. Проводим прежнюю запись по правилам: закреплённая
-                // уходит в сторону и живёт, пока её держат.
-                if (_spriteCache.TryGetValue(url, out var old) && !ReferenceEquals(old.Sprite, sprite))
+                // A decode owns a version, not the URL forever. Reject it before
+                // it can replace a newer entry or lose the scene's pins.
+                if (key == SpriteCacheKey(url))
                 {
-                    _spriteBytes -= old.Bytes;
-                    RetireLocked(old);
+                    lock (_spriteCache)
+                    {
+                        // ТОТ ЖЕ URL УЖЕ МОГ ЛЕЖАТЬ В КЭШЕ (гонка двух декодов,
+                        // живое обновление). Закреплённая прежняя запись уходит
+                        // в сторону и живёт, пока её держит сцена.
+                        if (_spriteCache.TryGetValue(url, out var old))
+                        {
+                            if (ReferenceEquals(old.Sprite, sprite))
+                            {
+                                Touch(old);
+                                return sprite; // keep its pins and count its bytes only once
+                            }
+                            _spriteBytes -= old.Bytes;
+                            RetireLocked(old);
+                        }
+                        var e = new SpriteEntry { Sprite = sprite, Key = key, Bytes = bytes };
+                        Touch(e);
+                        _spriteCache[url] = e;
+                        _spriteBytes += e.Bytes;
+                        victims = EvictToLocked(SpriteCacheBudgetBytes, SpriteEvictionGraceSeconds);
+                    }
                 }
-                var e = new SpriteEntry { Sprite = sprite, Bytes = bytes };
-                Touch(e);
-                _spriteCache[url] = e;
-                _spriteBytes += e.Bytes;
-                victims = EvictToLocked(SpriteCacheBudgetBytes, SpriteEvictionGraceSeconds);
+            }
+            if (victims == null)
+            {
+                DestroySprite(sprite); // never handed to a consumer; no pins to retain
+                return null;
             }
             FlushDestroys();
             foreach (var v in victims) DestroySprite(v.Sprite);
@@ -365,8 +380,20 @@ namespace Lvn.Content
         private static void DestroySprite(Sprite sprite)
         {
             if (sprite == null) return;
-            if (sprite.texture != null) UnityEngine.Object.Destroy(sprite.texture);
-            UnityEngine.Object.Destroy(sprite);
+            if (sprite.texture != null) Discard(sprite.texture);
+            Discard(sprite);
+        }
+
+        // ВНЕ ИГРЫ УНИЧТОЖАЮТ ПО-ДРУГОМУ. Object.Destroy в редакторе — ошибка
+        // Unity («Destroy may not be called from edit mode»), и она роняет
+        // EditMode-проверки на неперехваченном сообщении, хотя сам кэш работает.
+        // Правило уже записано у Памяти ассетов (AssetMemory.Discard) — держим
+        // его одинаковым, а не заводим второе.
+        private static void Discard(UnityEngine.Object o)
+        {
+            if (o == null) return;
+            if (Application.isPlaying) UnityEngine.Object.Destroy(o);
+            else UnityEngine.Object.DestroyImmediate(o);
         }
     }
 }
