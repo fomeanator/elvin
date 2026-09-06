@@ -168,6 +168,7 @@ namespace Lvn.UI
             _saveTitleId = titleId;
             _saveChapterId = chapterId;
             _saveScriptUrl = scriptUrl;
+            _liveEditSeen = 0;   // у новой главы своя череда правок
         }
 
         private string _saveTitleId, _saveChapterId, _saveScriptUrl;

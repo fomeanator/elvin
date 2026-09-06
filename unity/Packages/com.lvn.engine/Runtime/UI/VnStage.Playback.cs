@@ -270,14 +270,30 @@ namespace Lvn.UI
         /// адрес главы, которую играет, и этого достаточно, чтобы не пустить
         /// чужой текст.</para>
         /// </summary>
-        public LiveEdit ApplyLiveEdit(string scriptUrl, string lvnJson)
+        /// <param name="revision">Порядковый номер правки, растущий у хоста.
+        /// Ноль — «порядка нет», и тогда проверяется только адрес.
+        ///
+        /// <para>АДРЕСОМ ВОЗРАСТ НЕ ЛОВИТСЯ. Опрос сервера идёт раз в две
+        /// секунды, обработчик изменения контента запускается не дожидаясь
+        /// предыдущего и дважды ходит в сеть. Автор, поправивший главу дважды
+        /// подряд, порождает две работы над ОДНИМ адресом: глава своя в обеих,
+        /// отличается только возраст, и без номера на экране оседает та, что
+        /// вернулась последней. Игрок получает исправленную опечатку
+        /// обратно.</para></param>
+        public LiveEdit ApplyLiveEdit(string scriptUrl, string lvnJson, long revision = 0)
         {
             if (string.IsNullOrEmpty(scriptUrl) || scriptUrl != _saveScriptUrl) return LiveEdit.Stale;
+            if (revision > 0 && revision <= _liveEditSeen) return LiveEdit.Stale;
             if (!Playing) return LiveEdit.Stale;
-            if (TryHotSwap(lvnJson)) return LiveEdit.Swapped;
-            Play(lvnJson);
-            return LiveEdit.Restarted;
+            var исход = TryHotSwap(lvnJson) ? LiveEdit.Swapped : LiveEdit.Restarted;
+            if (исход == LiveEdit.Restarted) Play(lvnJson);
+            if (revision > 0) _liveEditSeen = revision;
+            return исход;
         }
+
+        // Номер последней ПРИНЯТОЙ правки. Обнуляется вместе с главой: у новой
+        // главы своя череда, и номер прошлой запер бы ей первую же правку.
+        private long _liveEditSeen;
 
         /// <summary>Wipe the stage to a clean slate NOW — actors, background, FX,
         /// dialogue. The host calls this when a chapter starts (before the script
