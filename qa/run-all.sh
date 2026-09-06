@@ -182,6 +182,18 @@ if [ -x "$REPO_ROOT/qa/experiment-assign-check.sh" ]; then
   fi
 fi
 
+# ПЕСОЧНИЦА НАЗЫВАЕТ ТО, ЧЕГО НЕ ДЕЛАЕТ. Веб-плеер — объявленное подмножество,
+# и цена этого решения ложится на автора: молчание неотличимо от поломки.
+if [ -x "$REPO_ROOT/qa/sandbox-silence-check.sh" ]; then
+  gout_ss="$OUT/sandbox-silence.log"
+  if "$REPO_ROOT/qa/sandbox-silence-check.sh" >"$gout_ss" 2>&1; then
+    log "тишина песочницы: $(tail -1 "$gout_ss")"
+  else
+    log "FAIL: тишина песочницы — подробности: $gout_ss"
+    fail=1
+  fi
+fi
+
 # «ПОМЕНЬШЕ» ЗНАЧИТ ДЕШЕВЛЕ. Ступень качества проверяется ценой главы целиком:
 # лестница обязана дешеветь вниз, мелочь — приходить как есть, а чужие размеры
 # сервер изготавливать не должен.

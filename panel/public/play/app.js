@@ -356,16 +356,18 @@ function compileAndRun() {
   }
   const doc = JSON.parse(out.json);
 
-  // ЧЕГО ПЕСОЧНИЦА НЕ ИГРАЕТ — ГОВОРИМ СЛОВАМИ.
+  // ЧЕГО ПЕСОЧНИЦА НЕ ДЕЛАЕТ — ГОВОРИМ СЛОВАМИ.
   //
   // Веб-плеер это объявленное подмножество движка (решение 01.09), и часть
   // полей он пропускает молча. Для автора молчание неотличимо от поломки: он
-  // ставит `voice`, слышит тишину и думает, что не доехал файл. Одна строка
-  // здесь стоит часа догадок там.
-  const silent = [];
-  if ((doc.script || []).some((c) => c && c.voice)) {
-    silent.push("voice — озвучка реплик здесь не играет (проверьте в приложении)");
-  }
+  // ставит `voice` и слышит тишину, ставит `scale` и видит прежний размер —
+  // и думает, что сломался он сам. Замер 06.09: таких полей ТРИДЦАТЬ, и о
+  // них не было сказано нигде.
+  //
+  // READ — то, что песочница действительно читает (сверяется стендом
+  // qa/sandbox-silence-check.sh с настоящим кодом: разойдутся — прогон
+  // покраснеет). Всё остальное объявляется автору списком.
+  const silent = collectSilentFields(doc);
 
   const problems = [
     out.warnings ? "Warnings:\n" + out.warnings : "",
@@ -434,6 +436,36 @@ function showResume(saved) {
     render(player.advance());
   });
   els.choices.appendChild(btnNew);
+}
+
+// Поля, которые песочница ЧИТАЕТ. Список ведётся руками и сторожится стендом:
+// добавили поддержку поля в код — добавьте сюда, иначе автор будет ждать от
+// песочницы того, чего она не делает, или наоборот.
+const READ_FIELDS = new Set([
+  "op", "id", "text", "who", "name", "name_var", "show", "hide", "position",
+  "x", "y", "width", "height", "opacity", "alpha", "color", "size", "url",
+  "sprite_url", "body_url", "channel", "volume", "loop", "action", "to",
+  "board", "options", "label", "key", "value", "var", "ms", "style", "cost",
+  "goto", "if", "cond", "default", "placeholder", "max", "min",
+]);
+
+// Поля документа, которых песочница не читает. Считается по САМОМУ документу:
+// автор узнаёт ровно про то, что написал, а не про весь список возможностей.
+function collectSilentFields(doc) {
+  const seen = new Map(); // поле → операции, где оно встретилось
+  for (const cmd of doc.script || []) {
+    if (!cmd || typeof cmd !== "object") continue;
+    for (const field of Object.keys(cmd)) {
+      if (READ_FIELDS.has(field)) continue;
+      if (!seen.has(field)) seen.set(field, new Set());
+      seen.get(field).add(cmd.op || "?");
+    }
+  }
+  const out = [];
+  for (const [field, ops] of [...seen].sort()) {
+    out.push(`${field} — в ${[...ops].sort().join(", ")} (работает в приложении)`);
+  }
+  return out;
 }
 
 function showProblems(text) {
