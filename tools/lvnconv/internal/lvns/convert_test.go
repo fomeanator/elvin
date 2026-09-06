@@ -146,6 +146,89 @@ anim id=h prop=y keys="0:0 1:1" interp=spilne
 	}
 }
 
+func TestConvertAnimRejectsUnknownPositionalToken(t *testing.T) {
+	cases := []struct {
+		name, command, token, hint string
+	}{
+		{"loop_typo", "anim target scale [1 2] 2s loopp", "loopp", "loop"},
+		{"before_duration", "anim target scale [1 2] unexpected_token 2s", "unexpected_token", ""},
+		{"inline_keys", "anim target scale 0:1 2:2 yoyoo", "yoyoo", "yoyo"},
+		{"stop_suffix", "anim target stop unexpected_token", "unexpected_token", ""},
+		{"duration_without_unit", "anim target scale [1 2] 2", "2", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := Convert("scene t\n" + tc.command + "\nsay text=\"next\"\n")
+			if err == nil {
+				t.Fatalf("unknown positional token %q was silently accepted", tc.token)
+			}
+			for _, want := range []string{
+				"line 2: anim:", fmt.Sprintf("unknown positional token %q", tc.token),
+				"duration (e.g. 2s)", "yoyo|loop|pingpong|stop", "key=value", "t:v", "[value ...]",
+			} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error %q does not contain %q", err, want)
+				}
+			}
+			if tc.hint != "" {
+				if want := fmt.Sprintf("did you mean %q?", tc.hint); !strings.Contains(err.Error(), want) {
+					t.Errorf("error %q does not contain %q", err, want)
+				}
+			} else if strings.Contains(err.Error(), "did you mean") {
+				t.Errorf("unexpected suggestion for %q: %v", tc.token, err)
+			}
+		})
+	}
+}
+
+// Compare full payloads so accepting a token is not enough: timing, looping,
+// shaping and every path point must keep their existing meaning.
+func TestConvertAnimMovePositionalForms(t *testing.T) {
+	cases := []struct {
+		name, command, want string
+	}{
+		{"loop", "anim target scale [1 2] 2s loop",
+			`{"op":"anim","id":"target","anim":{"loop":true,"duration":2,"tracks":[{"prop":"scale","keys":[[0,1],[2,2]]}]}}`},
+		{"yoyo", "anim target scale [1 2] 2s yoyo",
+			`{"op":"anim","id":"target","anim":{"loop":true,"yoyo":true,"duration":2,"tracks":[{"prop":"scale","keys":[[0,1],[2,2]]}]}}`},
+		{"pingpong", "anim target scale [1 2] 2s pingpong",
+			`{"op":"anim","id":"target","anim":{"loop":true,"yoyo":true,"duration":2,"tracks":[{"prop":"scale","keys":[[0,1],[2,2]]}]}}`},
+		{"stop", "anim target stop",
+			`{"op":"anim","id":"target","stop":"all"}`},
+		{"duration", "anim target scale to=2 2s",
+			`{"op":"anim","id":"target","anim":{"loop":false,"duration":2,"tracks":[{"prop":"scale","keys":[[0,1],[2,2]]}]}}`},
+		{"key_value", "anim target scale [1 2] 2s ease=inOutSine channel=pulse mode=queue",
+			`{"op":"anim","id":"target","channel":"pulse","mode":"queue","anim":{"loop":false,"duration":2,"tracks":[{"prop":"scale","ease":"inOutSine","keys":[[0,1],[2,2]]}]}}`},
+		{"inline_keys", "anim target scale 0:1 .5:2 2:1",
+			`{"op":"anim","id":"target","anim":{"loop":false,"duration":2,"tracks":[{"prop":"scale","keys":[[0,1],[0.5,2],[2,1]]}]}}`},
+		{"bracket_list", "anim target scale [1 2 1]",
+			`{"op":"anim","id":"target","anim":{"loop":false,"duration":1,"tracks":[{"prop":"scale","keys":[[0,1],[0.5,2],[1,1]]}]}}`},
+		{"bracket_list_duration", "anim target scale [1 2 1] 2s",
+			`{"op":"anim","id":"target","anim":{"loop":false,"duration":2,"tracks":[{"prop":"scale","keys":[[0,1],[1,2],[2,1]]}]}}`},
+		{"move_path", "move target 0.2,0.5 0.5,0.8 0.8,0.5 2s loop ease=outCubic",
+			`{"op":"anim","id":"target","anim":{"loop":true,"duration":2,"tracks":[{"prop":"screen_x","ease":"outCubic","keys":[[0,0.2],[1,0.5],[2,0.8]]},{"prop":"screen_y","ease":"outCubic","keys":[[0,0.5],[1,0.8],[2,0.5]]}]}}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			doc, err := Convert("scene t\n" + tc.command + "\n")
+			if err != nil {
+				t.Fatalf("Convert failed: %v", err)
+			}
+			if len(doc.Script) != 1 {
+				t.Fatalf("expected one command, got %v", doc.Script)
+			}
+			var want Cmd
+			if err := json.Unmarshal([]byte(tc.want), &want); err != nil {
+				t.Fatalf("invalid expected command: %v", err)
+			}
+			if !reflect.DeepEqual(doc.Script[0], want) {
+				got, _ := json.Marshal(doc.Script[0])
+				t.Errorf("expected: %s\ngot:      %s", tc.want, got)
+			}
+		})
+	}
+}
+
 func TestConvertAnimOneLinerYoyoStop(t *testing.T) {
 	src := `
 scene t
