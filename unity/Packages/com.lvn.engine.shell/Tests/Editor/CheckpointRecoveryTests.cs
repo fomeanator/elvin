@@ -9,6 +9,7 @@ using Lvn.UI.Screens;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace Lvn.Tests
 {
@@ -24,6 +25,8 @@ namespace Lvn.Tests
         private LocalStateStore _state;
         private string _entryKey, _backupKey, _slotsKey, _statsKey, _globalKey;
         private string _oldGlobal;
+        private PopupScreen _popup;
+        private Func<float> _oldClock;
 
         [SetUp]
         public void SetUp()
@@ -49,6 +52,15 @@ namespace Lvn.Tests
         [TearDown]
         public void TearDown()
         {
+            if (_popup != null)
+            {
+                _popup.Hide();
+                LvnClock.Now = _oldClock;
+                LvnWords.Translate(null);
+                LvnWords.Learn(null, null);
+                LvnScreenDirector.Current.Reset();
+                _popup = null;
+            }
             if (_host != null) UnityEngine.Object.DestroyImmediate(_host);
             foreach (var key in new[] { _entryKey, _backupKey, _slotsKey, _slotsKey + ".bak", _statsKey })
                 LvnKeep.Drop(key);
@@ -60,6 +72,25 @@ namespace Lvn.Tests
         private Task<bool> RollBack() => (Task<bool>)typeof(NovelApp)
             .GetMethod("RollBackToEntryAsync", PrivateInstance)
             .Invoke(_app, new object[] { _title, _chapter });
+
+        private Task<bool?> TryEntry() => (Task<bool?>)typeof(NovelApp)
+            .GetMethod("TryRollBackToEntryAsync", PrivateInstance)
+            .Invoke(_app, new object[] { _title, _chapter });
+
+        private void CreateEntryPopup()
+        {
+            // Real shell and popup, with instant fades so EditMode needs no frames.
+            _oldClock = LvnClock.Now;
+            float tick = 0;
+            LvnClock.Now = () => tick += 10f;
+            LvnWords.Translate(null);
+            LvnWords.Learn(null, null);
+            LvnScreenDirector.Current.Reset();
+            _popup = new PopupScreen(null);
+            var shell = _host.AddComponent<NovelShell>();
+            typeof(NovelShell).GetProperty("Popup").SetValue(shell, _popup);
+            typeof(NovelApp).GetField("_shell", PrivateInstance).SetValue(_app, shell);
+        }
 
         private async Task HoldProgress()
         {
@@ -147,6 +178,75 @@ namespace Lvn.Tests
                 Assert.AreEqual(_chapter.id, LvnProgress.PendingRestart(_title.id), "retry must not bypass recovery");
                 Assert.IsInstanceOf<InvalidDataException>(failure, "failure must be explicit");
             }
+        }
+
+        [TestCase(null, false)]
+        [TestCase("{", false)]
+        [TestCase(null, true)]
+        [TestCase("{", true)]
+        public async Task CancelledEntryExplainsRecoveryBeforeReturningToMenu(string backup, bool translated)
+        {
+            CreateEntryPopup();
+            const string recoveryTitle = "Chapter can't open yet";
+            const string recoveryMessage = "Your progress is safe. A supporting save record is damaged, so this chapter can't open yet. Please contact support for help recovering it.";
+            const string translatedTitle = "Saved progress needs attention";
+            const string translatedMessage = "Saved progress is retained. Contact support about the damaged record.";
+            if (translated)
+                LvnWords.Translate(new Dictionary<string, string>
+                {
+                    ["chapter.checkpoint_recovery_title"] = translatedTitle,
+                    ["chapter.checkpoint_recovery"] = translatedMessage,
+                });
+
+            await HoldProgress();
+            LvnKeep.Put(_entryKey, "{");
+            if (backup != null) LvnKeep.Put(_backupKey, backup);
+            var slots = LvnKeep.Get(_slotsKey);
+            var stats = LvnKeep.Get(_statsKey);
+
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                var entry = TryEntry();
+                try
+                {
+                    Assert.IsTrue(_popup.IsOpen, "cancelled entry must explain the failure to the player");
+                    Assert.AreEqual(DisplayStyle.Flex, _popup.style.display.value);
+                    Assert.AreEqual(translated ? translatedTitle : recoveryTitle,
+                        _popup.Q<Label>("popup-title").text);
+                    Assert.AreEqual(translated ? translatedMessage : recoveryMessage,
+                        _popup.Q<Label>("popup-message").text);
+                    Assert.IsFalse(entry.IsCompleted, "the menu must wait for acknowledgement");
+                }
+                finally { _popup.Hide(); }
+
+                Assert.IsNull(await entry, "acknowledging the explanation must still cancel entry");
+                Assert.AreEqual(slots, LvnKeep.Get(_slotsKey), "the explanation must preserve the autosave");
+                Assert.AreEqual(stats, LvnKeep.Get(_statsKey));
+                Assert.AreEqual(_chapter.id, LvnProgress.PendingRestart(_title.id));
+            }
+        }
+
+        [TestCase(false, false)]
+        [TestCase(true, false)]
+        [TestCase(true, true)]
+        public async Task HealthyOrRecoveredEntryShowsNoRecoveryExplanation(bool restart, bool corruptPrimary)
+        {
+            CreateEntryPopup();
+            if (restart)
+            {
+                await HoldProgress();
+                LvnProgress.SaveCheckpoint(_title.id, _chapter.id, new JObject { ["score"] = 12 });
+                if (corruptPrimary) LvnKeep.Put(_entryKey, "{");
+            }
+
+            var entry = TryEntry();
+            try
+            {
+                Assert.IsFalse(_popup.IsOpen, "normal entry and successful backup recovery need no alert");
+                Assert.AreEqual(DisplayStyle.None, _popup.style.display.value);
+                Assert.AreEqual(restart, await entry);
+            }
+            finally { _popup.Hide(); }
         }
 
         [TestCase(false)]

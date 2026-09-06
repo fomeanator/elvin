@@ -112,6 +112,14 @@
   "default": "available"
  },
  {
+  "key": "chapter.checkpoint_recovery",
+  "default": "Your progress is safe. A supporting save record is damaged, so this chapter can't open yet. Please contact support for help recovering it."
+ },
+ {
+  "key": "chapter.checkpoint_recovery_title",
+  "default": "Chapter can't open yet"
+ },
+ {
   "key": "chapter.current",
   "default": "current"
  },

@@ -122,7 +122,7 @@ namespace Lvn.UI.Screens
             }
 
             // Read BEFORE consuming the request or touching saves/stats. Corrupt
-            // checkpoints abort chapter entry (caught by PlayOneChapterAsync),
+            // checkpoints abort chapter entry (handled by TryRollBackToEntryAsync),
             // preserving the request so a retry cannot bypass the failed restart.
             var entry = LvnProgress.Checkpoint(title?.id, chapter.id) ?? new JObject();
             LvnProgress.TakeRestart(title?.id, chapter.id);
@@ -132,6 +132,21 @@ namespace Lvn.UI.Screens
             await SaveScopedVarsAsync(title?.id, Stage.SeedVars);
             LvnLog.Info($"[lvn-app] restarting '{chapter.id}' from its entry checkpoint");
             return true;
+        }
+
+        // null cancels entry; false is a normal entry, true is a restart.
+        private async Task<bool?> TryRollBackToEntryAsync(LvnTitle title, LvnChapter chapter)
+        {
+            try { return await RollBackToEntryAsync(title, chapter); }
+            catch (System.IO.InvalidDataException)
+            {
+                // Wait for acknowledgement before returning to the menu. Starting
+                // the stage here could overwrite the autosave held for recovery.
+                Debug.LogWarning("[lvn-app] chapter entry cancelled: checkpoint recovery required");
+                await _shell.AlertAsync(LvnOfflineText.CheckpointRecoveryTitle,
+                    LvnOfflineText.CheckpointRecovery);
+                return null;
+            }
         }
 
         /// <summary>
@@ -209,15 +224,9 @@ namespace Lvn.UI.Screens
             // `default:true` и их не перетирают, а новая игра начинается пустой.
             await DressStageAsync(title, chapter, chapter.script_url);
 
-            bool restart;
-            try { restart = await RollBackToEntryAsync(title, chapter); }
-            catch (System.IO.InvalidDataException)
-            {
-                // Stop the whole entry: continuing without rollback could still
-                // overwrite the held autosave when Stage.Play starts the chapter.
-                Debug.LogWarning("[lvn-app] chapter entry cancelled: checkpoint recovery required");
-                return null;
-            }
+            var rollback = await TryRollBackToEntryAsync(title, chapter);
+            if (!rollback.HasValue) return null;
+            bool restart = rollback.Value;
 
             // Resume where the player actually was: a mid-chapter autosave for THIS
             // script (written on choices/every few lines/app pause) beats replaying
