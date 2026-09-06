@@ -354,10 +354,25 @@ function compileAndRun() {
     setStatus("compile error", "err");
     return;
   }
-  showProblems(out.warnings ? "Warnings:\n" + out.warnings : "");
-  setStatus(out.warnings ? "running (with warnings)" : "running ✓", out.warnings ? "" : "ok");
-
   const doc = JSON.parse(out.json);
+
+  // ЧЕГО ПЕСОЧНИЦА НЕ ИГРАЕТ — ГОВОРИМ СЛОВАМИ.
+  //
+  // Веб-плеер это объявленное подмножество движка (решение 01.09), и часть
+  // полей он пропускает молча. Для автора молчание неотличимо от поломки: он
+  // ставит `voice`, слышит тишину и думает, что не доехал файл. Одна строка
+  // здесь стоит часа догадок там.
+  const silent = [];
+  if ((doc.script || []).some((c) => c && c.voice)) {
+    silent.push("voice — озвучка реплик здесь не играет (проверьте в приложении)");
+  }
+
+  const problems = [
+    out.warnings ? "Warnings:\n" + out.warnings : "",
+    silent.length ? "В песочнице не звучит:\n" + silent.join("\n") : "",
+  ].filter(Boolean).join("\n\n");
+  showProblems(problems);
+  setStatus(out.warnings ? "running (with warnings)" : "running ✓", out.warnings ? "" : "ok");
   const sceneName = (/^\s*scene\s+(\S+)/m.exec(src) || [])[1] || "scene";
   saveKey = "lvn-play-save:" + sceneName;
   resetStage();
