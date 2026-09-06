@@ -31,13 +31,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/fomeanator/elvin/tools/lvnconv/importer"
+	"github.com/fomeanator/elvin/tools/lvnconv/lvn"
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
-
-	"github.com/fomeanator/elvin/tools/lvnconv/importer"
-	"github.com/fomeanator/elvin/tools/lvnconv/lvn"
 )
 
 // lvnFindings is one script's verdict, already split by what the caller must
@@ -107,7 +107,74 @@ func (s *server) checkManifest(data []byte) lvnFindings {
 			f.Warnings = append(f.Warnings, iss.Msg)
 		}
 	}
+	// ССЫЛКИ САМОГО КАТАЛОГА. Компилятор проверяет манифест как ДАННЫЕ (поля,
+	// имена, дубли) — но не знает, что лежит на диске. А адреса в нём самые
+	// видимые из всех: обложка новеллы и полотно витрины — первое, что человек
+	// видит, открыв игру; иконки гардероба и слои спрайтов — то, из чего
+	// собран персонаж.
+	//
+	// Замер 06.09: из пяти битых адресов в манифесте гейт не называл НИ
+	// ОДНОГО. Скрипты он к тому времени проверял давно — просто манифест сюда
+	// не входил, как обычно и бывает с тем, что заводили раньше проверки.
+	f.Warnings = append(f.Warnings, s.missingManifestAssets(data)...)
 	return f
+}
+
+// missingManifestAssets — адреса каталога, которых нет на диске.
+//
+// Обходим значение любого поля, похожего на адрес контента: обложки, полотно
+// витрины, музыка меню, слои спрайтов, иконки гардероба и всё, что заведут
+// потом. Правило одно (строка начинается с /content/ или лежит под ним), и
+// потому новое поле-адрес попадает под проверку само — в отличие от списка
+// имён, который пришлось бы дополнять и который обязательно забыли бы.
+func (s *server) missingManifestAssets(data []byte) []string {
+	var root any
+	if err := json.Unmarshal(data, &root); err != nil {
+		return nil // непригодный JSON назовёт проверка выше
+	}
+	seen := map[string]bool{}
+	names := dirNames{}
+	var out []string
+	var walk func(node any)
+	walk = func(node any) {
+		switch n := node.(type) {
+		case map[string]any:
+			for _, v := range n {
+				walk(v)
+			}
+		case []any:
+			for _, v := range n {
+				walk(v)
+			}
+		case string:
+			url := n
+			if !strings.HasPrefix(url, "/content/") || seen[url] {
+				return
+			}
+			// Шаблон с осью ({outfit}) знает только игра; внешний адрес не наш.
+			if strings.ContainsAny(url, "{}") {
+				return
+			}
+			seen[url] = true
+			rel := strings.TrimPrefix(url, "/content/")
+			clean := filepath.Clean("/" + filepath.FromSlash(rel))[1:]
+			if _, err := os.Stat(filepath.Join(s.content, clean)); err != nil {
+				out = append(out, fmt.Sprintf(
+					"каталог: файла нет — %s (ссылка есть, а на диске пусто: игрок увидит пустоту)", url))
+				return
+			}
+			// Та же ловушка регистра, что и в скриптах: у автора откроется, на
+			// сервере игры — нет.
+			if disk, exact := names.exactRel(s.content, clean); !exact && disk != "" {
+				out = append(out, fmt.Sprintf(
+					"каталог: имя файла разошлось — в ссылке %s, на диске /content/%s; на сервере игры не откроется",
+					url, filepath.ToSlash(disk)))
+			}
+		}
+	}
+	walk(root)
+	sort.Strings(out)
+	return out
 }
 
 // checkLvn parses and validates one compiled script's bytes. rel is the

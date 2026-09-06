@@ -428,3 +428,53 @@ func TestГейтМолчитНаСуществующем(t *testing.T) {
 		}
 	}
 }
+
+// АДРЕСА САМОГО КАТАЛОГА — тоже ссылки, и самые видимые из всех.
+//
+// Замер 06.09: из пяти битых адресов в манифесте гейт не называл НИ ОДНОГО —
+// обложку новеллы, полотно витрины, музыку меню, слой спрайта, иконку
+// гардероба. Скрипты он к тому времени проверял давно; манифест просто не
+// входил сюда — как обычно и бывает с тем, что заведено раньше проверки.
+func TestГейтВидитБитыеАдресаКаталога(t *testing.T) {
+	dir := t.TempDir()
+	s := &server{content: dir}
+	data := []byte(`{
+	  "titles":[{"id":"t","name":"П","cover_url":"/content/bg/НЕТ-обложки.jpg"}],
+	  "ui":{"browse":{"canvas":"/content/bg/НЕТ-полотна.jpg","music":"/content/audio/НЕТ.ogg"}},
+	  "sprites":{"кто":{"layers":[{"url":"/content/sprites/НЕТ-слоя.png"}],
+	    "wardrobe":{"наряд":{"icon":"/content/ui/НЕТ-иконки.png"}}}}
+	}`)
+	f := s.checkManifest(data)
+	var found int
+	for _, w := range append(f.Warnings, f.Errors...) {
+		if strings.Contains(w, "НЕТ-") || strings.Contains(w, "НЕТ.ogg") {
+			found++
+		}
+	}
+	if found < 5 {
+		t.Fatalf("названо %d битых адресов из 5 — остальные автор увидит глазами игрока", found)
+	}
+}
+
+// ШАБЛОНЫ И ЖИВЫЕ ФАЙЛЫ МОЛЧАТ. Значение оси ({outfit}) знает только игра, и
+// ругаться на него значит приучить автора пролистывать предупреждения.
+func TestГейтКаталогаМолчитНаШаблонахИЖивом(t *testing.T) {
+	dir := t.TempDir()
+	full := filepath.Join(dir, "bg", "hall.jpg")
+	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(full, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := &server{content: dir}
+	data := []byte(`{
+	  "titles":[{"id":"t","name":"П","cover_url":"/content/bg/hall.jpg"}],
+	  "sprites":{"кто":{"layers":[{"url":"/content/sprites/hero_{outfit}.png"}]}}
+	}`)
+	for _, w := range s.checkManifest(data).Warnings {
+		if strings.Contains(w, "файла нет") {
+			t.Fatalf("гейт ругается на живой файл или на шаблон: %s", w)
+		}
+	}
+}
