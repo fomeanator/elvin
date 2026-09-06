@@ -154,6 +154,14 @@ namespace Lvn
             // спрятали» схлопнулся бы в одно «спрятали», дерево не создалось
             // бы вовсе — и следующая команда `action=show` показывать было бы
             // нечего.
+            // ФОН — ОДИН СЛОТ НА ДВЕ КОМАНДЫ. Сцена так и говорит: объёмная
+            // декорация стоит «until `bg3d off` (or the next ordinary `bg`)».
+            // Значит побеждает ТОТ, ЧТО ПОЗЖЕ, — а перестройка ставила полотно
+            // первым, а состояния последними, и `bg3d` выигрывал всегда. Игрок,
+            // ушедший из объёмной комнаты на нарисованную улицу, возвращался в
+            // комнату: замер 06.09 дал «bg → bg3d» на пути, где автор написал
+            // «bg3d → bg».
+            int bgLast = -1, bg3dLast = -1;
             var labelLast = new Dictionary<string, int>();   // text: id → позиция
             var uiDecl = new Dictionary<string, int>();      // ui: последнее объявление
             var uiAct = new Dictionary<string, int>();       // ui: последнее действие
@@ -162,8 +170,10 @@ namespace Lvn
                 int i = path[pi];
                 if (i < 0 || i >= _script.Count) continue;
                 if (!(_script[i] is JObject c)) continue;
+                if ((string)c["op"] == "bg3d") bg3dLast = pi;
                 if ((string)c["op"] == "bg")
                 {
+                    bgLast = pi;
                     if (bg == null) bg = new JObject { ["op"] = "bg" };
                     foreach (var prop in c.Properties())
                         if (prop.Name != "op") bg[prop.Name] = prop.Value.DeepClone();
@@ -330,6 +340,11 @@ namespace Lvn
                         break;
                 }
             }
+            // ПОБЕДИТЕЛЬ СЛОТА ФОНА РЕШАЕТСЯ ЗДЕСЬ, когда карта состояний уже
+            // собрана. Первая редакция снимала декорацию сразу после полотна —
+            // то есть ДО прохода, который её в карту и кладёт, и не снимала
+            // ничего: стенд остался красным и назвал ту же пару «bg → bg3d».
+            if (bgLast > bg3dLast) fx.Remove("bg3d");
             foreach (var key in fxOrder)
                 if (fx.TryGetValue(key, out var cmd))
                     StageApply(cmd);
