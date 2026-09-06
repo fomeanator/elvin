@@ -1,7 +1,9 @@
 package main
 
 import (
+	"archive/zip"
 	"bytes"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -310,6 +312,112 @@ func TestExportSkipsBuildOutputWhateverTheCase(t *testing.T) {
 		if !exportSkipDirs[strings.ToLower(dir)] {
 			t.Errorf("каталог %s должен исключаться из экспорта", dir)
 		}
+	}
+}
+
+func TestExportOfflineContent(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		unreadable string
+	}{
+		{name: "healthy"},
+		{name: "unreadable_asset", unreadable: "art/required.png"},
+		{name: "unreadable_manifest", unreadable: "manifest.json"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpl, content := t.TempDir(), t.TempDir()
+			plantTree(t, tmpl, "Assets/Sandbox/Boot.cs")
+			plantTree(t, content, "manifest.json", "art/required.png")
+			manifest := `{"titles":[],"ui":{"browse":{"canvas":"/content/art/required.png"}}}`
+			if err := os.WriteFile(filepath.Join(content, "manifest.json"), []byte(manifest), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			// Walk uses Lstat, so a symlink to a directory reaches ReadFile
+			// and fails on macOS even as root (unlike chmod 000).
+			unreadable := func(rel string) {
+				t.Helper()
+				path := filepath.Join(content, filepath.FromSlash(rel))
+				if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(t.TempDir(), path); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := os.ReadFile(path); err == nil {
+					t.Fatalf("fixture %s must fail ReadFile", rel)
+				}
+			}
+			// These exclusions are intentional, even when unreadable.
+			excluded := []string{"services/internal.json", "manifest.draft.json", "scripts/source.lvns", "art/source.psd"}
+			for _, rel := range excluded {
+				unreadable(rel)
+			}
+			if tc.unreadable != "" {
+				if err := os.Remove(filepath.Join(content, filepath.FromSlash(tc.unreadable))); err != nil {
+					t.Fatal(err)
+				}
+				if tc.unreadable == "manifest.json" {
+					// The manifest API copy must also reject a directory that
+					// the content walk legitimately skips.
+					if err := os.Mkdir(filepath.Join(content, tc.unreadable), 0o755); err != nil {
+						t.Fatal(err)
+					}
+				} else {
+					unreadable(tc.unreadable)
+				}
+			}
+
+			s := &server{content: content, templateDir: tmpl, adminToken: "devtoken"}
+			req := httptest.NewRequest(http.MethodPost, "/v1/export", strings.NewReader(`{"name":"Game","offline":true}`))
+			req.Header.Set("Authorization", "Bearer devtoken")
+			rec := httptest.NewRecorder()
+			s.handleExport(rec, req)
+			if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "application/zip" {
+				t.Fatalf("expected a ZIP response, got %d %s", rec.Code, rec.Body.String())
+			}
+			zr, err := zip.NewReader(bytes.NewReader(rec.Body.Bytes()), int64(rec.Body.Len()))
+			if tc.unreadable != "" {
+				if err == nil {
+					t.Fatalf("unreadable %s produced a complete ZIP: the author cannot detect missing content", tc.unreadable)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("healthy export produced an incomplete ZIP: %v", err)
+			}
+			files := map[string]string{}
+			for _, f := range zr.File {
+				r, err := f.Open()
+				if err != nil {
+					t.Fatal(err)
+				}
+				data, err := io.ReadAll(r)
+				r.Close()
+				if err != nil {
+					t.Fatalf("read ZIP entry %s: %v", f.Name, err)
+				}
+				files[f.Name] = string(data)
+			}
+			base := "Game/" + bundleDir
+			for rel, want := range map[string]string{
+				"/content/art/required.png": "data:art/required.png",
+				"/content/manifest.json":    manifest,
+				"/v1/content/manifest":      manifest,
+			} {
+				if got := files[base+rel]; got != want {
+					t.Errorf("ZIP entry %s = %q, want %q", rel, got, want)
+				}
+			}
+			if _, ok := files[base+"/content/asset-versions.json"]; !ok {
+				t.Error("ZIP is missing the generated version index")
+			}
+			for _, rel := range excluded {
+				if _, ok := files[base+"/content/"+rel]; ok {
+					t.Errorf("ZIP includes excluded file %s", rel)
+				}
+			}
+		})
 	}
 }
 
