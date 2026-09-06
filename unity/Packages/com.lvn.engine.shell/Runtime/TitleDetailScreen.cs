@@ -105,6 +105,28 @@ namespace Lvn.UI.Screens
         /// <see cref="Rebuild"/>.</summary>
         public JObject StatVars;
 
+        /// <summary>
+        /// СТАТЫ ПРИНИМАЮТСЯ ТОЛЬКО ДЛЯ ПОКАЗАННОЙ НОВЕЛЛЫ.
+        ///
+        /// <para>Хост ставит <see cref="Title"/> сразу, а статы к ней грузит из
+        /// хранилища — то есть ЖДЁТ сеть. Пока он ждёт, витрина ещё на экране,
+        /// и игрок успевает открыть вторую карточку. Тогда опоздавшая загрузка
+        /// первой писала свои значения поверх уже показанной второй: карточка
+        /// новеллы, в которую игрок не играл, показывала чужой прогресс.</para>
+        ///
+        /// <para>Опознание живёт ЗДЕСЬ, а не у хоста: поля <see cref="Title"/> и
+        /// <see cref="StatVars"/> публичны и пишутся раздельно, так что забыть
+        /// проверку может любой, кто их заполняет. Возвращает false, если
+        /// загрузка опоздала и её значения уже не к месту.</para>
+        /// </summary>
+        public bool SetStatsFor(LvnTitle t, JObject vars)
+        {
+            if (!ReferenceEquals(t, Title)) return false;
+            StatVars = vars ?? new JObject();
+            Rebuild();
+            return true;
+        }
+
         public TitleDetailScreen(ILvnAssets assets)
         {
             _assets = assets;
