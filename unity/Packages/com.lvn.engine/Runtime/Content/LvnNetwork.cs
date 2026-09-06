@@ -76,6 +76,13 @@ namespace Lvn.Content
 
         public static string ChapterMissing => LvnWords.Of("chapter.missing",
             "This chapter isn't published yet. Your progress is safe — try again later.");
+
+        /// <summary>Checkpoint metadata could not be recovered; saved progress is retained.</summary>
+        public static string CheckpointRecoveryTitle => LvnWords.Of("chapter.checkpoint_recovery_title",
+            "Chapter can't open yet");
+
+        public static string CheckpointRecovery => LvnWords.Of("chapter.checkpoint_recovery",
+            "Your progress is safe. A supporting save record is damaged, so this chapter can't open yet. Please contact support for help recovering it.");
     }
 
     /// <summary>
