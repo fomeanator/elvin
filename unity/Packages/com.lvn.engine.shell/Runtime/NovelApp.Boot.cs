@@ -675,8 +675,14 @@ namespace Lvn.UI.Screens
             await AdoptManifestAsync(fresh);
         }
 
+        // ПОРЯДОК ПРАВОК ЗНАЕТ ТОЛЬКО ХОСТ. Опрос замечает изменения по
+        // очереди, а работы по ним идут наперегонки — номер, взятый на входе,
+        // и есть настоящий возраст правки.
+        private long _liveEditSeq;
+
         private async Task OnContentChangedAsync()
         {
+            long правка = ++_liveEditSeq;
             // СПРОСИТЬ, ЧТО ИМЕННО ИЗМЕНИЛОСЬ, ПРЕЖДЕ ЧЕМ КАЧАТЬ.
             //
             // Замер 04.09: карта версий 282 КБ, манифест 435 КБ. Правка одной
@@ -706,7 +712,7 @@ namespace Lvn.UI.Screens
             // открытая глава перечитается по уже исправленной карте версий.
             if (precise && !delta.ManifestChanged)
             {
-                await HotReloadOpenChapterAsync();
+                await HotReloadOpenChapterAsync(правка);
                 return;
             }
 
@@ -717,7 +723,7 @@ namespace Lvn.UI.Screens
             // перезагружать нечем: скрипт поедет по каталогу, который уже
             // отменён, — и главу перебьёт вчерашний текст.
             if (!await AdoptManifestAsync(manifest)) return;
-            await HotReloadOpenChapterAsync();
+            await HotReloadOpenChapterAsync(правка);
         }
 
         /// <summary>
@@ -787,7 +793,7 @@ namespace Lvn.UI.Screens
         /// <summary>Открытая глава подхватывает изменившийся скрипт. Отдельно от
         /// принятия манифеста: на запуске главы нет, и этой работе там нечего
         /// делать.</summary>
-        private async Task HotReloadOpenChapterAsync()
+        private async Task HotReloadOpenChapterAsync(long правка = 0)
         {
             if (_currentChapter == null || Stage == null || Stage.Player == null || Stage.Player.Finished)
                 return;
@@ -827,7 +833,7 @@ namespace Lvn.UI.Screens
 
             // Сцена опознаёт правку по адресу главы сама — вторая половина того
             // же правила: хостов у движка несколько, а цена ошибки одна.
-            var исход = Stage.ApplyLiveEdit(адрес, json);
+            var исход = Stage.ApplyLiveEdit(адрес, json, правка);
             if (исход == Lvn.UI.VnStage.LiveEdit.Stale)
             {
                 LvnLog.Trace("[lvn-app] сцена не приняла правку: на экране другая глава");
