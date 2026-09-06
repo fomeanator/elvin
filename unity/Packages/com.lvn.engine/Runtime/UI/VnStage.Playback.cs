@@ -34,6 +34,17 @@ namespace Lvn.UI
         // no safer for a real player who just made the pick herself).
         private bool _resumeSkipAfterChoice;
 
+        // ТА ЖЕ МЫСЛЬ, ЧТО И У ВЫБОРА, НА ОДИН ШАГ ДАЛЬШЕ. Промотка — передача
+        // для ПЕРЕЧИТЫВАНИЯ: игрок возвращается к развилке через три знакомые
+        // главы. Главы идут встык, и если промотка гаснет на каждой границе, он
+        // обязан на каждой открыть меню и включить её заново — при том, что
+        // ничего не решал и пропустить ему было нечего.
+        //
+        // Отметка ставится ТОЛЬКО когда промотка упёрлась в конец главы сама, и
+        // гаснет от всего, что означает решение человека: его собственная
+        // остановка и передача кадра витрине.
+        private bool _skipCarried;
+
         /// <summary>ГЛАВА ИДЁТ: чтец есть и он не доигран. Вопрос задавался
         /// пятью местами тремя частями каждое — и в одном из них выродился в
         /// «пропуск идёт И чтец есть И не доигран И на выборе», где первые три
@@ -47,7 +58,22 @@ namespace Lvn.UI
             Skipping = true;
         }
 
-        public void StopSkip() { Skipping = false; _resumeSkipAfterChoice = false; }
+        /// <summary>Остановка ПО ВОЛЕ ИГРОКА (тап по кадру, значок режима, меню):
+        /// продолжать на следующей главе нечего.</summary>
+        public void StopSkip()
+        {
+            Skipping = false;
+            _resumeSkipAfterChoice = false;
+            _skipCarried = false;
+        }
+
+        /// <summary>Остановка ГРАНИЦЕЙ ГЛАВЫ — не решение игрока, и отметку о
+        /// продолжении она не снимает.</summary>
+        private void StopSkipAtBoundary()
+        {
+            Skipping = false;
+            _resumeSkipAfterChoice = false;   // выбор ушедшей главы нас не касается
+        }
 
         private void SkipTick()
         {
@@ -56,6 +82,8 @@ namespace Lvn.UI
             {
                 if (Playing && _player.AtChoice)
                     _resumeSkipAfterChoice = true; // gearing down FOR a choice, not a stop/finish
+                else
+                    _skipCarried = true;   // упёрлась в конец главы — продолжение её вернёт
                 Skipping = false; // something needs the player — gear down
                 return;
             }
@@ -65,6 +93,15 @@ namespace Lvn.UI
             {
                 _awaitingTap = false;
                 _player.Advance();
+                // ОТМЕТКА СТАВИТСЯ ПО СОБЫТИЮ, А НЕ ПО ОПРОСУ. Ветка выше
+                // ловит конец главы лишь СЛЕДУЮЩИМ тиком (75 мс), и между
+                // ними глава успевает смениться: замер 06.09 показал ровно
+                // это — промотка домотала главу, а продолжение её не вернуло.
+                if (!Playing)
+                {
+                    _skipCarried = true;
+                    Skipping = false;
+                }
             }
         }
 
@@ -263,6 +300,10 @@ namespace Lvn.UI
             // уцелеть — ради неё она и заведена.
             _paidChoices.Clear();
             _player = new LvnPlayer(doc, this);
+            // Промотка вернулась вместе с продолжением (см. _skipCarried).
+            // Отметка одноразовая: следующая глава заведёт её заново, если
+            // промотка снова упрётся в конец.
+            if (_skipCarried) { _skipCarried = false; StartSkip(); }
             _player.Strings = Strings; // localization catalog (text_id → string), if any
             if (SeedVars != null)      // carry stats in before the init defaults run
                 foreach (var p in SeedVars.Properties()) _player.Vars[p.Name] = p.Value;
@@ -371,6 +412,11 @@ namespace Lvn.UI
             LvnLog.Trace($"[lvn-stage] HandOver → фон={(bg != null ? "новый" : "прежний")}, "
                        + $"остаётся={keepActor ?? "-"}");
             EndChapterFrame();
+            // ПРОМОТКУ В ВИТРИНУ НЕ УНОСЯТ. Отметку о продолжении снимает
+            // именно эта передача кадра: главу, выбранную из витрины, игрок
+            // собирается читать, и пролистать её у него на глазах — худшее,
+            // что может сделать удобная передача.
+            _skipCarried = false;
             // ДАННЫЕ ГЛАВЫ УХОДЯТ ВМЕСТЕ С НЕЙ — тот же список, что и звук.
             // Список открытых CG принадлежит НОВЕЛЛЕ, а не сцене: оставленный
             // на месте, он делал показ полотна витрины «показом картинки этой
@@ -457,7 +503,7 @@ namespace Lvn.UI
             _backlog.Clear();
             _prefetched.Clear(); // the next chapter/load re-warms from scratch
             ShowChromeAll(); // скрытый интерфейс не переживает сцену, что бы его ни держало
-            StopSkip();             // fast-forward dies with the scene it was skipping
+            StopSkipAtBoundary();   // гаснет со сценой, но отметку о продолжении не снимает
             _awaitingTap = false;
             _awaitingWait = false;
             _sayUp = false;
