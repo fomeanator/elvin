@@ -88,6 +88,20 @@ namespace Lvn
             // Pass 1: per actor — sticky placement accumulation + last position in path.
             var actorSticky = new Dictionary<string, JObject>();
             var actorLastPos = new Dictionary<string, int>();
+            // НАДПИСИ И ДЕРЕВЬЯ — ДВА СЛОЯ, А НЕ ОДИН.
+            //
+            // У `text` смысл актёрский: последняя команда про id побеждает, а
+            // `hide=true` снимает надпись совсем. У `ui` сложнее, и общим
+            // ключом его схлопывать нельзя: `action=hide` НЕ создаёт дерево, а
+            // прячет существующее (LvnUiLayer.Apply: нет дерева — выходим).
+            // Значит помнить надо ДВЕ вещи: последнее объявление (команда с
+            // деревом) и последнее действие над ним. Иначе путь «объявили →
+            // спрятали» схлопнулся бы в одно «спрятали», дерево не создалось
+            // бы вовсе — и следующая команда `action=show` показывать было бы
+            // нечего.
+            var labelLast = new Dictionary<string, int>();   // text: id → позиция
+            var uiDecl = new Dictionary<string, int>();      // ui: последнее объявление
+            var uiAct = new Dictionary<string, int>();       // ui: последнее действие
             for (int pi = 0; pi < path.Count; pi++)
             {
                 int i = path[pi];
@@ -111,6 +125,22 @@ namespace Lvn
                 // предмете дали двадцать применений; на живой главе — 226
                 // применений вместо 107.
                 var opName = (string)c["op"];
+                if (opName == "text")
+                {
+                    var lid = (string)c["id"];
+                    if (!string.IsNullOrEmpty(lid)) labelLast[lid] = pi;
+                    continue;
+                }
+                if (opName == "ui")
+                {
+                    var uid = (string)c["id"];
+                    if (!string.IsNullOrEmpty(uid))
+                    {
+                        if (string.IsNullOrEmpty((string)c["action"])) uiDecl[uid] = pi;
+                        else uiAct[uid] = pi;
+                    }
+                    continue;
+                }
                 if (opName != "actor" && opName != "obj") continue;
                 var aid = (string)c["id"];
                 if (string.IsNullOrEmpty(aid)) continue;
@@ -169,6 +199,30 @@ namespace Lvn
                 // одной командой, переезд камеры — другой, без url). Взяли бы
                 // последнюю целиком — потеряли бы картинку.
                 if (op == "bg") continue;   // уже поставлено выше, одним слиянием
+                if (op == "text")
+                {
+                    // Только последняя надпись про этот id; снятая — не ставится.
+                    var lid = (string)c["id"];
+                    if (string.IsNullOrEmpty(lid) || labelLast[lid] != pi) continue;
+                    if (BoolOr(c["hide"], false)) continue;
+                    StageApply(c);
+                    continue;
+                }
+                if (op == "ui")
+                {
+                    var uid = (string)c["id"];
+                    if (string.IsNullOrEmpty(uid)) continue;
+                    bool isAct = !string.IsNullOrEmpty((string)c["action"]);
+                    // Дерево, которое в итоге сброшено, не строим вовсе.
+                    if (uiAct.TryGetValue(uid, out var actPos)
+                        && (string)((JObject)_script[path[actPos]])["action"] == "drop"
+                        && (!uiDecl.TryGetValue(uid, out var declPos) || declPos < actPos))
+                        continue;
+                    if (isAct ? uiAct[uid] != pi : (!uiDecl.TryGetValue(uid, out var d) || d != pi))
+                        continue;
+                    StageApply(c);
+                    continue;
+                }
                 if (op != "obj" && IsReapplyable(op)) { StageApply(c); continue; }
                 switch (op)
                 {
