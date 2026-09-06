@@ -144,6 +144,7 @@ func ValidateManifest(data []byte) []Issue {
 	walk(root, "", "LvnManifest", 0)
 	out = append(out, duplicateIDs(root)...)
 	out = append(out, danglingRefs(root)...)
+	out = append(out, artOutsideRungFolders(root)...)
 	return out
 }
 
@@ -288,4 +289,67 @@ func checkManifestValue(out *[]Issue, path, field, value string) {
 		}
 		*out = append(*out, Issue{Index: -1, Op: "manifest", Sev: SevWarning, Msg: msg})
 	}
+}
+
+// СТУПЕНИ КАЧЕСТВА ДАЮТСЯ ПО ПАПКЕ — и это соглашение до сих пор было
+// молчаливым.
+//
+// Клиент строит уменьшенный вариант (@1k/@1440/@2k) только для арта в четырёх
+// папках: bg, art, sprites, spine (DownloadPolicy.LargeStoryArt). Автор,
+// положивший фон в собственную папку, ступеней не получит — игрок на слабом
+// телефоне потянет полноразмер, и НИКТО об этом не скажет: игра не ломается,
+// просто платит трафиком.
+//
+// Замер 06.09: и в местном каталоге, и на живом сервере таких адресов ноль —
+// весь арт лежит в известных папках. То есть соглашение соблюдается, но
+// держится на привычке. Предупреждение переводит его в разряд сказанного.
+//
+// Пиксель-арт и обшивку интерфейса не трогаем: им уменьшение НЕ положено
+// намеренно (блочное сжатие размажет сетку и тонкие линии).
+func artOutsideRungFolders(root any) []Issue {
+	rung := []string{"/bg/", "/art/", "/sprites/", "/spine/"}
+	skip := []string{"/pixel/", "/ui/", "@mini"}
+	seen := map[string]bool{}
+	var out []Issue
+	var walk func(node any)
+	walk = func(node any) {
+		switch n := node.(type) {
+		case map[string]any:
+			for _, v := range n {
+				walk(v)
+			}
+		case []any:
+			for _, v := range n {
+				walk(v)
+			}
+		case string:
+			low := strings.ToLower(n)
+			if !strings.HasSuffix(low, ".png") && !strings.HasSuffix(low, ".jpg") &&
+				!strings.HasSuffix(low, ".jpeg") && !strings.HasSuffix(low, ".webp") {
+				return
+			}
+			for _, f := range append(append([]string{}, rung...), skip...) {
+				if strings.Contains(n, f) {
+					return
+				}
+			}
+			// Один голос на папку: сотня файлов в ней — одна и та же новость.
+			dir := n
+			if i := strings.LastIndex(dir, "/"); i >= 0 {
+				dir = dir[:i+1]
+			}
+			if seen[dir] {
+				return
+			}
+			seen[dir] = true
+			out = append(out, Issue{
+				Index: -1, Op: "manifest", Sev: SevWarning,
+				Msg: "арт в «" + dir + "» не получит ступеней качества: уменьшенные варианты " +
+					"строятся только для bg/, art/, sprites/, spine/. Игрок на слабом устройстве " +
+					"потянет полноразмер. Перенесите папку или примите это осознанно",
+			})
+		}
+	}
+	walk(root)
+	return out
 }

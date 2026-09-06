@@ -798,3 +798,42 @@ func TestDanglingWardrobeEntityIsWarned(t *testing.T) {
 		}
 	}
 }
+
+// СТУПЕНИ КАЧЕСТВА ДАЮТСЯ ПО ПАПКЕ, и молчаливое соглашение стало сказанным.
+//
+// Клиент строит уменьшенный вариант только для bg/, art/, sprites/, spine/.
+// Автор, положивший фон в свою папку, ступеней не получает — игра не ломается,
+// просто игрок на слабом устройстве тянет полноразмер. Замер 06.09: и в местном
+// каталоге, и на живом сервере таких адресов ноль, то есть соглашение
+// соблюдается — но держалось на привычке.
+func TestАртВнеПапокСоСтупенямиНазван(t *testing.T) {
+	data := []byte(`{"titles":[{"id":"t","name":"П"}],
+		"sprites":{"кто":{"layers":[{"url":"/content/cg/hero.png"}]}}}`)
+	issues := ValidateManifest(data)
+	var found bool
+	for _, is := range issues {
+		if strings.Contains(is.Msg, "ступеней качества") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("папка вне ступеней не названа — автор узнает о полноразмере от игрока")
+	}
+}
+
+// А ЗАКОННЫЕ ПАПКИ МОЛЧАТ. Предупреждение, срабатывающее на всём подряд,
+// перестают читать — и вместе с ним перестают читать соседние.
+func TestЗаконныеПапкиНеРугаются(t *testing.T) {
+	data := []byte(`{"titles":[{"id":"t","name":"П"}],
+		"sprites":{
+			"герой":{"layers":[{"url":"/content/sprites/hero.png"}]},
+			"пиксель":{"layers":[{"url":"/content/pixel/hero.png"}]},
+			"обшивка":{"layers":[{"url":"/content/ui/frame.png"}]}
+		},
+		"ui":{"browse":{"canvas":"/content/bg/hall.jpg"}}}`)
+	for _, is := range ValidateManifest(data) {
+		if strings.Contains(is.Msg, "ступеней качества") {
+			t.Fatalf("законная папка названа лишней: %s", is.Msg)
+		}
+	}
+}
