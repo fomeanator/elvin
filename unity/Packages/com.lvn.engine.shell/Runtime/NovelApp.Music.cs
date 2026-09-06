@@ -17,6 +17,7 @@ namespace Lvn.UI.Screens
     {
         // ── музыка меню (ui.browse.music) ────────────────────────────────────
         private AudioSource _menuMusic;
+        private readonly LatestRequest _menuTrackRequest = new LatestRequest();
 
         private async Task StartMenuMusicAsync(string url)
         {
@@ -52,14 +53,18 @@ namespace Lvn.UI.Screens
         private async Task SwitchMenuTrackAsync(string url)
         {
             if (_menuMusic == null || string.IsNullOrEmpty(url)) return;
+            var request = _menuTrackRequest.Begin();
             try
             {
                 var clip = await _assets.Loader.DownloadAudioClipAsync(url, _quitting);
                 if (clip == null || _menuMusic == null) return;
-                bool was = _menuMusic.isPlaying;
-                _menuMusic.Stop();
-                _menuMusic.clip = clip;
-                if (was && !InChapter) _menuMusic.Play();
+                _menuTrackRequest.TryPublish(request, () =>
+                {
+                    bool was = _menuMusic.isPlaying;
+                    _menuMusic.Stop();
+                    _menuMusic.clip = clip;
+                    if (was && !InChapter) _menuMusic.Play();
+                });
             }
             catch (OperationCanceledException) { }   // приложение закрывают — не отказ
             catch (Exception ex) { Debug.LogWarning($"[lvn-app] смена трека меню: {ex.Message}"); }
