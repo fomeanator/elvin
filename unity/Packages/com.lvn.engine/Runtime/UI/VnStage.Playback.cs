@@ -250,6 +250,35 @@ namespace Lvn.UI
             return true;
         }
 
+        /// <summary>Чем кончилась живая правка: догнала ушедшую главу, легла на
+        /// место или потребовала перезапуска главы с начала.</summary>
+        public enum LiveEdit { Stale, Swapped, Restarted }
+
+        /// <summary>
+        /// ЖИВАЯ ПРАВКА ЛОЖИТСЯ ТОЛЬКО В СВОЮ ГЛАВУ.
+        ///
+        /// <para>Автор правит главу, пока её читают, и правка едет по сети.
+        /// Пока она едет, игрок может дочитать главу и уйти в следующую — и
+        /// тогда пришедший текст относится к главе, которой на экране уже нет.
+        /// Хост проверял это ДО похода в сеть и не проверял после: между
+        /// проверкой и применением стоял `await`, а в нём умещается смена
+        /// главы.</para>
+        ///
+        /// <para>Опознание живёт ЗДЕСЬ, а не только у хоста, потому что цена
+        /// ошибки — чужая глава на экране, а хостов у движка несколько
+        /// (оболочка, экспортированный проект, чужая встройка). Сцена знает
+        /// адрес главы, которую играет, и этого достаточно, чтобы не пустить
+        /// чужой текст.</para>
+        /// </summary>
+        public LiveEdit ApplyLiveEdit(string scriptUrl, string lvnJson)
+        {
+            if (string.IsNullOrEmpty(scriptUrl) || scriptUrl != _saveScriptUrl) return LiveEdit.Stale;
+            if (!Playing) return LiveEdit.Stale;
+            if (TryHotSwap(lvnJson)) return LiveEdit.Swapped;
+            Play(lvnJson);
+            return LiveEdit.Restarted;
+        }
+
         /// <summary>Wipe the stage to a clean slate NOW — actors, background, FX,
         /// dialogue. The host calls this when a chapter starts (before the script
         /// finishes downloading) so the previous chapter never lingers during the

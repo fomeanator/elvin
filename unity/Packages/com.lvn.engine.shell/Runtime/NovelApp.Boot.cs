@@ -792,14 +792,27 @@ namespace Lvn.UI.Screens
             if (_currentChapter == null || Stage == null || Stage.Player == null || Stage.Player.Finished)
                 return;
 
+            // ГЛАВА, РАДИ КОТОРОЙ МЫ ИДЁМ В СЕТЬ. Проверка выше стоит ДО похода,
+            // а между ней и применением умещается целая смена главы: игрок
+            // дочитал и ушёл в следующую, пока правка ехала. Держим ту главу, с
+            // которой вышли, и сверяемся с ней после КАЖДОГО ожидания.
+            var стартовая = _currentChapter;
+            var адрес = стартовая.script_url;
+
             // Fetch the script FRESH (not the version-pinned disk cache, which can
             // hand back the old text when reacting to a live edit — the whole point
             // here is to apply what just changed). The disk cache is refreshed in
             // the background so an offline replay of the new version still works.
             string json;
-            try { json = await _assets.Loader.DownloadScriptText(_currentChapter.script_url); }
+            try { json = await _assets.Loader.DownloadScriptText(адрес); }
             catch { return; }
             if (string.IsNullOrEmpty(json)) return;
+            if (!ReferenceEquals(стартовая, _currentChapter) || Stage == null
+                || Stage.Player == null || Stage.Player.Finished)
+            {
+                LvnLog.Trace("[lvn-app] живая правка догнала ушедшую главу — не применяем");
+                return;
+            }
             if (json == _currentScriptJson)
             {
                 // The script didn't change — only assets did (a replaced sprite or
@@ -810,22 +823,29 @@ namespace Lvn.UI.Screens
                     Stage.Player.ReplayVisuals(Stage.Player.Index + 1);
                 return;
             }
-            _assets.Loader.RefreshScriptInBackground(_currentChapter.script_url);
+            _assets.Loader.RefreshScriptInBackground(адрес);
 
-            _currentScriptJson = json;
-            // A non-structural edit (reworded line, tweaked emotion/position) keeps
-            // the chapter playing exactly where it is; only a changed command
-            // structure forces a restart from the top.
-            if (Stage.TryHotSwap(json))
+            // Сцена опознаёт правку по адресу главы сама — вторая половина того
+            // же правила: хостов у движка несколько, а цена ошибки одна.
+            var исход = Stage.ApplyLiveEdit(адрес, json);
+            if (исход == Lvn.UI.VnStage.LiveEdit.Stale)
             {
-                LvnLog.Trace($"[lvn-app] hot-swapped chapter '{_currentChapter.id}' in place (kept position)");
+                LvnLog.Trace("[lvn-app] сцена не приняла правку: на экране другая глава");
+                return;
+            }
+            // Запоминаем текст ТОЛЬКО применённый: записанный раньше, он описывал
+            // бы главу, которой на экране нет, и следующая сверка «изменилось ли»
+            // отвечала бы про чужую.
+            _currentScriptJson = json;
+            if (исход == Lvn.UI.VnStage.LiveEdit.Swapped)
+            {
+                LvnLog.Trace($"[lvn-app] hot-swapped chapter '{стартовая.id}' in place (kept position)");
             }
             else
             {
-                Stage.Play(json);
                 if (Stage.Player != null && !string.IsNullOrEmpty(_playerName))
                     Lvn.UI.LvnPlayerName.Seed(Stage.Player, _playerName);
-                LvnLog.Trace($"[lvn-app] reloaded chapter '{_currentChapter.id}' (structure changed — restarted)");
+                LvnLog.Trace($"[lvn-app] reloaded chapter '{стартовая.id}' (structure changed — restarted)");
             }
         }
     }
