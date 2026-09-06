@@ -222,8 +222,9 @@ namespace Lvn.UI.Screens
                     try { vars = await LoadScopedVarsAsync(t.id); }
                     catch (Exception e) { Debug.LogWarning($"[lvn-app] stat vars load failed: {e.Message}"); }
                 }
-                _shell.Detail.StatVars = vars ?? new Newtonsoft.Json.Linq.JObject();
-                _shell.Detail.Rebuild();
+                // Пока грузились статы, игрок мог открыть другую карточку:
+                // экран примет их только если показывает всё ещё ЭТУ новеллу.
+                if (!_shell.Detail.SetStatsFor(t, vars)) return false;
             }
             return await _shell.OpenDetailAsync();
         }
