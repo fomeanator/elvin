@@ -256,6 +256,10 @@
   "default": "The whole game with you"
  },
  {
+  "key": "dl.bytes_left",
+  "default": "Left to download"
+ },
+ {
   "key": "dl.chapter_entry",
   "default": "{title} — chapter {n}"
  },
@@ -292,6 +296,10 @@
   "default": "Interface"
  },
  {
+  "key": "dl.current_transfer",
+  "default": "Current download"
+ },
+ {
   "key": "dl.done",
   "default": "Downloaded"
  },
@@ -300,32 +308,36 @@
   "default": "≈{0} left"
  },
  {
-  "key": "dl.files_of",
-  "default": "{0} of {1} files"
+  "key": "dl.failed",
+  "default": "Download incomplete"
+ },
+ {
+  "key": "dl.finished",
+  "default": "Download complete"
  },
  {
   "key": "dl.get_all",
   "default": "Download all"
  },
  {
-  "key": "dl.left",
-  "default": "Left"
+  "key": "dl.idle",
+  "default": "No active downloads"
  },
  {
-  "key": "dl.offline_hint",
-  "default": "Everything already downloaded is available: the ticked chapters below open on a plane with no network. Download the whole game and read anywhere; purchases work offline too and sync later."
+  "key": "dl.next",
+  "default": "Next in queue"
+ },
+ {
+  "key": "dl.offline_available",
+  "default": "Ticked chapters have all their files saved on this device."
  },
  {
   "key": "dl.offline_title",
   "default": "Play offline"
  },
  {
-  "key": "dl.pending_offline",
-  "default": "{n} events — purchases and progress are saved on the device and leave for the server as soon as there is a network."
- },
- {
-  "key": "dl.pending_sending",
-  "default": "Sending to the server: {n} events (purchases, progress)."
+  "key": "dl.offline_wait",
+  "default": "No connection. Downloads that fail can be retried below."
  },
  {
   "key": "dl.pending_title",
@@ -336,16 +348,24 @@
   "default": "Download queue"
  },
  {
-  "key": "dl.queued",
-  "default": "Queued"
- },
- {
   "key": "dl.resume",
   "default": "Finish downloading"
  },
  {
-  "key": "dl.retrying",
-  "default": "Retrying: {0} files"
+  "key": "dl.retry",
+  "default": "Retry"
+ },
+ {
+  "key": "dl.retry_active",
+  "default": "Retrying the download…"
+ },
+ {
+  "key": "dl.retry_hint",
+  "default": "Some files were not saved. Retry the downloads below."
+ },
+ {
+  "key": "dl.saved",
+  "default": "The selected files are saved on this device."
  },
  {
   "key": "dl.shared",
@@ -356,8 +376,16 @@
   "default": "Speed"
  },
  {
-  "key": "dl.waiting",
-  "default": "Waiting for the network…"
+  "key": "dl.sync_offline",
+  "default": "Progress is saved on this device. Sync will resume when connected."
+ },
+ {
+  "key": "dl.sync_saved",
+  "default": "Progress is saved on this device. Syncing with the server."
+ },
+ {
+  "key": "dl.waiting_data",
+  "default": "Waiting for data…"
  },
  {
   "key": "download.chapter",
@@ -366,22 +394,6 @@
  {
   "key": "downloads.content",
   "default": "Downloading content"
- },
- {
-  "key": "downloads.pending_ops",
-  "default": "Events to send: {0}"
- },
- {
-  "key": "downloads.queue_chapters",
-  "default": "chapters {0}"
- },
- {
-  "key": "downloads.queue_files",
-  "default": "files {0}"
- },
- {
-  "key": "downloads.resumes",
-  "default": "The download will resume by itself"
  },
  {
   "key": "downloads.syncing",
@@ -503,6 +515,10 @@
   "default": "Overwrite"
  },
  {
+  "key": "overwrite_newer_q",
+  "default": "{0} contains a save from a newer version of the app. Overwrite it?"
+ },
+ {
   "key": "overwrite_q",
   "default": "Overwrite {0}?"
  },
@@ -573,6 +589,14 @@
  {
   "key": "save_failed",
   "default": "Could not save — storage refused the write."
+ },
+ {
+  "key": "save_newer_version",
+  "default": "Save from a newer app version"
+ },
+ {
+  "key": "save_occupied",
+  "default": "Saved data"
  },
  {
   "key": "saves.auto",
