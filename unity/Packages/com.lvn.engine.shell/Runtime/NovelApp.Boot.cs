@@ -407,9 +407,18 @@ namespace Lvn.UI.Screens
             if (paused) Stage?.AutosaveNow();
         }
 
+        private CoalescingWork _contentChanges;
+
         // Server content changed: refresh the version index, re-apply the manifest
         // (carousel rebuilds), and hot-reload the open chapter if its script moved.
-        private void OnContentChanged() => LvnAsync.Fire(OnContentChangedAsync(), "OnContentChanged");
+        //
+        // Опрос может обогнать сетевые ожидания обработчика. Запоминаем один
+        // повтор, чтобы не скачивать и не применять ту же разницу параллельно.
+        private void OnContentChanged()
+        {
+            _contentChanges ??= new CoalescingWork(OnContentChangedAsync);
+            LvnAsync.Fire(_contentChanges.RequestAsync(), "OnContentChanged");
+        }
 
         /// <summary>
         /// ПОДКЛЮЧИТЬ ЭКРАНЫ ОБОЛОЧКИ К ПРИЛОЖЕНИЮ.
