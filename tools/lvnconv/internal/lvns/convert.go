@@ -2623,6 +2623,14 @@ func parseAnimPositional(op, rest string) (map[string]any, error) {
 			} else {
 				p["path"] = t
 			}
+		default:
+			// Reject author typos as compile errors, like unknown commands and
+			// interp values: ignoring a token silently changes the animation.
+			hint := ""
+			if word := nearest.Of(t, []string{"yoyo", "loop", "pingpong", "stop"}, 2); word != "" {
+				hint = fmt.Sprintf(" — did you mean %q?", word)
+			}
+			return nil, fmt.Errorf("unknown positional token %q (expected duration (e.g. 2s), yoyo|loop|pingpong|stop, key=value, t:v keyframes or a bracket list [value ...])%s", t, hint)
 		}
 	}
 	if len(inlineKeys) > 0 {
