@@ -100,7 +100,18 @@ namespace Lvn
                         if (prop.Name != "op") bg[prop.Name] = prop.Value.DeepClone();
                     continue;
                 }
-                if ((string)c["op"] != "actor") continue;
+                // ОБЪЕКТ — ТОТ ЖЕ АКТЁР ДЛЯ СЦЕНЫ, значит и для перестройки кадра.
+                //
+                // На живой сцене `obj` идёт трактом актёра (VnStage разводит их
+                // в один ApplyActorAsync), а в реплее он до сих пор шёл общим
+                // строем: применялся КАЖДЫЙ раз по всему пути. Пока путь — след
+                // исполненного, это незаметно: след сжимается по предмету. Но у
+                // старого сейва и правленого скрипта следа нет, путь линейный —
+                // и сжимать его было некому. Замер: двадцать команд об одном
+                // предмете дали двадцать применений; на живой главе — 226
+                // применений вместо 107.
+                var opName = (string)c["op"];
+                if (opName != "actor" && opName != "obj") continue;
                 var aid = (string)c["id"];
                 if (string.IsNullOrEmpty(aid)) continue;
                 if (!actorSticky.TryGetValue(aid, out var st)) { st = new JObject(); actorSticky[aid] = st; }
@@ -128,7 +139,7 @@ namespace Lvn
                 if (i < 0 || i >= _script.Count) continue;
                 if (!(_script[i] is JObject c)) continue;
                 var op = (string)c["op"];
-                if (op == "actor")
+                if (op == "actor" || op == "obj")
                 {
                     var aid = (string)c["id"];
                     if (string.IsNullOrEmpty(aid) || actorLastPos[aid] != pi) continue;
@@ -158,7 +169,7 @@ namespace Lvn
                 // одной командой, переезд камеры — другой, без url). Взяли бы
                 // последнюю целиком — потеряли бы картинку.
                 if (op == "bg") continue;   // уже поставлено выше, одним слиянием
-                if (IsReapplyable(op)) { StageApply(c); continue; }
+                if (op != "obj" && IsReapplyable(op)) { StageApply(c); continue; }
                 switch (op)
                 {
                     case "fade":
