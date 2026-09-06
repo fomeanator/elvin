@@ -109,22 +109,29 @@ namespace Lvn.UI
         // the sprite is already set), so this is safe to call after every ApplyTheme.
         private async Task EnsureThemeImagesAsync()
         {
-            if (Theme == null || Assets == null || _cts == null) return;
+            var theme = Theme;
+            if (theme == null || Assets == null || _cts == null) return;
 
             async Task<bool> Resolve(string url, System.Action<Sprite> assign)
             {
                 if (string.IsNullOrEmpty(url)) return false;
                 var sprite = await Assets.LoadSpriteAsync(url, _cts.Token);
-                if (sprite == null) return false;
+                if (!ReferenceEquals(Theme, theme) || sprite == null) return false;
                 assign(sprite);
                 return true;
             }
 
+            // ApplyTheme can replace the owner during any load. Never publish an
+            // old result or rebuild the current chrome on behalf of that owner.
             bool any = false;
-            if (Theme.PanelSprite == null) any |= await Resolve(Theme.PanelImageUrl, s => Theme.PanelSprite = s);
-            if (Theme.PlateSprite == null) any |= await Resolve(Theme.PlateImageUrl, s => Theme.PlateSprite = s);
-            if (Theme.ChoiceSprite == null) any |= await Resolve(Theme.ChoiceImageUrl, s => Theme.ChoiceSprite = s);
-            if (Theme.ChoiceHoverSprite == null) any |= await Resolve(Theme.ChoiceHoverImageUrl, s => Theme.ChoiceHoverSprite = s);
+            if (theme.PanelSprite == null) any |= await Resolve(theme.PanelImageUrl, s => theme.PanelSprite = s);
+            if (!ReferenceEquals(Theme, theme)) return;
+            if (theme.PlateSprite == null) any |= await Resolve(theme.PlateImageUrl, s => theme.PlateSprite = s);
+            if (!ReferenceEquals(Theme, theme)) return;
+            if (theme.ChoiceSprite == null) any |= await Resolve(theme.ChoiceImageUrl, s => theme.ChoiceSprite = s);
+            if (!ReferenceEquals(Theme, theme)) return;
+            if (theme.ChoiceHoverSprite == null) any |= await Resolve(theme.ChoiceHoverImageUrl, s => theme.ChoiceHoverSprite = s);
+            if (!ReferenceEquals(Theme, theme)) return;
 
             if (any && _built) RebuildChrome();
 
@@ -134,12 +141,18 @@ namespace Lvn.UI
             async Task Clip(string url, System.Action<AudioClip> assign)
             {
                 if (string.IsNullOrEmpty(url)) return;
-                try { assign(await Assets.LoadAudioAsync(url, _cts.Token)); }
+                try
+                {
+                    var clip = await Assets.LoadAudioAsync(url, _cts.Token);
+                    if (ReferenceEquals(Theme, theme)) assign(clip);
+                }
                 catch { /* хост может не везти звук вовсе — это не ошибка главы */ }
             }
-            if (_sndClick == null) await Clip(Theme.ClickSoundUrl, c => _sndClick = c);
-            if (_sndChoice == null) await Clip(Theme.ChoiceSoundUrl, c => _sndChoice = c);
-            if (_sndType == null) await Clip(Theme.TypeSoundUrl, c => _sndType = c);
+            if (_sndClick == null) await Clip(theme.ClickSoundUrl, c => _sndClick = c);
+            if (!ReferenceEquals(Theme, theme)) return;
+            if (_sndChoice == null) await Clip(theme.ChoiceSoundUrl, c => _sndChoice = c);
+            if (!ReferenceEquals(Theme, theme)) return;
+            if (_sndType == null) await Clip(theme.TypeSoundUrl, c => _sndType = c);
         }
     }
 }
