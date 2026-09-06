@@ -21,6 +21,61 @@ namespace Lvn
     /// </summary>
     public sealed partial class LvnPlayer
     {
+        /// <summary>
+        /// КАЖДАЯ СЦЕНИЧЕСКАЯ КОМАНДА ОТНЕСЕНА К КЛАССУ ВОССТАНОВЛЕНИЯ — и это
+        /// проверяется, а не подразумевается.
+        ///
+        /// <para>За одну ночь нашлись ЧЕТЫРЕ дыры одного вида: полотно,
+        /// объекты, надписи с деревьями и катсцена восстанавливались неверно
+        /// или не восстанавливались вовсе. Причина у всех одна: уплотнение
+        /// кадра прирастало по одному предмету за раз, и каждый НОВЫЙ вид
+        /// команды по умолчанию оказывался вне его — молча.</para>
+        ///
+        /// <para>Эта таблица переворачивает умолчание: новая сценическая
+        /// команда обязана быть здесь названа, иначе страж
+        /// (<c>ReplayClassTests</c>) краснеет. Отнести можно и к «не
+        /// восстанавливается» — но СКАЗАВ это, а не забыв.</para>
+        /// </summary>
+        internal enum ReplayClass
+        {
+            /// <summary>Схлопывается по предмету: одно применение на id.</summary>
+            PerObject,
+            /// <summary>Состояние кадра: применяется последнее значение.</summary>
+            State,
+            /// <summary>Разовое: переигрывать нечего (вспышка, звук, метка).</summary>
+            OneShot,
+            /// <summary>Поток истории: кадром не является.</summary>
+            Flow,
+            /// <summary>Трогает хранилище или оболочку — не кадр.</summary>
+            Outside,
+        }
+
+        internal static readonly Dictionary<string, ReplayClass> ReplayClasses =
+            new Dictionary<string, ReplayClass>(StringComparer.Ordinal)
+            {
+                ["bg"] = ReplayClass.PerObject,   ["actor"] = ReplayClass.PerObject,
+                ["obj"] = ReplayClass.PerObject,  ["text"] = ReplayClass.PerObject,
+                ["ui"] = ReplayClass.PerObject,
+
+                ["fade"] = ReplayClass.State,     ["dim"] = ReplayClass.State,
+                ["tint"] = ReplayClass.State,     ["blur"] = ReplayClass.State,
+                ["particles"] = ReplayClass.State, ["camera"] = ReplayClass.State,
+                ["audio"] = ReplayClass.State,    ["anim"] = ReplayClass.State,
+                ["cutscene"] = ReplayClass.State, ["text_pace"] = ReplayClass.State,
+                ["bg3d"] = ReplayClass.State,     ["fx"] = ReplayClass.State,
+
+                ["flash"] = ReplayClass.OneShot,  ["sfx"] = ReplayClass.OneShot,
+                ["hint"] = ReplayClass.OneShot,   ["clear"] = ReplayClass.OneShot,
+                // СТВОР — ПЕРЕХОД, А НЕ СОСТОЯНИЕ. Его команда приходит по
+                // десятку раз за один переход (раскрыть, подержать, закрыть),
+                // и восстанавливать «последнюю» бессмысленно: к моменту
+                // возврата переход давно кончился. Сперва я записал его
+                // состоянием на глазок — страж это и поймал.
+                ["portal"] = ReplayClass.OneShot,
+
+                ["save"] = ReplayClass.Outside,
+            };
+
         public void ReplayVisuals(int upto)
         {
             if (_script == null) return;
@@ -232,6 +287,30 @@ namespace Lvn
                     case "blur":
                         SetFx(op, c);
                         break;
+                    // КАТСЦЕНА — СОСТОЯНИЕ КАДРА, а не разовый эффект: её
+                    // собственное описание говорит «cutscene off=1 возвращает
+                    // всё на место». Она прячет реплику, выборы, метки и меню,
+                    // и игрок, сохранившийся ВНУТРИ неё, обязан вернуться в
+                    // тот же кадр. До 06.09 она в перестройке не участвовала
+                    // вовсе: замер дал ноль команд в восстановленном кадре —
+                    // интерфейс возвращался на месте, хотя автор его убрал.
+                    case "cutscene":
+                        SetFx("cutscene", c);
+                        break;
+                    // ТЕМП ПЕЧАТИ, ОБЪЁМНАЯ ПОДЛОЖКА И МУЛЬТИЭФФЕКТ — тоже
+                    // состояния, и тоже не восстанавливались. Найдены стражем
+                    // классов сразу после того, как он был заведён: я назвал их
+                    // состояниями в таблице, а он спросил, попадают ли они в
+                    // след. Не попадали.
+                    case "text_pace":
+                        SetFx("text_pace", c);
+                        break;
+                    case "bg3d":
+                        SetFx("bg3d", c);
+                        break;
+                    case "fx":
+                        SetFx("fx", c);
+                        break;
                     case "particles":
                         SetFx("particles:" + ((string)c["type"] ?? ""), c);
                         break;
@@ -319,7 +398,8 @@ namespace Lvn
             switch (op)
             {
                 case "fade": case "dim": case "tint": case "blur": case "particles":
-                    return true;
+                case "cutscene": case "text_pace": case "bg3d": case "fx":
+                    return true;     // состояния кадра — см. ReplayPath
                 case "camera":
                     var act = (string)c["action"];
                     return act == "zoom" || act == "pan" || act == "reset";
@@ -342,6 +422,11 @@ namespace Lvn
                 case "camera": return "camera:" + ((string)c["action"] ?? "");
                 case "audio": return "audio:" + ((string)c["channel"] ?? "sfx");
                 case "fade": case "dim": case "tint": case "blur": return op;
+                case "cutscene": return "cutscene";   // одна на кадр: побеждает последняя
+                case "text_pace": return "text_pace";
+                case "fx": return "fx";
+                // Подложка одна, как и полотно: id называет набор, а не слой.
+                case "bg3d": return "bg3d";
                 case "anim":
                     // An animation is identified by what it moves, not by a name.
                     return "anim:" + ((string)c["id"] ?? (string)c["target"] ?? "")
