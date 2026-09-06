@@ -171,7 +171,9 @@ func (s *server) handleExport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.zip"`, folder))
 	zw := zip.NewWriter(w)
-	defer zw.Close()
+	// Close — только на успешном пути ниже. Заголовки уже могли уйти:
+	// честнее оставить незавершённый ZIP, чем выдать целый архив без части
+	// контента. defer Close дописал бы каталог ZIP даже после ошибки.
 
 	// Пакеты движка кладём ДО обхода шаблона: если запись оборвётся, лучше
 	// получить архив без содержимого, чем архив с содержимым и без движка —
@@ -275,7 +277,10 @@ func (s *server) handleExport(w http.ResponseWriter, r *http.Request) {
 	// Offline build: bake the novel's content into StreamingAssets, mirroring the
 	// server's URL paths so the engine reads it via file:// with no network.
 	if cfg.Offline {
-		s.bundleContent(zw, folder)
+		if err := s.bundleContent(zw, folder); err != nil {
+			log.Printf("[export] offline content: %v", err)
+			return
+		}
 	} else {
 		// Онлайн-сборка везёт СИД: критичные файлы вводной (первая сцена) и её
 		// скрипты внутри APK — первый запуск одевает сцену без сети вообще.
@@ -287,6 +292,9 @@ func (s *server) handleExport(w http.ResponseWriter, r *http.Request) {
 	// a short README so the author knows what to do with the zip.
 	if zf, err := zw.Create(folder + "/HOW_TO_BUILD.md"); err == nil {
 		zf.Write([]byte(buildReadme(cfg, name)))
+	}
+	if err := zw.Close(); err != nil {
+		log.Printf("[export] close ZIP: %v", err)
 	}
 }
 
@@ -391,8 +399,18 @@ func (s *server) exportIcon(rel string) ([]byte, bool) {
 // bundleContent copies the content dir into StreamingAssets and writes the
 // manifest + version index at the exact paths the engine requests, so an
 // offline build resolves everything locally.
-func (s *server) bundleContent(zw *zip.Writer, folder string) {
+func (s *server) bundleContent(zw *zip.Writer, folder string) error {
 	base := folder + "/" + bundleDir
+	write := func(rel string, data []byte) error {
+		zf, err := zw.Create(base + "/" + rel)
+		if err != nil {
+			return fmt.Errorf("create %s: %w", rel, err)
+		}
+		if _, err := zf.Write(data); err != nil {
+			return fmt.Errorf("write %s: %w", rel, err)
+		}
+		return nil
+	}
 
 	// every served file → StreamingAssets/lvn/content/<rel>
 	//
@@ -401,20 +419,17 @@ func (s *server) bundleContent(zw *zip.Writer, folder string) {
 	// правок, .git dev-контента и учётки админки (аудит 03.09.2026). Правило
 	// «что служебное» — одно со статикой и индексом версий: privateRel.
 	// Индекс версий сюда не копируется — он пишется ниже своим, свежим.
-	_ = filepath.Walk(s.content, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
+	err := filepath.Walk(s.content, func(path string, info os.FileInfo, err error) error {
 		rel, rerr := filepath.Rel(s.content, path)
 		if rerr != nil {
-			return nil
+			return rerr
 		}
 		slash := filepath.ToSlash(rel)
-		if info.IsDir() {
+		if info != nil && info.IsDir() {
 			if slash != "." && privateRel(slash+"/") {
 				return filepath.SkipDir
 			}
-			return nil
+			return err
 		}
 		// Приватное — никогда; авторская кухня (исходники, бэкапы деплоя,
 		// присланные архивы, черновики) — тоже: в набор игры едет игра.
@@ -422,29 +437,34 @@ func (s *server) bundleContent(zw *zip.Writer, folder string) {
 		if privateRel(slash) || toolingRel(slash) || slash == "asset-versions.json" {
 			return nil
 		}
+		if err != nil {
+			return err
+		}
 		raw, derr := os.ReadFile(path)
 		if derr != nil {
-			return nil
+			return derr
 		}
-		if zf, cerr := zw.Create(base + "/content/" + filepath.ToSlash(rel)); cerr == nil {
-			zf.Write(raw)
-		}
-		return nil
+		return write("content/"+slash, raw)
 	})
+	if err != nil {
+		return err
+	}
 
 	// the manifest at the engine's API path: GET /v1/content/manifest
-	if raw, err := os.ReadFile(filepath.Join(s.content, "manifest.json")); err == nil {
-		if zf, cerr := zw.Create(base + "/v1/content/manifest"); cerr == nil {
-			zf.Write(raw)
-		}
+	raw, err := os.ReadFile(filepath.Join(s.content, "manifest.json"))
+	if err != nil {
+		return err
+	}
+	if err := write("v1/content/manifest", raw); err != nil {
+		return err
 	}
 
 	// the version index: GET /content/asset-versions.json (optional, but matches online behaviour)
-	if data, err := json.Marshal(s.computeVersions(false)); err == nil {
-		if zf, cerr := zw.Create(base + "/content/asset-versions.json"); cerr == nil {
-			zf.Write(data)
-		}
+	data, err := json.Marshal(s.computeVersions(false))
+	if err != nil {
+		return err
 	}
+	return write("content/asset-versions.json", data)
 }
 
 // bundleIntroSeed кладёт в StreamingAssets/lvn-seed критичные файлы вводной
