@@ -76,8 +76,10 @@ namespace Lvn.UI.Screens
                 catch (OperationCanceledException) { return; }
             }
 
+            bool skipIntro = false;
             while (!ct.IsCancellationRequested)
             {
+                bool introIncomplete = false;
                 // ПОКАЗАЛ — ОБЯЗАН СНЯТЬ, чем бы виток ни кончился. Раньше
                 // подстраховка стояла хвостом, и до неё не доходили: отмена
                 // посреди главы уходила `return`-ом мимо, оставляя НЕПРОЗРАЧНЫЙ
@@ -87,7 +89,7 @@ namespace Lvn.UI.Screens
                 {
                     // ── choose a title: hub flow or the carousel ──
                     LvnTitle title;
-                    var intro = PendingIntroTitle();
+                    var intro = skipIntro ? null : PendingIntroTitle();
                     if (intro != null)
                     {
                         title = intro;   // выбора нет — и это намеренно
@@ -176,12 +178,34 @@ namespace Lvn.UI.Screens
                     // своему правилу «новелла пройдена» — то самое, которое на
                     // живом устройстве промахивалось и дало «пролог по кругу».
 
+                    // A returned Task is not proof of completion: the host also
+                    // returns after explaining a cancelled entry (e.g. damaged
+                    // checkpoint). Only the intro's own completion gate counts.
+                    // Stop auto-entry for this RunAsync, without marking progress
+                    // done: retries must come from the library or a new launch.
+                    introIncomplete = intro != null && PendingIntroTitle() != null;
+                    if (introIncomplete) skipIntro = true;
+
                 }   // конец витка: дальше — уборка, что бы ни случилось
                 finally
                 {
                     Loading.Hide();
                     Title.Hide();
                     if (BootVeil.IsVisible) BootVeil.Hide(); // и брендовую вуаль первого входа
+                }
+
+                // Explain AFTER removing the loading surfaces, including the
+                // boot veil above the popup. With no library, this is an explicit
+                // dead end; acknowledging it must never start another attempt.
+                if (introIncomplete && !ct.IsCancellationRequested)
+                {
+                    await AlertAsync(
+                        LvnWords.Of("shell.intro_failed_title", "Introduction stopped"),
+                        Browse != null
+                            ? LvnWords.Of("shell.intro_failed_browse", "The introduction could not be completed. You can choose a story from the library.")
+                            : LvnWords.Of("shell.intro_failed_exit", "The introduction could not be completed, and there is no library to return to. Please close and reopen the app to try again. If the problem persists, contact support."),
+                        ct: ct);
+                    if (Browse == null) return;
                 }
             }
         }

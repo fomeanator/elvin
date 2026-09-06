@@ -771,6 +771,18 @@
   "default": "Menus, buttons and panels — the scene keeps its framing"
  },
  {
+  "key": "shell.intro_failed_browse",
+  "default": "The introduction could not be completed. You can choose a story from the library."
+ },
+ {
+  "key": "shell.intro_failed_exit",
+  "default": "The introduction could not be completed, and there is no library to return to. Please close and reopen the app to try again. If the problem persists, contact support."
+ },
+ {
+  "key": "shell.intro_failed_title",
+  "default": "Introduction stopped"
+ },
+ {
   "key": "shop.best_price",
   "default": "BEST PRICE"
  },
