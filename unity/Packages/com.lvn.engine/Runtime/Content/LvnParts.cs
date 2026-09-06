@@ -171,6 +171,9 @@ namespace Lvn.Content
             // Героиня может быть спайновой — тогда её облик это скелет, а не слои.
             foreach (var part in OfSpine(e))
                 if (seen.Add(part.Url)) yield return part;
+            // И кадры её анимаций: моргание с липсинком идут с первой же реплики.
+            foreach (var part in OfFrames(e))
+                if (seen.Add(part.Url)) yield return part;
 
             if (e.wardrobe == null) yield break;
             foreach (var slot in e.wardrobe.Values)
@@ -200,6 +203,53 @@ namespace Lvn.Content
                     if (string.IsNullOrEmpty(value)) continue;
                     var state = new Dictionary<string, string>(defaults) { [axis.Key] = value };
                     foreach (var url in LooksAt(e, state, seen)) yield return url;
+                }
+            }
+        }
+
+        /// <summary>
+        /// КАДРЫ АНИМАЦИИ — ТОЖЕ ОБЛИК, и они тоже были вне очереди.
+        ///
+        /// <para>Трек с <c>prop: "frame"</c> подменяет спрайт слоя по значению
+        /// оси — так сделаны моргание, липсинк, ходьба, смерть. Значения этих
+        /// кадров ЧАСТО не объявлены в <c>axes</c>: замер на живом каталоге —
+        /// 6 кадровых треков из 7 используют значения, которых в осях нет
+        /// (девятнадцать кадров смерти, восемь кадров ходьбы). Разворот по осям
+        /// их не видел.</para>
+        ///
+        /// <para>Без очереди они не пропадали — их грузит сам показ
+        /// (<c>PreloadFramesAsync</c>), но грузит В МОМЕНТ выхода персонажа и
+        /// ЖДЁТ сети. На здешнем пиксель-арте это 64 кадра и сотня килобайт, у
+        /// автора с крупным артом — те же девятнадцать кадров смерти в
+        /// мегабайтах, посреди боя.</para>
+        /// </summary>
+        public static IEnumerable<LvnPart> OfFrames(LvnSpriteEntity e)
+        {
+            if (e?.anim == null || e.layers == null) yield break;
+            foreach (var anim in e.anim.Values)
+            {
+                if (anim?.tracks == null) continue;
+                foreach (var track in anim.tracks)
+                {
+                    if (track == null || track.prop != "frame") continue;
+                    if (string.IsNullOrEmpty(track.layer) || string.IsNullOrEmpty(track.axis)) continue;
+                    if (track.keys == null) continue;
+                    LvnLayer слой = null;
+                    foreach (var l in e.layers)
+                        if (l != null && l.id == track.layer) { слой = l; break; }
+                    if (слой == null || string.IsNullOrEmpty(слой.url)) continue;
+                    foreach (var key in track.keys)
+                    {
+                        if (key == null || key.Length < 2) continue;
+                        var значение = key[1]?.ToString();
+                        if (string.IsNullOrEmpty(значение)) continue;
+                        var состояние = new Dictionary<string, string>(e.defaults ?? new Dictionary<string, string>())
+                        {
+                            [track.axis] = значение,
+                        };
+                        var url = Lvn.LayerTemplate.Fill(слой.url, состояние, e.defaults);
+                        if (Fetchable(url)) yield return new LvnPart(url, Sprite);
+                    }
                 }
             }
         }
@@ -278,6 +328,8 @@ namespace Lvn.Content
                     }
                 }
                 foreach (var part in OfSpine(e))
+                    yield return part;
+                foreach (var part in OfFrames(e))
                     yield return part;
                 // Гардероб принадлежит СУЩНОСТИ, а не новелле: одну героиню
                 // могут одевать в нескольких новеллах, и набор у неё один.
