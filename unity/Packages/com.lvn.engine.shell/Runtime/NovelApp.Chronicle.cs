@@ -115,10 +115,18 @@ namespace Lvn.UI.Screens
         /// <returns>true — это перезапуск: возобновлять с автосейва нечего.</returns>
         private async Task<bool> RollBackToEntryAsync(LvnTitle title, LvnChapter chapter)
         {
-            if (!LvnProgress.TakeRestart(title?.id, chapter.id)) return false;
+            if (LvnProgress.PendingRestart(title?.id) != chapter.id)
+            {
+                LvnProgress.TakeRestart(title?.id, chapter.id); // withdraw an unrelated stale request
+                return false;
+            }
 
-            Stage.SeedVars = LvnProgress.Checkpoint(title?.id, chapter.id)
-                             ?? new Newtonsoft.Json.Linq.JObject();
+            // Read BEFORE consuming the request or touching saves/stats. Corrupt
+            // checkpoints abort chapter entry (caught by PlayOneChapterAsync),
+            // preserving the request so a retry cannot bypass the failed restart.
+            var entry = LvnProgress.Checkpoint(title?.id, chapter.id) ?? new JObject();
+            LvnProgress.TakeRestart(title?.id, chapter.id);
+            Stage.SeedVars = entry;
             LvnSaveStore.Delete(title?.id, LvnSaveStore.AutoSlot);
             await Lvn.Content.LvnGlobalStats.OverlayAsync(_state, Stage.SeedVars);
             await SaveScopedVarsAsync(title?.id, Stage.SeedVars);
@@ -139,7 +147,11 @@ namespace Lvn.UI.Screens
         private void RememberEntryOnce(LvnTitle title, LvnChapter chapter, bool resuming)
         {
             if (resuming) return;
-            if (LvnProgress.Checkpoint(title?.id, chapter.id) != null) return;
+            try
+            {
+                if (LvnProgress.Checkpoint(title?.id, chapter.id) != null) return;
+            }
+            catch (System.IO.InvalidDataException) { return; } // already logged; preserve damaged data
             LvnProgress.SaveCheckpoint(title?.id, chapter.id, Stage.SeedVars);
         }
 
@@ -197,7 +209,15 @@ namespace Lvn.UI.Screens
             // `default:true` и их не перетирают, а новая игра начинается пустой.
             await DressStageAsync(title, chapter, chapter.script_url);
 
-            bool restart = await RollBackToEntryAsync(title, chapter);
+            bool restart;
+            try { restart = await RollBackToEntryAsync(title, chapter); }
+            catch (System.IO.InvalidDataException)
+            {
+                // Stop the whole entry: continuing without rollback could still
+                // overwrite the held autosave when Stage.Play starts the chapter.
+                Debug.LogWarning("[lvn-app] chapter entry cancelled: checkpoint recovery required");
+                return null;
+            }
 
             // Resume where the player actually was: a mid-chapter autosave for THIS
             // script (written on choices/every few lines/app pause) beats replaying

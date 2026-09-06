@@ -360,6 +360,7 @@ namespace Lvn.UI.Screens
         // picker requests a restart, and the loop seeds from the checkpoint.
 
         private static string EntryKey(string titleId) => Lvn.LvnKeep.Scoped("lvn_entry_", titleId);
+        private static string EntryBackupKey(string titleId) => EntryKey(titleId) + ".bak";
         private static string RestartKey(string titleId) => Lvn.LvnKeep.Scoped("lvn_restart_", titleId);
 
         /// <summary>Snapshot the variables as they were entering a chapter.</summary>
@@ -370,13 +371,22 @@ namespace Lvn.UI.Screens
             {
                 var all = ReadCheckpoints(titleId);
                 all[chapterId] = vars ?? new JObject();
-                LvnKeep.Put(EntryKey(titleId), all.ToString(Newtonsoft.Json.Formatting.None));
+                var json = all.ToString(Newtonsoft.Json.Formatting.None);
+                LvnKeep.Put(EntryKey(titleId), json);
+                // Like LvnSaveStore: mirror the NEW block, so the backup never
+                // lags one chapter behind. An unreadable block is never overwritten.
+                LvnKeep.Put(EntryBackupKey(titleId), json);
             }
-            catch { /* checkpoints are a comfort feature — never fatal */ }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("[lvn-progress] checkpoint write skipped: " + e.Message);
+            }
         }
 
         /// <summary>The variables as of the chapter's first entry, or null when
         /// it was never entered (→ seed empty on a picked restart).</summary>
+        /// <exception cref="System.IO.InvalidDataException">Neither checkpoint
+        /// block can be read. This must never be treated as a missing entry.</exception>
         public static JObject Checkpoint(string titleId, string chapterId)
         {
             if (string.IsNullOrEmpty(chapterId)) return null;
@@ -385,12 +395,41 @@ namespace Lvn.UI.Screens
 
         private static JObject ReadCheckpoints(string titleId)
         {
+            var key = EntryKey(titleId);
+            var backupKey = EntryBackupKey(titleId);
+            // Only absent keys mean a new playthrough. An existing empty string
+            // can be a truncated write and must go through recovery too.
+            if (!LvnKeep.Has(key) && !LvnKeep.Has(backupKey)) return new JObject();
+            var all = ParseCheckpoints(LvnKeep.Get(key, ""));
+            if (all != null) return all;
+
+            var spare = ParseCheckpoints(LvnKeep.Get(backupKey, ""));
+            if (spare != null)
+            {
+                Debug.LogWarning("[lvn-progress] checkpoint block unreadable — using backup");
+                return spare;
+            }
+            // Fail closed: returning an empty object authorizes a restart to
+            // delete the autosave and persist empty stats. Keep both raw blocks
+            // for recovery; SaveCheckpoint also refuses to replace them.
+            const string error = "[lvn-progress] checkpoint block unreadable and no readable backup";
+            Debug.LogWarning(error);
+            throw new System.IO.InvalidDataException(error);
+        }
+
+        private static JObject ParseCheckpoints(string json)
+        {
+            if (string.IsNullOrEmpty(json)) return null;
             try
             {
-                var s = LvnKeep.Get(EntryKey(titleId), "");
-                return string.IsNullOrEmpty(s) ? new JObject() : JObject.Parse(s);
+                var all = JObject.Parse(json);
+                // Valid JSON with a scalar/null chapter entry is damaged too:
+                // `as JObject` would otherwise turn it into a missing checkpoint.
+                foreach (var entry in all.Properties())
+                    if (!(entry.Value is JObject)) return null;
+                return all;
             }
-            catch { return new JObject(); }
+            catch (Newtonsoft.Json.JsonException) { return null; }
         }
 
         /// <summary>The picker calls this: "the next entry into this chapter is an
@@ -497,6 +536,7 @@ namespace Lvn.UI.Screens
                 LvnKeep.Drop(ReachedKey(titleId));
                 LvnKeep.Drop(ReachedIdKey(titleId)); // имя достигнутой — часть потолка
                 LvnKeep.Drop(EntryKey(titleId));
+                LvnKeep.Drop(EntryBackupKey(titleId));
                 LvnKeep.Drop(RestartKey(titleId));
             }
             Announce();
