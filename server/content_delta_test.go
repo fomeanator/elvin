@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -81,6 +82,54 @@ func TestРазницаНазываетТолькоИзменившееся(t *t
 	}
 	if len(d.Removed) != 0 {
 		t.Errorf("ничего не удаляли, а сервер называет удалённое: %v", d.Removed)
+	}
+}
+
+// Ступени появляются на диске по запросу игрока. Они не должны менять
+// индекс и общую версию, иначе клиент перезагрузит главу посреди игры.
+// Правка исходника при этом обязана оставаться видимой.
+func TestСтупениНеМеняютВерсиюАИсходникМеняет(t *testing.T) {
+	for _, suffix := range []string{downscaleSuffix, midSuffix, ecoSuffix, miniSuffix} {
+		for _, ext := range []string{".png", ".jpg", ".jpeg", ".ktx2", ".astc"} {
+			t.Run(suffix+ext, func(t *testing.T) {
+				root := t.TempDir()
+				sourceExt := ext
+				if ext == ".ktx2" || ext == ".astc" {
+					sourceExt = ".png"
+				}
+				source := "bg/room" + sourceExt
+				writeContent(t, root, "manifest.json", `{"titles":[]}`)
+				writeContent(t, root, "scripts/ch1.lvn", `{"script":[]}`)
+				writeContent(t, root, source, "исходная картинка")
+				s := &server{content: root}
+
+				// Обходим дерево напрямую: двухсекундный кэш опроса не должен
+				// скрыть появившийся файл и дать ложное подтверждение стабильности.
+				beforeIndex := s.computeVersions(false)
+				beforeVersion := versionHash(s.computeVersions(true))
+				if beforeIndex[source] == "" {
+					t.Fatal("исходник отсутствует в индексе")
+				}
+
+				variant := "bg/room" + suffix + ext
+				writeContent(t, root, variant, "уменьшенная или перекодированная картинка")
+				if after := s.computeVersions(false); !maps.Equal(after, beforeIndex) {
+					t.Errorf("появление %s изменило индекс: было %v, стало %v", variant, beforeIndex, after)
+				}
+				if after := versionHash(s.computeVersions(true)); after != beforeVersion {
+					t.Errorf("появление %s изменило общую версию: %s → %s", variant, beforeVersion, after)
+				}
+
+				// Другая длина гарантирует перечитывание даже при совпадении mtime.
+				writeContent(t, root, source, "новая исходная картинка после правки автора")
+				if after := s.computeVersions(false); after[source] == "" || after[source] == beforeIndex[source] {
+					t.Error("правка исходника не изменила его хэш в индексе")
+				}
+				if after := versionHash(s.computeVersions(true)); after == beforeVersion {
+					t.Error("правка исходника не изменила общую версию контента")
+				}
+			})
+		}
 	}
 }
 

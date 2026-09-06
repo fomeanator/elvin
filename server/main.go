@@ -703,7 +703,7 @@ func (s *server) computeVersions(includeManifest bool) map[string]string {
 		if rel == "asset-versions.json" || (rel == "manifest.json" && !includeManifest) {
 			return nil
 		}
-		// Derived, regenerable artifacts (downscale.go's @2k variants,
+		// Derived, regenerable artifacts (all downscale.go variants,
 		// ktx2.go's codes — plus .astc leftovers from the format we dropped)
 		// must NOT fold into the content version: they appear on
 		// disk lazily as clients request them, and counting them made every
@@ -712,8 +712,13 @@ func (s *server) computeVersions(includeManifest bool) map[string]string {
 		// (multi-second freeze + the story jumping a beat forward off the
 		// autosave). The source images they derive from are versioned already.
 		base := filepath.Base(rel)
-		if strings.HasSuffix(base, ".astc") || strings.HasSuffix(base, ".ktx2") || strings.Contains(base, downscaleSuffix+".") {
+		if strings.HasSuffix(base, ".astc") || strings.HasSuffix(base, ".ktx2") {
 			return nil
+		}
+		for _, v := range downscaleVariants {
+			if strings.Contains(base, v.suffix+".") {
+				return nil
+			}
 		}
 		// Авторская кухня в индекс не входит — см. toolingRel.
 		if toolingRel(rel) {
