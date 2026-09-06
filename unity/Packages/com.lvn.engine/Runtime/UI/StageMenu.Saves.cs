@@ -37,15 +37,23 @@ namespace Lvn.UI
                 var label = L("slot", "Slot") + " " + (i + 1);
                 if (saveMode)
                 {
-                    var occupied = slot?.Snap != null; // an occupied slot asks before it's lost
+                    var state = LvnSaveStore.GetState(_stage.SaveTitleId, name);
+                    var status = state == LvnSaveSlotState.NewerVersion
+                        ? L("save_newer_version", "Save from a newer app version")
+                        : state == LvnSaveSlotState.Occupied && slot?.Snap == null
+                            ? L("save_occupied", "Saved data") : null;
                     scroll.Add(SlotRow(label, slot, () =>
                     {
-                        if (occupied) ConfirmOverwrite(label, name);
+                        // Recheck on tap: a save may have arrived while this
+                        // list was open. Hidden from loading does not mean empty.
+                        var current = LvnSaveStore.GetState(_stage.SaveTitleId, name);
+                        if (current != LvnSaveSlotState.Empty)
+                            ConfirmOverwrite(label, name, current == LvnSaveSlotState.NewerVersion);
                         // Успех — обновляем список; отказ хранилища сообщаем:
                         // «нажал и ничего не произошло» неотличимо от «сохранено».
                         else if (_stage.SaveToSlot(name)) ShowSlots(true);
                         else SaveFailedNotice();
-                    }, thumbSlot: name));
+                    }, thumbSlot: name, status: status));
                 }
                 else
                     scroll.Add(SlotRow(label, slot, () => TryLoad(name), enabled: _stage.CanLoadSlot(name), thumbSlot: name));
@@ -54,11 +62,14 @@ namespace Lvn.UI
 
         // Overwriting a save is the one destructive tap in the whole menu — make
         // it a two-step: a small panel naming the slot, confirm or go back.
-        private void ConfirmOverwrite(string label, string slotName)
+        private void ConfirmOverwrite(string label, string slotName, bool newerVersion)
         {
-            _pane = () => ConfirmOverwrite(label, slotName);
+            _pane = () => ConfirmOverwrite(label, slotName, newerVersion);
             var p = Panel(L("save", "Save"));
-            var msg = Text(string.Format(L("overwrite_q", "Overwrite {0}?"), label), 26, FontStyle.Normal);
+            var question = newerVersion
+                ? L("overwrite_newer_q", "{0} contains a save from a newer version of the app. Overwrite it?")
+                : L("overwrite_q", "Overwrite {0}?");
+            var msg = Text(string.Format(question, label), 26, FontStyle.Normal);
             msg.style.marginBottom = LvnTokens.Space2;
             p.Add(msg);
             p.Add(Item(L("overwrite", "Overwrite"), () =>
@@ -103,7 +114,7 @@ namespace Lvn.UI
         }
 
         private VisualElement SlotRow(string label, LvnSaveSlot slot, Action onClick, bool enabled = true,
-            string thumbSlot = null)
+            string thumbSlot = null, string status = null)
         {
             var row = new Button(onClick);
             row.style.height = LvnTokens.TouchLg;
@@ -136,8 +147,8 @@ namespace Lvn.UI
             text.style.flexDirection = FlexDirection.Column;
             text.style.justifyContent = Justify.Center;
             text.style.flexGrow = 1;
-            string when = slot?.Snap == null ? L("empty", "— empty —")
-                : LvnTimeWords.Stamp(slot.SavedAtUnixMs);
+            string when = status ?? (slot?.Snap == null ? L("empty", "— empty —")
+                : LvnTimeWords.Stamp(slot.SavedAtUnixMs));
             text.Add(Text(label + "   " + when, 24, FontStyle.Bold));
             if (!string.IsNullOrEmpty(slot?.Preview))
                 text.Add(Text("«" + Trunc(slot.Preview, Lvn.LvnClip.PreviewMax) + "»", 20, FontStyle.Italic, dim: true));
