@@ -46,6 +46,7 @@ namespace Lvn.Content
         // falls back to the legacy url-only key (still works, just not auto-busted).
         private Dictionary<string, string> _versions = new();
         private readonly object _versionsLock = new();
+        private int _versionsRevision;
         private static readonly string VersionsPath = LvnAssetPath.Under("asset-versions.json");
 
 
@@ -166,6 +167,7 @@ namespace Lvn.Content
         private sealed class SpriteEntry
         {
             public Sprite Sprite;
+            public string Key; // versioned decode identity, not just the display URL
             public long Bytes;
             public long Seq;   // request recency (monotonic)
             public float At;   // request time (realtime seconds)
@@ -304,8 +306,13 @@ namespace Lvn.Content
                 foreach (var kv in _underway)
                 {
                     var f = kv.Value;
-                    rec += f.Received;
-                    exp += f.Expected;
+                    // Закрытый файл уже лежит в BatchClosedBytes. Чужой
+                    // стриминг не входит в план текущего пакета.
+                    if (_batchUrls == null || (_batchUrls.Contains(kv.Key) && !_batchClosed.Contains(kv.Key)))
+                    {
+                        rec += f.Received;
+                        exp += f.Expected;
+                    }
                     // ПАКЕТ — НЕ ФАЙЛ. Он и раньше исключался, но по точному
                     // равенству с «__preload_batch__», а настоящий ключ несёт
                     // ещё и отпечаток списка — условие не срабатывало НИ РАЗУ.
@@ -375,7 +382,8 @@ namespace Lvn.Content
                     // права показать больше единицы.
                     if (exp < rec) exp = rec;
                 }
-                return new TransferSnapshot(n, BatchTotal, BatchDone, rec, exp, BatchPlannedBytes, retrying, label);
+                return new TransferSnapshot(n, BatchTotal, BatchDone, rec, exp, BatchPlannedBytes,
+                    retrying, label, _tallyEpoch, _batchItems);
             }
         }
 
@@ -461,18 +469,18 @@ namespace Lvn.Content
             if ((changed == null || changed.Count == 0) &&
                 (removed == null || removed.Count == 0)) return 0;
 
-            Dictionary<string, string> prev, next;
             lock (_versionsLock)
             {
-                prev = _versions;
-                next = new Dictionary<string, string>(prev);
+                var next = new Dictionary<string, string>(_versions);
                 if (changed != null)
                     foreach (var kv in changed) next[kv.Key] = kv.Value;
                 if (removed != null)
                     foreach (var path in removed) next.Remove(path);
                 _versions = next;
+                _versionsRevision++;
+                PersistVersionsLocked();
             }
-            EvictStaleSprites(prev, next);
+            EvictStaleSprites();
             return (changed?.Count ?? 0) + (removed?.Count ?? 0);
         }
 
@@ -485,6 +493,9 @@ namespace Lvn.Content
         /// keys.</summary>
         public async Task LoadAssetVersionsAsync(CancellationToken ct = default)
         {
+            ct.ThrowIfCancellationRequested();
+            int revision;
+            lock (_versionsLock) revision = _versionsRevision;
             var persistPath = Path.Combine(_cacheRoot, "asset-versions.json");
             try
             {
@@ -493,12 +504,18 @@ namespace Lvn.Content
                 // boot, and we immediately fall back to the disk mirror.
                 var bytes = await FetchOnce(VersionsPath, ct);
                 var map = ParseVersions(Encoding.UTF8.GetString(bytes));
-                if (map.Count > 0)
+                if (map != null)
                 {
-                    Dictionary<string, string> prev;
-                    lock (_versionsLock) { prev = _versions; _versions = map; }
-                    EvictStaleSprites(prev, map);
-                    try { await WriteAllBytesAsync(persistPath, bytes, ct); } catch { /* mirror is best-effort */ }
+                    lock (_versionsLock)
+                    {
+                        // A delta received while this request was in flight is
+                        // newer than its response. Never roll it back.
+                        if (revision != _versionsRevision) return;
+                        _versions = map;
+                        _versionsRevision++;
+                        PersistVersionsLocked();
+                    }
+                    EvictStaleSprites();
                     return;
                 }
             }
@@ -511,10 +528,32 @@ namespace Lvn.Content
                 {
                     var json = Encoding.UTF8.GetString(await ReadAllBytesAsync(persistPath, ct));
                     var map = ParseVersions(json);
-                    if (map.Count > 0) lock (_versionsLock) _versions = map;
+                    if (map != null)
+                    {
+                        lock (_versionsLock)
+                        {
+                            if (revision != _versionsRevision) return;
+                            _versions = map;
+                            _versionsRevision++;
+                        }
+                        EvictStaleSprites();
+                    }
                 }
             }
+            catch (OperationCanceledException) { throw; }
             catch { /* no usable index — legacy url-only keys */ }
+        }
+
+        // Both full indexes and deltas publish the SAME snapshot to disk under
+        // the version lock. An older async write must not overwrite a new delta.
+        private void PersistVersionsLocked()
+        {
+            try
+            {
+                AtomicWriteAllText(Path.Combine(_cacheRoot, "asset-versions.json"),
+                    Newtonsoft.Json.JsonConvert.SerializeObject(_versions));
+            }
+            catch { /* memory remains usable when the disk is full/read-only */ }
         }
 
         private static Dictionary<string, string> ParseVersions(string json)
@@ -522,9 +561,9 @@ namespace Lvn.Content
             try
             {
                 var map = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
-                return map ?? new Dictionary<string, string>();
+                return map;
             }
-            catch { return new Dictionary<string, string>(); }
+            catch { return null; } // {} is valid; malformed JSON is not an empty index
         }
 
         // sha256 for a content url from the version index, or null if unknown.
@@ -551,9 +590,7 @@ namespace Lvn.Content
 
         private const int Ktx2CacheEpoch = 2;
 
-        private static bool IsTranscodeUrl(string url) =>
-            !string.IsNullOrEmpty(url) &&
-            url.EndsWith(".ktx2", StringComparison.OrdinalIgnoreCase);
+        private static bool IsTranscodeUrl(string url) => LvnUrl.Extension(url) == "ktx2";
 
         // Version for INTEGRITY checks: exact index entries only. A derived
         // variant inherits its source's version (see Lookup) — right for cache
@@ -575,7 +612,7 @@ namespace Lvn.Content
             {
                 path = LvnQuiet.Try(() => new System.Uri(path).AbsolutePath, path);
             }
-            var p = path.TrimStart('/');                                  // content/bg/... or bg/...
+            var p = LvnUrl.Bare(path).TrimStart('/');                      // content/bg/... or bg/...
             var afterContent = LvnAssetPath.Relative(p);                  // bg/...
             if (map.TryGetValue(afterContent, out var v)) return v;
             if (map.TryGetValue(p, out var v2)) return v2;
@@ -603,10 +640,14 @@ namespace Lvn.Content
             if (extRaw.Length == 0) yield break;
             var ext = extRaw.ToLowerInvariant();
             bool transcoded = ext == ".ktx2";
-            bool downscaled = stem.EndsWith(DownloadPolicy.DisplayVariant, StringComparison.Ordinal);
+            string variant = null;
+            if (transcoded || ext == ".png" || ext == ".jpg" || ext == ".jpeg")
+                foreach (var suffix in DownloadPolicy.Variants)
+                    if (stem.EndsWith(suffix, StringComparison.Ordinal)) { variant = suffix; break; }
+            bool downscaled = variant != null;
             if (!transcoded && !downscaled) yield break;
-            if (downscaled) stem = stem.Substring(0, stem.Length - DownloadPolicy.DisplayVariant.Length);
-            if (!transcoded) { yield return stem + ext; yield break; }
+            if (downscaled) stem = stem.Substring(0, stem.Length - variant.Length);
+            if (!transcoded) { yield return stem + extRaw; yield break; }
             // A transcode hides the source's extension — try the same set the
             // server's encoder probes (server/derived.go sourceExts).
             yield return stem + ".png";
@@ -656,16 +697,12 @@ namespace Lvn.Content
         /// disk, then loads the clip from the cached file.</summary>
         public async Task<AudioClip> DownloadAudioClipAsync(string url, CancellationToken ct = default)
         {
-            var path = CachePath(_assetCacheDir, url, ".audio");
-            if (!File.Exists(path))
-            {
-                var bytes = await Fetch(url, ct);
-                await WriteAllBytesAsync(path, bytes, ct);
-            }
+            var path = await EnsureCachedFile(url, ct);
+            if (path == null) return null;
             var type = Lvn.Content.DownloadPolicy.AudioTypeOf(url);
             for (int attempt = 0; attempt < 2; attempt++)
             {
-                using var req = UnityWebRequestMultimedia.GetAudioClip("file://" + path, type);
+                using var req = UnityWebRequestMultimedia.GetAudioClip(new Uri(path).AbsoluteUri, type);
                 await AwaitRequest(req, req.SendWebRequest(), ct);
                 if (!LvnNetWait.Failed(req)) return DownloadHandlerAudioClip.GetContent(req);
                 // Звук из кэша не читается — там мусор. Та же болезнь, что у
@@ -673,11 +710,13 @@ namespace Lvn.Content
                 // показе. Выбрасываем и качаем заново ровно один раз.
                 if (attempt == 0)
                 {
+                    // A direct file:// origin is the author's bundle, NOT a
+                    // disposable cache. Never delete it on a decoder failure.
+                    if (_local && LvnUrl.PlainFile(ResolveUrl(url))) return null;
                     LvnLog.Warn($"[lvn-content] {url}: звук из кэша не читается — выбрасываю и качаю заново");
                     LvnQuiet.Try(() => File.Delete(path));
-                    var again = await Fetch(url, ct);
-                    if (again == null || again.Length == 0) return null;
-                    await WriteAllBytesAsync(path, again, ct);
+                    path = await EnsureCachedFile(url, ct);
+                    if (path == null) return null;
                 }
             }
             return null;
@@ -1034,14 +1073,25 @@ namespace Lvn.Content
         public readonly int Retrying;
         /// <summary>Человеческое имя текущего файла (алиас или короткое имя).</summary>
         public readonly string Label;
+        /// <summary>Смена пакета сбрасывает замер скорости и тишины в HUD.</summary>
+        public readonly int Epoch;
+        /// <summary>Исходный список активного пакета; очередь не приписывает
+        /// себе байты чужого прогрева, пока сама ждёт его завершения.</summary>
+        public readonly IReadOnlyList<PreloadItem> BatchItems;
 
         public TransferSnapshot(int inflight, int batchTotal, int batchDone,
-            long received, long expected, long plannedBytes, int retrying, string label)
+            long received, long expected, long plannedBytes, int retrying, string label,
+            int epoch, IReadOnlyList<PreloadItem> batchItems = null)
         {
             Inflight = inflight; BatchTotal = batchTotal; BatchDone = batchDone;
             Received = received; Expected = expected; PlannedBytes = plannedBytes;
             Retrying = retrying; Label = label;
+            Epoch = epoch; BatchItems = batchItems;
         }
+
+        public TransferSnapshot(int inflight, int batchTotal, int batchDone,
+            long received, long expected, long plannedBytes, int retrying, string label)
+            : this(inflight, batchTotal, batchDone, received, expected, plannedBytes, retrying, label, 0) { }
 
         /// <summary>Есть ли работа: файл в полёте или незакрытый пакет.</summary>
         public bool Working => Inflight > 0 || (BatchTotal > 0 && BatchDone < BatchTotal);

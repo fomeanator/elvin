@@ -124,6 +124,32 @@ namespace Lvn.Tests
                 "перекодировка прячет расширение исходника — перебираем как сервер");
         }
 
+        [TestCase("@2k")]
+        [TestCase("@1440")]
+        [TestCase("@1k")]
+        [TestCase("@mini")]
+        public void EveryQualityVariantUsesSourceVersionButNotSourceIntegrity(string variant)
+        {
+            var map = new System.Collections.Generic.Dictionary<string, string> { ["bg/room.png"] = "v2" };
+            foreach (var ext in new[] { ".png", ".ktx2" })
+            {
+                var url = "/content/bg/room" + variant + ext + "?preview=1#image";
+                Assert.AreEqual("v2", ContentLoader.Lookup(map, url));
+                Assert.IsNull(ContentLoader.Lookup(map, url, allowDerived: false));
+            }
+        }
+
+        [TestCase("audio/theme@1k.ogg")]
+        [TestCase("bg/room@custom.png")]
+        [TestCase("bg@mini/room.png")]
+        public void UnknownVariantsAndNonImagesDoNotInherit(string path)
+            => CollectionAssert.IsEmpty(ContentLoader.SourceCandidates(path).ToList());
+
+        [Test]
+        public void RasterVariantPreservesSourceExtensionCase()
+            => CollectionAssert.AreEqual(new[] { "bg/room.PNG" },
+                ContentLoader.SourceCandidates("bg/room@1k.PNG").ToList());
+
         [Test]
         public void PickEvictions_GraceProtectsRecentlyUsed()
         {

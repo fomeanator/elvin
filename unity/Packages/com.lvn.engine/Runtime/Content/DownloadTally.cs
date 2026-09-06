@@ -114,7 +114,7 @@ namespace Lvn.Content
         public static Phase PhaseOf(bool hasWork, bool offline, int pendingOps,
             float quietSeconds, float stallAfterSeconds = 4f)
         {
-            if (offline && hasWork) return Phase.Offline;
+            if (offline && (hasWork || pendingOps > 0)) return Phase.Offline;
             if (!hasWork) return pendingOps > 0 ? Phase.Syncing : Phase.Idle;
             return quietSeconds >= stallAfterSeconds ? Phase.Stalled : Phase.Running;
         }

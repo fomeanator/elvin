@@ -23,10 +23,13 @@ namespace Lvn.UI.Screens
             public long Bytes;              // оценка недостающего
             public List<PreloadItem> Items;
             public bool Active;
+            public int MissingFiles;
         }
 
-        private readonly ContentLoader _loader;
+        private readonly Func<IReadOnlyList<PreloadItem>, CancellationToken, Task> _preload;
+        private readonly Func<string, bool> _isCached;
         private readonly List<Entry> _queue = new List<Entry>();
+        private readonly List<Entry> _failed = new List<Entry>();
         private CancellationTokenSource _entryCts;
         private bool _running;
         private long _doneBytes, _totalBytes; // общий прогресс всей очереди
@@ -36,20 +39,31 @@ namespace Lvn.UI.Screens
 
         public IReadOnlyList<Entry> Queue => _queue;
         public bool Running => _running;
+        public IReadOnlyList<Entry> Failed => _failed;
+        public bool LastRunCompleted { get; private set; }
+        private bool _cancelledInRun;
 
         /// <summary>Суммарный прогресс ОЧЕРЕДИ (решение Ильи 26.08: «шкалы
         /// общего прогресса нет — надо суммировать»): байты завершённых глав /
-        /// сумма всех поставленных. Байты активного батча добавляет индикатор
-        /// (лоадер чистит их концом главы — сложение честное).</summary>
+        /// сумма всех поставленных. Это оценки объёмов глав, а не показание
+        /// сети: HUD не складывает их с байтами текущего пакета.</summary>
         public (long doneBytes, long totalBytes) Progress => (_doneBytes, _totalBytes);
 
-        public DownloadCenter(ContentLoader loader) { _loader = loader; }
+        public DownloadCenter(ContentLoader loader) : this(loader.StartPreloadBatch, loader.IsAssetCached) { }
+
+        internal DownloadCenter(Func<IReadOnlyList<PreloadItem>, CancellationToken, Task> preload,
+            Func<string, bool> isCached)
+        {
+            _preload = preload;
+            _isCached = isCached;
+        }
 
         /// <summary>Поставить главу в хвост очереди; пустые списки не занимают
         /// место. Запускает прокачку, если она не шла.</summary>
         public void Enqueue(string label, long bytes, List<PreloadItem> items)
         {
             if (items == null || items.Count == 0) return;
+            LastRunCompleted = false;
             _queue.Add(new Entry { Label = label, Bytes = bytes, Items = items });
             _totalBytes += bytes;
             Changed?.Invoke();
@@ -61,6 +75,7 @@ namespace Lvn.UI.Screens
         public void Remove(Entry e)
         {
             if (e == null) return;
+            if (_failed.Remove(e)) { Changed?.Invoke(); return; }
             // НАРОЧНО только гасим: источником владеет RunAsync — он снимет,
             // вычтет и освободит сам.
             if (e.Active) _entryCts?.Cancel();
@@ -69,6 +84,23 @@ namespace Lvn.UI.Screens
                 _totalBytes -= e.Bytes;
                 Changed?.Invoke();
             }
+        }
+
+        /// <summary>Повторяется только недокачанное. Ошибка остаётся видимой,
+        /// пока игрок не повторит загрузку или явно не снимет запись.</summary>
+        public void Retry(Entry e)
+        {
+            if (e == null || !_failed.Remove(e)) return;
+            var missing = new List<PreloadItem>();
+            long bytes = 0;
+            foreach (var item in e.Items)
+            {
+                if (_isCached(item.Url)) continue;
+                missing.Add(item);
+                bytes += item.Size > 0 ? item.Size : DownloadPolicy.UnknownSizeBytes;
+            }
+            Changed?.Invoke();
+            Enqueue(e.Label, bytes, missing);
         }
 
         /// <summary>Ждать, пока очередь не опустеет (для «Скачать всё» из
@@ -81,22 +113,38 @@ namespace Lvn.UI.Screens
         private async Task RunAsync()
         {
             _running = true;
+            _cancelledInRun = false;
             try
             {
                 while (_queue.Count > 0)
                 {
                     var e = _queue[0];
                     e.Active = true;
-                    Changed?.Invoke();
                     _entryCts = new CancellationTokenSource();
+                    Changed?.Invoke();
                     bool cancelled = false;
-                    try { await _loader.StartPreloadBatch(e.Items, _entryCts.Token); }
+                    bool failed = false;
+                    try { await _preload(e.Items, _entryCts.Token); }
                     catch (OperationCanceledException) { cancelled = true; }
-                    catch (Exception ex) { Debug.LogWarning($"[lvn-dl-center] {e.Label}: {ex.Message}"); }
+                    catch (Exception ex)
+                    {
+                        failed = true;
+                        Debug.LogWarning($"[lvn-dl-center] {e.Label}: {ex.Message}");
+                    }
+                    // BatchDone означает «обработано», а не «сохранено»:
+                    // пакет терпит ошибки отдельных файлов. Проверяем итог.
+                    e.MissingFiles = 0;
+                    if (!cancelled)
+                        foreach (var item in e.Items)
+                            if (!string.IsNullOrEmpty(item.Url) && !_isCached(item.Url)) e.MissingFiles++;
+                    failed |= e.MissingFiles > 0;
                     _entryCts.Dispose();
                     _entryCts = null;
                     _queue.Remove(e);
-                    if (cancelled) _totalBytes -= e.Bytes; // снятая — вон из знаменателя
+                    e.Active = false;
+                    _cancelledInRun |= cancelled;
+                    if (failed && !cancelled) _failed.Add(e);
+                    if (cancelled || failed) _totalBytes -= e.Bytes;
                     else _doneBytes += e.Bytes;
                     Changed?.Invoke();
                 }
@@ -105,6 +153,8 @@ namespace Lvn.UI.Screens
             {
                 _running = false;
                 if (_queue.Count == 0) { _doneBytes = 0; _totalBytes = 0; }
+                LastRunCompleted = !_cancelledInRun && _failed.Count == 0;
+                Changed?.Invoke();
             }
         }
     }

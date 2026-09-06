@@ -28,6 +28,8 @@ namespace Lvn.Content
             };
         }
 
+        private readonly SharedDownloads<byte[]> _batchDownloads = new();
+
         /// <summary>Downloads a list of assets, pipelining disk writes with the
         /// next file's network setup so the progress bar shows smooth overall
         /// progress and there's no idle gap between files. Files already on disk
@@ -35,6 +37,7 @@ namespace Lvn.Content
         /// can await; <see cref="WaitForAll"/>(null) also works.</summary>
         public Task StartPreloadBatch(IReadOnlyList<PreloadItem> assets, CancellationToken ct)
         {
+            if (ct.IsCancellationRequested) return Task.FromCanceled(ct);
             if (assets == null || assets.Count == 0) return Task.CompletedTask;
 
             // Register all aliases up-front so the HUD label is ready the moment a
@@ -45,9 +48,10 @@ namespace Lvn.Content
 
             // Count how many files are actually missing from disk cache.
             var pending = new List<PreloadItem>(assets.Count);
+            var seen = new HashSet<string>();
             foreach (var a in assets)
             {
-                if (string.IsNullOrEmpty(a.Url)) continue;
+                if (string.IsNullOrEmpty(a.Url) || !seen.Add(a.Url)) continue;
                 var path = CachePath(_assetCacheDir, a.Url, ".bin");
                 if (!File.Exists(path)) pending.Add(a);
             }
@@ -70,21 +74,24 @@ namespace Lvn.Content
             // встают в очередь: полоса пропускания одна, и параллелить их
             // нечем.
             string batchKey = "__preload_batch__" + BatchKey(pending);
-            Task<byte[]> batchTask;
-            lock (_underway)
+            return _batchDownloads.Run(batchKey, token =>
             {
-                if (_underway.TryGetValue(batchKey, out var same) && same.Work is Task<byte[]> running)
-                    return running;
-                batchTask = RunBatchQueuedAsync(pending, ct);
-                var rec = Progress(batchKey);
-                rec.Work = batchTask;
-                rec.Bundle = true;   // это весь пакет, а не файл в полёте
-            }
-            _ = batchTask.ContinueWith(_ =>
-            {
-                lock (_underway) _underway.Remove(batchKey);
-            }, TaskScheduler.Default);
-            return batchTask;
+                Task<byte[]> batchTask;
+                lock (_underway)
+                {
+                    batchTask = RunBatchQueuedAsync(pending, assets, token);
+                    var rec = Progress(batchKey);
+                    rec.Work = batchTask;
+                    rec.Bundle = true;   // это весь пакет, а не файл в полёте
+                }
+                _ = batchTask.ContinueWith(_ =>
+                {
+                    lock (_underway)
+                        if (_underway.TryGetValue(batchKey, out var current) && ReferenceEquals(current.Work, batchTask))
+                            _underway.Remove(batchKey);
+                }, TaskScheduler.Default);
+                return batchTask;
+            }, ct);
         }
 
         /// <summary>
@@ -105,6 +112,10 @@ namespace Lvn.Content
         /// </summary>
         private void ClearBatchTally()
         {
+            _batchUrls = null;
+            _batchClosed.Clear();
+            _batchItems = null;
+            _tallyEpoch++;
             BatchTotal        = 0;
             BatchDone         = 0;
             BatchClosedBytes  = 0;
@@ -118,7 +129,6 @@ namespace Lvn.Content
             var idle = new List<string>();
             foreach (var kv in _underway)
             {
-                kv.Value.Received = 0; kv.Value.Expected = 0; kv.Value.Attempt = 0;
                 if (kv.Value.Work == null) idle.Add(kv.Key);
             }
             foreach (var k in idle) _underway.Remove(k);
@@ -128,6 +138,10 @@ namespace Lvn.Content
         // одновременно, только делят его пополам — зато оба показывают половину
         // скорости и вдвое больше ждут.
         private readonly System.Threading.SemaphoreSlim _batchGate = new System.Threading.SemaphoreSlim(1, 1);
+        private HashSet<string> _batchUrls;
+        private readonly HashSet<string> _batchClosed = new();
+        private IReadOnlyList<PreloadItem> _batchItems;
+        private int _tallyEpoch;
 
         /// <summary>Устойчивое имя пакета — по списку адресов. Тот же список
         /// (повторный запрос главы) находит свою задачу, чужой не находит.</summary>
@@ -141,7 +155,8 @@ namespace Lvn.Content
             }
         }
 
-        private async Task<byte[]> RunBatchQueuedAsync(List<PreloadItem> pending, CancellationToken ct)
+        private async Task<byte[]> RunBatchQueuedAsync(List<PreloadItem> pending,
+            IReadOnlyList<PreloadItem> items, CancellationToken ct)
         {
             // ПАКЕТ ЖИВЫМ НЕ БЫВАЕТ. Молчание тут читалось бы как «на это
             // смотрят»: пачка заняла бы бронь и не смогла уступить. Если
@@ -159,7 +174,10 @@ namespace Lvn.Content
                     // ЧИСТЫЙ СТАРТ ПО БАЙТАМ, но не по повторам: счётчик
                     // попыток принадлежит идущей закачке, и обнулить его здесь
                     // значило бы подарить ей лишний повтор.
-                    foreach (var f in _underway.Values) { f.Received = 0; f.Expected = 0; }
+                    _tallyEpoch++;
+                    _batchUrls = new HashSet<string>(pending.Select(a => a.Url));
+                    _batchClosed.Clear();
+                    _batchItems = items;
                     BatchTotal       = pending.Count;
                     BatchDone        = 0;
                     BatchClosedBytes = 0;
@@ -167,7 +185,11 @@ namespace Lvn.Content
                     // Ноль значит «размеров не дали» — тогда доля считается
                     // по-старому, догадкой, и индикатор про это знает.
                     long planned = 0;
-                    foreach (var it in pending) if (it.Size > 0) planned += it.Size;
+                    foreach (var it in pending)
+                    {
+                        if (it.Size <= 0) { planned = 0; break; }
+                        planned += it.Size;
+                    }
                     BatchPlannedBytes = planned;
                     LastStartedUrl = pending[0].Url;
                 }
@@ -226,7 +248,7 @@ namespace Lvn.Content
                     var path  = CachePath(_assetCacheDir, asset.Url, ".bin");
                     // Успел приехать одиночным запросом, пока пакет шёл, — это
                     // не работа, но в счёте она посчитана.
-                    if (File.Exists(path)) { CloseFile(path); continue; }
+                    if (File.Exists(path)) { CloseFile(asset.Url, path); continue; }
 
                     // Подпись показывает ПОСЛЕДНИЙ начатый файл. При нескольких
                     // рабочих «текущий» — понятие приблизительное, и честнее
@@ -250,7 +272,7 @@ namespace Lvn.Content
                     catch (OperationCanceledException) { throw; }
                     catch { /* сдался и объяснил внутри: NoteGaveUp / RememberMissing */ }
 
-                    CloseFile(path);
+                    CloseFile(asset.Url, path);
                 }
             }
 
@@ -258,13 +280,14 @@ namespace Lvn.Content
             /// берутся С ДИСКА, а не из заголовка: заголовка может не быть
             /// вовсе, а файл к этому мгновению уже дописан и весит ровно
             /// столько, сколько весит.</summary>
-            void CloseFile(string path)
+            void CloseFile(string url, string path)
             {
                 long size = 0;
                 try { var fi = new FileInfo(path); if (fi.Exists) size = fi.Length; }
                 catch { /* гонка с чисткой кэша — не повод ронять обоз */ }
                 lock (_underway)
                 {
+                    if (!_batchClosed.Add(url)) return;
                     BatchDone++;
                     BatchClosedBytes += size;
                 }

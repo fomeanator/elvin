@@ -22,12 +22,16 @@ namespace Lvn.Content
         {
             try { AssetFailed?.Invoke(req.url, req.responseCode); }
             catch { /* диагностика не смеет ронять загрузку */ }
-            var err = req.error ?? "";
-            bool transient = req.downloadedBytes > 0
-                || err.IndexOf("timeout", StringComparison.OrdinalIgnoreCase) >= 0
-                || err.IndexOf("abort", StringComparison.OrdinalIgnoreCase) >= 0;
-            if (!transient) MarkOfflineUnlessLocal("content fetch network error");
+            if (IsConnectionFailure(req.responseCode, req.downloadedBytes, req.error))
+                MarkOfflineUnlessLocal("content fetch network error");
         }
+
+        // Any HTTP response proves the server was reachable. In particular a
+        // missing file or throttling must not take every other download offline.
+        internal static bool IsConnectionFailure(long status, ulong received, string error)
+            => status == 0 && received == 0
+                && (error ?? "").IndexOf("timeout", StringComparison.OrdinalIgnoreCase) < 0
+                && (error ?? "").IndexOf("abort", StringComparison.OrdinalIgnoreCase) < 0;
 
         // Await a UnityWebRequest via its `completed` callback instead of polling
         // isDone once per frame. Polling quantizes every await to frame
@@ -173,11 +177,12 @@ namespace Lvn.Content
         /// file itself; Android jar bundle → copied out to the cache once.</summary>
         public async Task<string> EnsureCachedFile(string url, CancellationToken ct = default)
         {
+            ct.ThrowIfCancellationRequested();
             if (string.IsNullOrEmpty(url)) return null;
             if (_local)
             {
                 var resolved = ResolveUrl(url);
-                if (LvnUrl.Local(resolved))
+                if (LvnUrl.PlainFile(resolved))
                 {
                     var direct = resolved.Substring("file://".Length);
                     return File.Exists(direct) ? direct : null;
@@ -301,7 +306,9 @@ namespace Lvn.Content
                         // на ровном месте: проверяем ПРИЧИНУ, а не симптом.
                         if (pass.Yielded && !ct.IsCancellationRequested) continue;
                         NoteFetchFailure(req);
-                        throw new LvnFetchException((int)req.responseCode, "network", req.error ?? "network error");
+                        throw new LvnFetchException((int)req.responseCode,
+                            req.responseCode == 0 ? "network" : "http_" + req.responseCode,
+                            req.error ?? "network error");
                     }
                     if (req.responseCode is < 200 or >= 300)
                         throw new LvnFetchException((int)req.responseCode, "http_" + req.responseCode, $"GET {full}");
@@ -349,13 +356,39 @@ namespace Lvn.Content
                 ? req.downloadHandler.data : null;
         }
 
-        private async Task<byte[]> DownloadBytes(string url, string dir, CancellationToken ct)
+        private readonly SharedDownloads<byte[]> _downloads = new();
+
+        private Task<byte[]> DownloadBytes(string url, string dir, CancellationToken ct)
         {
-            var path     = CachePath(dir, url, ".bin");
+            string path, integrity;
+            lock (_versionsLock)
+            {
+                path = CachePath(dir, url, ".bin");
+                integrity = IntegrityVersionFor(url);
+            }
+            // A new content revision must not join a fetch of the old revision.
+            // Dedup includes the seed/cache check, not just the network request.
+            return _downloads.Run(path, token => DownloadBytesCore(url, path, integrity, token), ct);
+        }
+
+        private async Task<byte[]> DownloadBytesCore(string url, string path, string integrity, CancellationToken ct)
+        {
             var partPath = path + ".part";
 
             if (File.Exists(path))
                 return await ReadAllBytesAsync(path, ct);
+
+            // Old releases decoded music from .audio while prefetch wrote .bin.
+            // Migrate inside the shared flight, before the offline gate, so both
+            // consumers now use one cache and concurrent upgrades cannot race.
+            var legacyAudio = Path.ChangeExtension(path, ".audio");
+            if (File.Exists(legacyAudio))
+            {
+                var audio = await ReadAllBytesAsync(legacyAudio, ct);
+                await WriteAllBytesAsync(path, audio, ct);
+                LvnQuiet.Try(() => File.Delete(legacyAudio));
+                return audio;
+            }
 
             // Сид из APK — раньше сети: первый вход не качает критичное вовсе.
             var seeded = await TrySeedAsync(url, path, ct);
@@ -385,7 +418,7 @@ namespace Lvn.Content
                         // forever. Mismatch → drop the .part and refetch clean.
                         // Exact entries only — a derived variant's inherited
                         // version describes its SOURCE, not these bytes.
-                        var expect = IntegrityVersionFor(url);
+                        var expect = integrity;
                         if (expect != null && !Sha256Matches(bytes, expect))
                         {
                             LvnQuiet.Try(() => File.Delete(partPath));
@@ -422,7 +455,7 @@ namespace Lvn.Content
                     {
                         var whole = LvnQuiet.Try(
                             () => File.Exists(partPath) ? File.ReadAllBytes(partPath) : null, (byte[])null);
-                        var want = IntegrityVersionFor(url);
+                        var want = integrity;
                         if (whole != null && want != null && Sha256Matches(whole, want))
                         {
                             // Файл целиком у нас — не хватало переименования.
@@ -436,6 +469,7 @@ namespace Lvn.Content
                             }
                             if (File.Exists(path)) File.Delete(path);
                             File.Move(partPath, path);
+                            DropPartTag(partPath);
                             return whole;
                         }
                         // Хеша нет или не сходится: кусок длиннее серверного
@@ -444,6 +478,7 @@ namespace Lvn.Content
                         // сможет.
                         Debug.LogWarning($"[lvn-content] {url}: кусок не сходится с сервером — качаем заново");
                         LvnQuiet.Try(() => File.Delete(partPath));
+                        DropPartTag(partPath);
                         // «Забыть ожидаемое» и «обнулить» для суммы одно и то же —
                         // и теперь это видно, а не спрятано в разных вызовах.
                         lock (_underway) { var f = Progress(url); f.Received = 0; f.Expected = 0; }
@@ -496,12 +531,13 @@ namespace Lvn.Content
             var got = await GetAsync(url, ct,
                 r =>
                 {
-                    lock (_underway) Progress(url).Received = resumeFrom + (long)r.downloadedBytes;
-                    if (ExpectedOf(url) <= resumeFrom)
+                    var offset = r.responseCode == 200 ? 0 : resumeFrom;
+                    lock (_underway)
                     {
+                        Progress(url).Received = offset + (long)r.downloadedBytes;
                         var cl = r.GetResponseHeader("Content-Length");
                         if (cl != null && long.TryParse(cl, out var sz) && sz > 0)
-                            lock (_underway) Progress(url).Expected = resumeFrom + sz;
+                            Progress(url).Expected = offset + sz;
                     }
                 },
                 r =>
@@ -519,7 +555,7 @@ namespace Lvn.Content
 
             lock (_underway)
             {
-                var total = resumeFrom + got.Body.Length;
+                var total = (overwrite ? 0 : resumeFrom) + got.Body.Length;
                 var fin = Progress(url);
                 fin.Received = total;
                 fin.Expected = total;
@@ -566,29 +602,34 @@ namespace Lvn.Content
         }
 
         // Wraps the actual network work in the in-flight tracker so any cache-miss
-        // shows up in the BatchTotal/BatchDone counters. Dedups duplicate calls to
-        // the same url — second caller awaits the first one's task.
+        // shows up in the BatchTotal/BatchDone counters. SharedDownloads owns
+        // dedup and cancellation; the tracker only owns presentation/accounting.
         private Task<T> TrackedFetch<T>(string url, Func<Task<T>> work)
         {
-            lock (_underway)
-            {
-                if (_underway.TryGetValue(url, out var existing) && existing.Work is Task<T> typed)
-                    return typed;
-            }
             var task = work();
+            int epoch;
+            bool standalone;
             lock (_underway)
             {
+                epoch = _tallyEpoch;
+                standalone = _batchUrls == null;
                 Progress(url).Work = task;
-                BatchTotal++;
-                LastStartedUrl = url;
+                // Пакет уже посчитал файл в своём плане. Одиночная сеть,
+                // работающая рядом, тоже не меняет этот план.
+                if (standalone) BatchTotal++;
+                if (_batchUrls == null || _batchUrls.Contains(url)) LastStartedUrl = url;
             }
             _ = task.ContinueWith(_ =>
             {
                 lock (_underway)
                 {
-                    WorkDone(url);
-                    BatchDone++;
-                    if (BatchDone >= BatchTotal) ClearBatchTally();
+                    if (_underway.TryGetValue(url, out var current) && ReferenceEquals(current.Work, task))
+                        WorkDone(url);
+                    if (standalone && epoch == _tallyEpoch)
+                    {
+                        BatchDone++;
+                        if (BatchDone >= BatchTotal) ClearBatchTally();
+                    }
                 }
             }, TaskScheduler.Default);
             return task;

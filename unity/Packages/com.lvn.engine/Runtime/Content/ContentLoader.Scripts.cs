@@ -35,9 +35,11 @@ namespace Lvn.Content
         // on disk under a version-folded key, so a chapter opens OFFLINE if ever
         // played online, the version is pinned for the whole session, and an
         // edited script (new hash → new key) is re-downloaded on the next entry.
-        // Returns null only if there's no cache AND we can't fetch.
+        // Returns null when unavailable without a cache; an explicit 404/410
+        // propagates so the chapter UI can distinguish removal from offline.
         public async Task<string> DownloadScriptCached(string scriptUrl, CancellationToken ct = default)
         {
+            ct.ThrowIfCancellationRequested();
             var path = CachePath(_scriptCacheDir, scriptUrl, ".txt");
             if (File.Exists(path))
             {
@@ -57,19 +59,24 @@ namespace Lvn.Content
                     await WriteAllBytesAsync(path, bytes, ct);
                     await WriteScriptUrlSidecar(path, scriptUrl, ct);
                 }
+                catch (OperationCanceledException) { throw; }
                 catch { /* cache write best-effort */ }
                 return Encoding.UTF8.GetString(bytes);
             }
             catch (OperationCanceledException) { throw; }
-            catch
+            catch (Exception error)
             {
                 // Offline and not cached for this version. Last resort: a previously
                 // cached version OF THE SAME url (older but the right chapter).
                 var stale = NewestCachedScript(scriptUrl);
                 if (stale != null)
                 {
-                    try { return await ReadAllTextAsync(stale, ct); } catch { }   // старая копия не читается — вернём null, вызывающий сходит в сеть
+                    try { return await ReadAllTextAsync(stale, ct); }
+                    catch (OperationCanceledException) { throw; }
+                    catch { /* stale copy is unreadable too */ }
                 }
+                ct.ThrowIfCancellationRequested();
+                if (error is LvnFetchException missing && missing.MissingOnServer) throw;
                 return null;
             }
         }
