@@ -18,10 +18,10 @@ namespace Lvn.UI.Screens
     {
         // ── секции попапа ─────────────────────────────────────────────────────
 
-        private void RebuildSections(bool animate = false)
+        private void RebuildSections()
         {
-            if (_sections == null) return;
-            _sections.Clear();
+            if (_sectionCards == null) return;
+            _sectionCards.Clear();
 
             bool off = Offline?.Invoke() ?? false;
             int pend = PendingOps?.Invoke() ?? 0;
@@ -30,12 +30,12 @@ namespace Lvn.UI.Screens
             {
                 var card = SectionCard();
                 card.Add(CardHeading(() => LvnWords.Of("dl.offline_title", "Play offline")));
-                card.Add(Hint(() => LvnWords.Of("dl.offline_hint", "Everything already downloaded is available: the ticked chapters below open on a plane with no network. Download the whole game and read anywhere; purchases work offline too and sync later.")));
+                card.Add(Hint(() => LvnWords.Of("dl.offline_available", "Ticked chapters have all their files saved on this device.")));
                 var chapters = ChaptersInfo?.Invoke();
                 if (chapters != null)
                     foreach (var (label, cached) in chapters)
                         card.Add(ChapterRow(label, cached));
-                _sections.Add(card);
+                _sectionCards.Add(card);
             }
 
             if (pend > 0)
@@ -43,9 +43,17 @@ namespace Lvn.UI.Screens
                 var card = SectionCard();
                 card.Add(CardHeading(() => LvnWords.Of("dl.pending_title", "Waiting to send")));
                 card.Add(Hint(() => off
-                    ? LvnWords.Of("dl.pending_offline", "{n} events — purchases and progress are saved on the device and leave for the server as soon as there is a network.", pend)
-                    : LvnWords.Of("dl.pending_sending", "Sending to the server: {n} events (purchases, progress).", pend)));
-                _sections.Add(card);
+                    ? LvnWords.Of("dl.sync_offline", "Progress is saved on this device. Sync will resume when connected.")
+                    : LvnWords.Of("dl.sync_saved", "Progress is saved on this device. Syncing with the server.")));
+                _sectionCards.Add(card);
+            }
+
+            if (Center != null && Center.Failed.Count > 0)
+            {
+                var card = SectionCard();
+                card.Add(CardHeading(() => LvnWords.Of("dl.failed", "Download incomplete")));
+                foreach (var entry in Center.Failed) card.Add(QueueRow(entry, failed: true));
+                _sectionCards.Add(card);
             }
 
             if (Center != null && Center.Queue.Count > 0)
@@ -54,12 +62,16 @@ namespace Lvn.UI.Screens
                 card.Add(CardHeading(() => LvnWords.Of("dl.queue_title", "Download queue")));
                 foreach (var e in Center.Queue)
                     card.Add(QueueRow(e));
-                _sections.Add(card);
+                _sectionCards.Add(card);
             }
 
-            var missingPlaceholder = 0; // (маркер позиции — каскад ниже)
             var missing = MissingInfo?.Invoke() ?? (0, 0);
-            if (missing.Item2 > 0 && DownloadAll != null && !(Center != null && Center.Queue.Count > 0))
+            // ПРЯЧЕТ ТОЛЬКО ЖИВАЯ ОЧЕРЕДЬ. Отказавшиеся файлы её не прячут:
+            // один 404 убирал предложение «вся игра с собой» целиком, а связи
+            // между исчезнувшей кнопкой и красной строкой ниже игрок не видит.
+            // Именно тогда оно и нужно — докачать то, что не доехало.
+            if (missing.Item2 > 0 && DownloadAll != null
+                && !(Center != null && Center.Queue.Count > 0))
             {
                 var card = SectionCard();
                 card.Add(CardHeading(() => LvnWords.Of("dl.all_title", "The whole game with you")));
@@ -71,6 +83,7 @@ namespace Lvn.UI.Screens
                     chBtn.style.height = LvnTokens.Touch;
                     chBtn.style.fontSize = LvnTokens.TextXs;
                     chBtn.style.marginTop = LvnTokens.Space1;
+                    chBtn.SetEnabled(!off);
                     LvnStyler.Plate(chBtn, LvnTokens.Faint, LvnTokens.Accent, 14f);
                     var startCh = offer.Value.start;
                     chBtn.clicked += () => { chBtn.SetEnabled(false); startCh(); };
@@ -84,11 +97,11 @@ namespace Lvn.UI.Screens
                 btn.style.fontSize = LvnTokens.TextSm;
                 btn.style.marginTop = LvnTokens.Space1;
                 LvnStyler.Primary(btn, 14f);
+                btn.SetEnabled(!off);
                 btn.clicked += () => { btn.SetEnabled(false); Lvn.LvnAsync.Fire(DownloadAll(), "DownloadAll"); };
                 card.Add(btn);
-                _sections.Add(card);
+                _sectionCards.Add(card);
             }
-            if (animate) CascadeIn();
         }
 
         private VisualElement SectionCard()
@@ -101,28 +114,6 @@ namespace Lvn.UI.Screens
             return card;
         }
 
-        // Каскад: карточки прибывают одна за другой (fade + подъём) — попап
-        // «наполняется», а не вспыхивает готовым.
-        private void CascadeIn()
-        {
-            int i = 0;
-            foreach (var child in _sections.Children())
-            {
-                var el = child;
-                el.style.opacity = 0f;
-                el.style.translate = new Translate(0f, 10f);
-                int delay = 60 + i * 55;
-                el.schedule.Execute(() =>
-                    el.experimental.animation.Start(0f, 1f, LvnMotion.Ms(220), (e2, t) =>
-                    {
-                        float e = LvnMotion.Settle(t);
-                        e2.style.opacity = e;
-                        e2.style.translate = new Translate(0f, Mathf.Lerp(10f, 0f, e));
-                    })).ExecuteLater(delay);
-                i++;
-            }
-        }
-
         // Ячейка 2×2: подпись тускло сверху, значение жирно снизу.
         // Подпись ячейки берётся источником: сведения о загрузке обновляются
         // каждый тик, а вот их НАЗВАНИЯ ставились один раз при сборке панели и
@@ -132,11 +123,14 @@ namespace Lvn.UI.Screens
             var cell = new VisualElement();
             cell.pickingMode = PickingMode.Ignore;
             cell.style.width = Length.Percent(50f);
+            cell.style.minWidth = 0;
+            cell.style.paddingRight = LvnTokens.Space1;
             cell.style.marginBottom = LvnTokens.Space1;
             var c = Lvn.UI.LvnRedress.Bind(new Label(), caption);
             c.pickingMode = PickingMode.Ignore;
             c.style.color = LvnTokens.TextDim;
             c.style.fontSize = LvnTokens.TextMicro;
+            c.style.whiteSpace = WhiteSpace.Normal;
             cell.Add(c);
             var v = new Label("—");
             v.pickingMode = PickingMode.Ignore;
@@ -144,6 +138,7 @@ namespace Lvn.UI.Screens
             v.style.fontSize = LvnTokens.TextXs;
             v.style.unityFontStyleAndWeight = FontStyle.Bold;
             v.style.marginTop = LvnTokens.Hair;
+            v.style.whiteSpace = WhiteSpace.Normal;
             cell.Add(v);
             host.Add(cell);
             return v;
@@ -201,55 +196,36 @@ namespace Lvn.UI.Screens
             return row;
         }
 
-        private VisualElement QueueRow(DownloadCenter.Entry e)
+        private VisualElement QueueRow(DownloadCenter.Entry e, bool failed = false)
         {
             var row = ScreenUi.Row(spread: true);
             row.style.marginTop = LvnTokens.Space1;
-            if (e.Active)
+            if (e.Active) LvnChrome.Stripe(row);
+            var label = new Label(e.Label) { pickingMode = PickingMode.Ignore };
+            label.style.color = failed ? LvnTokens.Warn : LvnTokens.Text;
+            label.style.fontSize = LvnTokens.TextXs;
+            label.style.whiteSpace = WhiteSpace.Normal;
+            label.style.flexGrow = 1;
+            label.style.flexShrink = 1;
+            row.Add(label);
+            if (failed)
             {
-                // Активная глава помечена акцентной кромкой слева — бордер
-                // работает как маркер состояния, в языке Полуночи.
-                LvnChrome.Stripe(row);
-                row.style.paddingLeft = LvnTokens.Space1;
-            }
-            var l = new Label((e.Active ? "▶ " : "") + e.Label
-                + (e.Bytes > 0 ? " · " + Lvn.Content.LvnBytes.Short(e.Bytes) : ""));
-            l.pickingMode = PickingMode.Ignore;
-            l.style.color = e.Active ? LvnTokens.Text : LvnTokens.TextDim;
-            l.style.fontSize = LvnTokens.TextXs;
-            l.style.overflow = Overflow.Hidden;
-            l.style.textOverflow = TextOverflow.Ellipsis;
-            l.style.whiteSpace = WhiteSpace.NoWrap;
-            l.style.flexShrink = 1;
-            row.Add(l);
-            var x = new Label("×");
-            x.style.color = LvnTokens.TextDim;
-            x.style.fontSize = LvnTokens.TextXs;
-            // НАРОЧНО порознь: у крестика воздух слева и справа РАЗНЫЙ —
-            // палец метит в центр знака, а не в центр кнопки.
-            x.style.paddingLeft = LvnTokens.Space2; x.style.paddingRight = LvnTokens.Tight;
-            x.style.flexShrink = 0;
-            var entry = e;
-            x.RegisterCallback<ClickEvent>(ev =>
-            {
-                ev.StopPropagation();
-                // Строка уезжает и схлопывается — и только потом выбывает из
-                // очереди: снятие видно, а не «мигнуло и нет».
-                float h0 = row.resolvedStyle.height;
-                row.experimental.animation.Start(0f, 1f, LvnMotion.Ms(LvnMotion.Normal), (r, t) =>
+                var retry = new Button(() => Center?.Retry(e))
                 {
-                    r.style.opacity = 1f - t;
-                    r.style.translate = new Translate(Mathf.Lerp(0f, 40f, t * t), 0f);
-                    if (h0 > 1f) r.style.height = Mathf.Lerp(h0, 0f, t);
-                    if (t >= 1f)
-                    {
-                        Center?.Remove(entry);
-                        // Строка ушла с ОТКРЫТОЙ панели: прокрутка игрока не её.
-                        Lvn.UI.LvnScroll.Keeping(_sections, () => RebuildSections());
-                    }
-                });
-            });
-            row.Add(x);
+                    text = LvnWords.Of("dl.retry", "Retry"), name = "download-retry"
+                };
+                LvnStyler.Plate(retry, LvnTokens.Faint, LvnTokens.Accent, 12f);
+                retry.style.minHeight = LvnTokens.Touch;
+                retry.style.flexShrink = 0;
+                retry.SetEnabled(!(Offline?.Invoke() ?? false));
+                row.Add(retry);
+            }
+            var remove = new Button(() => Center?.Remove(e)) { text = "×" };
+            LvnStyler.Plate(remove, Color.clear, LvnTokens.TextDim, 12f);
+            remove.style.width = LvnTokens.Touch;
+            remove.style.height = LvnTokens.Touch;
+            remove.style.flexShrink = 0;
+            row.Add(remove);
             return row;
         }
     }
