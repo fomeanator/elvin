@@ -173,6 +173,7 @@ namespace Lvn.UI
 
         private string _saveTitleId, _saveChapterId, _saveScriptUrl;
         private int _saySinceAutosave;
+        private int _slotLoadInProgress;
 
         /// <summary>The title id save slots are namespaced under (host-set).</summary>
         public string SaveTitleId => _saveTitleId;
@@ -223,18 +224,26 @@ namespace Lvn.UI
         public Func<LvnSaveSlot, Task<bool>> CrossChapterLoader;
 
         /// <summary>Load a slot wherever it points: in-place for the current
-        /// chapter, via <see cref="CrossChapterLoader"/> for another one.</summary>
+        /// chapter, via <see cref="CrossChapterLoader"/> for another one.
+        /// Returns false immediately if another slot load is still pending.</summary>
         public async Task<bool> LoadFromSlotAsync(string slot)
         {
-            if (LoadFromSlot(slot)) return true;
-            var s = LvnSaveStore.Get(_saveTitleId, slot);
-            if (s?.Snap == null || CrossChapterLoader == null) return false;
-            try { return await CrossChapterLoader(s); }
-            catch (Exception e)
+            // Guard before the in-place path too: a second request must not
+            // restore this chapter while the host is fetching another one.
+            if (Interlocked.CompareExchange(ref _slotLoadInProgress, 1, 0) != 0) return false;
+            try
             {
-                Debug.LogWarning("[lvn] cross-chapter load failed: " + e.Message);
-                return false;
+                if (LoadFromSlot(slot)) return true;
+                var s = LvnSaveStore.Get(_saveTitleId, slot);
+                if (s?.Snap == null || CrossChapterLoader == null) return false;
+                try { return await CrossChapterLoader(s); }
+                catch (Exception e)
+                {
+                    Debug.LogWarning("[lvn] cross-chapter load failed: " + e.Message);
+                    return false;
+                }
             }
+            finally { Interlocked.Exchange(ref _slotLoadInProgress, 0); }
         }
 
         /// <summary>True when the slot exists and is reachable — taken in the
