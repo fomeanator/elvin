@@ -495,7 +495,7 @@ fi
 # сняты 02.09 (пропущенные тесты считаются: пол — про СУЩЕСТВОВАНИЕ проверки,
 # а не про её исполнение). Числа могут только расти.
 FLOOR_GO_tools_lvnconv=721
-FLOOR_GO_server=322
+FLOOR_GO_server=323
 FLOOR_NODE_PANEL=140
 FLOOR_NODE_GRAMMAR=31
 
@@ -681,7 +681,7 @@ fi
 # Исчезнувший тест не падает — его просто нет, и это худший вид красноты,
 # потому что он выглядит как её отсутствие.
 FLOOR_EDITMODE=2178
-FLOOR_PLAYMODE=114
+FLOOR_PLAYMODE=115
 
 report_platform() { # $1 = имя, $2 = xml, $3 = пол
 python3 - "$2" "$1" "$3" <<'PY'
