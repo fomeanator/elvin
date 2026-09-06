@@ -51,7 +51,23 @@ namespace Lvn.UI
             public string PlayingUrl;   // что на нём сейчас звучит
             public int Gen;             // поколение команды: поздняя отменяет раннюю
             public Coroutine Fade;      // живое затухание, если идёт
+
+            // ЧТО СНЯЛА ГРАНИЦА ГЛАВЫ. Конец главы гасит непрерывные каналы, и
+            // это верно для выхода в меню — но следующая глава может попросить
+            // ТУ ЖЕ тему, и тогда игрок обязан услышать продолжение, а не
+            // первый такт заново. Память держится ровно до срока грации.
+            public string LeftUrl;      // что сняли
+            public AudioClip LeftClip;  // чем оно звучало (может быть выгружен)
+            public float LeftTime;      // на каком месте сняли
+            public float LeftAt;        // когда сняли (realtimeSinceStartup)
         }
+
+        /// <summary>СРОК ГРАЦИИ — сколько тема помнит своё место после границы
+        /// главы. Промежуток между главами занимает загрузка следующего
+        /// скрипта, а с экраном «конец главы» — ещё и раздумье игрока. Пятнадцать
+        /// секунд покрывают и то, и другое; дольше — это уже перерыв, после
+        /// которого тема честнее начинается сначала.</summary>
+        private const float SeamGrace = 15f;
 
         private readonly System.Collections.Generic.List<Channel> _all
             = new System.Collections.Generic.List<Channel>();
@@ -205,15 +221,25 @@ namespace Lvn.UI
             // Непрерывное гаснет плавно (обрыв на полутакте слышен как сбой),
             // короткий звук обрывается: доигрывать нечему.
             foreach (var ch in _all)
-                if (ch.Authorable) Silence(ch.Name, ch.Loops ? fade : 0f);
+                if (ch.Authorable) Silence(ch.Name, ch.Loops ? fade : 0f, remember: ch.Loops);
         }
 
-        private void Silence(string channel, float fade)
+        private void Silence(string channel, float fade, bool remember = false)
         {
             var ch = Of(channel);
             var src = ch.Src;
             if (src == null) return;
             ch.Gen++;                    // команда в полёте теряет право на канал
+            // Помнит только ГРАНИЦА ГЛАВЫ. Авторское «audio stop» — это воля
+            // сценария остановить тему, и вернуться она обязана с начала.
+            if (remember && !string.IsNullOrEmpty(ch.PlayingUrl) && src.clip != null && src.isPlaying)
+            {
+                ch.LeftUrl = ch.PlayingUrl;
+                ch.LeftClip = src.clip;
+                ch.LeftTime = src.time;
+                ch.LeftAt = Time.realtimeSinceStartup;
+            }
+            else Forget(ch);
             ch.PlayingUrl = null;
             if (fade > 0f && src.isPlaying) StartFade(channel, src, src.volume, 0f, fade, FadeEnd.Stop);
             else { CancelFade(channel); src.Stop(); }
@@ -303,6 +329,7 @@ namespace Lvn.UI
             if ((string)cmd["action"] == "stop")
             {
                 ch.PlayingUrl = null;
+                Forget(ch);   // сценарий остановил тему — её место больше не наше дело
                 if (fade > 0f) StartFade(channel, src, src.volume, 0f, fade, FadeEnd.Stop);
                 else { CancelFade(channel); src.Stop(); }
                 return;
@@ -323,6 +350,31 @@ namespace Lvn.UI
             if (ch.Loops && src.isPlaying && ch.PlayingUrl == url)
             {
                 src.volume = effective;
+                return;
+            }
+
+            // ТА ЖЕ ТЕМА ПОСЛЕ ГРАНИЦЫ ГЛАВЫ — ПРОДОЛЖЕНИЕ, А НЕ ПЕРВЫЙ ТАКТ.
+            // Главы идут встык, и автор, написавший одну тему в обеих, обещает
+            // игроку непрерывность. Кадр через границу движок передаёт давно
+            // (героиня жива, полотно на месте) — звук об этом не знал: замер
+            // 06.09 показал второй поход за тем же треком и позицию с нуля.
+            bool вернулась = ch.Loops && ch.PlayingUrl == null && ch.LeftUrl == url
+                             && Time.realtimeSinceStartup - ch.LeftAt <= SeamGrace;
+            if (вернулась && ch.LeftClip != null)
+            {
+                // Клип пережил границу — трек можно не грузить вовсе. Если
+                // затухание ещё идёт, отменяем его: тема даже не дрогнет.
+                CancelFade(channel);
+                if (!(src.isPlaying && src.clip == ch.LeftClip))
+                {
+                    src.clip = ch.LeftClip;
+                    src.time = Mathf.Min(ch.LeftTime, Mathf.Max(0f, ch.LeftClip.length - 0.05f));
+                    src.Play();
+                }
+                src.loop = BoolOr(cmd["loop"], true);
+                src.volume = effective;
+                ch.PlayingUrl = url;
+                Forget(ch);
                 return;
             }
 
@@ -349,6 +401,10 @@ namespace Lvn.UI
                 ch.PlayingUrl = url;
             }
             src.clip = clip;
+            // Клип границу не пережил (кэш успел его выгрузить) — но МЕСТО мы
+            // помним, и продолжить с него всё ещё честнее, чем сначала.
+            if (вернулась) src.time = Mathf.Min(ch.LeftTime, Mathf.Max(0f, clip.length - 0.05f));
+            Forget(ch);
             if (fade > 0f)
             {
                 src.volume = 0f;
@@ -361,6 +417,14 @@ namespace Lvn.UI
                 src.volume = effective;
                 src.Play();
             }
+        }
+
+        /// <summary>Забыть снятую тему: место больше не наше дело, а ссылка на
+        /// клип не должна держать его живым дольше срока грации.</summary>
+        private static void Forget(Channel ch)
+        {
+            ch.LeftUrl = null;
+            ch.LeftClip = null;
         }
 
         private void CancelFade(string channel)
