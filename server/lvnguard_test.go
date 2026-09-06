@@ -361,3 +361,70 @@ func TestGateStaysQuietOnExactNames(t *testing.T) {
 		t.Fatalf("точная ссылка вызвала жалобу: errors=%v warnings=%v", f.Errors, f.Warnings)
 	}
 }
+
+// ГЕЙТ ВИДИТ ВСЕ ВИДЫ ССЫЛОК, А НЕ ТРИ ПРИВЫЧНЫХ.
+//
+// Замер 06.09: гейт обходил bg/actor/obj, audio и preload — и пропускал
+// озвучку реплики и скелет Spine. Оба молчаливы у игрока: тишина неотличима
+// от «здесь не озвучено», пустое место — от «персонаж ушёл». Второе особенно
+// показательно: короткий синтаксис скелета завели в тот же день, и он приехал
+// без проверки — новый вид ссылки по умолчанию оказывается вне гейта.
+func TestГейтВидитОзвучкуИСкелет(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "scripts"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	s := &server{content: dir}
+	doc := `{"scene":"g","script":[
+		{"op":"say","text":"раз","voice":"/content/voice/НЕТ.ogg"},
+		{"op":"actor","id":"к","spine":"/content/spine/НЕТ/s.json"},
+		{"op":"bg","sprite_url":"/content/bg/НЕТ.jpg"}
+	]}`
+	f := s.checkLvn("scripts/g.lvn", []byte(doc))
+
+	var voice, spine, bg bool
+	for _, w := range f.Warnings {
+		switch {
+		case strings.Contains(w, "НЕТ.ogg"):
+			voice = true
+		case strings.Contains(w, "s.json"), strings.Contains(w, "s.atlas.txt"):
+			spine = true
+		case strings.Contains(w, "НЕТ.jpg"):
+			bg = true
+		}
+	}
+	if !bg {
+		t.Error("гейт перестал видеть даже фон")
+	}
+	if !voice {
+		t.Error("битая ссылка на озвучку не названа: автор узнает о тишине от игрока")
+	}
+	if !spine {
+		t.Error("битая ссылка на скелет не названа: игрок увидит пустое место")
+	}
+}
+
+// А ЖИВЫЕ ССЫЛКИ МОЛЧАТ. Гейт, ругающийся на существующее, обесценивает себя:
+// автор перестаёт читать его и вместе с ним пропускает настоящие находки.
+func TestГейтМолчитНаСуществующем(t *testing.T) {
+	dir := t.TempDir()
+	for _, p := range []string{"voice/a.ogg", "spine/hero/hero.json", "spine/hero/hero.atlas.txt"} {
+		full := filepath.Join(dir, filepath.FromSlash(p))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s := &server{content: dir}
+	doc := `{"scene":"g","script":[
+		{"op":"say","text":"раз","voice":"/content/voice/a.ogg"},
+		{"op":"actor","id":"к","spine":"/content/spine/hero/hero.json"}
+	]}`
+	for _, w := range s.checkLvn("scripts/g.lvn", []byte(doc)).Warnings {
+		if strings.Contains(w, "a.ogg") || strings.Contains(w, "hero.json") {
+			t.Fatalf("гейт ругается на существующий файл: %s", w)
+		}
+	}
+}
