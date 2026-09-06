@@ -1,10 +1,15 @@
 using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 
 namespace Lvn.UI
 {
+    /// <summary>Stored data and loadability are separate: a newer save still
+    /// occupies its slot and needs confirmation before replacement.</summary>
+    public enum LvnSaveSlotState { Empty, Occupied, NewerVersion }
+
     /// <summary>One persisted save slot: the player snapshot plus the display
     /// metadata a save/load UI shows (when, where, the last line read).</summary>
     public sealed class LvnSaveSlot
@@ -102,16 +107,36 @@ namespace Lvn.UI
             var ok = new Dictionary<string, LvnSaveSlot>();
             foreach (var kv in Raw(titleId))
             {
-                var s = Migrate(kv.Value);
+                // Inspect only the envelope before interpreting the snapshot.
+                var version = StoredVersion(kv.Value);
+                var s = version > LvnSaveSlot.CurrentVersion
+                    ? null : Migrate(kv.Value?.ToObject<LvnSaveSlot>());
                 if (s != null) ok[kv.Key] = s;
-                else Debug.LogWarning("[lvn] slot '" + kv.Key + "' is schema v" + kv.Value?.Version +
+                else Debug.LogWarning("[lvn] slot '" + kv.Key + "' is schema v" + version +
                                       " from a newer build — hidden until the app updates");
             }
             return ok;
         }
 
+        /// <summary>Whether a slot contains data, including saves this build
+        /// cannot load. A newer save is identified by its version alone; its
+        /// snapshot is never interpreted as the current schema.</summary>
+        public static LvnSaveSlotState GetState(string titleId, string slot)
+        {
+            if (!Raw(titleId).TryGetValue(slot ?? "", out var data)
+                || data == null || data.Type == JTokenType.Null)
+                return LvnSaveSlotState.Empty;
+            return StoredVersion(data) > LvnSaveSlot.CurrentVersion
+                ? LvnSaveSlotState.NewerVersion : LvnSaveSlotState.Occupied;
+        }
+
+        private static int StoredVersion(JToken data) =>
+            (int?)((data as JObject)?.GetValue("Version", StringComparison.OrdinalIgnoreCase)) ?? 1;
+
         // The store as persisted, no version gate — the WRITE path works on this
         // so a hidden newer-schema slot survives unrelated Put/Delete round-trips.
+        // Keep the JSON opaque: deserializing a future snapshot can fail, and
+        // serializing it as today's class would discard fields we do not know.
         /// <summary>Ключ запасной копии блока — рядом с основным.
         ///
         /// <para>Все слоты новеллы лежат ОДНОЙ строкой: один испорченный символ
@@ -122,17 +147,28 @@ namespace Lvn.UI
         /// переживает; слоты жили в одном.</para></summary>
         private static string BackupKey(string titleId) => Key(titleId) + ".bak";
 
-        private static Dictionary<string, LvnSaveSlot> Parse(string json)
+        private static Dictionary<string, JToken> Parse(string json)
         {
             if (string.IsNullOrEmpty(json)) return null;
-            try { return JsonConvert.DeserializeObject<Dictionary<string, LvnSaveSlot>>(json); }
+            try
+            {
+                var parsed = JsonConvert.DeserializeObject<Dictionary<string, JToken>>(json,
+                    new JsonSerializerSettings { DateParseHandling = DateParseHandling.None });
+                // Preserve backup recovery for invalid known-schema data, but
+                // never validate a future payload against today's slot class.
+                if (parsed != null)
+                    foreach (var data in parsed.Values)
+                        if (StoredVersion(data) <= LvnSaveSlot.CurrentVersion)
+                            data?.ToObject<LvnSaveSlot>();
+                return parsed;
+            }
             catch { return null; }
         }
 
-        private static Dictionary<string, LvnSaveSlot> Raw(string titleId)
+        private static Dictionary<string, JToken> Raw(string titleId)
         {
             var json = LvnKeep.Get(Key(titleId), "");
-            if (string.IsNullOrEmpty(json)) return new Dictionary<string, LvnSaveSlot>();
+            if (string.IsNullOrEmpty(json)) return new Dictionary<string, JToken>();
             var parsed = Parse(json);
             if (parsed != null) return parsed;
 
@@ -146,7 +182,7 @@ namespace Lvn.UI
                 return spare;
             }
             Debug.LogWarning("[lvn] блок сохранений не читается, запасной копии нет — начинаю с пустого");
-            return new Dictionary<string, LvnSaveSlot>();
+            return new Dictionary<string, JToken>();
         }
 
         /// <summary>Bring a slot up to <see cref="LvnSaveSlot.CurrentVersion"/>.
@@ -181,7 +217,12 @@ namespace Lvn.UI
             data.Version = LvnSaveSlot.CurrentVersion;
             data.SavedAtUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var all = Raw(titleId);
-            all[slot] = data;
+            try { all[slot] = JToken.FromObject(data); }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[lvn] save write failed: " + e.Message);
+                return false;
+            }
             return Write(titleId, all);
         }
 
@@ -209,7 +250,7 @@ namespace Lvn.UI
             LvnKeep.Drop(BackupKey(titleId));
         }
 
-        private static bool Write(string titleId, Dictionary<string, LvnSaveSlot> all)
+        private static bool Write(string titleId, Dictionary<string, JToken> all)
         {
             try
             {

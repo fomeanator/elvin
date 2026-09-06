@@ -78,23 +78,75 @@ namespace Lvn.Tests
         }
 
         [Test]
-        public void NewerSchemaSlotIsHiddenNotMisread()
+        public void SlotStateDistinguishesStoredDataFromAnEmptySlot()
         {
-            // Simulate a save written by a future build (schema v99): this build
-            // must not load it into corrupt state — and must not destroy it.
-            LvnSaveStore.Put(TitleA, "future", Slot(1));
-            var json = PlayerPrefs.GetString(Lvn.LvnKeep.Scoped("lvn_slots_", TitleA));
-            PlayerPrefs.SetString(Lvn.LvnKeep.Scoped("lvn_slots_", TitleA), json.Replace("\"Version\":1", "\"Version\":99"));
+            Assert.AreEqual(LvnSaveSlotState.Empty, LvnSaveStore.GetState(TitleA, "slot1"));
+            Assert.AreEqual(LvnSaveSlotState.Empty, LvnSaveStore.GetState(TitleA, null));
+            Assert.IsTrue(LvnSaveStore.Put(TitleA, "slot1", Slot(7)));
+            Assert.AreEqual(LvnSaveSlotState.Occupied, LvnSaveStore.GetState(TitleA, "slot1"));
+            Assert.AreEqual(LvnSaveSlotState.Empty, LvnSaveStore.GetState(TitleB, "slot1"));
 
+            LvnSaveStore.Delete(TitleA, "slot1");
+            Assert.AreEqual(LvnSaveSlotState.Empty, LvnSaveStore.GetState(TitleA, "slot1"));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void NewerSchemaSlotIsHiddenNotMisread(bool changedSnapshotShape)
+        {
+            Assert.IsTrue(LvnSaveStore.Put(TitleA, "future", Slot(1)));
+            var key = LvnKeep.Scoped("lvn_slots_", TitleA);
+            var json = JObject.Parse(LvnKeep.Get(key));
+            json["future"]["Version"] = LvnSaveSlot.CurrentVersion + 1;
+            json["future"]["FutureData"] = new JObject { ["checkpoint"] = "keep me" };
+            if (changedSnapshotShape) json["future"]["Snap"] = new JArray("future snapshot");
+            var stored = json.ToString();
+            LvnKeep.Put(key, stored);
+
+            Assert.AreEqual(LvnSaveSlotState.NewerVersion, LvnSaveStore.GetState(TitleA, "future"),
+                "a save hidden from loading still occupies its slot");
             Assert.IsNull(LvnSaveStore.Get(TitleA, "future"), "a newer-schema slot is invisible");
             Assert.AreEqual(0, LvnSaveStore.Slots(TitleA).Count);
+            Assert.AreEqual(stored, LvnKeep.Get(key), "inspection must not rewrite the save");
 
             // An unrelated write must not garbage-collect the hidden slot.
-            LvnSaveStore.Put(TitleA, "slot1", Slot(2));
+            Assert.IsTrue(LvnSaveStore.Put(TitleA, "slot1", Slot(2)));
             LvnSaveStore.Delete(TitleA, "slot1");
-            StringAssert.Contains("\"Version\":99",
-                PlayerPrefs.GetString(Lvn.LvnKeep.Scoped("lvn_slots_", TitleA)),
-                "the future save survives Put/Delete round-trips for when the app updates");
+            Assert.IsTrue(JToken.DeepEquals(json["future"], JObject.Parse(LvnKeep.Get(key))["future"]),
+                "the entire future save, including unknown fields, must survive Put/Delete");
+        }
+
+        [Test]
+        public void NewerSchemaWithoutSnapshotStillOccupiesItsSlot()
+        {
+            var key = LvnKeep.Scoped("lvn_slots_", TitleA);
+            var stored = new JObject
+            {
+                ["slot1"] = new JObject { ["Version"] = LvnSaveSlot.CurrentVersion + 1 }
+            }.ToString();
+            LvnKeep.Put(key, stored);
+            Assert.AreEqual(LvnSaveSlotState.NewerVersion, LvnSaveStore.GetState(TitleA, "slot1"));
+            Assert.IsEmpty(LvnSaveStore.Slots(TitleA));
+
+            LvnKeep.Put(key + ".bak", stored);
+            LvnKeep.Put(key, "{broken");
+            Assert.AreEqual(LvnSaveSlotState.NewerVersion, LvnSaveStore.GetState(TitleA, "slot1"),
+                "the occupancy check must use the same backup recovery as loading");
+            Assert.IsEmpty(LvnSaveStore.Slots(TitleA));
+        }
+
+        [Test]
+        public void InvalidKnownSnapshotStillRecoversTheBackup()
+        {
+            Assert.IsTrue(LvnSaveStore.Put(TitleA, "slot1", Slot(7)));
+            var key = LvnKeep.Scoped("lvn_slots_", TitleA);
+            var json = JObject.Parse(LvnKeep.Get(key));
+            json["slot1"]["Snap"] = new JArray("invalid current snapshot");
+            LvnKeep.Put(key, json.ToString());
+
+            Assert.AreEqual(LvnSaveSlotState.Occupied, LvnSaveStore.GetState(TitleA, "slot1"));
+            Assert.AreEqual(7, LvnSaveStore.Get(TitleA, "slot1").Snap.Index,
+                "keeping future data opaque must not bypass recovery of corrupt known data");
         }
 
         // СЕЙВ С УСТРОЙСТВА, А НЕ СЛОТ, СОБРАННЫЙ В C#.
