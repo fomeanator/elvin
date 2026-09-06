@@ -108,6 +108,11 @@ namespace Lvn
             => !string.IsNullOrEmpty(url)
                && (url.StartsWith("file://") || url.StartsWith("jar:"));
 
+        /// <summary>A plain file on disk, not a member inside an Android jar.
+        /// Both are local, but only the former can go straight to File.Exists.</summary>
+        public static bool PlainFile(string url)
+            => !string.IsNullOrEmpty(url) && url.StartsWith("file://", StringComparison.Ordinal);
+
         /// <summary>Адрес сам себе хозяин — базу к нему не приписывают.</summary>
         public static bool Absolute(string url) => Remote(url) || Local(url);
 

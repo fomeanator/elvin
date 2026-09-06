@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Lvn.Content;
 using NUnit.Framework;
@@ -109,6 +110,71 @@ namespace Lvn.Tests
                 if (fresh != null) UnityEngine.Object.DestroyImmediate(fresh);
                 if (tex2 != null) UnityEngine.Object.DestroyImmediate(tex2);
             }
+        }
+
+        [Test]
+        public void ADecodeFromBeforeTheUpdateCannotRefillTheCache()
+        {
+            const string url = "/content/art/hero.png";
+            var oldKey = _loader.SpriteCacheKey(url);
+            _loader.ApplyVersionDelta(new Dictionary<string, string> { ["art/hero.png"] = "fresh" }, null);
+
+            Assert.IsNull(_loader.CacheSprite(url, oldKey, _sprite, 64));
+            Assert.IsNull(_loader.CachedSpriteForTest(url), "A late old decode resurrected stale art");
+        }
+
+        [Test]
+        public void ALateOldDecodeCannotReplaceTheFreshSprite()
+        {
+            const string url = "/content/art/hero.png";
+            var oldKey = _loader.SpriteCacheKey(url);
+            _loader.ApplyVersionDelta(new Dictionary<string, string> { ["art/hero.png"] = "fresh" }, null);
+            var tex = new Texture2D(4, 4);
+            var fresh = Sprite.Create(tex, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f));
+            try
+            {
+                _loader.CacheSpriteForTest(url, fresh, 64);
+                _loader.PinSprite(fresh, true);
+                Assert.IsNull(_loader.CacheSprite(url, oldKey, _sprite, 64));
+                Assert.AreSame(fresh, _loader.CachedSpriteForTest(url));
+                Assert.IsTrue(fresh != null && fresh.texture != null);
+            }
+            finally
+            {
+                _loader.PinSprite(fresh, false);
+                if (fresh != null) UnityEngine.Object.DestroyImmediate(fresh);
+                if (tex != null) UnityEngine.Object.DestroyImmediate(tex);
+            }
+        }
+
+        [Test]
+        public void VersionUpdatesEvictOnlyChangedArtAndKeepItsPins()
+        {
+            const string url = "/content/art/hero.png";
+            _loader.CacheSpriteForTest(url, _sprite, 64);
+            _loader.PinSprite(_sprite, true);
+            _loader.ApplyVersionDelta(new Dictionary<string, string> { ["scripts/ch.lvn"] = "edited" }, null);
+            Assert.AreSame(_sprite, _loader.CachedSpriteForTest(url));
+            _loader.ApplyVersionDelta(new Dictionary<string, string> { ["art/hero.png"] = "fresh" }, null);
+            Assert.IsNull(_loader.CachedSpriteForTest(url));
+            Assert.IsTrue(_sprite != null && _sprite.texture != null,
+                "Updating the index must not destroy art still held by the stage");
+        }
+
+        [Test]
+        public void CachingTheSameSpriteTwicePreservesItsPinsAndByteCount()
+        {
+            const string url = "/content/art/hero.png";
+            _loader.CacheSpriteForTest(url, _sprite, 64);
+            _loader.PinSprite(_sprite, true);
+            var bytes = typeof(ContentLoader).GetField("_spriteBytes",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            var before = (long)bytes.GetValue(_loader);
+            _loader.CacheSpriteForTest(url, _sprite, 64);
+            Assert.AreEqual(before, (long)bytes.GetValue(_loader));
+            _loader.Unload(url);
+            Assert.AreEqual(0, (long)bytes.GetValue(_loader));
+            Assert.IsTrue(_sprite != null && _sprite.texture != null, "The second insertion lost the pin");
         }
     }
 }

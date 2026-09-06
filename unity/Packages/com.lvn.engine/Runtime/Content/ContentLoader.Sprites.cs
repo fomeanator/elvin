@@ -24,22 +24,34 @@ namespace Lvn.Content
     {
         private readonly Dictionary<string, SpriteEntry> _spriteCache = new();
 
-        private readonly Dictionary<string, Task<Sprite>> _decoding = new();
+        private readonly SharedDownloads<Sprite> _decoding = new();
 
-        // When the version index changes (a live content update), any in-memory sprite
-        // whose content hash moved is stale — the memory cache is url-keyed, so it would
-        // otherwise keep handing back the OLD art forever. Evict exactly those, so the
-        // next load (e.g. a live ReplayVisuals) decodes the replaced file.
-        private void EvictStaleSprites(Dictionary<string, string> oldMap, Dictionary<string, string> newMap)
+        // Both the raster and its optional GPU encode contribute to the identity.
+        // Capturing them under one lock also handles explicitly versioned KTX2 files.
+        internal string SpriteCacheKey(string url)
         {
-            List<string> stale = null;
-            lock (_spriteCache)
+            lock (_versionsLock)
+                return HashKey(url, VersionFor(url) + "|" + VersionFor(Ktx2UrlFor(url)));
+        }
+
+        // Compare the entry itself against the CURRENT index: a delayed eviction
+        // must not remove a fresh decode that finished after the index changed.
+        private void EvictStaleSprites()
+        {
+            lock (_versionsLock)
             {
-                foreach (var url in _spriteCache.Keys)
-                    if (Lookup(oldMap, url) != Lookup(newMap, url))
-                        (stale ??= new List<string>()).Add(url);
+                lock (_spriteCache)
+                {
+                    foreach (var url in new List<string>(_spriteCache.Keys))
+                    {
+                        var entry = _spriteCache[url];
+                        if (entry.Key == SpriteCacheKey(url)) continue;
+                        DropLocked(url, entry);
+                        RetireLocked(entry);
+                    }
+                }
             }
-            if (stale != null) foreach (var u in stale) Unload(u);
+            FlushDestroys();
         }
 
         /// <summary>Loads (or fetches and caches) the URL, decodes the bytes into
@@ -47,37 +59,62 @@ namespace Lvn.Content
         /// Concurrent requests for the same url share ONE decode (no leaked
         /// Texture2D from a lost race), and the cache is LRU-bounded by
         /// <see cref="SpriteCacheBudgetBytes"/>.</summary>
-        public Task<Sprite> DownloadSpriteAsync(string url, CancellationToken ct = default)
+        public async Task<Sprite> DownloadSpriteAsync(string url, CancellationToken ct = default)
         {
-            if (string.IsNullOrEmpty(url)) return Task.FromResult<Sprite>(null);
+            ct.ThrowIfCancellationRequested();
+            if (string.IsNullOrEmpty(url)) return null;
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+                string key;
+                int revision;
+                lock (_versionsLock)
+                {
+                    key = SpriteCacheKey(url);
+                    revision = _versionsRevision;
+                    if (TryCachedSprite(url, key, out var hit)) return hit;
+                }
+                Sprite sprite;
+                try
+                {
+                    sprite = await _decoding.Run(key, token =>
+                    {
+                        lock (_versionsLock)
+                        {
+                            if (key != SpriteCacheKey(url)) return Task.FromResult<Sprite>(null);
+                            // Another reader may have just completed this version.
+                            if (TryCachedSprite(url, key, out var hit)) return Task.FromResult(hit);
+                        }
+                        return DecodeSpriteAsync(url, key, token);
+                    }, ct);
+                }
+                catch (Exception) when (!ct.IsCancellationRequested && key != SpriteCacheKey(url))
+                {
+                    continue; // a failed old version says nothing about its replacement
+                }
+                ct.ThrowIfCancellationRequested();
+                lock (_versionsLock)
+                    if (key == SpriteCacheKey(url)
+                        && (!ReferenceEquals(sprite, null) || revision == _versionsRevision)) return sprite;
+                // An update overtook this reader. Join the new version's flight,
+                // rather than publishing/returning the old art (or a false miss).
+            }
+        }
+
+        // Caller holds _versionsLock; all paired locks use versions -> sprites.
+        private bool TryCachedSprite(string url, string key, out Sprite sprite)
+        {
             lock (_spriteCache)
             {
-                if (_spriteCache.TryGetValue(url, out var hit) && hit.Sprite != null)
+                if (_spriteCache.TryGetValue(url, out var hit) && hit.Key == key && hit.Sprite != null)
                 {
                     Touch(hit);
-                    return Task.FromResult(hit.Sprite);
+                    sprite = hit.Sprite;
+                    return true;
                 }
-                // Someone is already decoding this url — share their result instead
-                // of decoding a second texture and leaking the loser.
-                if (_decoding.TryGetValue(url, out var inflight)) return inflight;
-                var task = DecodeSpriteAsync(url, ct);
-                _decoding[url] = task;
-                // Self-clean via a continuation, NOT a finally inside the async
-                // body: a decode that throws BEFORE its first await (e.g. an
-                // offline guard) runs its finally synchronously — i.e. before the
-                // `_decoding[url] = task` above — so a finally-based remove would
-                // delete nothing and then leave the faulted task wedged in the map
-                // forever (every later request returns the dead task). The
-                // continuation runs strictly after this insert. Guard on identity
-                // so we never evict a newer in-flight decode of the same url.
-                task.ContinueWith(t =>
-                {
-                    lock (_spriteCache)
-                        if (_decoding.TryGetValue(url, out var cur) && ReferenceEquals(cur, t))
-                            _decoding.Remove(url);
-                }, System.Threading.Tasks.TaskScheduler.Default);
-                return task;
             }
+            sprite = null;
+            return false;
         }
 
         /// <summary>Fit (w, h) within <paramref name="cap"/> on the longest side,
@@ -159,182 +196,175 @@ namespace Lvn.Content
             catch { return (null, queueMs); }
         }
 
-        private async Task<Sprite> DecodeSpriteAsync(string url, CancellationToken ct)
+        private async Task<Sprite> DecodeSpriteAsync(string url, string key, CancellationToken ct)
         {
-            try
+            // ЕДИНСТВЕННЫЙ ФОРМАТ АРТА ИСТОРИИ. Видеокарта читает
+            // сжатые блоки как есть: ни распаковки в RGBA, ни полного
+            // кадра в видеопамяти (16 МБ на фон @2k превращаются в 4).
+            //
+            // Форматов тут было два. Сырой ASTC приехал первым, слёг
+            // 06.07 на блоках невыровненного размера и с тех пор стоял
+            // выключенный — 171 строка клиента и 205 сервера, которые
+            // ничего не делали, но исправно объясняли, почему они нужны.
+            // Второй, живой, умеет то же самое и на всех платформах.
+            // Мёртвый снят 01.09; разбор — в docs/missing-roles.md.
+            var (ktx2Sprite, ktx2Bytes) = await TryDecodeKtx2Async(url, ct);
+            if (ktx2Sprite != null)
+                return CacheSprite(url, key, ktx2Sprite, ktx2Bytes);
+
+            // РАСТР — НЕ ЗАПАСНОЙ ПУТЬ ДЛЯ АРТА ИСТОРИИ.
+            //
+            // Пока PNG «спасал», никто не замечал, что быстрый формат не
+            // работает вовсе: 62 закодированных файла в каталоге и почти ни
+            // одного показа через них, героиня по 1,2–3,7 с на слой вместо
+            // 110 мс. Костыль был удобнее беды — он делал поломку
+            // незаметной.
+            //
+            // Теперь у арта истории (то, для чего вообще положен код —
+            // фоны, спрайты, Spine) растрового пути НЕТ. Не собрался код —
+            // это отказ, громкий и видимый, а не тихая замена медленным.
+            // Пиксель-арт и обшивка интерфейса сюда не попадают: у них кода
+            // не бывает по природе (блочное сжатие размажет пиксельную
+            // сетку), и растр для них — объявленный путь, а не запасной.
+            // СТРОГОСТЬ — ТОЛЬКО ТАМ, ГДЕ ЗАВЕДЕНА. Спрашивать код мы
+            // теперь можем и за обшивку интерфейса (полотно витрины лежит
+            // в /ui/ и весит 2000×1500), но запрещать ей растр нельзя: у
+            // неё он объявленный путь.
+            if (Ktx2Only && DownloadPolicy.RasterForbidden(url)
+                && Ktx2UrlFor(url) != null && !GpuCannotKtx2)
             {
-                // ЕДИНСТВЕННЫЙ ФОРМАТ АРТА ИСТОРИИ. Видеокарта читает
-                // сжатые блоки как есть: ни распаковки в RGBA, ни полного
-                // кадра в видеопамяти (16 МБ на фон @2k превращаются в 4).
+                // «КОДА ЕЩЁ НЕТ» — ЭТО ПОДОЖДАТЬ, А НЕ ОТКАЗ.
                 //
-                // Форматов тут было два. Сырой ASTC приехал первым, слёг
-                // 06.07 на блоках невыровненного размера и с тех пор стоял
-                // выключенный — 171 строка клиента и 205 сервера, которые
-                // ничего не делали, но исправно объясняли, почему они нужны.
-                // Второй, живой, умеет то же самое и на всех платформах.
-                // Мёртвый снят 01.09; разбор — в docs/missing-roles.md.
-                var (ktx2Sprite, ktx2Bytes) = await TryDecodeKtx2Async(url, ct);
-                if (ktx2Sprite != null)
-                    return CacheSprite(url, ktx2Sprite, ktx2Bytes);
-
-                // РАСТР — НЕ ЗАПАСНОЙ ПУТЬ ДЛЯ АРТА ИСТОРИИ.
+                // Сервер кодирует и на прогреве, и по первому запросу, так
+                // что холодный файл — состояние временное и обычное: на
+                // свежем контенте холодны ВСЕ. Раз растровой подстраховки
+                // больше нет, отказ с первого промаха означает «картинки не
+                // будет никогда» — поймано смоук-тестом 01.09, где обложка
+                // куклы не показалась ни разу за прогон.
                 //
-                // Пока PNG «спасал», никто не замечал, что быстрый формат не
-                // работает вовсе: 62 закодированных файла в каталоге и почти ни
-                // одного показа через них, героиня по 1,2–3,7 с на слой вместо
-                // 110 мс. Костыль был удобнее беды — он делал поломку
-                // незаметной.
-                //
-                // Теперь у арта истории (то, для чего вообще положен код —
-                // фоны, спрайты, Spine) растрового пути НЕТ. Не собрался код —
-                // это отказ, громкий и видимый, а не тихая замена медленным.
-                // Пиксель-арт и обшивка интерфейса сюда не попадают: у них кода
-                // не бывает по природе (блочное сжатие размажет пиксельную
-                // сетку), и растр для них — объявленный путь, а не запасной.
-                // СТРОГОСТЬ — ТОЛЬКО ТАМ, ГДЕ ЗАВЕДЕНА. Спрашивать код мы
-                // теперь можем и за обшивку интерфейса (полотно витрины лежит
-                // в /ui/ и весит 2000×1500), но запрещать ей растр нельзя: у
-                // неё он объявленный путь.
-                if (Ktx2Only && DownloadPolicy.RasterForbidden(url)
-                    && Ktx2UrlFor(url) != null && !GpuCannotKtx2)
+                // Ждём столько, сколько занимает кодирование одного файла,
+                // и пробуем снова. Забывчивость обязательна: без снятия
+                // отметки повтор уходит в тот же пропуск.
+                for (int wait = 0; wait < Ktx2Waits; wait++)
                 {
-                    // «КОДА ЕЩЁ НЕТ» — ЭТО ПОДОЖДАТЬ, А НЕ ОТКАЗ.
-                    //
-                    // Сервер кодирует и на прогреве, и по первому запросу, так
-                    // что холодный файл — состояние временное и обычное: на
-                    // свежем контенте холодны ВСЕ. Раз растровой подстраховки
-                    // больше нет, отказ с первого промаха означает «картинки не
-                    // будет никогда» — поймано смоук-тестом 01.09, где обложка
-                    // куклы не показалась ни разу за прогон.
-                    //
-                    // Ждём столько, сколько занимает кодирование одного файла,
-                    // и пробуем снова. Забывчивость обязательна: без снятия
-                    // отметки повтор уходит в тот же пропуск.
-                    for (int wait = 0; wait < Ktx2Waits; wait++)
-                    {
-                        await Task.Delay(Ktx2WaitMs, ct);
-                        ForgetKtx2Cold(url);
-                        var (late, lateBytes) = await TryDecodeKtx2Async(url, ct);
-                        if (late != null) return CacheSprite(url, late, lateBytes);
-                    }
-                    // «КОДА НЕТ» И «СЕТИ НЕТ» — РАЗНЫЕ БЕДЫ.
-                    //
-                    // Показать вторую как первую значит послать разбираться не
-                    // туда: человек пойдёт проверять basisu и очередь сервера,
-                    // хотя до сервера просто не достучались. Про обрыв связи
-                    // кричит сетевой слой, и второй крик тут — шум.
-                    //
-                    // Поймано прогоном 01.09: два теста, идущих БЕЗ сервера,
-                    // покраснели на строке про кодировщик.
-                    if (Lvn.LvnNetworkStatus.IsOffline)
-                        LvnLog.Warn($"[lvn-content] {url}: кода не спросить — связи нет");
-                    else
-                        LvnLog.Error($"[lvn-content] {url}: кода нет и через {Ktx2Waits * Ktx2WaitMs / 1000} с, "
-                                   + "а растром арт истории мы не показываем. "
-                                   + "Соберите коды (tools/warm-ktx2.sh) или проверьте basisu на сервере");
-                    return null;
+                    await Task.Delay(Ktx2WaitMs, ct);
+                    ForgetKtx2Cold(url);
+                    var (late, lateBytes) = await TryDecodeKtx2Async(url, ct);
+                    if (late != null) return CacheSprite(url, key, late, lateBytes);
                 }
+                // «КОДА НЕТ» И «СЕТИ НЕТ» — РАЗНЫЕ БЕДЫ.
+                //
+                // Показать вторую как первую значит послать разбираться не
+                // туда: человек пойдёт проверять basisu и очередь сервера,
+                // хотя до сервера просто не достучались. Про обрыв связи
+                // кричит сетевой слой, и второй крик тут — шум.
+                //
+                // Поймано прогоном 01.09: два теста, идущих БЕЗ сервера,
+                // покраснели на строке про кодировщик.
+                if (Lvn.LvnNetworkStatus.IsOffline)
+                    LvnLog.Warn($"[lvn-content] {url}: кода не спросить — связи нет");
+                else
+                    LvnLog.Error($"[lvn-content] {url}: кода нет и через {Ktx2Waits * Ktx2WaitMs / 1000} с, "
+                               + "а растром арт истории мы не показываем. "
+                               + "Соберите коды (tools/warm-ktx2.sh) или проверьте basisu на сервере");
+                return null;
+            }
 
-                var sw = System.Diagnostics.Stopwatch.StartNew();
-                var (tex, decodeQueueMs) = await DecodeTextureOffThreadAsync(url, ct);
-                bool offThread = tex != null;
-                if (!offThread)
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var (tex, decodeQueueMs) = await DecodeTextureOffThreadAsync(url, ct);
+            bool offThread = tex != null;
+            if (!offThread)
+            {
+                var bytes = await DownloadAssetBytes(url, ct);
+                if (bytes == null || bytes.Length == 0) return null;
+                sw.Restart();
+                tex = AssetMemory.Decode(bytes);
+                if (tex == null)
                 {
-                    var bytes = await DownloadAssetBytes(url, ct);
-                    if (bytes == null || bytes.Length == 0) return null;
+                    // БИТОЕ НЕ ДОЛЖНО ЗАЛИПАТЬ — то же правило, что у
+                    // кодированного пути с 27.08, и та же причина.
+                    //
+                    // Кэш ассетов — файл на диске игрока, и он бывает
+                    // испорчен: обрыв на записи, склейка двух редакций у
+                    // докачки, сбой файловой системы. Прочитанный отсюда
+                    // мусор не декодится, а сам файл остаётся лежать — и
+                    // читается снова при каждом показе. У варианта арта
+                    // версии нет вовсе, значит ключ кэша постоянный: на
+                    // этом месте у игрока НАВСЕГДА пустота, и лечит только
+                    // переустановка. Замерено живым прогоном против
+                    // настоящего сервера (CacheSelfHealTests).
+                    //
+                    // Поэтому: выбрасываем байты и ходим за целыми РОВНО
+                    // ОДИН раз. Один — потому что второй промах означает
+                    // «сервер отдаёт непонятное», а это уже не наша порча,
+                    // и вечный круг запросов делу не поможет.
+                    LvnLog.Warn($"[lvn-content] {url}: байты не читаются — выбрасываю из кэша и качаю заново");
+                    DeleteCachedAsset(url);
+                    var fresh = await DownloadAssetBytes(url, ct);
+                    if (fresh == null || fresh.Length == 0) return null;
                     sw.Restart();
-                    tex = AssetMemory.Decode(bytes);
-                    if (tex == null)
-                    {
-                        // БИТОЕ НЕ ДОЛЖНО ЗАЛИПАТЬ — то же правило, что у
-                        // кодированного пути с 27.08, и та же причина.
-                        //
-                        // Кэш ассетов — файл на диске игрока, и он бывает
-                        // испорчен: обрыв на записи, склейка двух редакций у
-                        // докачки, сбой файловой системы. Прочитанный отсюда
-                        // мусор не декодится, а сам файл остаётся лежать — и
-                        // читается снова при каждом показе. У варианта арта
-                        // версии нет вовсе, значит ключ кэша постоянный: на
-                        // этом месте у игрока НАВСЕГДА пустота, и лечит только
-                        // переустановка. Замерено живым прогоном против
-                        // настоящего сервера (CacheSelfHealTests).
-                        //
-                        // Поэтому: выбрасываем байты и ходим за целыми РОВНО
-                        // ОДИН раз. Один — потому что второй промах означает
-                        // «сервер отдаёт непонятное», а это уже не наша порча,
-                        // и вечный круг запросов делу не поможет.
-                        LvnLog.Warn($"[lvn-content] {url}: байты не читаются — выбрасываю из кэша и качаю заново");
-                        DeleteCachedAsset(url);
-                        var fresh = await DownloadAssetBytes(url, ct);
-                        if (fresh == null || fresh.Length == 0) return null;
-                        sw.Restart();
-                        tex = AssetMemory.Decode(fresh);
-                        if (tex == null) return null;
-                    }
+                    tex = AssetMemory.Decode(fresh);
+                    if (tex == null) return null;
                 }
-                long decodeMs = sw.ElapsedMilliseconds;
-                // No platform pays full price for oversized art: phones must not
-                // hold 33 MB of RGBA for a 4K background shown at ~1080p, and
-                // even desktop/WebGL must not upload a raw 8K Spine page. Cap
-                // the longest side and let the GPU resample once at load.
-                tex = AssetMemory.DownscaleIfOversized(tex,
-                    Application.isMobilePlatform ? MobileMaxTextureSize : DesktopMaxTextureSize,
-                    finalize: false);   // финализирует вызывающий, ниже
-                // Крупный арт получает мип-уровни: фигуру в 1600 пикселей рисуют
-                // примерно в 900, и без них край фигуры идёт ступеньками.
-                tex = AssetMemory.WithMipmaps(tex, finalize: false);
-                tex.wrapMode   = TextureWrapMode.Clamp;
-                if (tex.mipmapCount <= 1) tex.filterMode = FilterMode.Bilinear;
-                // Nothing reads pixels back — free the CPU copy (halves the
-                // memory of every loaded sprite). The off-thread texture is born
-                // non-readable (no CPU copy to free — Apply would throw).
-                if (tex.isReadable)
-                    tex.Apply(updateMipmaps: false, makeNoLongerReadable: true);
-                long resizeMs = sw.ElapsedMilliseconds - decodeMs;
-                // FullRect, explicitly: Sprite.Create's DEFAULT mesh type is
-                // Tight — it walks the whole texture's alpha on the main thread
-                // to trace an outline (hundreds of ms for a 2K Spine page), and
-                // full-frame VN art gains nothing from a tight mesh anyway.
-                var sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height),
-                    new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
-                // [lvn-perf] main-thread hitch map.
-                //
-                // ЧИСЛО ОБЯЗАНО НАЗЫВАТЬ ТО, ЧТО ИЗМЕРЕНО. Здесь стояла
-                // подпись «decode … (worker thread)» и рядом оговорка «wall
-                // time (mostly worker-thread)». Оговорка верна ровно до
-                // первого тяжёлого кадра — то есть до бута, где эти числа и
-                // смотрят: узнаём мы о готовности через событие Unity, а его
-                // поднимают на главном потоке в покадровой обработке, и в
-                // измеренное входит остаток кадра.
-                //
-                // 02.09 это стоило полдня разбирательств: пять разных файлов
-                // показали 917, 925, 929, 932 и 936 мс при кадре в 955 мс, и
-                // читалось это как «декодер стал в 24 раза медленнее». Работа
-                // так не совпадает — совпадает ожидание.
-                //
-                // Поэтому у покадровой дороги число зовётся `wall`, а рядом
-                // стоит длина последнего кадра: если они близки, число про
-                // кадр, а не про распаковку. Прямой декод главного потока
-                // по-прежнему `decode` — там это правда.
-                if (sw.ElapsedMilliseconds > 30)
-                {
-                    long queueMs = offThread ? decodeQueueMs : 0;
-                    string spent = offThread
-                        ? $"wall={decodeMs - queueMs}ms (рабочий поток + граница кадра; кадр {Lvn.LvnFrameWatch.LastFrameMs}ms)"
-                        : $"decode={decodeMs - queueMs}ms (главный поток)";
-                    // v= — sha исходника из индекса версий (8 знаков): сразу
-                    // видно, КАКАЯ ревизия картинки играет в кадре.
-                    // НАРОЧНО по единицам ниже: версия — шестнадцатеричная,
-                    // и режется она для журнала, а не для глаза игрока.
-                    var v = VersionFor(url);
-                    LvnLog.Trace($"[lvn-perf] sprite decode {url}: queue={queueMs}ms {spent} resize+upload={resizeMs}ms sprite={sw.ElapsedMilliseconds - decodeMs - resizeMs}ms ({tex.width}x{tex.height}) v={(string.IsNullOrEmpty(v) ? "-" : v.Substring(0, 8))}");
-                }
-                return CacheSprite(url, sprite, (long)tex.width * tex.height * 4);
             }
-            finally
+            long decodeMs = sw.ElapsedMilliseconds;
+            // No platform pays full price for oversized art: phones must not
+            // hold 33 MB of RGBA for a 4K background shown at ~1080p, and
+            // even desktop/WebGL must not upload a raw 8K Spine page. Cap
+            // the longest side and let the GPU resample once at load.
+            tex = AssetMemory.DownscaleIfOversized(tex,
+                Application.isMobilePlatform ? MobileMaxTextureSize : DesktopMaxTextureSize,
+                finalize: false);   // финализирует вызывающий, ниже
+            // Крупный арт получает мип-уровни: фигуру в 1600 пикселей рисуют
+            // примерно в 900, и без них край фигуры идёт ступеньками.
+            tex = AssetMemory.WithMipmaps(tex, finalize: false);
+            tex.wrapMode   = TextureWrapMode.Clamp;
+            if (tex.mipmapCount <= 1) tex.filterMode = FilterMode.Bilinear;
+            // Nothing reads pixels back — free the CPU copy (halves the
+            // memory of every loaded sprite). The off-thread texture is born
+            // non-readable (no CPU copy to free — Apply would throw).
+            if (tex.isReadable)
+                tex.Apply(updateMipmaps: false, makeNoLongerReadable: true);
+            long resizeMs = sw.ElapsedMilliseconds - decodeMs;
+            // FullRect, explicitly: Sprite.Create's DEFAULT mesh type is
+            // Tight — it walks the whole texture's alpha on the main thread
+            // to trace an outline (hundreds of ms for a 2K Spine page), and
+            // full-frame VN art gains nothing from a tight mesh anyway.
+            var sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height),
+                new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+            // [lvn-perf] main-thread hitch map.
+            //
+            // ЧИСЛО ОБЯЗАНО НАЗЫВАТЬ ТО, ЧТО ИЗМЕРЕНО. Здесь стояла
+            // подпись «decode … (worker thread)» и рядом оговорка «wall
+            // time (mostly worker-thread)». Оговорка верна ровно до
+            // первого тяжёлого кадра — то есть до бута, где эти числа и
+            // смотрят: узнаём мы о готовности через событие Unity, а его
+            // поднимают на главном потоке в покадровой обработке, и в
+            // измеренное входит остаток кадра.
+            //
+            // 02.09 это стоило полдня разбирательств: пять разных файлов
+            // показали 917, 925, 929, 932 и 936 мс при кадре в 955 мс, и
+            // читалось это как «декодер стал в 24 раза медленнее». Работа
+            // так не совпадает — совпадает ожидание.
+            //
+            // Поэтому у покадровой дороги число зовётся `wall`, а рядом
+            // стоит длина последнего кадра: если они близки, число про
+            // кадр, а не про распаковку. Прямой декод главного потока
+            // по-прежнему `decode` — там это правда.
+            if (sw.ElapsedMilliseconds > 30)
             {
-                lock (_spriteCache) _decoding.Remove(url);
+                long queueMs = offThread ? decodeQueueMs : 0;
+                string spent = offThread
+                    ? $"wall={decodeMs - queueMs}ms (рабочий поток + граница кадра; кадр {Lvn.LvnFrameWatch.LastFrameMs}ms)"
+                    : $"decode={decodeMs - queueMs}ms (главный поток)";
+                // v= — sha исходника из индекса версий (8 знаков): сразу
+                // видно, КАКАЯ ревизия картинки играет в кадре.
+                // НАРОЧНО по единицам ниже: версия — шестнадцатеричная,
+                // и режется она для журнала, а не для глаза игрока.
+                var v = VersionFor(url);
+                LvnLog.Trace($"[lvn-perf] sprite decode {url}: queue={queueMs}ms {spent} resize+upload={resizeMs}ms sprite={sw.ElapsedMilliseconds - decodeMs - resizeMs}ms ({tex.width}x{tex.height}) v={(string.IsNullOrEmpty(v) ? "-" : v.Substring(0, 8))}");
             }
+            return CacheSprite(url, key, sprite, (long)tex.width * tex.height * 4);
         }
 
     }

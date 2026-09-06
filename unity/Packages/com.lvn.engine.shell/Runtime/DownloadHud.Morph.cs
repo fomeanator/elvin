@@ -19,25 +19,25 @@ namespace Lvn.UI.Screens
     {
         // ── морф мини ↔ полная ────────────────────────────────────────────────
 
-        private void SetExpanded(bool on)
+        internal void SetExpanded(bool on)
         {
             if (_expanded == on) return;
             _expanded = on;
             _scrim.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
             // Секции собираются ПОСЛЕ старта морфа (офлайн-ветка проверяет
             // кэш на диске — десятки миллисекунд, и они не должны съедать
-            // первые кадры разворота). Каскад — только при развороте.
+            // первые кадры разворота). Вся карточка раскрывается одним жестом.
             if (on)
             {
                 float avail = resolvedStyle.height;
                 _fullH = avail > 100f
-                    ? Mathf.Clamp(avail - 112f - 24f, 300f, FullHMax)
+                    ? Mathf.Max(MiniSize, Mathf.Min(avail - _safeTop - 29f, FullHMax))
                     : FullHMax;
                 float availW = resolvedStyle.width;
                 _fullW = availW > 100f
-                    ? Mathf.Clamp(availW * 0.6f, 420f, FullWMax)
+                    ? Mathf.Min(availW - 32f, Mathf.Clamp(availW * 0.6f, 420f, FullWMax))
                     : 520f;
-                _capsule.schedule.Execute(() => RebuildSections(animate: true)).ExecuteLater(70);
+                _capsule.schedule.Execute(() => { if (_expanded) RebuildSections(); }).ExecuteLater(70);
             }
             float from = _morph, to = on ? 1f : 0f;
             _capsule.experimental.animation.Start(0f, 1f, LvnMotion.Ms(260), (_, p) =>
@@ -50,6 +50,7 @@ namespace Lvn.UI.Screens
         private void ApplyMorph(float k)
         {
             _morph = k;
+            ApplyChapterMode();
             _capsule.style.width = Mathf.Lerp(MiniSize, _fullW, k);
             _capsule.style.height = Mathf.Lerp(MiniSize, _fullH, k);
             LvnChrome.Round(_capsule, Mathf.Lerp(MiniSize * 0.5f, 22f, k));
@@ -62,6 +63,7 @@ namespace Lvn.UI.Screens
             // «пустая», и перетекание читается формой, а не мешаниной слоёв.
             _miniRing.style.opacity = Mathf.Clamp01(1f - k * 3f);
             _full.style.opacity = Mathf.Clamp01((k - 0.55f) / 0.45f);
+            _full.style.visibility = k > 0.55f ? Visibility.Visible : Visibility.Hidden;
         }
     }
 }

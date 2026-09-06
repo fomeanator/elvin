@@ -377,23 +377,10 @@ namespace Lvn.Content
             FlushDestroys();
         }
 
-        private static void DestroySprite(Sprite sprite)
-        {
-            if (sprite == null) return;
-            if (sprite.texture != null) Discard(sprite.texture);
-            Discard(sprite);
-        }
-
-        // ВНЕ ИГРЫ УНИЧТОЖАЮТ ПО-ДРУГОМУ. Object.Destroy в редакторе — ошибка
-        // Unity («Destroy may not be called from edit mode»), и она роняет
-        // EditMode-проверки на неперехваченном сообщении, хотя сам кэш работает.
-        // Правило уже записано у Памяти ассетов (AssetMemory.Discard) — держим
-        // его одинаковым, а не заводим второе.
-        private static void Discard(UnityEngine.Object o)
-        {
-            if (o == null) return;
-            if (Application.isPlaying) UnityEngine.Object.Destroy(o);
-            else UnityEngine.Object.DestroyImmediate(o);
-        }
+        // ОСВОБОЖДАЕТ ПАМЯТЬ АРТА — она и есть дом этого правила: вне игры
+        // Object.Destroy запрещён Unity, и EditMode-проверки падали на его
+        // сообщении. Своя копия здесь уже была и разошлась бы молча — страж
+        // дублей поймал её в тот же прогон.
+        private static void DestroySprite(Sprite sprite) => AssetMemory.Release(sprite);
     }
 }

@@ -5,3 +5,4 @@ using System.Runtime.CompilerServices;
 // the same grant the UI core and the services package make.
 [assembly: InternalsVisibleTo("Lvn.Engine.Tests")]
 [assembly: InternalsVisibleTo("Lvn.Engine.Tests.Runtime")]
+[assembly: InternalsVisibleTo("Lvn.Engine.Shell.Tests")]
