@@ -67,6 +67,18 @@ const ecoMax = 1024
 const midSuffix = "@1440"
 const midMax = 1440
 
+// Единый список ступеней для генерации и исключения из индекса версий.
+// Новая ступень добавляется здесь, чтобы её ленивое появление не меняло версию.
+var downscaleVariants = []struct {
+	suffix string
+	box    int
+}{
+	{downscaleSuffix, downscaleMax},
+	{midSuffix, midMax},
+	{ecoSuffix, ecoMax},
+	{miniSuffix, miniMax},
+}
+
 // downscaleExts are the image types a variant can be requested for. The
 // variant keeps the source's format (PNG stays PNG — alpha survives; JPEG
 // stays JPEG — no alpha to lose).
@@ -129,15 +141,10 @@ func variantSourceBox(variantPath string) (string, int) {
 		return "", 0
 	}
 	base := strings.TrimSuffix(variantPath, filepath.Ext(variantPath))
-	switch {
-	case strings.HasSuffix(base, downscaleSuffix):
-		return strings.TrimSuffix(base, downscaleSuffix) + filepath.Ext(variantPath), downscaleMax
-	case strings.HasSuffix(base, miniSuffix):
-		return strings.TrimSuffix(base, miniSuffix) + filepath.Ext(variantPath), miniMax
-	case strings.HasSuffix(base, ecoSuffix):
-		return strings.TrimSuffix(base, ecoSuffix) + filepath.Ext(variantPath), ecoMax
-	case strings.HasSuffix(base, midSuffix):
-		return strings.TrimSuffix(base, midSuffix) + filepath.Ext(variantPath), midMax
+	for _, v := range downscaleVariants {
+		if strings.HasSuffix(base, v.suffix) {
+			return strings.TrimSuffix(base, v.suffix) + filepath.Ext(variantPath), v.box
+		}
 	}
 	return "", 0
 }
