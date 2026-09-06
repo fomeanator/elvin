@@ -49,14 +49,35 @@ fail=0
 log() { echo "[$(date +%H:%M:%S)] $*"; }
 
 # Другой batchmode на TestHost — ждём его: прогон-в-прогон роняет оба.
-waited=0
-while pgrep -f "batchmode.*TestHost" >/dev/null 2>&1; do
-  [ "$waited" = 0 ] && log "TestHost занят другим прогоном — жду…"
-  sleep 5; waited=$((waited + 5))
-  if [ "$waited" -ge 1800 ]; then
-    echo "FAIL: TestHost занят полчаса — что-то повисло"; exit 1
-  fi
-done
+# Якорь требует исполняемый Unity, а [U] не совпадает с текстом самого
+# шаблона в argv pgrep. Оболочка с упоминанием Unity в -c тоже не подходит.
+# Путь экранируем как ERE: скобки/точки в имени каталога — не регулярка.
+TESTHOST_PATH_RE=$(printf '%s\n' "$REPO_ROOT/unity/TestHost" | sed 's/[][\\.^$*+?(){}|]/\\&/g')
+TESTHOST_UNITY_RE='^([^[:space:]]*/)?[U]nity[[:space:]]'
+TESTHOST_PROJECT_RE="-project[Pp]ath[[:space:]]+${TESTHOST_PATH_RE}([[:space:]]|$)"
+TESTHOST_BATCH_RE="${TESTHOST_UNITY_RE}.*(-batchmode[[:space:]].*${TESTHOST_PROJECT_RE}|${TESTHOST_PROJECT_RE}.*-batchmode([[:space:]]|$))"
+
+wait_for_testhost() {
+  local waited=0 status
+  while :; do
+    pgrep -f -- "$TESTHOST_BATCH_RE" >/dev/null 2>&1
+    status=$?
+    case "$status" in
+      1) return 0 ;;
+      0) ;;
+      *) log "FAIL: не удалось проверить занятость TestHost (pgrep: $status)"; return 1 ;;
+    esac
+    [ "$waited" = 0 ] && log "TestHost занят другим прогоном — жду…"
+    sleep 5; waited=$((waited + 5))
+    if [ "$waited" -ge 1800 ]; then
+      log "FAIL: TestHost занят полчаса — что-то повисло"; return 1
+    fi
+  done
+}
+
+# Ранний отказ полезен, но Go/стенды идут долго: перед каждой Unity-фазой
+# ниже проверяем занятость заново.
+wait_for_testhost || exit 1
 
 # РЕДАКТОР, ОТКРЫТЫЙ ИМЕННО НА TestHost, — а не любой открытый Unity.
 #
@@ -67,9 +88,8 @@ done
 # прогоны на весь рабочий день.
 #
 # Спрашиваем прямо: есть ли процесс редактора, которому передан путь стенда.
-if pgrep -f -- "-projectpath.*unity/TestHost" >/dev/null 2>&1 \
-   || pgrep -f -- "-projectPath.*unity/TestHost" >/dev/null 2>&1; then
-  if ! pgrep -f "batchmode.*TestHost" >/dev/null 2>&1; then
+if pgrep -f -- "${TESTHOST_UNITY_RE}.*${TESTHOST_PROJECT_RE}" >/dev/null 2>&1; then
+  if ! pgrep -f -- "$TESTHOST_BATCH_RE" >/dev/null 2>&1; then
     echo "FAIL: TestHost открыт в редакторе — закрой ЕГО (игру можно не трогать)"; exit 1
   fi
 fi
@@ -684,12 +704,19 @@ FLOOR_EDITMODE=2180
 FLOOR_PLAYMODE=115
 
 report_platform() { # $1 = имя, $2 = xml, $3 = пол
+if [ ! -f "$2" ]; then
+  echo "  $1: нет файла результатов: $2"
+  echo "    Вероятно, Unity не дошёл до тестов; возможно, TestHost был занят другим прогоном."
+  echo "    Лог Unity: ${2%.xml}.log"
+  # Licensing 505 встречается и при PASS; хвост лога не доказывает причину.
+  return 1
+fi
 python3 - "$2" "$1" "$3" <<'PY'
 import sys, xml.etree.ElementTree as ET
 try:
     r = ET.parse(sys.argv[1]).getroot()
 except Exception as e:
-    print(f"  {sys.argv[2]}: нет результатов ({e})"); sys.exit(1)
+    print(f"  {sys.argv[2]}: не удалось прочитать результаты ({e})"); sys.exit(1)
 total, passed, failed = r.get('total'), r.get('passed'), r.get('failed')
 # ПРОПУСК — НЕ УСПЕХ, а отсутствие ответа. Тест, который «зелёный» только
 # потому, что раскладки не хватило (нет Unity-пакетов, нет node, нет
@@ -723,6 +750,7 @@ args=(-batchmode -nographics -projectPath "$REPO_ROOT/unity/TestHost"
       -runTests -testPlatform EditMode
       -testResults "$OUT/editmode.xml" -logFile "$OUT/editmode.log")
 [ -n "$FILTER" ] && args+=(-testFilter "$FILTER")
+wait_for_testhost || exit 1
 "$UNITY" "${args[@]}" >/dev/null 2>&1
 report_platform editmode "$OUT/editmode.xml" "$FLOOR_EDITMODE" || fail=1
 fi
@@ -745,6 +773,7 @@ args=(-batchmode -projectPath "$REPO_ROOT/unity/TestHost"
       -runTests -testPlatform PlayMode
       -testResults "$OUT/playmode.xml" -logFile "$OUT/playmode.log")
 [ -n "$FILTER" ] && args+=(-testFilter "$FILTER")
+wait_for_testhost || exit 1
 "$UNITY" "${args[@]}" >/dev/null 2>&1
 report_platform playmode "$OUT/playmode.xml" "$FLOOR_PLAYMODE" || fail=1
 fi
