@@ -38,10 +38,9 @@ namespace Lvn.UI
         private string SaveKey(JObject cmd)
         {
             var slot = (string)cmd["slot"];
-            // Namespaced by title id — two novels in one app (or the IDE preview
-            // next to a game) must not read each other's quick saves.
+            // Scope by owner and title, keeping the first owner's existing keys.
             var ns = string.IsNullOrEmpty(_saveTitleId) ? "" : _saveTitleId + "_";
-            return "lvn_save_" + ns + (string.IsNullOrEmpty(slot) ? "quick" : slot);
+            return LvnKeep.Scoped("lvn_save_", ns + (string.IsNullOrEmpty(slot) ? "quick" : slot));
         }
 
         private void SaveSlot(JObject cmd)
@@ -62,9 +61,10 @@ namespace Lvn.UI
             var json = LvnKeep.Get(SaveKey(cmd), "");
             if (string.IsNullOrEmpty(json))
             {
-                // Legacy fallback: saves written before keys were title-namespaced.
+                // Saves from before title namespacing still belong to this owner.
                 var slot = (string)cmd["slot"];
-                json = LvnKeep.Get("lvn_save_" + (string.IsNullOrEmpty(slot) ? "quick" : slot), "");
+                json = LvnKeep.Get(LvnKeep.Scoped("lvn_save_",
+                    string.IsNullOrEmpty(slot) ? "quick" : slot), "");
             }
             LvnPlayer.LvnSnapshot snap = null;
             if (!string.IsNullOrEmpty(json))
