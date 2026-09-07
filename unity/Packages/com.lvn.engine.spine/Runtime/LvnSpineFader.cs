@@ -84,7 +84,13 @@ namespace Lvn.Spine
                 return;
             }
             if (!gameObject.activeSelf) gameObject.SetActive(true);
-            _fitWait = 0; // новый показ — ждём подгонку заново
+            // КАЖДЫЙ показ ждёт подгонку заново, а не только первый. После
+            // скрытия меш отброшен Canvas'ом и на этом показе пересоберётся с
+            // MeshScale=1 — а Fitted ещё держит прошлый успех. Перевзводим
+            // подгонку, иначе повторный показ мелькнёт раздутым.
+            _fitWait = 0;
+            if (_fit == null) _fit = GetComponent<LvnSpineFit>();
+            _fit?.Rearm();
             enabled = true; // resume the fade-in lerp
         }
 
