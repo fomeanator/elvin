@@ -31,14 +31,36 @@ namespace Lvn.Spine
         // and texture upload.
         private const int WarmFrames = 5;
 
+        // ПОКАЗ ЖДЁТ ПОДГОНКУ. До первой удавшейся подгонки меш раздут ~в
+        // 100× (MeshScale ещё не устаканился), и проявить его сейчас — значит
+        // показать раздутые прямоугольники. Раньше показ и подгонка шли
+        // независимо, и кто успеет: иногда чисто, иногда прямоугольники
+        // («через раз», живой замер 07.09). Теперь альфа не растёт выше
+        // прогревочной, пока подгонка не состоялась.
+        //
+        // Прогрев при этом продолжается: почти невидимый меш РИСУЕТСЯ, и
+        // только на живом рисовании MeshScale раскачивается — то есть само
+        // ожидание и доводит подгонку до готовности. Круг замкнут.
+        private const int FitWaitCap = 90; // страховка ~1.5 c: если подгонка
+        // не удаётся вовсе (нет холста/границ), лучше показать как есть, чем
+        // держать фигуру невидимой навсегда.
+
         private CanvasGroup _cg;
+        private LvnSpineFit _fit;
         private int _warmLeft = WarmFrames;
+        private int _fitWait;
         private bool _shown;
+
+        /// <summary>Готова ли геометрия к показу: подгонка удалась, либо
+        /// исчерпана страховка ожидания. Чистая — тестируется без графики.</summary>
+        internal static bool ReadyToReveal(bool fitted, int fitWait, int cap)
+            => fitted || fitWait >= cap;
 
         private void Awake()
         {
             _cg = GetComponent<CanvasGroup>();
             if (_cg == null) _cg = gameObject.AddComponent<CanvasGroup>();
+            _fit = GetComponent<LvnSpineFit>();
         }
 
         public void Show(bool visible)
@@ -62,6 +84,7 @@ namespace Lvn.Spine
                 return;
             }
             if (!gameObject.activeSelf) gameObject.SetActive(true);
+            _fitWait = 0; // новый показ — ждём подгонку заново
             enabled = true; // resume the fade-in lerp
         }
 
@@ -77,6 +100,15 @@ namespace Lvn.Spine
                 return;
             }
             _warmLeft = 0; // a real show renders everything the pulse would
+            // Пока подгонка не состоялась — рисуем почти невидимо (это и качает
+            // MeshScale), но НЕ проявляем: иначе мелькнут раздутые прямоугольники.
+            bool fitted = _fit == null || _fit.Fitted;
+            if (!ReadyToReveal(fitted, _fitWait, FitWaitCap))
+            {
+                _fitWait++;
+                _cg.alpha = WarmAlpha;
+                return;
+            }
             _cg.alpha = Mathf.MoveTowards(_cg.alpha, 1f, Time.unscaledDeltaTime / FadeSeconds);
             if (_cg.alpha >= 1f) enabled = false;
         }

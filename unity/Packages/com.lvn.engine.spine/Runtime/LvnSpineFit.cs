@@ -22,6 +22,13 @@ namespace Lvn.Spine
         private float _scale = 1f;
         private string _mode = "width";
 
+        /// <summary>Подгонка ХОТЯ БЫ РАЗ применилась к живому мешу (MeshScale
+        /// устаканился, масштаб выставлен). До этого меш раздут ~в 100×, и
+        /// показывать его нельзя — <see cref="LvnSpineFader"/> ждёт этот флаг,
+        /// иначе фигура успевала проявиться раздутыми прямоугольниками, пока
+        /// подгонка ещё догоняла (гонка «через раз», живой замер 07.09).</summary>
+        public bool Fitted { get; private set; }
+
         public void Setup(SkeletonGraphic g, RawImage bg)
         {
             _g = g;
@@ -33,13 +40,14 @@ namespace Lvn.Spine
         {
             _scale = scale;
             if (!string.IsNullOrEmpty(mode)) _mode = mode;
+            Fitted = false; // новый запрос — прежняя подгонка недействительна
             enabled = true; // keep retrying until TryFit succeeds
         }
 
         private void LateUpdate()
         {
             if (_g == null) { enabled = false; return; }
-            if (LvnSpineBootstrap.TryFit(_container, _g, _bg, _scale, _mode)) enabled = false;
+            if (LvnSpineBootstrap.TryFit(_container, _g, _bg, _scale, _mode)) { Fitted = true; enabled = false; }
         }
     }
 }
