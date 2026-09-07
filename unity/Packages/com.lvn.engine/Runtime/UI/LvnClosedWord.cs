@@ -34,15 +34,23 @@ namespace Lvn.UI
         /// <c>default: Unknown(...); break;</c> и не думать о возвращаемом
         /// значении, либо использовать его в условии.
         /// </summary>
-        public static bool Unknown(string field, string value, string allowed)
+        /// <param name="fallback">Что произошло ВМЕСТО просимого, если
+        /// непонятое слово не отменяет действие, а откатывает его к
+        /// умолчанию. Без него сообщение говорит «не сделала НИЧЕГО» — и для
+        /// таких полей это была бы неправда: автор искал бы отсутствующий
+        /// эффект, хотя эффект есть, просто не тот.</param>
+        public static bool Unknown(string field, string value, string allowed, string fallback = null)
         {
             if (string.IsNullOrEmpty(value)) return false;   // «не сказано» — не ошибка
             var key = field + "=" + value;
             if (_seen.TryGetValue(key, out int n)) { _seen[key] = n + 1; return false; }
             _seen[key] = 1;
+            var что = string.IsNullOrEmpty(fallback)
+                ? "и команда в этой части не сделала НИЧЕГО"
+                : "и взято " + fallback;
             UnityEngine.Debug.LogWarning(
-                $"[lvn] {field}=\"{value}\" — такого значения нет, и команда в этой части " +
-                $"не сделала НИЧЕГО. Допустимые: {allowed}. Сказано один раз за сессию; " +
+                $"[lvn] {field}=\"{value}\" — такого значения нет, {что}. " +
+                $"Допустимые: {allowed}. Сказано один раз за сессию; " +
                 "полный счёт — в LvnClosedWord.Unclaimed.");
             return false;
         }
