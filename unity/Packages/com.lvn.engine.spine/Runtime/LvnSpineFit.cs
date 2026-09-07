@@ -36,6 +36,18 @@ namespace Lvn.Spine
             _container = transform as RectTransform;
         }
 
+        /// <summary>Заново дождаться подгонки, сохранив прежние scale/mode.
+        /// Нужен ПОВТОРНОМУ показу: при скрытии контейнер гасится
+        /// (SetActive false), Canvas отбрасывает меш, и на следующем показе
+        /// MeshScale снова 1 — а Fitted остаётся с прошлого раза. Без сброса
+        /// показ проходит гейт мгновенно и снова мелькает раздутым (замер
+        /// 07.09: первый показ чист, «после выхода в меню» — прямоугольники).</summary>
+        public void Rearm()
+        {
+            Fitted = false;
+            enabled = true;
+        }
+
         public void Request(float scale, string mode)
         {
             _scale = scale;
