@@ -201,25 +201,74 @@ namespace Lvn.UI
             return true;
         }
 
-        /// <summary>Restore a persistent slot taken in the CURRENT chapter; returns
-        /// false for another chapter's slot (see <see cref="LoadFromSlotAsync"/> for
-        /// the cross-chapter path).</summary>
+        /// <summary>Start restoring a persistent slot taken in the CURRENT chapter;
+        /// true means accepted, not completed. Use <see cref="LoadFromSlotAsync"/>
+        /// to await restoration or load another chapter's slot.</summary>
         public bool LoadFromSlot(string slot)
         {
             var s = LvnSaveStore.Get(_saveTitleId, slot);
-            if (s?.Snap == null || _player == null) return false;
+            if (s?.Snap == null || _player == null || !SlotMatchesScript(s)) return false;
+            // A synchronous caller cannot wait for the state store on Unity's
+            // thread. Keep the acceptance API, but observe the same async restore
+            // used by the menu; never install stale globals while awaiting I/O.
+            LvnAsync.Fire(LoadSlotSnapshotAsync(s, currentChapter: true), "LoadFromSlot");
+            return true;
+        }
+
+        private bool SlotMatchesScript(LvnSaveSlot slot)
+        {
             // Через LvnScriptRef: прямое сравнение считало, что адрес всегда
             // записан одинаково, и отвергало сейв, у которого кириллица в
             // адресе записана процентами или другой юникодной формой.
-            if (!string.IsNullOrEmpty(s.Snap.ScriptUrl)
-                && !Lvn.Content.LvnScriptRef.Same(s.Snap.ScriptUrl, _saveScriptUrl)) return false;
-            RestoreSnapshot(s.Snap);
-            return true;
+            return string.IsNullOrEmpty(slot.Snap.ScriptUrl)
+                || LvnScriptRef.Same(slot.Snap.ScriptUrl, _saveScriptUrl);
+        }
+
+        /// <summary>Host's live state store for cross-novel stats on manual load.
+        /// Null keeps standalone stages usable without a persistent stat store.</summary>
+        public ILvnStateStore SlotStateStore { get; set; }
+
+        // The slot was deserialized for this load, so only its in-memory copy
+        // changes. Overlay BEFORE Restore/ReplayVisuals: conditions and a pause
+        // save must never observe the old globals, even during an async wait.
+        internal static async Task OverlaySlotStatsAsync(ILvnStateStore store, LvnPlayer.LvnSnapshot snap)
+        {
+            if (snap?.Vars == null) return;
+            var overlay = new JObject();
+            await LvnGlobalStats.OverlayAsync(store, overlay);
+            if (overlay.TryGetValue(LvnGlobalStats.VarName, out var live))
+                snap.Vars[LvnGlobalStats.VarName] = live;
+        }
+
+        private async Task<bool> LoadSlotSnapshotAsync(LvnSaveSlot slot, bool currentChapter)
+        {
+            var player = _player;
+            int gen = _startGen, epoch = _stageEpoch;
+            var titleId = _saveTitleId;
+            var scriptUrl = _saveScriptUrl;
+            try
+            {
+                await OverlaySlotStatsAsync(SlotStateStore, slot.Snap);
+                // An exit or a different restore while reading stats retires this
+                // request; its snapshot must not land in the replacement chapter.
+                if (!RunCurrent(player, gen) || !StageCurrent(epoch)
+                    || titleId != _saveTitleId || scriptUrl != _saveScriptUrl) return false;
+                if (!currentChapter)
+                    return CrossChapterLoader != null && await CrossChapterLoader(slot);
+                await RestoreSnapshotAsync(slot.Snap);
+                return true;
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning((currentChapter ? "[lvn] slot load failed: " : "[lvn] cross-chapter load failed: ") + e.Message);
+                return false;
+            }
         }
 
         /// <summary>Host hook for loading a slot that belongs to ANOTHER chapter:
         /// resolve the chapter by <c>Snap.ScriptUrl</c>, fetch its script, play it
-        /// and restore. Wired by NovelApp; when null, cross-chapter slots simply
+        /// and restore the supplied snapshot (already overlaid with live stats).
+        /// Wired by NovelApp; when null, cross-chapter slots simply
         /// aren't loadable (greyed out in the menu).</summary>
         public Func<LvnSaveSlot, Task<bool>> CrossChapterLoader;
 
@@ -233,15 +282,11 @@ namespace Lvn.UI
             if (Interlocked.CompareExchange(ref _slotLoadInProgress, 1, 0) != 0) return false;
             try
             {
-                if (LoadFromSlot(slot)) return true;
                 var s = LvnSaveStore.Get(_saveTitleId, slot);
-                if (s?.Snap == null || CrossChapterLoader == null) return false;
-                try { return await CrossChapterLoader(s); }
-                catch (Exception e)
-                {
-                    Debug.LogWarning("[lvn] cross-chapter load failed: " + e.Message);
-                    return false;
-                }
+                if (s?.Snap == null) return false;
+                bool currentChapter = _player != null && SlotMatchesScript(s);
+                if (!currentChapter && CrossChapterLoader == null) return false;
+                return await LoadSlotSnapshotAsync(s, currentChapter);
             }
             finally { Interlocked.Exchange(ref _slotLoadInProgress, 0); }
         }

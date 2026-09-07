@@ -303,6 +303,7 @@ namespace Lvn.UI.Screens
             WatchMenuBackdrop();
             mark?.Invoke(toFunnel ? "витрина не греется — играем воронку" : "полотно поставлено греться");
             Stage.CrossChapterLoader = CrossChapterLoadAsync;
+            Stage.SlotStateStore = _state;
 
             // Language: the manifest declares which catalogs exist (Settings shows
             // a picker when any); the reader's persisted choice wins over the
