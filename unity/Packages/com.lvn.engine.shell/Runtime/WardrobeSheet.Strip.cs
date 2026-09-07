@@ -66,8 +66,8 @@ namespace Lvn.UI.Screens
                 // Одна лента, наполняемая двумя способами, обязана была
                 // разъехаться — вопрос был только когда.
                 var all = new List<(string axis, LvnWardrobeItem item)>();
-                if (_def?.wardrobe != null)
-                    foreach (var kv in _def.wardrobe)
+                if (_slots != null)
+                    foreach (var kv in _slots)
                     {
                         // Поднастройка — не самостоятельный скин: цвет волос
                         // выбирается только внутри «Причёски», и в витрине
@@ -334,27 +334,44 @@ namespace Lvn.UI.Screens
 
             if (!owned) card.Add(PriceBadge(item));
 
-            int at = i;
-            if (at < 0)
+            if (i < 0)
             {
-                // Сборный таб «Все»: тап примеряет предмет в ЕГО ось; подсветка
-                // и имя обновляются перестройкой (кэш делает её мгновенной).
-                bool worn = IsWornIn(axis, item.value);
-                LvnStyler.Chosen(card, worn, _accent);
-                var a2 = axis; var v2 = item.value;
-                var n2 = Lvn.Content.LvnWords.Name("skin", item.value, item.name);
-                card.RegisterCallback<ClickEvent>(_ =>
+                // Сборный таб «Все»: подсветка надетого рисуется сразу —
+                // карусельного индекса у этой ленты нет.
+                LvnStyler.Chosen(card, IsWornIn(axis, item.value), _accent);
+            }
+            // ОДИН ОБРАБОТЧИК НА ОБЕ ЛЕНТЫ, И РЕШАЕТ ОН В МОМЕНТ ТАПА.
+            // Монтажёр сверяет карточки ПО КЛЮЧУ «ось/значение», а ключ у
+            // «Моё» и у раздела ОДИН И ТОТ ЖЕ — значит один и тот же элемент
+            // служит обеим лентам. Обработчиков было два: свой рождался только
+            // при СОЗДАНИИ карточки, а переиспользованная приходила с чужим.
+            // Раздельный «если это «Моё» — выйти» и делал строку мёртвой:
+            // игрок открывал «Фон», возвращался в «Моё» — и тапы проваливались
+            // в никуда («после переключения перса строка в моём становится
+            // некликабельной» — Илья 08.09). Кто карточку родил, теперь неважно.
+            var a2 = axis; var v2 = item.value;
+            var n2 = Lvn.Content.LvnWords.Name("skin", item.value, item.name);
+            card.RegisterCallback<ClickEvent>(_ =>
+            {
+                if (_tab == null) return;
+                if (_tab == AllTab)
                 {
+                    // Тап примеряет предмет в ЕГО ось; подсветка и имя
+                    // обновляются перестройкой (кэш делает её мгновенной).
                     LvnWardrobe.Preview(_entity, a2, v2);
                     RebuildStrip(animate: false);
                     _itemName.text = n2;
                     RefreshConfirm(); // примерка состоялась — кнопкам ожить
-                });
-                return card;
-            }
-            card.RegisterCallback<ClickEvent>(_ =>
-            {
-                if (_tab == null || _tab == AllTab) return;
+                    return;
+                }
+                // МЕСТО ИЩЕМ СЕЙЧАС, А НЕ ПОМНИМ С РОЖДЕНИЯ: та же карточка
+                // живёт в разных лентах, и номер, снятый при создании, к
+                // нынешней ленте отношения не имеет.
+                var list = Items(_tab);
+                int at = -1;
+                for (int n = 0; n < list.Count; n++)
+                    if (list[n].value == v2) { at = n; break; }
+                if (at < 0) return;
                 _index[_tab] = at;
                 ShowItem(); // примерка + имя в карусели + подсветка — одно состояние
             });

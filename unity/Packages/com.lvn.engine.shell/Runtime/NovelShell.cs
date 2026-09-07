@@ -222,7 +222,9 @@ namespace Lvn.UI.Screens
             if (UseHub(_manifest))
             {
                 Hub = new BrowseHub(ui.browse, assets);
-                Hub.SetData(_manifest.collections, _manifest.titles);
+                // SetContent, а не SetData: хабу нужен каталог спайнов манифеста,
+                // чтобы карточки ленты подняли живые фигуры вместо обложек.
+                Hub.SetContent(_manifest);
                 Add(Hub);
                 Browse = Hub;
             }
@@ -292,6 +294,9 @@ namespace Lvn.UI.Screens
             void Reparent(VisualElement el, VisualElement layer)
             { if (el != null) { el.RemoveFromHierarchy(); layer.Add(el); } }
             WardrobeTab = new WardrobeTabScreen(_manifest, _assets);
+            // «Во весь рост» освобождает кадр ЦЕЛИКОМ: хром прячет его хозяин —
+            // оболочка, а не экран (у экрана до чужих слоёв руки не достают).
+            WardrobeTab.PeekChrome = PeekChrome;
             Add(WardrobeTab);
             // Покупка в меню-гардеробе идёт через кошелёк; нехватка средств
             // ведёт в БЫСТРЫЙ модальный магазин прямо поверх вкладки.
@@ -506,6 +511,22 @@ namespace Lvn.UI.Screens
             if (DownloadHud != null) DownloadHud.style.display = DisplayStyle.Flex;
             if (_tabsLayer != null) _tabsLayer.style.display = DisplayStyle.Flex;
             if (_popupLayer != null) _popupLayer.style.display = DisplayStyle.Flex;
+        }
+
+        /// <summary>
+        /// ОСВОБОДИТЬ КАДР ДЛЯ ФИГУРЫ, оставив саму вкладку на месте.
+        ///
+        /// <para>Не путать с <see cref="HideMenuChrome"/>: тот уводит и слой
+        /// вкладок — то есть сам гардероб, который как раз и просит показать
+        /// куклу. Здесь уходит ровно то, что стоит МЕЖДУ игроком и фигурой:
+        /// шапка, кружок загрузок и нижняя лента хаба.</para>
+        /// </summary>
+        public void PeekChrome(bool hidden)
+        {
+            var vis = hidden ? DisplayStyle.None : DisplayStyle.Flex;
+            if (TopBar != null) TopBar.style.display = vis;
+            if (DownloadHud != null) DownloadHud.style.display = vis;
+            Hub?.SetNavHidden(hidden);
         }
 
         private VisualElement _tabsLayer, _popupLayer;

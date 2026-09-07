@@ -30,8 +30,8 @@ namespace Lvn.UI.Screens
         private string ResolveIcon(string icon)
         {
             if (string.IsNullOrEmpty(icon) || icon.IndexOf('{') < 0
-                || _def?.wardrobe == null) return icon;
-            foreach (var kv in _def.wardrobe)
+                || _slots == null) return icon;
+            foreach (var kv in _slots)
             {
                 var token = "{" + kv.Key + "}";
                 if (!icon.Contains(token)) continue;
@@ -55,7 +55,7 @@ namespace Lvn.UI.Screens
                 {
                     var items = Items(sub);
                     if (items.Count == 0) continue;
-                    var slot = _def.wardrobe[sub];
+                    var slot = _slots[sub];
                     // Подпись подоси («Основа», «Цвет волос») — через словарь:
                     // она стоит рядом с переведёнными плитками и остаётся
                     // последним русским словом в английском гардеробе.
@@ -191,6 +191,12 @@ namespace Lvn.UI.Screens
             LvnLog.Trace($"[lvn-wardrobe] разделы ужаты до ступени {step}: отступ {side}, кегль {font}, иконки {(icons ? "есть" : "нет")}");
         }
 
+        /// <summary>Шов для стражей: перейти на вкладку так же, как это делает
+        /// тап по пилюле. Ровно то, что делает игрок, — но без панели и
+        /// манипулятора кнопки (сосед <see cref="Step"/> открыт по той же
+        /// причине).</summary>
+        internal void GoTab(string axis) => SelectTab(axis);
+
         private void SelectTab(string axis)
         {
             _tab = axis;
@@ -271,8 +277,8 @@ namespace Lvn.UI.Screens
         private List<LvnWardrobeItem> Items(string axis)
         {
             var list = new List<LvnWardrobeItem>();
-            if (axis != null && _def?.wardrobe != null
-                && _def.wardrobe.TryGetValue(axis, out var slot) && slot?.items != null)
+            if (axis != null && _slots != null
+                && _slots.TryGetValue(axis, out var slot) && slot?.items != null)
             {
                 // Съёмный слот (украшения) открывается пунктом «Нет»: снятие —
                 // такой же выбор, с примеркой (NoneValue) и коммитом (Equip
@@ -305,6 +311,7 @@ namespace Lvn.UI.Screens
 
         private static bool Encountered(string entity, string axis, string value)
         {
+            entity = OwnerOf(entity, axis);   // у полотен владелец общий
             if (LvnWardrobe.IsSeen(entity, axis, value)) return true;
             // ContainsKey здесь НАРОЧНО, в отличие от проверки владения рядом:
             // вопрос не «есть сейчас», а «было когда-либо», и ключ с нулём —

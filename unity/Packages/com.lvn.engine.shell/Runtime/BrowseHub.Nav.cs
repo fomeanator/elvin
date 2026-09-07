@@ -93,6 +93,14 @@ namespace Lvn.UI.Screens
             return nav;
         }
 
+        /// <summary>Убрать/вернуть нижнюю ленту вкладок. Зовёт оболочка, когда
+        /// экран просит кадр целиком («Во весь рост» в гардеробе).</summary>
+        public void SetNavHidden(bool hidden)
+        {
+            if (_bottomNav == null) return;
+            _bottomNav.style.display = hidden ? DisplayStyle.None : DisplayStyle.Flex;
+        }
+
         // Табы с живой подсветкой: прошлый гаснет фейдом, новый загорается
         // (решение Ильи 26.08 — раньше «активная» была захардкожена).
         private sealed class TabRef
