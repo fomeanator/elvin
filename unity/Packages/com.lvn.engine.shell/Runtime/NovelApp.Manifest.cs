@@ -61,6 +61,20 @@ namespace Lvn.UI.Screens
                 _ = manifestTask.ContinueWith(t => _ = t.Exception,
                     TaskContinuationOptions.OnlyOnFaulted);
             if (manifest == null) manifest = LoadCachedManifest();
+            // СЛОВА — КАК ТОЛЬКО МАНИФЕСТ В РУКАХ, А НЕ КОГДА ДОЙДЁТ ОЧЕРЕДЬ.
+            //
+            // Подписи учил один ApplyManifest, то есть уже после запуска. А
+            // вуаль говорит РАНЬШЕ: ниже стоит цикл восстановления, и это самый
+            // долгий экран, какой игрок вообще видит. Каталог к тому моменту
+            // пуст, LvnWords.Of отдаёт запасную строку из кода — и на экране,
+            // где важнее всего понять, что происходит, движок разговаривает не
+            // на языке игры.
+            //
+            // Замер 07.09: живой манифест несёт ui.words на 292 ключа, и ключ
+            // boot.reconnecting среди них ЕСТЬ. Игрок при этом видел «no
+            // connection to the server — reconnecting… (2)»: перевод автора
+            // лежал готовым и не использовался.
+            LearnWords(manifest);
             mark("manifest");
             BootVeil.Progress(60);
             if (manifest == null)
@@ -91,6 +105,7 @@ namespace Lvn.UI.Screens
                         manifest = Newtonsoft.Json.JsonConvert.DeserializeObject<LvnManifest>(json);
                         if (manifest != null)
                         {
+                            LearnWords(manifest);
                             online = false;
                             LvnLog.Info("[lvn-app] starting offline from the bundled seed manifest");
                         }
@@ -133,6 +148,27 @@ namespace Lvn.UI.Screens
             }
             return (manifest, online);
         }
+        /// <summary>
+        /// СЛОВА ОБОЛОЧКИ ИЗ МАНИФЕСТА — ОДНО ПРАВИЛО, СКОЛЬКО БЫ РАЗ ЕГО НИ
+        /// ПРИМЕНИЛИ.
+        ///
+        /// <para>Зовётся дважды и намеренно: рано — как только манифест
+        /// оказался в руках (свежий, из кэша прошлого запуска или из набора в
+        /// сборке), чтобы вуаль говорила на языке игры; и потом из
+        /// <c>ApplyManifest</c> обычным ходом. Повтор безвреден: Learn
+        /// пересобирает словарь целиком, и свежий манифест переучивает поверх
+        /// старого.</para>
+        ///
+        /// <para>Второй дороги к словам заводить нельзя: одно правило в двух
+        /// местах расходится молча, и разойдётся оно там, где никто не смотрит
+        /// — на запасном пути.</para>
+        /// </summary>
+        private static void LearnWords(LvnManifest m)
+        {
+            if (m == null) return;
+            Lvn.Content.LvnWords.Learn(m.ui?.words, m.ui?.menu?.labels, m.ui);
+        }
+
         private static void LogManifestFailure(Exception error, string phase)
         {
             if (ManifestRecovery.KindFor(error) == ManifestFailureKind.Network)
@@ -190,7 +226,7 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(manifest.ui?.chapter_word))
                 Lvn.Content.LvnCaptions.ChapterWord = manifest.ui.chapter_word;
             // Словарь оболочки: всё, что движок пишет на экране сам.
-            Lvn.Content.LvnWords.Learn(manifest.ui?.words, manifest.ui?.menu?.labels, manifest.ui);
+            LearnWords(manifest);
             // …и кто есть кто: имя говорящего в сцене — та же строка, что имя
             // героя в гардеробе, только приходит она из скрипта, а не по id.
             Lvn.Content.LvnWords.LearnActors(manifest.sprites);
