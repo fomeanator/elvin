@@ -249,6 +249,50 @@ namespace Lvn.Spine
 
         // Parse + cache SkeletonData/atlas/material once per texture (the entity
         // key) so re-shows and re-entries don't re-parse — the lag killer.
+        /// <summary>
+        /// ШЕЙДЕР ЛИБО ЕСТЬ, ЛИБО СКЕЛЕТА НЕТ — НО НЕ ИСКЛЮЧЕНИЕ.
+        ///
+        /// <para>Shader.Find ищет среди уже загруженного и в СБОРКЕ честно
+        /// находит только то, что кто-то потянул за собой ссылкой. Шейдер
+        /// спайна лежит в чужом пакете, и ссылок на него нет ни одной — по той
+        /// же причине, по которой линкер выбрасывал и саму сборку. В редакторе
+        /// загружено всё, поэтому там он находится всегда.</para>
+        ///
+        /// <para>Замер 07.09 с живого устройства (журнал уехал на сервер):
+        /// «[lvn-async] «ApplyActor» не удалось: ArgumentNullException: Value
+        /// cannot be null. Parameter name: shader». На экране это выглядело
+        /// как «от актёра остался только задний фон»: фон — обычная картинка,
+        /// ему шейдер спайна не нужен, а скелет не собрался вовсе.</para>
+        ///
+        /// <para>Правило записано у соседей (LvnPortalLayer): материал с
+        /// несобравшимся шейдером Unity красит ЯДОВИТО-РОЗОВЫМ, поэтому
+        /// проверяем и честно отказываемся — актёр останется плоским спрайтом,
+        /// а причина уйдёт в журнал ОДИН раз, а не на каждом кадре. Чтобы
+        /// шейдер в сборке был, его вносит в «всегда включённые»
+        /// Lvn.EditorTools.ShaderPreserve.</para>
+        /// </summary>
+        private static bool _shaderMissingSaid;
+        private static Material SkeletonMaterial()
+        {
+            if (_shader == null) _shader = Shader.Find(SkeletonShaderName);
+            if (_shader == null || !_shader.isSupported)
+            {
+                if (!_shaderMissingSaid)
+                {
+                    _shaderMissingSaid = true;
+                    Debug.LogWarning("[lvn-spine] шейдер «" + SkeletonShaderName
+                        + "» не попал в сборку — скелет не собрать, актёр останется плоским. "
+                        + "Его вносит в «всегда включённые» Lvn.EditorTools.ShaderPreserve.");
+                }
+                return null;
+            }
+            return new Material(_shader);
+        }
+
+        /// <summary>Имя шейдера скелета. Живёт здесь, а вносит его в сборку
+        /// редакторный шов — и берёт имя ОТСЮДА, чтобы два места не разошлись.</summary>
+        internal const string SkeletonShaderName = "Spine/SkeletonGraphic";
+
         private static Res Resource(string skeletonJson, string atlasText, Texture2D[] textures)
         {
             if (textures == null || textures.Length == 0 || string.IsNullOrEmpty(atlasText)) return default;
@@ -257,8 +301,8 @@ namespace Lvn.Spine
             if (!string.IsNullOrEmpty(key) && _cache.TryGetValue(key, out var hit) && hit.Data != null)
                 return hit;
 
-            if (_shader == null) _shader = Shader.Find("Spine/SkeletonGraphic");
-            var mat = new Material(_shader);
+            var mat = SkeletonMaterial();
+            if (mat == null) return default;
             var atlas = SpineAtlasAsset.CreateRuntimeInstance(new TextAsset(atlasText), textures, mat, true);
             // data at DataScale units/px; SkeletonGraphic multiplies by canvas PPU.
             var data = SkeletonDataAsset.CreateRuntimeInstance(new TextAsset(skeletonJson ?? ""), atlas, true, DataScale);
@@ -295,8 +339,8 @@ namespace Lvn.Spine
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
             if (inject == null) return;
 
-            if (_shader == null) _shader = Shader.Find("Spine/SkeletonGraphic");
-            var mat = new Material(_shader);
+            var mat = SkeletonMaterial();
+            if (mat == null) return;
             var atlasAsset = SpineAtlasAsset.CreateRuntimeInstance(new TextAsset(atlasText), textures, mat, true);
             var atlas = atlasAsset != null ? atlasAsset.GetAtlas() : null;
             if (atlas == null) return;
