@@ -167,6 +167,12 @@ func (s *server) handleExport(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "export template not found (sandbox project missing)", http.StatusInternalServerError)
 		return
 	}
+	iconGUIDs, err := templateIconGUIDs(tmpl)
+	if err != nil {
+		log.Printf("[export] template icon metadata: %v", err)
+		http.Error(w, "cannot read template icon metadata", http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.zip"`, folder))
@@ -238,7 +244,7 @@ func (s *server) handleExport(w http.ResponseWriter, r *http.Request) {
 			data = []byte(bootSource(cfg))
 		case settingsRel:
 			raw, _ := os.ReadFile(path)
-			data = patchProjectSettings(raw, cfg)
+			data = patchProjectSettings(raw, cfg, iconGUIDs)
 		case manifestRel:
 			raw, _ := os.ReadFile(path)
 			if cfg.BundleEngine {
@@ -657,9 +663,37 @@ namespace Game
 `
 }
 
-// patchProjectSettings rewrites product/company name and bundle id in the
-// ProjectSettings.asset YAML.
-func patchProjectSettings(raw []byte, cfg exportConfig) []byte {
+// templateIconGUIDs identifies the template's PNG icons, which the asset
+// whitelist excludes. Read metadata before writing any part of the export.
+func templateIconGUIDs(tmpl string) (map[string]bool, error) {
+	dir := filepath.Join(tmpl, "Assets", "Icon")
+	entries, err := os.ReadDir(dir)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	guids := map[string]bool{}
+	re := regexp.MustCompile(`(?m)^guid:[ \t]*([0-9a-fA-F]{32})[ \t]*\r?$`)
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".png.meta") {
+			continue
+		}
+		raw, err := os.ReadFile(filepath.Join(dir, entry.Name()))
+		if err != nil {
+			return nil, err
+		}
+		if m := re.FindSubmatch(raw); m != nil {
+			guids[strings.ToLower(string(m[1]))] = true
+		}
+	}
+	return guids, nil
+}
+
+// patchProjectSettings rewrites product/company name and bundle id, and clears
+// references to excluded template icons in the ProjectSettings.asset YAML.
+func patchProjectSettings(raw []byte, cfg exportConfig, iconGUIDs map[string]bool) []byte {
 	out := string(raw)
 	name := sanitizeName(cfg.Name, "LvnGame")
 	company := sanitizeName(cfg.Company, "LvnStudio")
@@ -684,7 +718,56 @@ func patchProjectSettings(raw []byte, cfg exportConfig) []byte {
 				ReplaceAllString(out, repl)
 		}
 	}
-	return []byte(out)
+	if len(iconGUIDs) == 0 {
+		return []byte(out)
+	}
+
+	// Edit only Unity's icon fields, without reserializing unrelated settings.
+	// Splitting on LF preserves the original CRLF endings and final newline.
+	icon := regexp.MustCompile(`^([ \t]*(?:- )?m_Icon:[ \t]*)\{fileID: 2800000, guid: ([0-9a-fA-F]{32}), type: 3\}([ \t]*\r?)$`)
+	textures := regexp.MustCompile(`^([ \t]*)(- )?m_Textures:[ \t]*\r?$`)
+	texture := regexp.MustCompile(`^- \{fileID: 2800000, guid: ([0-9a-fA-F]{32}), type: 3\}[ \t]*\r?$`)
+	lines := strings.Split(out, "\n")
+	cleaned := make([]string, 0, len(lines))
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+		if m := icon.FindStringSubmatch(line); m != nil && iconGUIDs[strings.ToLower(m[2])] {
+			line = m[1] + "{fileID: 0}" + m[3]
+		}
+		cleaned = append(cleaned, line)
+		m := textures.FindStringSubmatch(line)
+		if m == nil {
+			continue
+		}
+		header := len(cleaned) - 1
+		keyIndent := len(m[1]) + len(m[2])
+		removed, kept := 0, 0
+		for i+1 < len(lines) {
+			next := lines[i+1]
+			item := strings.TrimLeft(next, " \t")
+			// Unity writes sequence entries at the key's indentation. Also
+			// accept indented entries, but never consume a sibling icon block.
+			if len(next)-len(item) < keyIndent || !strings.HasPrefix(item, "- ") {
+				break
+			}
+			i++
+			if ref := texture.FindStringSubmatch(item); ref != nil && iconGUIDs[strings.ToLower(ref[1])] {
+				removed++
+				continue
+			}
+			cleaned = append(cleaned, next)
+			kept++
+		}
+		if removed > 0 && kept == 0 {
+			cleaned[header] = strings.Replace(line, "m_Textures:", "m_Textures: []", 1)
+		}
+		if removed > 0 && i == len(lines)-1 && !strings.HasSuffix(lines[i], "\r") {
+			// Removing an unterminated final entry must not leave half a CRLF.
+			last := len(cleaned) - 1
+			cleaned[last] = strings.TrimSuffix(cleaned[last], "\r")
+		}
+	}
+	return []byte(strings.Join(cleaned, "\n"))
 }
 
 // localizeManifest оставляет пакеты движка локальными, но переписывает путь:

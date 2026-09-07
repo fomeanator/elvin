@@ -3,6 +3,7 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -143,7 +144,7 @@ func TestExportBundleIdReplacesTheWholeBlockIncludingAndroid(t *testing.T) {
 		"  defaultCursor: {fileID: 0}\n")
 	got := string(patchProjectSettings(raw, exportConfig{
 		Name: "MyGame", Company: "Me", BundleID: "com.me.mygame",
-	}))
+	}, nil))
 
 	if strings.Count(got, "com.old.sandbox") != 0 {
 		t.Errorf("старый идентификатор остался:\n%s", got)
@@ -162,6 +163,68 @@ func TestExportBundleIdReplacesTheWholeBlockIncludingAndroid(t *testing.T) {
 	}
 	if !strings.Contains(got, "productName: MyGame") {
 		t.Errorf("имя продукта не подставлено:\n%s", got)
+	}
+}
+
+func TestPatchProjectSettingsPreservesUnrelatedData(t *testing.T) {
+	const ref = "{fileID: 2800000, guid: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, type: 3}"
+	const retained = "{fileID: 2800000, guid: dddddddddddddddddddddddddddddddd, type: 3}"
+	for _, tc := range []struct {
+		name, raw, want string
+	}{
+		{
+			name: "icon_spacing",
+			raw:  "      m_Icon: " + ref + "  \n",
+			want: "      m_Icon: {fileID: 0}  \n",
+		},
+		{
+			name: "empty_textures_at_eof",
+			raw:  "    - m_Textures:\n      - " + ref,
+			want: "    - m_Textures: []",
+		},
+		{
+			name: "indented_textures",
+			raw:  "  m_Textures:  \n    - " + ref + "\n  next: 1\n",
+			want: "  m_Textures: []  \n  next: 1\n",
+		},
+		{
+			name: "null_and_retained_textures",
+			raw:  "    - m_Textures:\n      - " + ref + "\n      - {fileID: 0}\n      - " + retained + "\n",
+			want: "    - m_Textures:\n      - {fileID: 0}\n      - " + retained + "\n",
+		},
+		{
+			name: "retained_textures_at_eof",
+			raw:  "    - m_Textures:\n      - " + retained + "\n      - " + ref,
+			want: "    - m_Textures:\n      - " + retained,
+		},
+		{
+			name: "unrelated_fields_and_lists",
+			raw: "  defaultCursor: " + ref + "\n  otherAssets:\n  - " + ref +
+				"\n  m_Icon: " + retained + "\n  m_Textures: []\n  nextAssets:\n  - " + ref + "\n",
+		},
+		{
+			name: "other_reference_types",
+			raw: "  m_Icon: {fileID: 4800000, guid: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, type: 3}\n" +
+				"  m_Textures:\n  - {fileID: 2800000, guid: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, type: 2}\n",
+		},
+	} {
+		for _, eol := range []string{"\n", "\r\n"} {
+			t.Run(tc.name+"/"+fmt.Sprintf("%q", eol), func(t *testing.T) {
+				raw := strings.ReplaceAll(tc.raw, "\n", eol)
+				want := tc.want
+				if want == "" {
+					want = tc.raw
+				}
+				want = strings.ReplaceAll(want, "\n", eol)
+				got := patchProjectSettings([]byte(raw), exportConfig{}, map[string]bool{"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": true})
+				if string(got) != want {
+					t.Fatalf("got %q, want %q", got, want)
+				}
+				if unchanged := patchProjectSettings([]byte(raw), exportConfig{}, nil); string(unchanged) != raw {
+					t.Fatalf("empty GUID set changed settings: %q", unchanged)
+				}
+			})
+		}
 	}
 }
 
@@ -266,6 +329,192 @@ func TestExportIconRefusesEscapesAndNonImages(t *testing.T) {
 	}
 	if _, ok := s.exportIcon(""); ok {
 		t.Error("пустой путь — просто нет иконки")
+	}
+}
+
+// Every asset reference in exported ProjectSettings must resolve to an asset
+// and its .meta in the ZIP, including references unrelated to app icons.
+func TestExportProjectSettingsReferencesOnlyArchivedAssets(t *testing.T) {
+	const prefix = `PlayerSettings:
+  productName: Game
+  companyName: Studio
+  applicationIdentifier:
+    Android: com.example.game
+  defaultCursor: {fileID: 2800000, guid: dddddddddddddddddddddddddddddddd, type: 3}
+  preloadedAssets:
+  - {fileID: 4800000, guid: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, type: 3}
+`
+	const icons = `  m_BuildTargetIcons:
+  - m_BuildTarget:
+    m_Icons:
+    - serializedVersion: 2
+      m_Icon: {fileID: 2800000, guid: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, type: 3}
+      m_Width: 128
+    - serializedVersion: 2
+      m_Icon: {fileID: 2800000, guid: dddddddddddddddddddddddddddddddd, type: 3}
+      m_Width: 64
+  m_BuildTargetPlatformIcons:
+  - m_BuildTarget: iPhone
+    m_Icons:
+    - m_Textures: []
+      m_Kind: 0
+  - m_BuildTarget: Android
+    m_Icons:
+    - m_Textures:
+      - {fileID: 2800000, guid: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, type: 3}
+      - {fileID: 2800000, guid: cccccccccccccccccccccccccccccccc, type: 3}
+      m_Kind: 2
+    - m_Textures:
+      - {fileID: 2800000, guid: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, type: 3}
+      m_Kind: 1
+    - m_Textures:
+      - {fileID: 2800000, guid: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, type: 3}
+      m_Kind: 0
+    - m_Textures:
+      - {fileID: 2800000, guid: dddddddddddddddddddddddddddddddd, type: 3}
+      - {fileID: 2800000, guid: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, type: 3}
+      - {fileID: 2800000, guid: dddddddddddddddddddddddddddddddd, type: 3}
+      m_Kind: 2
+`
+	const cleanIcons = `  m_BuildTargetIcons:
+  - m_BuildTarget:
+    m_Icons:
+    - serializedVersion: 2
+      m_Icon: {fileID: 0}
+      m_Width: 128
+    - serializedVersion: 2
+      m_Icon: {fileID: 2800000, guid: dddddddddddddddddddddddddddddddd, type: 3}
+      m_Width: 64
+  m_BuildTargetPlatformIcons:
+  - m_BuildTarget: iPhone
+    m_Icons:
+    - m_Textures: []
+      m_Kind: 0
+  - m_BuildTarget: Android
+    m_Icons:
+    - m_Textures: []
+      m_Kind: 2
+    - m_Textures: []
+      m_Kind: 1
+    - m_Textures: []
+      m_Kind: 0
+    - m_Textures:
+      - {fileID: 2800000, guid: dddddddddddddddddddddddddddddddd, type: 3}
+      - {fileID: 2800000, guid: dddddddddddddddddddddddddddddddd, type: 3}
+      m_Kind: 2
+`
+	const suffix = "  m_BuildTargetBatching: []\n  runInBackground: 0\n"
+	for _, tc := range []struct {
+		name          string
+		templateIcons bool
+		authorIcon    bool
+	}{
+		{name: "author_icon", templateIcons: true, authorIcon: true},
+		{name: "no_author_icon", templateIcons: true},
+		{name: "no_icon_directory", authorIcon: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpl, content := t.TempDir(), t.TempDir()
+			put := func(root, rel, body string) {
+				t.Helper()
+				path := filepath.Join(root, filepath.FromSlash(rel))
+				if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			put(tmpl, "Assets/Sandbox/Boot.cs", "// template entry point")
+			for rel, guid := range map[string]string{
+				"Assets/Resources/UI/cursor.png":   "dddddddddddddddddddddddddddddddd",
+				"Assets/Resources/UI/theme.shader": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+			} {
+				put(tmpl, rel, "retained asset")
+				put(tmpl, rel+".meta", "fileFormatVersion: 2\nguid: "+guid+"\n")
+			}
+			settings := prefix + cleanIcons + suffix
+			if tc.templateIcons {
+				settings = prefix + icons + suffix
+				for rel, guid := range map[string]string{
+					"app-icon.png":             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					"app-icon-fg.png":          "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					"alternate-background.png": "cccccccccccccccccccccccccccccccc",
+				} {
+					put(tmpl, "Assets/Icon/"+rel, "template icon")
+					put(tmpl, "Assets/Icon/"+rel+".meta", "fileFormatVersion: 2\nguid: "+guid+"\n")
+				}
+				// Only immediate *.png.meta files identify excluded icons.
+				put(tmpl, "Assets/Icon/notes.txt.meta", "guid: dddddddddddddddddddddddddddddddd\n")
+				put(tmpl, "Assets/Icon/nested/unused.png.meta", "guid: dddddddddddddddddddddddddddddddd\n")
+			}
+			put(tmpl, "ProjectSettings/ProjectSettings.asset", settings)
+			put(content, "art/app-icon.png", "author icon")
+			body := `{"name":"Game","company":"Studio"}`
+			if tc.authorIcon {
+				body = `{"name":"Game","company":"Studio","icon":"art/app-icon.png"}`
+			}
+			s := &server{content: content, templateDir: tmpl, adminToken: "devtoken"}
+			req := httptest.NewRequest(http.MethodPost, "/v1/export", strings.NewReader(body))
+			req.Header.Set("Authorization", "Bearer devtoken")
+			rec := httptest.NewRecorder()
+			s.handleExport(rec, req)
+			if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "application/zip" {
+				t.Fatalf("expected a ZIP response, got %d %s", rec.Code, rec.Body.String())
+			}
+			zr, err := zip.NewReader(bytes.NewReader(rec.Body.Bytes()), int64(rec.Body.Len()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			files := map[string]string{}
+			for _, f := range zr.File {
+				r, err := f.Open()
+				if err != nil {
+					t.Fatal(err)
+				}
+				data, err := io.ReadAll(r)
+				r.Close()
+				if err != nil {
+					t.Fatalf("read ZIP entry %s: %v", f.Name, err)
+				}
+				files[strings.TrimPrefix(f.Name, "Game/")] = string(data)
+			}
+			metaGUID := regexp.MustCompile(`(?m)^guid: ([0-9a-fA-F]{32})\r?$`)
+			archivedGUIDs := map[string]bool{}
+			for rel, data := range files {
+				if !strings.HasSuffix(rel, ".meta") {
+					continue
+				}
+				if _, ok := files[strings.TrimSuffix(rel, ".meta")]; !ok {
+					t.Errorf("ZIP contains %s without its asset", rel)
+					continue
+				}
+				if m := metaGUID.FindStringSubmatch(data); m != nil {
+					archivedGUIDs[strings.ToLower(m[1])] = true
+				}
+			}
+			got, ok := files["ProjectSettings/ProjectSettings.asset"]
+			if !ok {
+				t.Fatal("ZIP is missing ProjectSettings.asset")
+			}
+			for _, m := range regexp.MustCompile(`\bguid:\s*([0-9a-fA-F]{32})\b`).FindAllStringSubmatch(got, -1) {
+				if !archivedGUIDs[strings.ToLower(m[1])] {
+					t.Errorf("ProjectSettings references GUID %s with no asset and .meta in ZIP", m[1])
+				}
+			}
+			if want := prefix + cleanIcons + suffix; got != want {
+				t.Error("ProjectSettings must preserve all bytes except removed template icon references")
+			}
+			for rel, data := range files {
+				if strings.HasPrefix(rel, "Assets/Icon/") &&
+					(!tc.authorIcon || rel != "Assets/Icon/app-icon.png" || data != "author icon") {
+					t.Errorf("unexpected icon entry in ZIP: %s", rel)
+				}
+			}
+			if tc.authorIcon && files["Assets/Icon/app-icon.png"] != "author icon" {
+				t.Error("ZIP is missing the author's icon")
+			}
+		})
 	}
 }
 
