@@ -143,6 +143,43 @@ namespace Lvn.UI
 
         // Loads a Spine image (atlas page or container bg) preferring the
         // server's 2K variant, falling back to the full-size original.
+
+        /// <summary>
+        /// ЗАКРЫТЫЙ СПИСОК СЛОВ, А НЕ «ЧТО НАПИСАНО, ТО И БЕРЁМ».
+        ///
+        /// <para>Режим подгонки уходил в мост как есть, а мост берёт по
+        /// умолчанию «width» на всё, чего не узнал. Автор писал своё слово,
+        /// получал подгонку по ширине и никакого объяснения — и искал ошибку в
+        /// арте.</para>
+        ///
+        /// <para>Замер 07.09 на живом каталоге: у спайн-сущности стоит
+        /// <c>"fit": true</c> — не слово, а «да». Поле объявлено строкой,
+        /// значение приезжает как «True», не совпадает ни с одним режимом и
+        /// молча уходит в умолчание. Автор просил «подгоняй», а спросить,
+        /// КАК именно, никто не догадался.</para>
+        ///
+        /// <para>Правило записано у соседей: так проверяет своё слово
+        /// <c>pan</c> в VnStage.Background. Здесь оно применено к тому же
+        /// дому — <see cref="Lvn.UI.LvnClosedWord"/>, — и с указанием отката:
+        /// подгонка не пропадает, а идёт по ширине, и сказать надо именно
+        /// это.</para>
+        /// </summary>
+        internal static string SpineFit(string fit)
+        {
+            switch (fit)
+            {
+                case null:
+                case "":
+                case "width":
+                case "height":
+                case "cover":
+                case "contain":
+                    return fit;
+            }
+            Lvn.UI.LvnClosedWord.Unknown("spine.fit", fit,
+                "width | height | cover | contain", "width");
+            return null;
+        }
         private async Task<Sprite> LoadSpineImageAsync(string url, System.Threading.CancellationToken ct)
         {
             var variant = !_spineVariantUnavailable ? SpineVariantUrl(url) : null;
@@ -474,7 +511,7 @@ namespace Lvn.UI
                 // Real-time size: re-fit to the screen each command, so `scale`/
                 // `fit` resize the Spine on the fly. Refit BEFORE the fade so the
                 // reveal is already correctly sized.
-                LvnSpineBridge.Refit?.Invoke(existing, e.spine.scale, e.spine.fit);
+                LvnSpineBridge.Refit?.Invoke(existing, e.spine.scale, SpineFit(e.spine.fit));
                 SetSpineVisible(existing, show);
                 if (show) TouchSpine(id); // showing it makes it most-recent
             }
