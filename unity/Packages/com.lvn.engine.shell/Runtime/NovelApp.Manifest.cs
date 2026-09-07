@@ -43,14 +43,17 @@ namespace Lvn.UI.Screens
             // Manifest: fresh from the server when online (cached for next time), else
             // the last cached copy — so a previously-online install still plays offline.
             LvnManifest manifest = null;
+            Exception manifestFailure = null;
             if (online)
             {
                 try { manifest = await manifestTask; CacheManifest(manifest); }
                 catch (Exception ex)
                 {
-                    Debug.LogWarning($"[lvn-app] manifest fetch failed: {ex.Message} — falling back to cache");
+                    manifestFailure = ex;
+                    LogManifestFailure(ex, "fetch failed — falling back to cache");
                     online = false;
-                    LvnNetworkStatus.MarkOffline("manifest fetch failed");
+                    if (ManifestRecovery.KindFor(ex) == ManifestFailureKind.Network)
+                        LvnNetworkStatus.MarkOffline("manifest fetch failed");
                 }
             }
             else
@@ -73,20 +76,24 @@ namespace Lvn.UI.Screens
                     online = true;
                     LvnNetworkStatus.MarkOnline("boot manifest arrived despite failed probe");
                 }
-                catch { /* genuinely unreachable — recovery loop below */ }
+                catch (Exception ex)
+                {
+                    if (!ReferenceEquals(manifestFailure, ex)) LogManifestFailure(ex, "fetch failed");
+                    manifestFailure = ex;
+                }
             }
             if (manifest == null)
             {
-                // A fresh install that can't reach the server is NOT a dead end:
-                // hold on the veil and keep retrying — the moment the network
-                // appears the app boots itself, no restart needed.
-                Debug.LogWarning("[lvn-app] no manifest and no cache — holding boot for connectivity");
+                // Keep the veil responsive, but describe the actual failure:
+                // a broken initializer cannot be fixed by reconnecting.
+                Debug.LogWarning("[lvn-app] no manifest and no cache — holding boot for recovery");
                 for (int attempt = 1; manifest == null; attempt++)
                 {
-                    BootVeil.Status(LvnWords.Of("boot.reconnecting", "no connection to the server — reconnecting… ({n})", attempt));
+                    var kind = ManifestRecovery.KindFor(manifestFailure);
+                    BootVeil.Status(ManifestFailureMessage(kind, attempt));
                     // Компонент умер (смена сцены, снос встраивателем) — уходим
                     // без манифеста: вызывающий это увидит и прекратит загрузку.
-                    try { await Task.Delay(5000, _quitting); }
+                    try { await Task.Delay((int)(ManifestRecovery.PauseSeconds(kind, attempt) * 1000f), _quitting); }
                     catch (OperationCanceledException) { return (null, online); }
                     try
                     {
@@ -97,7 +104,8 @@ namespace Lvn.UI.Screens
                     }
                     catch (Exception ex)
                     {
-                        LvnLog.Info($"[lvn-app] manifest retry {attempt}: {ex.Message}");
+                        manifestFailure = ex;
+                        LogManifestFailure(ex, $"retry {attempt}");
                     }
                 }
                 mark("manifest (recovered)");
@@ -105,6 +113,26 @@ namespace Lvn.UI.Screens
             }
             return (manifest, online);
         }
+        private static void LogManifestFailure(Exception error, string phase)
+        {
+            if (ManifestRecovery.KindFor(error) == ManifestFailureKind.Network)
+                LvnLog.Info($"[lvn-app] manifest {phase}: {error.Message}");
+            else
+                LvnLog.Error($"[lvn-app] manifest {phase}: {error}");
+        }
+
+        // Слова берутся у каталога — ровно тем же способом, что и всё
+        // остальное в движке. Своей развилки по языку здесь НЕ ЗАВОДИМ: до
+        // манифеста каталога ещё нет, и подпись выйдет английской. Это
+        // отдельный пробел вуали (её первые слова непереводимы в принципе),
+        // и лечить его подстановкой одного языка в языконезависимый движок
+        // значило бы завести второй путь локализации рядом с настоящим.
+        private static string ManifestFailureMessage(ManifestFailureKind kind, int attempt)
+            => kind == ManifestFailureKind.Network
+                ? LvnWords.Of("boot.reconnecting", "no connection to the server — reconnecting… ({n})", attempt)
+                : LvnWords.Of("boot.app_error",
+                    "The app ran into an error. This is not a connection problem. Please restart the app.");
+
         /// <summary>
         /// ЧЕМУ ДОМА УЧАТСЯ У МАНИФЕСТА — одним списком, а не двумя.
         ///
@@ -160,7 +188,7 @@ namespace Lvn.UI.Screens
                     var json = await _assets.Loader.DownloadScriptText("/v1/content/manifest", default, singleAttempt: true);
                     return Newtonsoft.Json.JsonConvert.DeserializeObject<LvnManifest>(json) ?? new LvnManifest();
                 }
-                catch (Exception ex) when (attempt < 3)
+                catch (LvnFetchException ex) when (attempt < 3)
                 {
                     // Пауза перед повтором — по общему правилу движка
                     // (LvnBackoff), а не своя лесенка: «сколько ждать» не может

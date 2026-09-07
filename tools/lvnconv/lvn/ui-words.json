@@ -84,6 +84,10 @@
   "default": "This week"
  },
  {
+  "key": "boot.app_error",
+  "default": "The app ran into an error. This is not a connection problem. Please restart the app."
+ },
+ {
   "key": "boot.connecting",
   "default": "connecting…"
  },
