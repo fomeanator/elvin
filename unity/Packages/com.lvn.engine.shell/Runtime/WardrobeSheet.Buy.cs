@@ -49,7 +49,34 @@ namespace Lvn.UI.Screens
         // купленной, тогда как язык (has_item) считал её отсутствующей.
         private bool IsOwnedIn(string axis, LvnWardrobeItem item) =>
             item == null || item.price <= 0
-            || LvnWallet.Has(LvnWardrobe.Sku(_entity, axis, item.value));
+            || (axis == BackdropAxis
+                    ? OwnsBackdrop(_entity, item.value)
+                    : LvnWallet.Has(LvnWardrobe.Sku(OwnerOf(axis), axis, item.value)));
+
+        /// <summary>ЕДИНСТВЕННОЕ место, где решается «полотно куплено».
+        /// Имя товара для фона трижды за день собирали по-разному в разных
+        /// углах (покупка — на персонажа, проверки — на общего владельца), и
+        /// каждый развод стоил игроку денег: кнопка снова звала «Купить».
+        /// Спрашивать владение фоном можно только отсюда.</summary>
+        internal static bool OwnsBackdrop(string entity, string id)
+        {
+            if (string.IsNullOrEmpty(id)) return false;
+            if (LvnWallet.Has(LvnWardrobe.Sku(BackdropOwner, BackdropAxis, id))) return true;
+            if (!string.IsNullOrEmpty(entity)
+                && LvnWallet.Has(LvnWardrobe.Sku(entity, BackdropAxis, id))) return true;
+            // ЧЕК ЛЮБОГО ВЛАДЕЛЬЦА ГОДИТСЯ. Полотно у героев ОБЩЕЕ (владелец
+            // товара — BackdropOwner), но покупки до 08.09 писались на
+            // персонажа, и такой чек видел только он сам: игрок переключался на
+            // Матвея и снова платил за картину, купленную Викторией (живой лог
+            // Ильи 08.09 — 1240→1220→1200→1180 за уже оплаченные фоны).
+            // Чужой чек за ТУ ЖЕ картину — это оплата, а не чужое имущество.
+            string tail = ":" + BackdropAxis + ":" + id;
+            foreach (var kv in LvnWallet.Inventory)
+                if (kv.Value > 0
+                    && kv.Key.StartsWith("wardrobe:", System.StringComparison.Ordinal)
+                    && kv.Key.EndsWith(tail, System.StringComparison.Ordinal)) return true;
+            return false;
+        }
 
         // Предмет уже принадлежит игроку: бесплатный или лежит в инвентаре
         // кошелька. Правило одно и живёт в IsOwnedIn; здесь — «на активной
@@ -89,13 +116,13 @@ namespace Lvn.UI.Screens
 
         private bool HasPendingLook()
         {
-            if (_def?.wardrobe == null) return false;
+            if (_slots == null) return false;
             // НАРОЧНО мимо костюмера: вопрос «есть ли НЕПОДТВЕРЖДЁННАЯ примерка».
             // Лесенка ответила бы и про надетое — то есть «да» там, где игрок
             // ничего не менял, и кнопка вечно предлагала бы подтвердить.
             foreach (var kv in LvnWardrobe.Previewed(_entity))
             {
-                if (!_def.wardrobe.ContainsKey(kv.Key)) continue;
+                if (!_slots.ContainsKey(kv.Key)) continue;
                 if (_autoDressed.TryGetValue(kv.Key, out var auto) && auto == kv.Value) continue;
                 var worn = LvnCostumer.Committed(_entity, kv.Key, _def.defaults);
                 // «Ничего не надето» и примерка пункта «Нет» — одно состояние:
@@ -203,7 +230,7 @@ namespace Lvn.UI.Screens
                     LvnWardrobe.Equip(_entity, kv.Key, kv.Value);
                     // Write the pick back into the novel's story state (nested var) so
                     // its downstream logic reads the choice — only for axes bound to one.
-                    string sv = _def?.wardrobe != null && _def.wardrobe.TryGetValue(kv.Key, out var slot)
+                    string sv = _slots != null && _slots.TryGetValue(kv.Key, out var slot)
                         ? slot.storyVar : null;
                     if (!string.IsNullOrEmpty(sv)) OnEquip?.Invoke(_entity, sv, kv.Value);
                 }
@@ -231,7 +258,12 @@ namespace Lvn.UI.Screens
         // обновить на экране после успеха.
         private async Task BuyCurrentAsync(string axis, LvnWardrobeItem item)
         {
-            var sku = LvnWardrobe.Sku(_entity, axis, item.value);
+            // ВЛАДЕЛЕЦ ТОТ ЖЕ, ЧТО У ПРОВЕРКИ. Здесь стоял _entity, а
+            // IsOwnedIn спрашивал общего владельца — куплено под одним именем,
+            // спрошено под другим, «не куплено» навсегда, и кнопка списывала
+            // деньги СНОВА на каждое нажатие (живой лог Ильи 08.09: 60→40→20→0
+            // за один и тот же фон). Имя товара обязано собираться одинаково.
+            var sku = LvnWardrobe.Sku(OwnerOf(axis), axis, item.value);
             LvnLog.Trace($"[lvn-wardrobe] buying {sku}: {item.price} {item.currency ?? "(null currency!)"}");
 
             // В попапе значок не нарисуешь — здесь фраза, и валюта в ней стоит

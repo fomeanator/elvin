@@ -134,11 +134,49 @@ namespace Lvn.UI.Screens
             });
         }
 
+        /// <summary>«Во весь рост» просит убрать ХРОМ ОБОЛОЧКИ (навбар, шапку,
+        /// кружок). Экран до него не дотягивается сам и не должен: чужие слои
+        /// прячет их хозяин. Ставит оболочка при рождении вкладки.</summary>
+        public System.Action<bool> PeekChrome;
+
         private void SetPeek(bool on)
         {
             _peeking = on;
-            _panel.style.display = on ? DisplayStyle.None : DisplayStyle.Flex;
             pickingMode = on ? PickingMode.Position : PickingMode.Ignore;
+            // КАДР ОСВОБОЖДАЕТСЯ ЦЕЛИКОМ. Уезжала одна плашка листа, а навбар
+            // с шапкой оставались поверх куклы — «нажимаю на полный экран, не
+            // скрывается нижнее меню и навбар» (Илья 08.09). «Во весь рост»
+            // означает рост целиком, а не «лист уехал».
+            PeekChrome?.Invoke(on);
+            LvnAsync.Fire(PeekAsync(on), "WardrobePeek");
+        }
+
+        private int _peekEpoch;
+
+        /// <summary>ПЛАШКА УЕЗЖАЕТ, А НЕ ПРОПАДАЕТ. «Во весь рост» переключало
+        /// <c>display</c>, и половина экрана исчезала между кадрами — это
+        /// читается как сбой, а не как жест (Илья). Теперь она уходит вниз,
+        /// растворяясь, и так же возвращается; из РАСКЛАДКИ убираем только
+        /// после ухода — иначе кукла дёрнется в первый же кадр.</summary>
+        private async System.Threading.Tasks.Task PeekAsync(bool on)
+        {
+            if (_panel == null) return;
+            // Сторож поколения: по плашке можно щёлкать быстрее, чем идёт ход,
+            // и два хода иначе доводили бы её каждый к своему концу.
+            int mine = ++_peekEpoch;
+            const float Drop = 28f;
+            if (!on) _panel.style.display = DisplayStyle.Flex;   // вернуть ДО проявления
+            await LvnMotion.PlayAsync(_panel, LvnMotion.Normal, (e, p) =>
+            {
+                if (mine != _peekEpoch) return;
+                float k = on ? p : 1f - p;      // k: 0 — на месте, 1 — убрана
+                e.style.opacity = 1f - k;
+                e.style.translate = new Translate(0, Drop * k);
+            });
+            if (mine != _peekEpoch) return;     // нас обогнал следующий ход
+            _panel.style.opacity = on ? 0f : 1f;
+            _panel.style.translate = new Translate(0, on ? Drop : 0f);
+            if (on) _panel.style.display = DisplayStyle.None;
         }
 
         private void EnsureSheet()
