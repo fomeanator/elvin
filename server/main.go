@@ -887,7 +887,11 @@ func (s *server) handleState(w http.ResponseWriter, r *http.Request) {
 		// gets a 409 (with the current doc) when another device wrote in between,
 		// so it can merge instead of silently clobbering hours of progress. A
 		// legacy client that sends no version keeps the old last-write-wins.
-		clientVer, hasVer := extractVersion(body)
+		clientVer, hasVer, err := extractVersion(body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		cur, exists := s.loadState(user)
 		if hasVer && exists && clientVer != cur.version {
 			writeJSON409(w, cur)
@@ -1002,21 +1006,23 @@ func withVersion(doc []byte, version int64) []byte {
 	return out
 }
 
-// extractVersion pulls the client-echoed "_version" from a PUT body.
-func extractVersion(body []byte) (int64, bool) {
+// extractVersion pulls the client-echoed "_version" from a PUT body. Only an
+// absent field opts out of version checks; a present but invalid value is an error.
+func extractVersion(body []byte) (int64, bool, error) {
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(body, &m); err != nil {
-		return 0, false
+		return 0, false, nil
 	}
 	raw, ok := m["_version"]
 	if !ok {
-		return 0, false
+		return 0, false, nil
 	}
-	var v int64
-	if err := json.Unmarshal(raw, &v); err != nil {
-		return 0, false
+	// A pointer distinguishes JSON null from the valid integer zero.
+	var v *int64
+	if err := json.Unmarshal(raw, &v); err != nil || v == nil {
+		return 0, true, fmt.Errorf("_version must be an integer")
 	}
-	return v, true
+	return *v, true, nil
 }
 
 // stripVersion removes the transport-only "_version" field before storing.
