@@ -26,6 +26,38 @@ namespace Lvn.Content
             _seedLoad = LoadSeedIndexAsync();
         }
 
+        /// <summary>Read an optional file from the seed root, independently of
+        /// the content index. Missing seed/files return null. Callers choose
+        /// when this bundled copy may be used instead of server content.</summary>
+        public async Task<string> ReadSeedTextAsync(string name)
+        {
+            if (string.IsNullOrEmpty(name) || name == "." || name == ".."
+                || name.IndexOfAny(new[] { '/', '\\', ':', '?', '#' }) >= 0)
+                throw new ArgumentException("Expected a file name in the seed root", nameof(name));
+            if (_seedBase == null) return null;
+            try
+            {
+                // БЕЗ КОДИРОВАНИЯ, И ЭТО НЕ УПУЩЕНИЕ. База сида — file:// или
+                // jar:file://, путь оттуда уходит в чтение с диска: «%20»
+                // означал бы там файл, которого нет. Правило записано рядом,
+                // в ResolveUrl («кодируем ТОЛЬКО сетевой адрес»), и куплено
+                // офлайн-сборкой без картинок. Имя выше уже проверено — оно
+                // без разделителей, выйти из корня сида им нельзя.
+                var raw = await FetchLocalAsync(_seedBase + "/" + name);
+                if (raw == null)
+                {
+                    LvnLog.Warn($"[lvn-content] optional seed file unavailable: {name}");
+                    return null;
+                }
+                return Encoding.UTF8.GetString(raw);
+            }
+            catch (Exception ex)
+            {
+                LvnLog.Warn($"[lvn-content] seed file read failed ({name}): {ex}");
+                return null;
+            }
+        }
+
         private async Task LoadSeedIndexAsync()
         {
             try

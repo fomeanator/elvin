@@ -25,12 +25,11 @@ namespace Lvn.UI.Screens
     {
         /// <summary>
         /// Достать манифест — свежий с сервера, иначе последний сохранённый,
-        /// иначе дождаться сети.
+        /// иначе из набора в сборке; если и его нет — дождаться сети.
         ///
-        /// <para>Три исхода, и каждый существует не зря: сеть есть — берём и
-        /// кладём в кэш; сети нет, но кэш есть — играем офлайн; нет ни того, ни
-        /// другого — держим вуаль и ждём, потому что свежая установка без сети
-        /// это НЕ тупик: появится сеть — приложение стартует само.</para>
+        /// <para>Сеть есть — берём и кладём в кэш; сети нет, но кэш есть —
+        /// играем офлайн. На первой установке после отказа запроса пробуем
+        /// манифест из сида. Если и его нет — держим вуаль и ждём сеть.</para>
         ///
         /// <para>Средний случай тонкий: проба связи могла соврать (её трёхсекундный
         /// срок проиграл медленному первому запуску), пока сам запрос манифеста
@@ -80,6 +79,27 @@ namespace Lvn.UI.Screens
                 {
                     if (!ReferenceEquals(manifestFailure, ex)) LogManifestFailure(ex, "fetch failed");
                     manifestFailure = ex;
+                }
+            }
+            if (ManifestSeedFallback.ShouldTry(manifestFailure != null, manifest != null))
+            {
+                var json = await _assets.Loader.ReadSeedTextAsync("manifest.json");
+                if (!string.IsNullOrEmpty(json))
+                {
+                    try
+                    {
+                        manifest = Newtonsoft.Json.JsonConvert.DeserializeObject<LvnManifest>(json);
+                        if (manifest != null)
+                        {
+                            online = false;
+                            LvnLog.Info("[lvn-app] starting offline from the bundled seed manifest");
+                        }
+                        else LvnLog.Warn("[lvn-app] seed manifest is null — continuing recovery");
+                    }
+                    catch (Newtonsoft.Json.JsonException ex)
+                    {
+                        LvnLog.Warn($"[lvn-app] seed manifest parse failed — continuing recovery: {ex}");
+                    }
                 }
             }
             if (manifest == null)
