@@ -151,6 +151,46 @@ namespace Lvn.UI
             = new Dictionary<string, Dictionary<string, HashSet<string>>>();
         private const string PSeen = "lvn_wardrobe_seen_";
 
+        /// <summary>
+        /// ГАРДЕРОБ ОДНОГО ИГРОКА НЕ ДОСТАЁТСЯ ДРУГОМУ.
+        ///
+        /// <para>Правило записано в <see cref="LvnKeep"/>: ключи без приставки
+        /// принадлежат тому, кто вошёл здесь ПЕРВЫМ, любой другой аккаунт
+        /// получает своё пространство. Сейвы, прогресс, галерея и «прочитано»
+        /// его соблюдают — гардероб не звал <c>Scoped</c> ни разу, и на общем
+        /// телефоне второй игрок открывал его с нарядом первого, включая то, за
+        /// что не платил; переодевшись, затирал чужой.</para>
+        ///
+        /// <para>Второе следствие тише и хуже: <c>Scoped</c> попутно вносит ключ
+        /// в реестр личных данных, по которому исполняется «удалите меня».
+        /// Голый ключ туда не попадал.</para>
+        ///
+        /// <para>У первого владельца ключ прежний (<c>Scoped</c> отдаёт
+        /// <c>prefix + name</c>), так что ни один существующий гардероб не
+        /// переезжает и не теряется.</para>
+        /// </summary>
+        private static string Key(string entity) => LvnKeep.Scoped(P, entity);
+        private static string SeenKey(string entity) => LvnKeep.Scoped(PSeen, entity);
+
+        /// <summary>
+        /// ПАМЯТЬ ПРОЦЕССА ТОЖЕ ПРИНАДЛЕЖИТ ВЛАДЕЛЬЦУ.
+        ///
+        /// <para>Разведённых ключей мало: смена аккаунта игру НЕ ПЕРЕЗАПУСКАЕТ,
+        /// и уже прочитанный наряд лежит в <c>_cache</c>/<c>_seen</c>. Без
+        /// сброса второй игрок получал бы чужое из памяти при совершенно
+        /// правильных ключах — отказ, который на дисковых проверках невидим.</para>
+        /// </summary>
+        private static string _cachedFor;
+        private static void DropCacheOnOwnerChange()
+        {
+            var owner = LvnKeep.Owner ?? "";
+            if (_cachedFor == owner) return;
+            _cachedFor = owner;
+            _cache.Clear();
+            _seen.Clear();
+            _previews.Clear();
+        }
+
         /// <summary>Record that an outfit value crossed the player's path
         /// (an actor wore it, or a story wardrobe offered it).</summary>
         public static void MarkSeen(string entity, string axis, string value)
@@ -180,9 +220,10 @@ namespace Lvn.UI
 
         private static Dictionary<string, HashSet<string>> LoadSeen(string entity)
         {
+            DropCacheOnOwnerChange();
             if (_seen.TryGetValue(entity, out var map)) return map;
             map = new Dictionary<string, HashSet<string>>();
-            var json = LvnKeep.Get(PSeen + entity, "");
+            var json = LvnKeep.Get(SeenKey(entity), "");
             if (!string.IsNullOrEmpty(json))
             {
                 try
@@ -211,7 +252,7 @@ namespace Lvn.UI
                 foreach (var v in kv.Value) arr.Add(v);
                 doc[kv.Key] = arr;
             }
-            LvnKeep.Jot(PSeen + entity, doc.ToString(Newtonsoft.Json.Formatting.None));
+            LvnKeep.Jot(SeenKey(entity), doc.ToString(Newtonsoft.Json.Formatting.None));
             // Без немедленного Save(): первое открытие сюжетного листа метит
             // ВЕСЬ каталог разом, и полный флаш prefs-файла на каждый предмет
             // складывался в один длинный кадр прямо перед подъёмом панели
@@ -228,8 +269,8 @@ namespace Lvn.UI
             _seen.Remove(entity);
             using (LvnKeep.Batch())
             {
-                LvnKeep.Drop(P + entity);
-                LvnKeep.Drop(PSeen + entity);
+                LvnKeep.Drop(Key(entity));
+                LvnKeep.Drop(SeenKey(entity));
             }
             Changed?.Invoke(entity);
         }
@@ -237,9 +278,10 @@ namespace Lvn.UI
         private static Dictionary<string, string> Load(string entity)
         {
             if (string.IsNullOrEmpty(entity)) return new Dictionary<string, string>();
+            DropCacheOnOwnerChange();
             if (_cache.TryGetValue(entity, out var map)) return map;
             map = new Dictionary<string, string>();
-            var json = LvnKeep.Get(P + entity, "");
+            var json = LvnKeep.Get(Key(entity), "");
             if (!string.IsNullOrEmpty(json))
             {
                 try
@@ -261,7 +303,7 @@ namespace Lvn.UI
         {
             var doc = new Newtonsoft.Json.Linq.JObject();
             foreach (var kv in map) doc[kv.Key] = kv.Value;
-            LvnKeep.Put(P + entity, doc.ToString(Newtonsoft.Json.Formatting.None));
+            LvnKeep.Put(Key(entity), doc.ToString(Newtonsoft.Json.Formatting.None));
         }
     }
 }
