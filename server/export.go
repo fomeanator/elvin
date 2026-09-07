@@ -545,6 +545,12 @@ func (s *server) bundleIntroSeed(zw *zip.Writer, folder string) {
 		return
 	}
 	base := folder + "/Assets/StreamingAssets/lvn-seed"
+	// Boot fallback only: never place the manifest under content/ or in the
+	// seed index. The ordinary seed path has no expected manifest hash and
+	// would otherwise keep serving this bundled copy ahead of the live server.
+	if zf, cerr := zw.Create(base + "/manifest.json"); cerr == nil {
+		_, _ = zf.Write(raw)
+	}
 	var index []string
 	seen := map[string]bool{}
 	for u := range urls {

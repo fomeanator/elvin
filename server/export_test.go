@@ -3,6 +3,7 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -562,6 +563,80 @@ func TestExportSkipsBuildOutputWhateverTheCase(t *testing.T) {
 			t.Errorf("каталог %s должен исключаться из экспорта", dir)
 		}
 	}
+}
+
+func TestExportOnlineSeedManifest(t *testing.T) {
+	tmpl, content := t.TempDir(), t.TempDir()
+	plantTree(t, tmpl, "Assets/Sandbox/Boot.cs")
+	plantTree(t, content, "scripts/intro.lvn", "bg/intro.png")
+	manifest := `{
+		"titles":[{"id":"intro","type":"intro","seasons":[{"chapters":[{
+			"id":"intro-1","script_url":"/content/scripts/intro.lvn",
+			"assets":{"/content/bg/intro.png":{"critical":true}}
+		}]}]}]
+	}`
+	if err := os.WriteFile(filepath.Join(content, "manifest.json"), []byte(manifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := &server{content: content, templateDir: tmpl, adminToken: "devtoken"}
+	req := httptest.NewRequest(http.MethodPost, "/v1/export", strings.NewReader(`{"name":"Game","offline":false}`))
+	req.Header.Set("Authorization", "Bearer devtoken")
+	rec := httptest.NewRecorder()
+	s.handleExport(rec, req)
+	if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "application/zip" {
+		t.Fatalf("expected a ZIP response, got %d %s", rec.Code, rec.Body.String())
+	}
+	zr, err := zip.NewReader(bytes.NewReader(rec.Body.Bytes()), int64(rec.Body.Len()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	const base = "Game/Assets/StreamingAssets/lvn-seed/"
+	files := map[string]string{}
+	for _, f := range zr.File {
+		if !strings.HasPrefix(f.Name, base) {
+			continue
+		}
+		r, err := f.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := io.ReadAll(r)
+		r.Close()
+		if err != nil {
+			t.Fatalf("read ZIP entry %s: %v", f.Name, err)
+		}
+		files[strings.TrimPrefix(f.Name, base)] = string(data)
+	}
+	t.Run("manifest_matches_content", func(t *testing.T) {
+		if got, ok := files["manifest.json"]; !ok || got != manifest {
+			t.Errorf("seed root manifest = %q (present=%t), want exact content manifest", got, ok)
+		}
+	})
+	t.Run("manifest_is_outside_content", func(t *testing.T) {
+		for rel, data := range files {
+			if strings.HasPrefix(rel, "content/") && (filepath.Base(rel) == "manifest.json" || data == manifest) {
+				t.Errorf("manifest must not be reachable through the content seed: %s", rel)
+			}
+		}
+	})
+	t.Run("manifest_is_not_indexed", func(t *testing.T) {
+		var index []string
+		if err := json.Unmarshal([]byte(files["index.json"]), &index); err != nil {
+			t.Fatalf("read seed index: %v", err)
+		}
+		indexed := map[string]bool{}
+		for _, rel := range index {
+			indexed[rel] = true
+			if filepath.Base(rel) == "manifest.json" || files[rel] == manifest {
+				t.Errorf("manifest must not enter the content seed index: %s", rel)
+			}
+		}
+		for _, rel := range []string{"content/scripts/intro.lvn", "content/bg/intro.png"} {
+			if !indexed[rel] || files[rel] == "" {
+				t.Errorf("intro asset must still be bundled and indexed: %s", rel)
+			}
+		}
+	})
 }
 
 func TestExportOfflineContent(t *testing.T) {

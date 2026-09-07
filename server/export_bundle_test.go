@@ -194,7 +194,7 @@ func TestSeedCarriesTheFirstFrameArt(t *testing.T) {
 		inIndex[e] = true
 	}
 	for rel := range got {
-		if rel == "index.json" {
+		if rel == "index.json" || rel == "manifest.json" {
 			continue
 		}
 		if !inIndex[rel] {
