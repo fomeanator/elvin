@@ -263,7 +263,7 @@ namespace Lvn.UiLab
             }
 
             _hub = null;
-            for (var i = 0; i < 120; i++)
+            for (var i = 0; i < 240; i++)
             {
                 if (_app == null) _app = FindAnyObjectByType<NovelApp>();
                 var h = _app?.Shell?.Hub;
@@ -277,7 +277,18 @@ namespace Lvn.UiLab
                 if (i > 0 && i % 20 == 0) Debug.Log($"[shots] жду хаб на экране… {i / 4} с");
                 yield return new WaitForSecondsRealtime(0.25f);
             }
-            if (_hub == null) { Debug.LogError("[shots] витрина так и не въехала"); Done(); yield break; }
+            if (_hub == null)
+            {
+                // Что стоит на экране вместо витрины — в лог и в кадр.
+                var h = _app?.Shell?.Hub;
+                var hv = h?.GetType().GetField("_hubView", bf)?.GetValue(h) as VisualElement;
+                Debug.LogError($"[shots] витрина так и не въехала: hub={(h != null)} panel={(h?.panel != null)} "
+                             + $"view={(hv != null ? hv.worldBound.ToString() + " display=" + hv.resolvedStyle.display + " tr=" + hv.resolvedStyle.translate : "нет")} "
+                             + $"auth={(_app?.Shell?.Auth != null && _app.Shell.Auth.resolvedStyle.display != DisplayStyle.None)}");
+                _hub = h;
+                if (_hub != null) yield return Shoot("stuck");
+                Done(); yield break;
+            }
             Debug.Log("[shots] хаб на месте");
 
             LvnTitle marked = null;
@@ -304,8 +315,117 @@ namespace Lvn.UiLab
             yield return new WaitForSecondsRealtime(1.5f);
             Diagnose();
             yield return Shoot("main");
+            if (_tag.StartsWith("tour")) yield return Tour();
             if (marked != null) LvnProgress.ClearCurrent(marked);
             Done();
+        }
+
+        // ── тур по нажатиям ─────────────────────────────────────────────────
+        // Кадр главной ничего не говорит о проводке: жмём каждую живую деталь
+        // облика и смотрим, куда она ведёт. Итог каждого шага — строкой в лог,
+        // «ДА/НЕТ», плюс кадр.
+
+        // ПАЛЬЦЕМ, А НЕ ГОЛЫМ СОБЫТИЕМ: Clickable слушает pointer down/up и
+        // требует левую кнопку и позицию внутри элемента; пустое pooled-событие
+        // (кнопка −1, позиция 0,0) он молча отбрасывает, а ClickEvent от мыши
+        // игнорирует. Собираем события из системного Event с кнопкой 0 и
+        // точкой в центре элемента — в координатах панели.
+        private static void Tap(VisualElement el)
+        {
+            if (el == null) { Debug.LogWarning("[shots] тур: элемента для нажатия нет"); return; }
+            var pos = el.worldBound.center;
+            var sysDown = new Event { type = EventType.MouseDown, button = 0, mousePosition = pos, clickCount = 1 };
+            using (var down = PointerDownEvent.GetPooled(sysDown)) { down.target = el; el.SendEvent(down); }
+            var sysUp = new Event { type = EventType.MouseUp, button = 0, mousePosition = pos, clickCount = 1 };
+            using (var up = PointerUpEvent.GetPooled(sysUp)) { up.target = el; el.SendEvent(up); }
+        }
+
+        private static bool OnScreen(VisualElement e)
+        {
+            if (e == null || e.panel == null || e.resolvedStyle.display == DisplayStyle.None) return false;
+            var wb = e.worldBound;
+            return wb.width > 1f && wb.x > -1f && wb.x < 1f && e.resolvedStyle.opacity > 0.5f;
+        }
+
+        private void Verdict(string what, bool ok) => Debug.Log($"[shots] тур: {what} — {(ok ? "ДА" : "НЕТ")}");
+
+        private IEnumerator Tour()
+        {
+            var bf = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+            VisualElement Field(string n) => _hub.GetType().GetField(n, bf)?.GetValue(_hub) as VisualElement;
+            var shell = _app.Shell;
+
+            // 0. Награда за рекламу — первой, пока экран чист: заглушка показа
+            // отвечает «да», сервер начисляет, кошелёк растёт.
+            var placement = _hub.AdPlacement;
+            var adState = string.IsNullOrEmpty(placement) ? null : Lvn.Services.LvnAds.StateOf(placement);
+            Debug.Log($"[shots] тур: реклама — площадка «{placement ?? "-"}», показ доступен={Lvn.Services.LvnAds.Available}, "
+                    + $"состояние={(adState != null ? adState.Amount.ToString() : "нет")}, кнопка={(_hub.Q(name: "stage-ad")?.resolvedStyle.display == DisplayStyle.Flex ? "показана" : "скрыта")}");
+            int changed = 0; System.Action onAds = () => changed++;
+            Lvn.Services.LvnAds.Changed += onAds;
+            long before = Lvn.Services.LvnWallet.Balance("crystals");
+            var adBtn = _hub.Q(name: "stage-ad");
+            int downs = 0, ups = 0;
+            adBtn?.RegisterCallback<PointerDownEvent>(e => downs++);
+            adBtn?.RegisterCallback<PointerUpEvent>(e => ups++);
+            Tap(adBtn);
+            yield return new WaitForSecondsRealtime(1f);
+            Debug.Log($"[shots] тур: реклама — до кнопки дошло down={downs} up={ups}, bound={adBtn?.worldBound}, "
+                    + $"pick={adBtn?.pickingMode}, enabled={adBtn?.enabledInHierarchy}, под центром={adBtn?.panel?.Pick(adBtn.worldBound.center)?.name}");
+            yield return new WaitForSecondsRealtime(3f);
+            Lvn.Services.LvnAds.Changed -= onAds;
+            long after = Lvn.Services.LvnWallet.Balance("crystals");
+            Verdict($"реклама начислила кристаллы по нажатию ({before} → {after}, ответов сервера {changed})", after > before);
+            if (after <= before)
+            {
+                // Разделяем «нажатие не дошло» и «тракт награды не работает»:
+                // зовём тракт напрямую, минуя кнопку.
+                var direct = Lvn.Services.LvnAds.WatchAndRewardAsync(placement);
+                for (float t = 0f; t < 6f && !direct.IsCompleted; t += 0.25f) yield return new WaitForSecondsRealtime(0.25f);
+                long after2 = Lvn.Services.LvnWallet.Balance("crystals");
+                Verdict($"реклама напрямую, минуя кнопку: тракт ответил {(direct.IsCompleted ? direct.Result.ToString() : "не завершился")} ({after} → {after2})", after2 > after);
+            }
+
+            // 1. Панель сообщений → библиотека (список всех новелл).
+            Tap(_hub.Q(name: "stage-open-panel"));
+            yield return new WaitForSecondsRealtime(2.5f);
+            Verdict("панель «Открыть» открыла библиотеку", OnScreen(Field("_collectionView")));
+            yield return Shoot("library");
+            _hub.GetType().GetMethod("ShowHub", bf)?.Invoke(_hub, null);
+            yield return new WaitForSecondsRealtime(1f);
+
+            // 2. Карточка «Открыть» → деталь новеллы (экран хоста).
+            Tap(_hub.Q(name: "stage-open-card"));
+            yield return new WaitForSecondsRealtime(3f);
+            bool detail = shell.Detail != null && OnScreen(shell.Detail);
+            Verdict("карточка «Открыть» открыла деталь новеллы", detail);
+            yield return Shoot("detail");
+            if (detail)
+            {
+                var hide = shell.Detail.GetType().GetMethod("Hide", bf, null, System.Type.EmptyTypes, null);
+                if (hide != null) hide.Invoke(shell.Detail, null);
+                else Tap(shell.Detail.Query<Button>().First());
+                yield return new WaitForSecondsRealtime(1.5f);
+            }
+
+            // 4. Вкладка «Магазин» → лента уезжает на магазин; центр → домой.
+            Tap(_hub.Q(name: "stage-tab-" + LvnTabs.Store));
+            yield return new WaitForSecondsRealtime(2.5f);
+            Verdict("вкладка «Магазин» показала магазин", shell.PackShop != null && OnScreen(shell.PackShop));
+            yield return Shoot("store");
+            Tap(_hub.Q(name: "stage-tab-home"));
+            yield return new WaitForSecondsRealtime(2.5f);
+            Verdict("центральная кнопка вернула главную", OnScreen(Field("_hubView")));
+
+            // 5. Вкладка «Гардероб» → гардероб; домой.
+            Tap(_hub.Q(name: "stage-tab-" + LvnTabs.Wardrobe));
+            yield return new WaitForSecondsRealtime(3f);
+            Verdict("вкладка «Гардероб» показала гардероб", shell.WardrobeTab != null && OnScreen(shell.WardrobeTab));
+            yield return Shoot("wardrobe");
+            Tap(_hub.Q(name: "stage-tab-home"));
+            yield return new WaitForSecondsRealtime(2.5f);
+            Verdict("возврат домой из гардероба", OnScreen(Field("_hubView")));
+            yield return Shoot("home-again");
         }
     }
 }
