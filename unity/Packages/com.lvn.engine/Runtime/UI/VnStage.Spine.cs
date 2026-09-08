@@ -257,27 +257,6 @@ namespace Lvn.UI
             catch { /* prefetch is best-effort; the real show reloads what it needs */ }
         }
 
-        // The atlas' page image URLs, in file order, resolved next to the atlas.
-        // libgdx atlases name each page on its own line ending in .png; we map
-        // those to sibling URLs of the atlas. Falls back to the catalog texture.
-        private static List<string> SpinePageUrls(string atlasUrl, string atlasText, string fallback)
-        {
-            var urls = new List<string>();
-            string dir = "";
-            int slash = atlasUrl != null ? atlasUrl.LastIndexOf('/') : -1;
-            if (slash >= 0) dir = atlasUrl.Substring(0, slash + 1);
-            if (!string.IsNullOrEmpty(atlasText))
-            {
-                foreach (var raw in atlasText.Split('\n'))
-                {
-                    var line = raw.Trim();
-                    if (line.EndsWith(".png") || line.EndsWith(".PNG")) urls.Add(dir + line);
-                }
-            }
-            if (urls.Count == 0 && !string.IsNullOrEmpty(fallback)) urls.Add(fallback);
-            return urls;
-        }
-
         // Сущности, собранные из адреса в команде. Помним их: сцена спрашивает
         // облик не только в миг показа (перестановка, прогрев, возврат из
         // главы), а второй раз адрес может и не прийти.
@@ -433,7 +412,7 @@ namespace Lvn.UI
                         lap("atlas");
                         // Load EVERY atlas page (multi-page atlases have >1), in
                         // the order they appear, resolved next to the atlas file.
-                        foreach (var url in SpinePageUrls(sp.atlas, atlasText, sp.texture))
+                        foreach (var url in LvnSpinePoster.PageUrls(sp.atlas, atlasText, sp.texture))
                         {
                             var spr = await LoadSpineImageAsync(url, _cts.Token);
                             if (spr != null && spr.texture != null) { textures.Add(spr.texture); pageSprites.Add(spr); }

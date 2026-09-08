@@ -48,12 +48,13 @@ namespace Lvn.UI
             Func<string, Task<string>> loadText,
             Func<string, Task<Sprite>> loadSprite,
             Lvn.Content.ILvnPinLedger ledger = null,
-            Action onFallback = null)
+            Action onFallback = null,
+            Action<RenderTexture> onPoster = null)
         {
             if (host == null || spine == null || loadText == null || loadSprite == null) return;
             if (!LvnSpineBridge.Available) { onFallback?.Invoke(); return; }
             var origin = new Vector3(20000f + (_seq++ % 64) * Spacing, 20000f, 0f);
-            LvnAsync.Fire(BuildAsync(host, spine, loadText, loadSprite, origin, ledger, onFallback),
+            LvnAsync.Fire(BuildAsync(host, spine, loadText, loadSprite, origin, ledger, onFallback, onPoster),
                 "SpinePoster");
         }
 
@@ -138,7 +139,7 @@ namespace Lvn.UI
 
         private static async Task BuildAsync(VisualElement host, LvnSpineRef spine,
             Func<string, Task<string>> loadText, Func<string, Task<Sprite>> loadSprite, Vector3 origin,
-            Lvn.Content.ILvnPinLedger ledger, Action onFallback)
+            Lvn.Content.ILvnPinLedger ledger, Action onFallback, Action<RenderTexture> onPoster)
         {
             var kit = await LoadKitAsync(spine, loadText, loadSprite);
             // НЕ ВЫШЛО — ЗОВЁМ ЗАПАСНОЙ ХОД. Молчаливый выход оставлял карточку
@@ -208,6 +209,12 @@ namespace Lvn.UI
                 LvnSpineBridge.Play(go, spine.auto, true);
 
             host.style.backgroundImage = Background.FromRenderTexture(rt);
+            // ТЕКСТУРУ ОТДАЁМ В РУКИ, А НЕ ЧЕРЕЗ СТИЛЬ. Тот, кто хочет разделить
+            // постер на несколько элементов, не может прочитать её обратно из
+            // style.backgroundImage: геттер UITK собирает Background из
+            // Texture2D/Sprite/VectorImage и RenderTexture теряет — читалось
+            // пусто, и панели магазина стояли без фигуры (Илья 08.09).
+            onPoster?.Invoke(rt);
             // COVER: фигура заполняет постер В РОВЕНЬ, без полей сверху и снизу
             // (Илья). Contain вписывал целиком и оттого оставлял полосы. Cover
             // масштабирует РАВНОМЕРНО и срезает лишнее по краю — пропорции
@@ -232,7 +239,11 @@ namespace Lvn.UI
             if (root != null) UnityEngine.Object.Destroy(root);
         }
 
-        private static List<string> PageUrls(string atlasUrl, string atlasText, string fallback)
+        /// <summary>Адреса страниц атласа по порядку файла, рядом с атласом:
+        /// libgdx-атлас называет каждую страницу отдельной строкой на .png.
+        /// Нет ни одной — запасная текстура каталога. Один дом на постер и
+        /// сцену (VnStage.Spine): копии расходятся.</summary>
+        internal static List<string> PageUrls(string atlasUrl, string atlasText, string fallback)
         {
             var urls = new List<string>();
             string dir = "";

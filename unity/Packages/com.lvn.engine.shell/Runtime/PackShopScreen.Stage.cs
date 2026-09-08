@@ -47,12 +47,21 @@ namespace Lvn.UI.Screens
         /// списке и пересборку переживает), карточки берут его текстуру
         /// фоном — новых скелетов ноль, пересборка мгновенна.</summary>
         private VisualElement _spineMaster;
+        /// <summary>Текстура общего постера, как её отдал сам постер. Из стиля
+        /// мастера её НЕ прочитать: геттер backgroundImage в UITK RenderTexture
+        /// не возвращает — так карточки и остались пустыми 08.09.</summary>
+        private RenderTexture _spineRt;
+        private const string FigureName = "pack-figure";
 
         /// <summary>Поле фигуры: во всю ширину панели, от плашки до
         /// нарисованной кнопки («спайн на всю ширину карточки растянуть, а
         /// названия на нём» — Илья 08.09). Сумма и подпись лежат ПОВЕРХ
         /// фигуры, в её нижней трети.</summary>
         private const float FigureTop = 24f, FigureH = 156f;
+        /// <summary>Фигура НЕ во всю ширину панели: поле по 8 dp с боков («спайны
+        /// вернулись, надо их поуже чуть» — Илья 08.09). Мастер той же ширины —
+        /// постер меряет аспект по хосту, а фигура берёт его текстуру в ровень.</summary>
+        private const float FigureInset = 8f, FigureW = PackW - FigureInset * 2f;
 
         private void EnsureSpineMaster()
         {
@@ -60,24 +69,45 @@ namespace Lvn.UI.Screens
             var m = new VisualElement { name = "shop-spine-master", pickingMode = PickingMode.Ignore };
             m.style.position = Position.Absolute;
             m.style.top = 0; m.style.right = 0;
-            m.style.width = D(PackW); m.style.height = D(FigureH);
+            m.style.width = D(FigureW); m.style.height = D(FigureH);
             m.style.visibility = Visibility.Hidden;   // держит размер (аспект постера), не рисуется
             LvnPicture.Fit(m);
-            _sheet.Add(m);
             _spineMaster = m;
-            // ПОСТЕР ЖИВЁТ, ПОКА ЭЛЕМЕНТ В ПАНЕЛИ: уход с вкладки отцепляет экран,
-            // постер по своему правилу чистит камеру и текстуру — и при
-            // возврате его никто не вешал («не показывается спайн» — Илья
-            // 08.09). Вешаем на КАЖДЫЙ вход в панель, кадром позже: постер
-            // меряет аспект по разложенному элементу.
-            m.RegisterCallback<AttachToPanelEvent>(_ => m.schedule.Execute(() =>
+            // ПОСТЕР МЕРЯЕТ АСПЕКТ ПО РАЗЛОЖЕННОМУ ЭЛЕМЕНТУ — строим после первой
+            // раскладки (вкладка до первого входа стоит display:none, размера
+            // у мастера ещё нет). Столбик из панели не уходит (вкладки гасятся
+            // display), но если уйдёт — постер снесёт камеру и текстуру сам,
+            // и на возврате строим заново после раскладки.
+            void Build()
             {
                 if (m.panel == null || _spine == null) return;
                 LvnSpinePoster.Attach(m, _spine,
                     url => _assets.LoadTextAsync(url, default),
                     url => _assets.LoadSpriteAsync(url, default),
-                    (_assets as CachingAssets)?.Loader);
-            }));
+                    (_assets as CachingAssets)?.Loader,
+                    onPoster: rt => { _spineRt = rt; ShareSpine(); });
+            }
+            void WhenLaidOut()
+            {
+                if (m.resolvedStyle.width > 1f && m.resolvedStyle.height > 1f) { Build(); return; }
+                EventCallback<GeometryChangedEvent> once = null;
+                once = _ => { m.UnregisterCallback(once); Build(); };
+                m.RegisterCallback(once);
+            }
+            m.RegisterCallback<AttachToPanelEvent>(_ => WhenLaidOut());
+            m.RegisterCallback<DetachFromPanelEvent>(_ => _spineRt = null);
+            _sheet.Add(m);
+        }
+
+        /// <summary>Раздать текстуру постера всем фигурам, что сейчас на
+        /// витрине; новые фигуры берут её при рождении (BindSharedSpine).</summary>
+        private void ShareSpine()
+        {
+            if (_spineRt == null) return;
+            int n = 0;
+            _list.Query<VisualElement>(name: FigureName)
+                 .ForEach(f => { f.style.backgroundImage = Background.FromRenderTexture(_spineRt); n++; });
+            LvnLog.Trace($"[lvn-shop] постер отдал текстуру {_spineRt.width}×{_spineRt.height} → фигур на витрине: {n}");
         }
 
         /// <summary>Фигура карточки — та же текстура, что у общего постера;
@@ -87,23 +117,8 @@ namespace Lvn.UI.Screens
         {
             EnsureSpineMaster();
             if (_spineMaster == null) return;
-            // Текстура у постера СМЕНЯЕТСЯ на каждом входе в панель (прежнюю
-            // он уничтожил на уходе), поэтому карточка сверяется с ним не
-            // однажды, а при каждом своём входе — пока не возьмёт живую.
-            bool Copy()
-            {
-                var bg = _spineMaster.style.backgroundImage.value;
-                if (bg.renderTexture == null) return false;
-                if (figure.style.backgroundImage.value.renderTexture != bg.renderTexture)
-                    figure.style.backgroundImage = bg;
-                return true;
-            }
-            void Follow()
-            {
-                if (!Copy()) figure.schedule.Execute(() => Copy()).Every(120).Until(Copy);
-            }
-            figure.RegisterCallback<AttachToPanelEvent>(_ => Follow());
-            Follow();
+            figure.name = FigureName;
+            if (_spineRt != null) figure.style.backgroundImage = Background.FromRenderTexture(_spineRt);
         }
 
         private static LvnSpineRef FirstSpine(LvnManifest manifest)
@@ -149,8 +164,7 @@ namespace Lvn.UI.Screens
             s.style.width = D(ColumnDp);
             s.style.top = D(70f);
             s.style.bottom = D(117f);
-            s.style.paddingLeft = 0; s.style.paddingRight = 0;
-            s.style.paddingTop = 0; s.style.paddingBottom = 0;
+            LvnAir.Pad(s, 0f);
             s.style.backgroundColor = Color.clear;
             LvnChrome.ClearBorder(s);
             s.style.alignItems = Align.FlexEnd;
@@ -162,7 +176,7 @@ namespace Lvn.UI.Screens
                 s.style.bottom = D(117f - HomeBarDp) + Mathf.Max(LvnEdges.Bottom(s), D(HomeBarDp));
             });
             if (_header != null) _header.style.display = DisplayStyle.None;
-            _tabsRow.style.flexDirection = FlexDirection.Row;
+            ScreenUi.Row(_tabsRow);
             _tabsRow.style.flexWrap = Wrap.NoWrap;
             _tabsRow.style.justifyContent = Justify.FlexEnd;
             _tabsRow.style.marginBottom = D(10f);
@@ -174,8 +188,7 @@ namespace Lvn.UI.Screens
             _tabsRow.style.alignSelf = Align.FlexEnd;
             _tabsRow.style.backgroundColor = UiColor.WithAlpha(LvnTokens.PanelBg, 0.82f);
             LvnChrome.Round(_tabsRow, D(8f));
-            LvnAir.PadX(_tabsRow, D(12f));
-            LvnAir.PadY(_tabsRow, D(2f));
+            LvnAir.Pad(_tabsRow, D(12f), D(2f));
             _list.contentContainer.style.alignItems = Align.FlexEnd;
         }
 
@@ -231,7 +244,7 @@ namespace Lvn.UI.Screens
             if (_spine != null && LvnSpineBridge.Available)
             {
                 var figure = new VisualElement { pickingMode = PickingMode.Ignore };
-                At(figure, 0f, D(FigureTop), D(W), D(FigureH));
+                At(figure, D(FigureInset), D(FigureTop), D(FigureW), D(FigureH));
                 LvnPicture.Fit(figure);
                 BindSharedSpine(figure);
                 p.Add(figure);
@@ -291,8 +304,8 @@ namespace Lvn.UI.Screens
             b.style.backgroundColor = Color.clear;
             LvnChrome.ClearBorder(b);
             b.style.marginLeft = 0; b.style.marginRight = 0; b.style.marginTop = 0; b.style.marginBottom = 0;
-            b.style.paddingLeft = 0; b.style.paddingRight = 0; b.style.paddingTop = 0;
-            b.style.paddingBottom = D(3f);   // подпись чуть выше центра: нижняя грань рамки толще
+            LvnAir.Pad(b, 0f);
+            b.style.paddingBottom = D(3f);   // НАРОЧНО одна сторона: подпись чуть выше центра, нижняя грань рамки толще
             b.style.color = LvnTokens.Gold;
             b.style.fontSize = LvnTokens.TextBase;
             b.style.unityTextAlign = TextAnchor.MiddleCenter;
