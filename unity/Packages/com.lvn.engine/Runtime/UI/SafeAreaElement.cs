@@ -38,7 +38,9 @@ namespace Lvn.UI
         private void Refresh()
         {
             if (panel == null) return;
-            var safe = Screen.safeArea;
+            // Через Кромочника: у выреза один источник, и подставленный для
+            // снимков вырез обязан доехать и до сцены.
+            var safe = LvnEdges.SafeArea;
             if (safe == _applied) return;
             _applied = safe;
 
