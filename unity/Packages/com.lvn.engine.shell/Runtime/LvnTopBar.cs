@@ -27,8 +27,9 @@ namespace Lvn.UI.Screens
     public sealed class LvnTopBar : VisualElement, ILvnEntrance
     {
         /// <summary>Высота ряда навбара — публична: экраны, встающие «под
-        /// навбаром» (колонка эмоций гардероба), считают от неё.</summary>
-        public const float RowH = 76f;
+        /// навбаром» (колонка эмоций гардероба), считают от неё. Облик «сцена»
+        /// ставит свою (32 dp макета), поэтому не константа.</summary>
+        public static float RowH { get; private set; } = 76f;
 
         /// <summary>ГДЕ КОНЧАЕТСЯ ШАПКА — один ответ всем, кто строится под ней.
         ///
@@ -79,7 +80,13 @@ namespace Lvn.UI.Screens
 
         private readonly VisualElement _row;
         private readonly VisualElement _pills;
-        private readonly VisualElement _burger;   // только в главе — см. ApplyBarVisibility
+        // Бургер — ТОЛЬКО В ГЛАВЕ, см. ApplyBarVisibility.
+        private readonly VisualElement _logo, _burger;
+        // Облик «сцена» (см. SetStage): аватар с именем, логотип-картинка,
+        // значки валют картинками.
+        private StageLook _stage;
+        private ILvnAssets _assets;
+        private Action _onAvatar;
         private readonly VisualElement _miniPills; // игровые баблики валют
         private readonly VisualElement _miniProgress; // баблик прогресса главы
         private readonly Label _miniProgressLabel;
@@ -159,7 +166,8 @@ namespace Lvn.UI.Screens
             LvnAir.PadX(_row, LvnTokens.Space2);
             Add(_row);
 
-            _row.Add(Logo());
+            _logo = Logo();
+            _row.Add(_logo);
 
             var spacer = new VisualElement();
             spacer.pickingMode = PickingMode.Ignore;
@@ -323,6 +331,82 @@ namespace Lvn.UI.Screens
             }
         }
 
+        // ── облик «сцена» ─────────────────────────────────────────────────────
+
+        /// <summary>
+        /// ОБЛИК «СЦЕНА» ШАПКИ (<c>ui.browse.skin</c>): аватар с именем слева,
+        /// логотип-картинка по центру на всю ширину, валюты значками-картинками
+        /// с нарисованным «плюсом», без подложки — шапка стоит на тёмной вуали
+        /// полотна. Всё это данные манифеста; без них шапка прежняя.
+        /// </summary>
+        public sealed class StageLook
+        {
+            /// <summary>Картинка логотипа — на всю ширину шапки (с линиями по бокам).</summary>
+            public string Logo;
+            /// <summary>Аватар игрока, пока у аккаунта нет своего.</summary>
+            public string Avatar;
+            /// <summary>Значок «+» у валюты.</summary>
+            public string Plus;
+            /// <summary>Валюта → значок-картинка.</summary>
+            public Dictionary<string, string> CurrencyIcons;
+        }
+
+        /// <summary>Холст макета 390 dp против панели 1080 — тот же множитель,
+        /// что у главной (BrowseHub.Stage).</summary>
+        private static float StageD(float dp) => Mathf.Round(dp * (1080f / 390f));
+
+        /// <summary>Одеть шапку по макету. Зовёт хост, когда манифест назвал
+        /// облик «сцена»; повторный вызов пересобирает только живое.</summary>
+        public void SetStage(StageLook look, ILvnAssets assets, Action onAvatar)
+        {
+            if (look == null) return;
+            _stage = look; _assets = assets; _onAvatar = onAvatar;
+            RowH = StageD(32f);
+            _row.style.height = RowH;
+            // Подложки и черты нет: шапка стоит на вуали полотна.
+            _row.style.backgroundColor = Color.clear;
+            LvnChrome.ClearBorder(_row);
+            LvnAir.PadX(_row, StageD(15f));
+            _logo.style.display = DisplayStyle.None;
+            _burger.style.display = DisplayStyle.None;
+
+            // Аватар с именем — дверь в профиль.
+            var profile = ScreenUi.Row();
+            var avatar = new VisualElement { name = "stage-img", pickingMode = PickingMode.Ignore };
+            avatar.style.width = StageD(32f); avatar.style.height = StageD(32f);
+            avatar.style.backgroundColor = LvnTokens.SurfaceHi;
+            avatar.style.overflow = Overflow.Hidden;
+            LvnChrome.Frame(avatar, StageD(4f), UiColor.Darker(LvnTokens.Gold, 0.55f), StageD(1f));
+            if (!string.IsNullOrEmpty(look.Avatar)) LvnPicture.Photo(avatar, look.Avatar, assets);
+            profile.Add(avatar);
+            var name = Lvn.UI.LvnRedress.Bind(new Label(), () => Lvn.UI.LvnPlayerName.Display);
+            name.pickingMode = PickingMode.Ignore;
+            name.style.color = LvnTokens.Bronze;
+            name.style.fontSize = LvnTokens.TextSm;
+            name.style.marginLeft = StageD(8f);
+            profile.Add(name);
+            profile.AddManipulator(new Clickable(() => _onAvatar?.Invoke()));
+            profile.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
+            LvnMotion.Tappable(profile);
+            _row.Insert(0, profile);
+
+            // Логотип: полоса на всю ширину шапки, нарисованная с запасом в
+            // 12 dp под свечение — потому шире и выше своего места.
+            if (!string.IsNullOrEmpty(look.Logo))
+            {
+                var art = new VisualElement { name = "stage-img", pickingMode = PickingMode.Ignore };
+                art.style.position = Position.Absolute;
+                art.style.left = StageD(3f); art.style.right = StageD(3f);
+                art.style.top = -StageD(12f); art.style.height = StageD(82f);
+                LvnPicture.Skin(art, look.Logo, assets, "StageLogo");
+                _row.Add(art);
+            }
+
+            // Пилюли пересобираются под облик: значки картинками, без подложки.
+            _pills.Clear();
+            RefreshBalances();
+        }
+
         // ── содержимое ────────────────────────────────────────────────────────
 
         // Лого: буква в акцентном кружке — вектор кодом, без ассетов.
@@ -400,6 +484,29 @@ namespace Lvn.UI.Screens
         {
             var bg = LvnTokens.PanelBg;
             var captured = cur;
+            // Облик «сцена»: значок-картинка, число латунью, «плюс» картинкой,
+            // без подложки. Игровые баблики над сценой остаются прежними.
+            if (_stage != null && !compact)
+                return new LvnWalletPill(cur, new LvnWalletPill.Look
+                {
+                    MarginLeft = StageD(8f),
+                    Height = StageD(24f),
+                    PadLeft = 0, PadRight = 0, PadY = 0,
+                    Radius = 0f,
+                    IconSize = StageD(24f),
+                    FontSize = LvnTokens.TextSm,
+                    Bold = false,
+                    Edge = false,
+                    Background = Color.clear,
+                    TextColor = LvnTokens.Bronze,
+                    IconUrl = _stage.CurrencyIcons != null
+                              && _stage.CurrencyIcons.TryGetValue(cur, out var iconUrl) ? iconUrl : null,
+                    PlusIconUrl = _stage.Plus,
+                    PlusSize = StageD(16f),
+                    AmountMinWidth = StageD(14f),
+                }, _assets,
+                onTap: () => OnCurrency?.Invoke(captured),
+                onPlus: () => OnCurrency?.Invoke(captured));
             return new LvnWalletPill(cur, new LvnWalletPill.Look
             {
                 MarginLeft = compact ? 6 : 8,

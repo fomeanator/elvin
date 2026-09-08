@@ -56,6 +56,9 @@ namespace Lvn.UI.Screens
 
         private void BuildHubTiles()
         {
+            // Облик «сцена» полок не строит — у него одна карточка и панель,
+            // и наполняет их он сам (BrowseHub.Stage.cs).
+            if (Staged) { BuildStage(); return; }
             if (_hubRows == null) return;
             // ЛЕНТА НЕ ПЕРЕСОБИРАЕТСЯ ВПУСТУЮ. Вход в хаб звал сборку дважды
             // (SetData и следом PickTitleAsync — «обновить замки по свежим

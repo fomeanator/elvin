@@ -127,8 +127,12 @@ namespace Lvn.UI.Screens
                 var to = on ? _accent : _dim;
                 var from = t.Painted;
                 t.Painted = to;
-                t.Mark.style.backgroundColor = on ? _accent : Color.clear;
-                t.Label.style.unityFontStyleAndWeight = on ? FontStyle.Bold : FontStyle.Normal;
+                // У рисованного меню (облик «сцена») ни черты, ни значка нет —
+                // значки нарисованы в картинке, а центральная кнопка держит
+                // своё золото и не красится вовсе.
+                if (t.Mark != null) t.Mark.style.backgroundColor = on ? _accent : Color.clear;
+                if (t.Label != null) t.Label.style.unityFontStyleAndWeight = on ? FontStyle.Bold : FontStyle.Normal;
+                if (t.Label == null && t.IconEl == null) continue;
                 float glow = on ? _theme.IconGlow : 0f;
 
                 // ВКЛАДКА БОЛЬШЕ НЕ МИГАЕТ. Раньше здесь стояло «полфейда вниз
@@ -139,15 +143,15 @@ namespace Lvn.UI.Screens
                 // переход — это переход цвета, а не исчезновение кнопки.
                 if (instant || from == to)
                 {
-                    t.Label.style.color = to;
-                    LvnIcons.Tint(t.IconEl, to, glow);
+                    if (t.Label != null) t.Label.style.color = to;
+                    if (t.IconEl != null) LvnIcons.Tint(t.IconEl, to, glow);
                     continue;
                 }
                 t.Root.experimental.animation.Start(0f, 1f, LvnMotion.Ms(LvnMotion.Normal), (e, p) =>
                 {
                     var c = Color.Lerp(from, to, p);
-                    t.Label.style.color = c;
-                    LvnIcons.Tint(t.IconEl, c, glow);
+                    if (t.Label != null) t.Label.style.color = c;
+                    if (t.IconEl != null) LvnIcons.Tint(t.IconEl, c, glow);
                 });
             }
         }
