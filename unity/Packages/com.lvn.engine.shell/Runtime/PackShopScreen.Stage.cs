@@ -33,6 +33,36 @@ namespace Lvn.UI.Screens
         private VisualElement _sheet, _header;
         private bool _dressedApplied;
 
+        /// <summary>Спайн-фигура под рамкой пакета: пока одна на все пакеты —
+        /// первая в каталоге («показывай спайны на заднем фоне в магазине,
+        /// пока везде один и тот же» — Илья 08.09). Нет спайна — панель без
+        /// фигуры.</summary>
+        private LvnSpineRef _spine;
+
+        private static LvnSpineRef FirstSpine(LvnManifest manifest)
+        {
+            if (manifest?.sprites == null) return null;
+            foreach (var kv in manifest.sprites)
+                if (kv.Value?.spine != null) return kv.Value.spine;
+            return null;
+        }
+
+        /// <summary>Столбик уже панелей главной: 232 dp против 257 («сделай
+        /// чуть уже всю колонку» — Илья 08.09); панель 200 dp в него входит.</summary>
+        private const float ColumnDp = 232f;
+
+        /// <summary>Панель пакета ВЫШЕ панели новостей (124 dp): в неё встаёт
+        /// спайн-фигура, и в низкой рамке её резало бы по грудь, как на
+        /// карточке главной («по высоте больше, чтобы спайн не обрезался» —
+        /// Илья 08.09). Рамка растёт девятидольной нарезкой: верх с плашкой и
+        /// низ с нарисованной кнопкой остаются как нарисованы, тянется середина.</summary>
+        private const float PackW = 200f, PackH = 230f;
+
+        /// <summary>panel.png экспортирован 672 px на 224 dp (200 + запас
+        /// свечения по 12): три пикселя на dp. Нарезка задаётся в пикселях
+        /// картинки, а рисуется в единицах панели — отсюда множитель.</summary>
+        private const float PanelPxPerDp = 672f / 224f;
+
         /// <summary>Домашняя полоса телефона в макете — как у главной
         /// (BrowseHub.Stage): низ столбика считается от неё.</summary>
         private const float HomeBarDp = 34f;
@@ -49,7 +79,7 @@ namespace Lvn.UI.Screens
             s.style.position = Position.Absolute;
             s.style.left = StyleKeyword.Auto;
             s.style.right = D(15f);
-            s.style.width = D(257f);
+            s.style.width = D(ColumnDp);
             s.style.top = D(70f);
             s.style.bottom = D(117f);
             s.style.paddingLeft = 0; s.style.paddingRight = 0;
@@ -100,12 +130,39 @@ namespace Lvn.UI.Screens
         /// Геометрия — ровно панели новостей главной (BrowseHub.StagePanel).</summary>
         private VisualElement StagePack(Pack pack)
         {
+            float W = PackW, H = PackH;
             var p = new VisualElement();
-            p.style.width = D(200f); p.style.height = D(124f);
+            p.style.width = D(W); p.style.height = D(H);
             p.style.marginRight = D(2f);
             p.style.marginBottom = D(10f);
             p.style.flexShrink = 0;
-            p.Add(LvnStageKit.Art(SkinUrl("panel.png"), _assets, 0f, 0f, D(200f), D(124f)));
+
+            // ФИГУРА ПОД РАМКОЙ. Спайн вешается фоном на поле внутри рамки —
+            // тем же постером, что на карточке главной; рамка с её
+            // полупрозрачной заливкой ложится сверху и приглушает фигуру до
+            // фона, на котором читаются сумма и цена.
+            if (_spine != null && LvnSpineBridge.Available)
+            {
+                var figure = new VisualElement { pickingMode = PickingMode.Ignore };
+                At(figure, D(10f), D(28f), D(W - 20f), D(120f));
+                LvnPicture.Fit(figure);
+                LvnSpinePoster.Attach(figure, _spine,
+                    url => _assets.LoadTextAsync(url, default),
+                    url => _assets.LoadSpriteAsync(url, default),
+                    (_assets as CachingAssets)?.Loader);
+                p.Add(figure);
+            }
+
+            // Рамка — растянутая по высоте девятидольно: плашка сверху и
+            // нарисованная кнопка снизу остаются своих размеров.
+            var frame = new VisualElement { name = LvnStageKit.ArtName, pickingMode = PickingMode.Ignore };
+            At(frame, -D(LvnStageKit.Bleed), -D(LvnStageKit.Bleed),
+               D(W + LvnStageKit.Bleed * 2f), D(H + LvnStageKit.Bleed * 2f));
+            LvnPicture.Slice(frame,
+                new Vector4(0f, 0f, (LvnStageKit.Bleed + 30f) * PanelPxPerDp, (LvnStageKit.Bleed + 46f) * PanelPxPerDp),
+                D(1f) / PanelPxPerDp);
+            LvnPicture.Skin(frame, SkinUrl("panel.png"), _assets, what: "StageSkin");
+            p.Add(frame);
 
             string head = pack.Badge == Ribbon.Popular ? LvnWords.Of("shop.popular", "POPULAR")
                         : pack.Badge == Ribbon.Value ? LvnWords.Of("shop.value", "BEST VALUE")
@@ -113,13 +170,13 @@ namespace Lvn.UI.Screens
                         : pack.Grants != null ? LvnWords.Of("shop.story_bundle", "STORY BUNDLE")
                         : TabTitle(pack.Currency);
             var plaque = LvnStageKit.Plaque(() => head);
-            At(plaque, 0f, 0f, D(200f), D(28f));
+            At(plaque, 0f, 0f, D(W), D(28f));
             p.Add(plaque);
 
-            // Сумма по центру панели: набор — заголовком, валюта — числом со
+            // Сумма под фигурой: набор — заголовком, валюта — числом со
             // значком; и то и другое золотом, как названия на главной.
             var row = new VisualElement { pickingMode = PickingMode.Ignore };
-            At(row, 0f, D(34f), D(200f), D(28f));
+            At(row, 0f, D(H - 80f), D(W), D(28f));
             row.style.alignItems = Align.Center; row.style.justifyContent = Justify.Center;
             VisualElement amount = !string.IsNullOrEmpty(pack.Headline)
                 ? LvnStageKit.Text(() => pack.Headline, LvnTokens.TextLg, LvnTokens.Gold, medium: true)
@@ -132,7 +189,7 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(pack.SubLine))
             {
                 var sub = LvnStageKit.Text(() => pack.SubLine, LvnTokens.TextXs, LvnTokens.Silver);
-                At(sub, 0f, D(62f), D(200f), D(18f));
+                At(sub, 0f, D(H - 52f), D(W), D(18f));
                 p.Add(sub);
             }
             else if (pack.Bonus > 0)
@@ -140,12 +197,12 @@ namespace Lvn.UI.Screens
                 var bonus = LvnStageKit.Text(
                     () => LvnWords.Of("shop.bonus", "+{0} bonus", LvnPriceTag.Amount(pack.Bonus)),
                     LvnTokens.TextXs, LvnTokens.Silver);
-                At(bonus, 0f, D(62f), D(200f), D(18f));
+                At(bonus, 0f, D(H - 52f), D(W), D(18f));
                 p.Add(bonus);
             }
 
             var buy = StagePriceButton(pack);
-            At(buy, D(25f), D(82f), D(150f), D(42f));
+            At(buy, D(25f), D(H - 42f), D(150f), D(42f));
             p.Add(buy);
             return p;
         }

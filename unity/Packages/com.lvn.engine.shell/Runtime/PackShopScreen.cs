@@ -83,6 +83,7 @@ namespace Lvn.UI.Screens
 
 
             var sheet = new VisualElement();
+            _sheet = sheet;
             sheet.style.position = Position.Absolute;
             if (modal)
             {
@@ -118,6 +119,7 @@ namespace Lvn.UI.Screens
 
             // ── Top bar: back ‹ · title · balances ────────────────────────────
             var top = ScreenUi.Row();
+            _header = top;
             top.style.marginBottom = LvnTokens.Space3;
             sheet.Add(top);
 
@@ -269,8 +271,10 @@ namespace Lvn.UI.Screens
         {
             // Читаем ДЕТЕЙ ряда, а не отдельный список: он был второй памятью
             // об одном и том же, и держали их в согласии руками.
-            for (int i = 0; i < _tabsRow.childCount; i++)
-                if (_tabsRow[i] is Button b) StyleTab(b, i == _tab);
+            if (Dressed) BuildStageTabs();   // слово-плашка перекрашивается пересборкой
+            else
+                for (int i = 0; i < _tabsRow.childCount; i++)
+                    if (_tabsRow[i] is Button b) StyleTab(b, i == _tab);
 
             _list.Clear();
             if (_tabIds.Count == 0)
@@ -320,6 +324,8 @@ namespace Lvn.UI.Screens
             // у карточки новеллы и у пакета одна и та же, и второе поле в
             // манифесте означало бы, что их можно рассогласовать.
             _skin = manifest?.ui?.browse?.skin;
+            _spine = FirstSpine(manifest);
+            if (Dressed && !_dressedApplied) { _dressedApplied = true; DressAsStageColumn(); }
             Rebuild();
         }
 
@@ -334,6 +340,7 @@ namespace Lvn.UI.Screens
 
         private void BuildTabs()
         {
+            if (Dressed) { BuildStageTabs(); return; }
             _tabsRow.Clear();
             for (int i = 0; i < _tabIds.Count; i++)
             {
