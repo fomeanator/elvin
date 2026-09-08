@@ -49,6 +49,14 @@ namespace Lvn.UI.Screens
             /// <summary>Цвет вектора; не задан — цвет по смыслу валюты
             /// (энергия акцентом, ценное золотом).</summary>
             public Color? IconTint;
+            /// <summary>«Плюс» картинкой (облик «сцена»): значок нарисован
+            /// вместе с остальным артом шапки. Пусто — кнопка-заливка.</summary>
+            public string PlusIconUrl;
+            public float PlusSize = 44f;
+            /// <summary>Опора под число: пусто — четыре знака (ряд не дёргается
+            /// при смене баланса); облик «сцена» ставит теснее — макет держит
+            /// значок, число и «плюс» вплотную.</summary>
+            public float? AmountMinWidth;
         }
 
         private readonly string _currency;
@@ -85,7 +93,7 @@ namespace Lvn.UI.Screens
             // сжималось, «13 240» распирало, а соседняя плашка съезжала следом.
             // Минимальная ширина под четыре знака держит ряд неподвижным, а
             // выравнивание по центру не даёт числу «прилипать» к значку.
-            _amount.style.minWidth = _look.FontSize * 2.2f;
+            _amount.style.minWidth = _look.AmountMinWidth ?? _look.FontSize * 2.2f;
             _amount.style.unityTextAlign = TextAnchor.MiddleCenter;
             _amount.style.marginLeft = LvnTokens.Tight;
             _amount.style.flexShrink = 0;   // длинное число не режется многоточием
@@ -105,7 +113,7 @@ namespace Lvn.UI.Screens
                 schedule.Execute(Refresh).Every(1000);
             }
 
-            if (onPlus != null) Add(PlusButton(onPlus));
+            if (onPlus != null) Add(PlusButton(onPlus, assets));
 
             if (onTap != null)
             {
@@ -137,8 +145,21 @@ namespace Lvn.UI.Screens
             return ic;
         }
 
-        private VisualElement PlusButton(Action onPlus)
+        private VisualElement PlusButton(Action onPlus, ILvnAssets assets)
         {
+            if (!string.IsNullOrEmpty(_look.PlusIconUrl))
+            {
+                // Нарисованный «плюс»: кнопка-заливка рядом с картинками
+                // шапки читалась бы как чужая деталь в чужом ряду.
+                var img = new VisualElement();
+                img.style.width = _look.PlusSize; img.style.height = _look.PlusSize;
+                img.style.marginLeft = LvnTokens.Tight;
+                LvnPicture.Photo(img, _look.PlusIconUrl, assets, cover: false);
+                img.AddManipulator(new Clickable(onPlus));
+                img.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
+                LvnMotion.Tappable(img);
+                return img;
+            }
             var plus = new Button(onPlus) { text = "+" };
             plus.style.fontSize = _look.FontSize;
             LvnAir.Pad(plus, LvnTokens.Space2, LvnTokens.Hair);

@@ -68,16 +68,17 @@ namespace Lvn.UI.Screens
         private readonly float _radius;
         private readonly LvnTheme _theme;
 
-        private readonly VisualElement _hubView, _collectionView, _detailView;
+        private VisualElement _hubView;
+        private readonly VisualElement _collectionView, _detailView;
         private VisualElement _bottomNav;
-        private readonly Label _hubTitle, _hubSubtitle;
+        private Label _hubTitle, _hubSubtitle;
         private Label _hubEyebrow;
 
         // Надзаголовок хаба собирается в одном месте: он стоит над названием
         // игры и меняется вместе с языком, как всё остальное.
         private string HubEyebrow()
             => LvnWords.Pick("hub.subtitle", _cfg.subtitle, "Choose your path").ToUpperInvariant();
-        private readonly ScrollView _hubRows; // vertical stack of per-collection sliders
+        private ScrollView _hubRows; // vertical stack of per-collection sliders
         private readonly Label _collectionTitle;
         private readonly ScrollView _collectionList;
         private readonly VisualElement _detailImage;
@@ -127,92 +128,12 @@ namespace Lvn.UI.Screens
             // не отвечало: экран читался как картинка.
             LvnMotion.EnableTapFeedback(this);
 
-            // ── HUB ── a brand block up top, then full-bleed collection cards
-            // that fill the height. Cards get texture gradients for real depth
-            // (UITK inline styles can't do gradients/shadows any other way).
-            _hubView = Column();
-            _hubView.style.paddingTop = LvnEdges.HomeTopMin; // до первой кромки — минимум дома
-            // Мягкое свечение сверху — но ТОЛЬКО если тема не принесла своего
-            // фона: сплошной градиент во весь экран закрыл бы собой и сетку, и
-            // виньетку, то есть ровно то, ради чего тему включали.
-            if (!_theme.Glow && !_theme.Grid)
-                _hubView.style.backgroundImage = Gradient(Color.Lerp(_bg, _accent, 0.16f), _bg);
-
-            // Standard mobile-game top bar: player avatar + name/level on the left,
-            // currency balances (with a "+" to buy) and settings on the right.
-            var topBar = ScreenUi.Row(spread: true);
-            topBar.style.marginBottom = LvnTokens.Space4;
-
-            var profile = ScreenUi.Row();
-            _profileBlock = profile;
-            ScreenUi.Row(profile);
-            var avatar = IconButton(LvnIcon.Profile, 28f, _text, () => { if (OnMenu != null) LvnAsync.Fire(OnMenu(), "OpenMenu"); });
-            avatar.style.width = 56; avatar.style.height = 56;
-            avatar.style.backgroundColor = _theme.SurfaceHi;
-            avatar.style.marginRight = LvnTokens.Space2;
-            LvnChrome.Frame(avatar, _theme.RoundPills ? 28f : _radius, _accent, 2f);
-            profile.Add(avatar);
-            var nameCol = new VisualElement();
-            _playerNameLabel = new Label(); _playerNameLabel.style.color = _text;
-            _playerNameLabel.style.fontSize = LvnTokens.TextLg; _playerNameLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-            nameCol.Add(_playerNameLabel);
-            _playerLevelLabel = new Label(); _playerLevelLabel.style.color = _dim; _playerLevelLabel.style.fontSize = LvnTokens.TextSm;
-            if (!(_cfg.show_level ?? true)) _playerLevelLabel.style.display = DisplayStyle.None;
-            nameCol.Add(_playerLevelLabel);
-            profile.Add(nameCol);
-            topBar.Add(profile);
-
-            var rightGroup = ScreenUi.Row();
-            _topPills = new VisualElement();
-            ScreenUi.Row(_topPills);
-            rightGroup.Add(_topPills);
-            // daily-rewards gift (badge dot hints there's something to claim)
-            var gift = TopIconButton(LvnIcon.Gift, _text, () => { if (OnDaily != null) LvnAsync.Fire(OnDaily(), "OpenDaily"); });
-            var dot = new Label { pickingMode = PickingMode.Ignore };
-            dot.style.position = Position.Absolute; dot.style.top = 6; dot.style.right = 6;
-            dot.style.backgroundColor = _accent; LvnChrome.Circle(dot, 10f);
-            gift.Add(dot);
-            // Чистка витрины (TR-25): партнёр убирает ежедневную награду данными.
-            if (!(_cfg.show_daily ?? true)) gift.style.display = DisplayStyle.None;
-            rightGroup.Add(gift);
-            var gear = TopIconButton(LvnIcon.Settings, _dim, () => { if (OnMenu != null) LvnAsync.Fire(OnMenu(), "OpenMenu"); });
-            _settingsBtn = gear;
-            rightGroup.Add(gear);
-            topBar.Add(rightGroup);
-            _hubView.Add(topBar);
-
-            var brand = new VisualElement();
-            LvnAir.MarginY(brand, LvnTokens.Hair, LvnTokens.Space3);
-            var eyebrow = ScreenUi.Eyebrow(HubEyebrow, 30f, _accent);
-            _hubEyebrow = eyebrow;
-            eyebrow.style.marginBottom = LvnTokens.Space1;
-            brand.Add(eyebrow);
-            _hubTitle = Heading(LvnWords.Pick("browse.title", _cfg.title, ""), 58);
-            brand.Add(_hubTitle);
-            _hubSubtitle = new Label(); // (kept for API; the eyebrow carries the sub-line)
-            var rule = new VisualElement();
-            rule.style.height = 3; rule.style.width = 44; rule.style.marginTop = LvnTokens.Space2;
-            rule.style.backgroundColor = _accent; LvnChrome.Round(rule, LvnTokens.RadiusXs);
-            brand.Add(rule);
-            _hubView.Add(brand);
-            _hubRows = Lvn.UI.LvnScroll.Vertical();
-            _hubRows.style.flexGrow = 1;
-            // Контент ленты ПРИЖАТ К НИЗУ В УПОР (Илья 27.08): контейнер
-            // скролла минимум во весь вьюпорт — воздух-растяжка сверху (см.
-            // BuildHubTiles) отжимает ряды к нижнему меню, а не оставляет
-            // пустоту под ними.
-            _hubRows.contentContainer.style.minHeight = Length.Percent(100f);
-            _hubView.Add(_hubRows);
-            // Нижнее меню — В КОРНЕ хаба, не в контенте: контент уезжает
-            // лентой вкладок, а меню стоит поверх разделов и переключает их
-            // (живой скрин «в магазине нижнего меню нету»).
-            var navRoot = BottomNav();
-            LvnChrome.BottomStrip(navRoot);
-            Add(navRoot);
-            // Лента не ныряет под меню — по НАСТОЯЩЕЙ его высоте: она растёт
-            // от размера шрифта интерфейса, а число этого не знало.
-            LvnEdges.Under(_hubView, navRoot);
-            Add(_hubView);
+            // ДВА ОБЛИКА ГЛАВНОЙ, одна витрина. Полки подборок — облик движка;
+            // «сцена» (ui.browse.skin, см. BrowseHub.Stage.cs) — облик партнёра
+            // с героиней во весь рост и столбиком панелей. Подборка, деталь,
+            // замки и касса у обоих общие: облик меняет страницу, а не поток.
+            if (Staged) BuildStageShell();
+            else BuildShelvesShell();
 
             // ── COLLECTION ──
             _collectionView = Column();
@@ -337,6 +258,7 @@ namespace Lvn.UI.Screens
                 LvnEdges.Top(this, LvnEdges.PageTopMin, LvnEdges.PageTopAir);
             _detailView.style.paddingTop =
                 LvnEdges.Top(this, LvnEdges.PageTopMin, LvnEdges.PageTopAir);
+            if (Staged) { ApplyStageSafeArea(); return; }
             if (_bottomNav != null)
                 _bottomNav.style.paddingBottom = LvnEdges.Bottom(this, LvnEdges.NavBottomAir);
         }
@@ -682,5 +604,106 @@ namespace Lvn.UI.Screens
         /// можно безусловно.</summary>
         private void Edge(VisualElement el, float strength = 1f)
             => LvnChrome.Edge(el, strength);
+
+        /// <summary>Облик «сцена»: страница и рисованное меню из BrowseHub.Stage.cs.</summary>
+        private void BuildStageShell()
+        {
+            _hubView = BuildStageView();
+            var navRoot = StageNav();
+            LvnChrome.BottomStrip(navRoot);
+            Add(navRoot);
+            Add(_hubView);
+        }
+
+        /// <summary>Облик движка: шапка, бренд и полки подборок лентой.</summary>
+        private void BuildShelvesShell()
+        {
+            // ── HUB ── a brand block up top, then full-bleed collection cards
+            // that fill the height. Cards get texture gradients for real depth
+            // (UITK inline styles can't do gradients/shadows any other way).
+            _hubView = Column();
+            _hubView.style.paddingTop = LvnEdges.HomeTopMin; // до первой кромки — минимум дома
+            // Мягкое свечение сверху — но ТОЛЬКО если тема не принесла своего
+            // фона: сплошной градиент во весь экран закрыл бы собой и сетку, и
+            // виньетку, то есть ровно то, ради чего тему включали.
+            if (!_theme.Glow && !_theme.Grid)
+                _hubView.style.backgroundImage = Gradient(Color.Lerp(_bg, _accent, 0.16f), _bg);
+
+            // Standard mobile-game top bar: player avatar + name/level on the left,
+            // currency balances (with a "+" to buy) and settings on the right.
+            var topBar = ScreenUi.Row(spread: true);
+            topBar.style.marginBottom = LvnTokens.Space4;
+
+            var profile = ScreenUi.Row();
+            _profileBlock = profile;
+            ScreenUi.Row(profile);
+            var avatar = IconButton(LvnIcon.Profile, 28f, _text, () => { if (OnMenu != null) LvnAsync.Fire(OnMenu(), "OpenMenu"); });
+            avatar.style.width = 56; avatar.style.height = 56;
+            avatar.style.backgroundColor = _theme.SurfaceHi;
+            avatar.style.marginRight = LvnTokens.Space2;
+            LvnChrome.Frame(avatar, _theme.RoundPills ? 28f : _radius, _accent, 2f);
+            profile.Add(avatar);
+            var nameCol = new VisualElement();
+            _playerNameLabel = new Label(); _playerNameLabel.style.color = _text;
+            _playerNameLabel.style.fontSize = LvnTokens.TextLg; _playerNameLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            nameCol.Add(_playerNameLabel);
+            _playerLevelLabel = new Label(); _playerLevelLabel.style.color = _dim; _playerLevelLabel.style.fontSize = LvnTokens.TextSm;
+            if (!(_cfg.show_level ?? true)) _playerLevelLabel.style.display = DisplayStyle.None;
+            nameCol.Add(_playerLevelLabel);
+            profile.Add(nameCol);
+            topBar.Add(profile);
+
+            var rightGroup = ScreenUi.Row();
+            _topPills = new VisualElement();
+            ScreenUi.Row(_topPills);
+            rightGroup.Add(_topPills);
+            // daily-rewards gift (badge dot hints there's something to claim)
+            var gift = TopIconButton(LvnIcon.Gift, _text, () => { if (OnDaily != null) LvnAsync.Fire(OnDaily(), "OpenDaily"); });
+            var dot = new Label { pickingMode = PickingMode.Ignore };
+            dot.style.position = Position.Absolute; dot.style.top = 6; dot.style.right = 6;
+            dot.style.backgroundColor = _accent; LvnChrome.Circle(dot, 10f);
+            gift.Add(dot);
+            // Чистка витрины (TR-25): партнёр убирает ежедневную награду данными.
+            if (!(_cfg.show_daily ?? true)) gift.style.display = DisplayStyle.None;
+            rightGroup.Add(gift);
+            var gear = TopIconButton(LvnIcon.Settings, _dim, () => { if (OnMenu != null) LvnAsync.Fire(OnMenu(), "OpenMenu"); });
+            _settingsBtn = gear;
+            rightGroup.Add(gear);
+            topBar.Add(rightGroup);
+            _hubView.Add(topBar);
+
+            var brand = new VisualElement();
+            LvnAir.MarginY(brand, LvnTokens.Hair, LvnTokens.Space3);
+            var eyebrow = ScreenUi.Eyebrow(HubEyebrow, 30f, _accent);
+            _hubEyebrow = eyebrow;
+            eyebrow.style.marginBottom = LvnTokens.Space1;
+            brand.Add(eyebrow);
+            _hubTitle = Heading(LvnWords.Pick("browse.title", _cfg.title, ""), 58);
+            brand.Add(_hubTitle);
+            _hubSubtitle = new Label(); // (kept for API; the eyebrow carries the sub-line)
+            var rule = new VisualElement();
+            rule.style.height = 3; rule.style.width = 44; rule.style.marginTop = LvnTokens.Space2;
+            rule.style.backgroundColor = _accent; LvnChrome.Round(rule, LvnTokens.RadiusXs);
+            brand.Add(rule);
+            _hubView.Add(brand);
+            _hubRows = Lvn.UI.LvnScroll.Vertical();
+            _hubRows.style.flexGrow = 1;
+            // Контент ленты ПРИЖАТ К НИЗУ В УПОР (Илья 27.08): контейнер
+            // скролла минимум во весь вьюпорт — воздух-растяжка сверху (см.
+            // BuildHubTiles) отжимает ряды к нижнему меню, а не оставляет
+            // пустоту под ними.
+            _hubRows.contentContainer.style.minHeight = Length.Percent(100f);
+            _hubView.Add(_hubRows);
+            // Нижнее меню — В КОРНЕ хаба, не в контенте: контент уезжает
+            // лентой вкладок, а меню стоит поверх разделов и переключает их
+            // (живой скрин «в магазине нижнего меню нету»).
+            var navRoot = BottomNav();
+            LvnChrome.BottomStrip(navRoot);
+            Add(navRoot);
+            // Лента не ныряет под меню — по НАСТОЯЩЕЙ его высоте: она растёт
+            // от размера шрифта интерфейса, а число этого не знало.
+            LvnEdges.Under(_hubView, navRoot);
+            Add(_hubView);
+        }
     }
 }

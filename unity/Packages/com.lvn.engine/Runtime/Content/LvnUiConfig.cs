@@ -620,6 +620,36 @@ namespace Lvn.Content
         /// <summary>Ширина, в которую вписывается фигура куклы (доля кадра);
         /// дефолт 1 — «шире экрана не станет, но и не ужмётся ради полей».</summary>
         public float? doll_width;
+        /// <summary>Где стоит кукла по ширине кадра: «left | center | right»
+        /// или доля 0..1 («0.32»). Пусто — по центру. Облик «сцена» ставит её
+        /// левее, чтобы правая половина осталась панелям.</summary>
+        public string doll_place;
+
+        // ── ОБЛИК «СЦЕНА» (макет партнёра): главная как сцена — героиня во
+        // весь рост, справа столбик панелей, снизу рисованное меню.
+        /// <summary>Адрес папки с артом рамок облика «сцена» (nav.png,
+        /// panel.png, card-back.png, card-front.png, adv.png, plus.png).
+        /// Задан — главная собирается сценой (BrowseHub.Stage.cs); пусто —
+        /// прежние полки подборок.</summary>
+        public string skin;
+        /// <summary>Логотип в шапке (url картинки на всю ширину шапки). Пусто —
+        /// буква <c>app.logo</c> в кружке.</summary>
+        public string logo;
+        /// <summary>Аватар игрока в шапке облика «сцена» (url), пока у аккаунта
+        /// нет своего.</summary>
+        public string avatar;
+        /// <summary>Значки валют шапки: id валюты → url картинки. Пусто —
+        /// вектор по смыслу валюты.</summary>
+        public Dictionary<string, string> currency_icons;
+        /// <summary>Панель сообщений облика «сцена»: заголовок плашки
+        /// («Сюжет реальности») и строка, когда сообщений нет.</summary>
+        public string news_title;
+        public string news_empty_text;
+        /// <summary>Подпись кнопок облика «сцена»; default "Open".</summary>
+        public string open_text;
+        /// <summary>Подпись-состояние под центральной кнопкой рисованного меню
+        /// («Нет доступных свиданий»).</summary>
+        public string nav_home_hint;
 
         public string bg_color;          // screen background; default #101015
         public string title;             // hub headline; default the app/product name

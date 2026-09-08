@@ -333,6 +333,64 @@ namespace Lvn.UI
             Glow = true,
         };
 
+        /// <summary>
+        /// ХРОНО — палитра макета партнёра (Figma «main screen»): глубокая
+        /// ночная синь, циановая кромка и подписи, латунь заголовков и кнопок,
+        /// узкий гротеск.
+        ///
+        /// <para>Кегли — ступени макета (12/14/18 dp при ширине 390) на холсте
+        /// 1080: подпись 33, кнопка 37, название 50. Заголовки капсом ставит
+        /// сам облик там, где макет капсом, — вкладки и имена в нём строчные,
+        /// поэтому <see cref="UpperHeadings"/> выключен.</para>
+        ///
+        /// <para>Латунь имени и счётчиков в шапке — <see cref="Bronze"/>: тёплый
+        /// металл рядом с золотом логотипа, приглушённый, чтобы не спорить с ним.</para>
+        /// </summary>
+        public static LvnTheme Chrono() => new LvnTheme
+        {
+            Name = "chrono",
+            Bg = Hex("#050d13"),
+            Surface = Hex("#0a1b27"),
+            SurfaceHi = Hex("#12293a"),
+            Border = Hex("#2789a3"),
+            Text = Hex("#93cada"),
+            TextDim = Hex("#7ca3a9"),
+            Accent = Hex("#83effc"),
+            OnAccent = Hex("#04141c"),
+            Gold = Hex("#edcd99"),
+            Silver = Hex("#b0aa9d"),
+            Bronze = Hex("#c5a186"),
+            Ok = Hex("#5fce77"),
+            Warn = Hex("#f0c24a"),
+            Bad = Hex("#e0555f"),
+            Faint = new Color(0.51f, 0.94f, 0.99f, 0.07f),
+            Track = Hex("#2c444b"),
+            Scrim = new Color(0.02f, 0.05f, 0.075f, 0.82f),
+            PanelBg = new Color(0f, 0.063f, 0.106f, 0.93f),
+            FontPath = "Fonts/RobotoCondensed-Regular",
+            FontDisplayPath = "Fonts/RobotoCondensed-Medium",
+            TextMicro = 22,
+            TextXs = 28,
+            TextSm = 33,
+            TextBase = 37,
+            TextLg = 42,
+            TextXl = 50,
+            TextDisplay = 64,
+            Radius = 14f,
+            RadiusSm = 8f,
+            EdgeWidth = 2f,
+            EdgeAlpha = 0.5f,
+            Tracking = 0f,
+            UpperHeadings = false,
+            IconGlow = 0.6f,
+            AccentPlaceholders = false,
+            RoundPills = false,
+            Grid = false,
+            Scanlines = false,
+            Vignette = true,
+            Glow = true,
+        };
+
         /// <summary>Тема по имени. Неизвестное имя — это тема по умолчанию, а
         /// не пустой экран: опечатка в манифесте не должна ронять оболочку.</summary>
         public static LvnTheme ByName(string name)
@@ -341,11 +399,12 @@ namespace Lvn.UI
             // киберпанковая игра открывалась в облике по умолчанию — автор
             // видел не ошибку, а «почему-то не так».
             switch (LvnAuthorWord.Pick(name, "ui.browse.theme", "midnight",
-                                       "midnight", "cyber", "cyberpunk", "romance"))
+                                       "midnight", "cyber", "cyberpunk", "romance", "chrono"))
             {
                 case "cyber":
                 case "cyberpunk": return Cyber();
                 case "romance": return Romance();
+                case "chrono": return Chrono();
                 default: return Midnight();
             }
         }
