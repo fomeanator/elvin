@@ -611,6 +611,10 @@ namespace Lvn.UI.Screens
             // Кукла сцены знает, сколько над ней занимает шапка облика, —
             // иначе на коротком экране голова упирается в логотип.
             LvnMenuStage.DollHeadroom = D(StageTopBlockDp);
+            // Вкладки (лавка, профиль, гардероб) отступают от низа на ЭТО меню:
+            // оно выше движкового, и кольцо выходит над кромкой на 20 dp.
+            ScreenUi.NavHoleSource = ctx => D(146f - StageHomeBarDp + 20f)
+                                     + Mathf.Max(LvnEdges.Bottom(ctx), D(StageHomeBarDp));
             _hubView = BuildStageView();
             var navRoot = StageNav();
             LvnChrome.BottomStrip(navRoot);
