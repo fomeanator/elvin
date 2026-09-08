@@ -42,12 +42,20 @@ namespace Lvn.UiLab.Editor
         }
 
         private static int _ticks;
+        private static string Errors => Path.Combine(Root, ".editor-errors");
 
         [InitializeOnLoadMethod]
         private static void Hook()
         {
             EditorApplication.update -= Tick;
             EditorApplication.update += Tick;
+            // Ошибки компиляции — в файл рядом с пульсом: лог редактора из
+            // терминала не всегда доступен (файл может быть снесён), а
+            // «собралось или нет» нужно знать до входа в Play.
+            UnityEditor.Compilation.CompilationPipeline.compilationStarted -= OnCompileStart;
+            UnityEditor.Compilation.CompilationPipeline.compilationStarted += OnCompileStart;
+            UnityEditor.Compilation.CompilationPipeline.assemblyCompilationFinished -= OnAssemblyDone;
+            UnityEditor.Compilation.CompilationPipeline.assemblyCompilationFinished += OnAssemblyDone;
             // РЕДАКТОР БЕЗ ФОКУСА ДРЕМЛЕТ: «Interaction Mode: Default» роняет
             // тик редактора до одного в секунду, и цикл игрока, который мы
             // просим из тика, идёт с той же частотой. Снимкам из терминала
@@ -64,6 +72,26 @@ namespace Lvn.UiLab.Editor
                 }
             }
             catch (Exception e) { Debug.LogWarning("[shots] interaction mode: " + e.Message); }
+        }
+
+        private static void OnCompileStart(object _)
+        {
+            try { File.WriteAllText(Errors, "compiling\n"); } catch (Exception) { }
+        }
+
+        private static void OnAssemblyDone(string assembly, UnityEditor.Compilation.CompilerMessage[] messages)
+        {
+            try
+            {
+                var sb = new System.Text.StringBuilder();
+                foreach (var m in messages)
+                    if (m.type == UnityEditor.Compilation.CompilerMessageType.Error)
+                        sb.Append(m.file).Append('(').Append(m.line).Append("): ").Append(m.message).Append('\n');
+                var prev = File.Exists(Errors) ? File.ReadAllText(Errors) : "";
+                if (prev.StartsWith("compiling")) prev = "";
+                File.WriteAllText(Errors, prev + sb);
+            }
+            catch (Exception) { }
         }
 
         private static void Tick()
