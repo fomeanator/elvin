@@ -124,6 +124,10 @@ namespace Lvn.UI
             new Family("golos",   "Golos",      "Fonts/GolosText",     "Fonts/GolosText"),
             new Family("literata","Literata",   "Fonts/Literata",      "Fonts/Literata"),
             new Family("manrope", "Manrope",    "Fonts/Manrope",       "Fonts/Manrope"),
+            // Узкий гротеск макета партнёра (тема «chrono»): среднее
+            // начертание — заголовочное, отдельным файлом.
+            new Family("roboto-condensed", "Roboto Condensed",
+                       "Fonts/RobotoCondensed-Regular", "Fonts/RobotoCondensed-Medium"),
             // Характерные — их видно с первого слова. Ради этого они и есть:
             // настройка, которую нельзя проверить взглядом, ощущается сломанной.
             new Family("ruslan",  "Вязь",       "Fonts/RuslanDisplay", "Fonts/RuslanDisplay"),

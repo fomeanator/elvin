@@ -71,7 +71,10 @@ namespace Lvn.UI
         public bool Stand(LvnSender sender, int? z = null)
         {
             if (_stage == null || !Exists) return false;
-            var pose = Pose(Id, Place, LvnMenuStage.DollWidth, LvnMenuStage.DollHeight, z ?? 0);
+            // Место — у витрины (ui.browse.doll_place): там же, где рост и
+            // ширина. Своё поле остаётся запасным, когда витрина молчит.
+            var place = string.IsNullOrEmpty(LvnMenuStage.DollPlace) ? Place : LvnMenuStage.DollPlace;
+            var pose = Pose(Id, place, LvnMenuStage.DollWidth, LvnMenuStage.DollHeight, z ?? 0);
             if (sender == LvnSender.Menu) _stage.ShowMenuDoll(Id, pose);
             else _stage.ApplyStage(pose, sender);
             return true;
@@ -96,15 +99,24 @@ namespace Lvn.UI
         /// нижнюю кромку кадра.</para>
         /// </summary>
         public static JObject Pose(string id, string place, float width, float height, int z)
-            => new JObject
+        {
+            var pose = new JObject
             {
                 ["op"] = "actor",
                 ["id"] = id,
                 ["show"] = true,
-                ["position"] = string.IsNullOrEmpty(place) ? "center" : place,
                 ["width"] = width,
                 ["height"] = height,
                 ["z"] = z,
             };
+            // Место — словом («left», «center»…) или долей ширины кадра
+            // («0.32»): доля идёт полем x, у слова свой словарь мест.
+            if (float.TryParse(place, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var x))
+                pose["x"] = UnityEngine.Mathf.Clamp01(x);
+            else
+                pose["position"] = string.IsNullOrEmpty(place) ? "center" : place;
+            return pose;
+        }
     }
 }

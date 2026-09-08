@@ -500,6 +500,21 @@ namespace Lvn.UI.Screens
                 {
                     _shell.TopBar.Currencies = HubCurrencies();
                     _shell.TopBar.RefreshBalances();
+                    // ОБЛИК «СЦЕНА» (ui.browse.skin): шапка одевается данными —
+                    // логотип-картинка, аватар, значки валют и «плюс» из папки
+                    // облика. Аватар ведёт в профиль, как и раньше вкладка.
+                    var browse = manifest.ui?.browse;
+                    if (!string.IsNullOrEmpty(browse?.skin))
+                    {
+                        var skin = browse.skin.EndsWith("/") ? browse.skin : browse.skin + "/";
+                        _shell.TopBar.SetStage(new Lvn.UI.Screens.LvnTopBar.StageLook
+                        {
+                            Logo = browse.logo,
+                            Avatar = browse.avatar,
+                            Plus = skin + "plus.png",
+                            CurrencyIcons = browse.currency_icons,
+                        }, _assets, () => LvnAsync.Fire(OpenProfileWithRelationsAsync(), "TopBarProfile"));
+                    }
                     _shell.TopBar.OnCurrency = _ => LvnAsync.Fire(_shell.OpenPackShopAsync(), "TopBarStore");
                     _shell.TopBar.OnBurger = () =>
                     {
