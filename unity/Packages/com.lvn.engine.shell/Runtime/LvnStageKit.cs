@@ -170,11 +170,15 @@ namespace Lvn.UI.Screens
         /// <summary>СТЕКЛО + РАМКА — задник листа в облике: своя заливка снимается,
         /// первым ребёнком встаёт стекло сцены (обрезка стекла живёт на нём, а не
         /// на листе — столбики, стоящие выше листа, остаются видны), вторым —
-        /// рамка без середины.</summary>
+        /// рамка без середины. Содержимое отступает от рамки на 20 dp со всех
+        /// сторон («паддинг 20 20, и в профиль тоже» — Илья 08.09).</summary>
+        public const float SheetPadDp = 20f;
+
         public static void GlassSheet(VisualElement host, string skin, ILvnAssets assets, float radius)
         {
             host.style.backgroundColor = Color.clear;
             LvnChrome.ClearBorder(host);
+            LvnAir.Pad(host, D(SheetPadDp));
             var glass = new VisualElement { name = "stage-glass", pickingMode = PickingMode.Ignore };
             LvnChrome.Stretch(glass);
             LvnChrome.Round(glass, radius);

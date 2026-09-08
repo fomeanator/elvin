@@ -56,8 +56,6 @@ namespace Lvn.UI.Screens
             // («нет выбора героя, нет эмоций» — Илья 08.09). Стекло и рамка
             // живут на своих подложках внутри панели.
             LvnStageKit.GlassSheet(_panel, skin, _assets, LvnTokens.Radius);
-            // содержимое ужимается внутрь рамки: 15 dp сверху и снизу, 10 по бокам («паддинг рамке 15 10» — Илья 08.09)
-            LvnAir.Pad(_panel, LvnStageKit.D(10f), LvnStageKit.D(15f));
         }
         private readonly ILvnAssets _assets;
         private readonly VisualElement _panel;
