@@ -308,6 +308,9 @@ namespace Lvn.UiLab
                 else Debug.LogWarning($"[shots] новелла/глава не найдены: {_titleId}/{_chapter}");
             }
 
+            // Сценарию загрузчика нужен живой кружок — идём к нему сразу,
+            // пока библиотека греется, не дожидаясь тишины сети и арта.
+            if (_tag.StartsWith("dl")) { yield return Downloads(); if (marked != null) LvnProgress.ClearCurrent(marked); Done(); yield break; }
             yield return new WaitForSecondsRealtime(4f);
             yield return WaitArt(20f);
             yield return WaitDownloads(60f);
@@ -318,6 +321,41 @@ namespace Lvn.UiLab
             if (_tag.StartsWith("tour")) yield return Tour();
             if (marked != null) LvnProgress.ClearCurrent(marked);
             Done();
+        }
+
+        // ── загрузчик ───────────────────────────────────────────────────────
+        // Кэш перед запуском стёрт снаружи, так что библиотека греется заново и
+        // кружок живой. Разворачиваем его, жмём «Скачать всю игру», даём очереди
+        // разогнаться и снимаем лист с графиком.
+        private IEnumerator Downloads()
+        {
+            var root = _hub.panel?.visualTree;
+            DownloadHud hud = null;
+            for (float t = 0f; t < 40f && hud == null; t += 0.5f)
+            {
+                var h = root?.Query<DownloadHud>().First();
+                if (h != null && h.HasWork) hud = h;
+                else yield return new WaitForSecondsRealtime(0.5f);
+            }
+            if (hud == null) { Debug.LogWarning("[shots] загрузчик: кружок так и не появился"); yield break; }
+            Debug.Log("[shots] загрузчик: кружок на месте, разворачиваю");
+            Tap(hud.Q(name: "download-capsule"));
+            yield return new WaitForSecondsRealtime(3f);
+            yield return Shoot("dl-open");
+            yield return new WaitForSecondsRealtime(6f);
+            yield return Shoot("dl-warm");
+            var all = hud.Q(name: "download-all");
+            Debug.Log($"[shots] загрузчик: кнопка «всю игру» {(all != null ? "есть" : "нет")}");
+            if (all != null)
+            {
+                Tap(all);
+                yield return new WaitForSecondsRealtime(12f);
+                yield return Shoot("dl-queue");
+                yield return new WaitForSecondsRealtime(25f);
+                yield return Shoot("dl-later");
+            }
+            var st = hud.Q<Label>("download-state"); var pc = hud.Q<Label>("download-percent"); var sp = hud.Q<Label>("download-speed");
+            Debug.Log($"[shots] загрузчик: состояние «{st?.text}», процент «{pc?.text}», скорость «{sp?.text}», отдача «{hud.Q<Label>("download-up")?.text}»");
         }
 
         // ── тур по нажатиям ─────────────────────────────────────────────────
