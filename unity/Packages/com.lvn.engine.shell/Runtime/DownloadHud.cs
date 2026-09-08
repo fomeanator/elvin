@@ -24,13 +24,18 @@ namespace Lvn.UI.Screens
     {
         // Геометрия двух состояний капсулы.
         private const float MiniSize = 54f; // чуть шире (просьба Ильи 26.08)
-        private const float FullWMax = 720f;
-        private float _fullW = 520f; // 60% ширины экрана, считается при развороте
-        private const float FullHMax = 560f;
-        // Фактическая высота полной формы — АДАПТИВНАЯ (живой скрин: 560
-        // не влезали, кнопка уходила за край): считается при развороте от
-        // реальной высоты экрана, контент внутри скроллится.
-        private float _fullH = FullHMax;
+        // ПОЛНАЯ ФОРМА — ЛИСТ НА ПОЛЭКРАНА СНИЗУ (просьба партнёра 08.09:
+        // «чтобы на пол экрана был»). Кружок из строки бара «падает» в лист:
+        // тот же морф ширины/высоты/скругления, плюс переезд по вертикали.
+        // Ширина — весь экран минус поля, высота — половина экрана; список
+        // очереди внутри скроллится, всё остальное стоит на месте.
+        private const float SheetSide = 16f;
+        private const float SheetPad = 22f;
+        private const float SheetHeightShare = 0.5f;
+        private const float ChartH = 150f;
+        private float _fullW = 520f;
+        private float _fullH = 560f;
+        private float _sheetTop;     // marginTop капсулы в развёрнутом виде
         private float _safeTop;
 
         // ── швы к хосту (NovelApp навешивает после Build) ────────────────────
@@ -61,7 +66,7 @@ namespace Lvn.UI.Screens
         {
             _safeTop = units;
             if (_capsule == null) return;   // ещё строимся: отступ придёт с панелью
-            _capsule.style.marginTop = units + 5f;
+            ApplyMorph(_morph);
         }
 
         /// <summary>Модаль сцены открыта: мини-кружок прячется (декор уступает),
@@ -86,7 +91,8 @@ namespace Lvn.UI.Screens
         {
             bool inGame = Lvn.UI.LvnScreenDirector.Current.InChapter;
             style.alignItems = inGame ? Align.FlexStart : Align.Center;
-            _capsule.style.marginLeft = inGame ? Mathf.Lerp(104f, 16f, _morph) : 0f;
+            // В игре кружок живёт у левого края; лист — по центру в обоих режимах.
+            _capsule.style.marginLeft = inGame ? Mathf.Lerp(104f, 0f, _morph) : 0f;
         }
 
 
@@ -111,7 +117,10 @@ namespace Lvn.UI.Screens
         private readonly Label _eta;
         private readonly VisualElement _info;
         private VisualElement _bar, _barFill;
-        private Label _vSpeed, _vQueue, _vGot, _vLeft;
+        private Label _vSpeed, _vUp, _vQueue, _vGot, _vLeft;
+        private Label _state, _percent;
+        private TrafficChart _chart;
+        private VisualElement _actions;
         private ScrollView _sections;
         private VisualElement _sectionCards;
         /// <summary>Текущий качаемый url — для человеческой подписи
@@ -151,7 +160,7 @@ namespace Lvn.UI.Screens
             });
             Add(_scrim);
 
-            _capsule = new VisualElement();
+            _capsule = new VisualElement { name = "download-capsule" };
             // ЦЕНТР строки единого навбара (решение Ильи 26.08): кружок живёт
             // в баре, морф попапа растёт симметрично из его же точки. Отступ
             // сверху хост синхронизирует с safe area бара (SetSafeTop).
@@ -176,51 +185,68 @@ namespace Lvn.UI.Screens
             _capsule.Add(_miniRing);
 
             // Полное содержимое живёт всегда и кроссфейдится морфом.
-            _full = new VisualElement();
+            _full = new VisualElement { name = "download-sheet" };
             _full.pickingMode = PickingMode.Ignore;
             _full.style.position = Position.Absolute;
-            _full.style.left = 18; _full.style.right = 18;
-            _full.style.top = 14; _full.style.bottom = 14;
+            _full.style.left = SheetPad; _full.style.right = SheetPad;
+            _full.style.top = SheetPad * 0.8f; _full.style.bottom = SheetPad * 0.6f;
             _full.style.opacity = 0f;
             _capsule.Add(_full);
 
-            var head = ScreenUi.Row();
+            // ШАПКА: заголовок, чип состояния, крестик.
+            var head = ScreenUi.Row(spread: true);
             head.pickingMode = PickingMode.Ignore;
-            ScreenUi.Row(head, spread: true);
             _full.Add(head);
-
+            var headLeft = ScreenUi.Row();
+            headLeft.pickingMode = PickingMode.Ignore;
             var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("downloads.title", "Downloads"));
             title.pickingMode = PickingMode.Ignore;
             title.style.color = LvnTokens.Text;
-            title.style.fontSize = LvnTokens.TextBase;
+            title.style.fontSize = LvnTokens.TextLg;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
-            head.Add(title);
+            headLeft.Add(title);
+            _state = new Label("") { name = "download-state" };
+            _state.pickingMode = PickingMode.Ignore;
+            _state.style.fontSize = LvnTokens.TextMicro;
+            _state.style.marginLeft = LvnTokens.Space2;
+            _state.style.unityFontStyleAndWeight = FontStyle.Bold;
+            LvnStyler.Chip(_state, LvnTokens.Faint);
+            headLeft.Add(_state);
+            head.Add(headLeft);
 
             var close = new Button(() => SetExpanded(false)) { text = "×", name = "download-close" };
             close.RegisterCallback<ClickEvent>(e => e.StopPropagation());
             LvnStyler.Plate(close, Color.clear, LvnTokens.TextDim, 12f);
             close.style.width = LvnTokens.Touch;
             close.style.height = LvnTokens.Touch;
+            // Без темы-USS у кнопки нет ни кегля, ни выравнивания: крестик
+            // выходил точкой в углу листа.
+            close.style.fontSize = LvnTokens.TextLg;
+            close.style.unityTextAlign = TextAnchor.MiddleCenter;
             close.style.flexShrink = 0;
             head.Add(close);
 
-            // В коротком окне прокручивается всё содержимое, кроме шапки:
-            // статистика не выталкивает кнопки за нижнюю границу карточки.
-            _sections = Lvn.UI.LvnScroll.Vertical();
-            _sections.style.flexGrow = 1;
-            _sections.style.minHeight = 0;
-            _full.Add(_sections);
-
-            var active = ScreenUi.Row();
-            active.pickingMode = PickingMode.Ignore;
-            ScreenUi.Row(active);
-            active.style.marginTop = LvnTokens.Space2;
-            _sections.Add(active);
+            // ГЕРОЙ: крупный процент слева, что качается — справа, полоса под ними.
+            // Число — то, ради чего лист открывают; форма полосы — то, что
+            // читается боковым зрением («прогресса загрузки не видно», репорт).
+            var hero = ScreenUi.Row();
+            hero.pickingMode = PickingMode.Ignore;
+            hero.style.marginTop = LvnTokens.Space2;
+            hero.style.alignItems = Align.FlexStart;
+            _percent = new Label("") { name = "download-percent" };
+            _percent.pickingMode = PickingMode.Ignore;
+            _percent.style.color = LvnTokens.Accent;
+            _percent.style.fontSize = LvnTokens.TextDisplay;
+            _percent.style.unityFontStyleAndWeight = FontStyle.Bold;
+            _percent.style.marginRight = LvnTokens.Space2;
+            _percent.style.flexShrink = 0;
+            hero.Add(_percent);
 
             var col = new VisualElement();
             col.pickingMode = PickingMode.Ignore;
             col.style.flexGrow = 1; col.style.flexShrink = 1;
-            active.Add(col);
+            col.style.minWidth = 0;
+            hero.Add(col);
 
             _file = new Label("") { name = "download-title" };
             _file.pickingMode = PickingMode.Ignore;
@@ -238,60 +264,110 @@ namespace Lvn.UI.Screens
             _kind.style.whiteSpace = WhiteSpace.Normal;
             col.Add(_kind);
 
-            // ПОЛОСА — ДЛЯ ГЛАЗА, КОЛЬЦО — ДЛЯ УГЛА ЭКРАНА. Кольцо в кружке
-            // отвечает «идёт ли», но «сколько осталось» глаз читает с полосы
-            // быстрее: у неё есть край, до которого видно расстояние. Живой
-            // репорт был именно про это — «прогресса загрузки не видно».
-            _bar = new VisualElement();
-            _bar.pickingMode = PickingMode.Ignore;
-            _bar.style.height = 6;
-            _bar.style.marginTop = LvnTokens.Space1;
-            _bar.style.backgroundColor = LvnTokens.Faint;
-            LvnChrome.Edged(_bar, 3);
-            _barFill = new VisualElement();
-            _barFill.pickingMode = PickingMode.Ignore;
-            _barFill.style.height = 6;
-            _barFill.style.width = Length.Percent(0);
-            _barFill.style.backgroundColor = LvnTokens.Accent;
-            LvnChrome.Edged(_barFill, 3);
-            _bar.Add(_barFill);
-            col.Add(_bar);
             _eta = new Label { name = "download-eta" };
+            _eta.pickingMode = PickingMode.Ignore;
             _eta.style.color = LvnTokens.TextDim;
             _eta.style.fontSize = LvnTokens.TextXs;
-            _eta.style.marginTop = LvnTokens.Space1;
+            _eta.style.marginTop = LvnTokens.Hair;
             col.Add(_eta);
+            _full.Add(hero);
 
-            // Поля — ТАБЛИЦЕЙ, по строке на факт (не лапшой через «·»):
-            // скорость, очередь, скачано, осталось — всё, что просилось.
-            // Поля — матрицей 2×2 (уточнение Ильи 26.08): компактнее, меньше
-            // высоты, читается блоком.
+            _bar = new VisualElement();
+            _bar.pickingMode = PickingMode.Ignore;
+            _bar.style.height = 10;
+            _bar.style.marginTop = LvnTokens.Space2;
+            _bar.style.backgroundColor = LvnTokens.Track;
+            LvnChrome.Edged(_bar, 5);
+            _barFill = new VisualElement();
+            _barFill.pickingMode = PickingMode.Ignore;
+            _barFill.style.height = 10;
+            _barFill.style.width = Length.Percent(0);
+            _barFill.style.backgroundColor = LvnTokens.Accent;
+            LvnChrome.Edged(_barFill, 5);
+            _bar.Add(_barFill);
+            _full.Add(_bar);
+
+            // ГРАФИК: последняя минута приёма и отдачи, рядом — текущие числа.
+            var chartBox = new VisualElement { name = "download-chart" };
+            chartBox.pickingMode = PickingMode.Ignore;
+            chartBox.style.marginTop = LvnTokens.Space2;
+            chartBox.style.backgroundColor = LvnTokens.Faint;
+            LvnChrome.Edged(chartBox, LvnTokens.Radius);
+            LvnAir.Pad(chartBox, LvnTokens.Space2, LvnTokens.Space1);
+            var legend = ScreenUi.Row(spread: true);
+            legend.pickingMode = PickingMode.Ignore;
+            var speedTitle = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("dl.speed", "Speed"));
+            speedTitle.pickingMode = PickingMode.Ignore;
+            speedTitle.style.color = LvnTokens.TextDim;
+            speedTitle.style.fontSize = LvnTokens.TextMicro;
+            legend.Add(speedTitle);
+            var legendRight = ScreenUi.Row();
+            legendRight.pickingMode = PickingMode.Ignore;
+            _vSpeed = LegendValue(legendRight, "↓", LvnTokens.Accent);
+            _vSpeed.name = "download-speed";
+            _vUp = LegendValue(legendRight, "↑", LvnTokens.Gold);
+            _vUp.name = "download-up";
+            legend.Add(legendRight);
+            chartBox.Add(legend);
+            _chart = new TrafficChart();
+            _chart.style.height = ChartH;
+            _chart.style.marginTop = LvnTokens.Space1;
+            chartBox.Add(_chart);
+            _full.Add(chartBox);
+
+            // ПОКАЗАТЕЛИ: скачано, осталось, в очереди — строкой из трёх ячеек.
             var info = _info = new VisualElement { name = "download-metrics" };
             info.pickingMode = PickingMode.Ignore;
             info.style.marginTop = LvnTokens.Space2;
-            info.style.backgroundColor = LvnTokens.Faint;
-            LvnChrome.Edged(info, LvnTokens.Radius);
-            LvnAir.PadX(info, LvnTokens.Space2);
-            info.style.paddingBottom = LvnTokens.Space1;
-            info.style.paddingTop = LvnTokens.Space2;
             LvnFlow.Wrap(info);
-            _sections.Add(info);
-            _vSpeed = InfoCell(info, () => LvnWords.Of("dl.speed", "Speed"));
-            _vQueue = InfoCell(info, () => LvnWords.Of("dl.next", "Next in queue"));
+            _full.Add(info);
             _vGot   = InfoCell(info, () => LvnWords.Of("dl.done", "Downloaded"));
             _vLeft  = InfoCell(info, () => LvnWords.Of("dl.bytes_left", "Left to download"));
-            _vSpeed.name = "download-speed";
-            _vQueue.name = "download-queue";
+            _vQueue = InfoCell(info, () => LvnWords.Of("dl.next", "Next in queue"));
             _vGot.name = "download-received";
             _vLeft.name = "download-left";
+            _vQueue.name = "download-queue";
 
-            // Секции (офлайн-правила, синк, очередь глав, «скачать всё») —
-            // перестраиваются при развороте и по изменению очереди.
+            // ДЕЙСТВИЯ: «Скачать всю игру» / «Скачать главу» — всегда на виду,
+            // не в хвосте прокрутки (просьба партнёра: «чтобы всю игру можно
+            // было скачать»).
+            _actions = new VisualElement { name = "download-actions" };
+            _actions.style.marginTop = LvnTokens.Space2;
+            _full.Add(_actions);
+
+            // Остальное — списком с прокруткой: очередь, отказы, офлайн, синк.
+            _sections = Lvn.UI.LvnScroll.Vertical();
+            _sections.style.flexGrow = 1;
+            _sections.style.minHeight = 0;
+            _sections.style.marginTop = LvnTokens.Space1;
+            _full.Add(_sections);
             _sectionCards = new VisualElement();
-            _sectionCards.style.marginTop = LvnTokens.Space2;
+            // Обёртка и карточки НЕ УЖИМАЮТСЯ: без темы-USS содержимое
+            // прокрутки сжималось под окно, и список глав ложился строками
+            // друг на друга вместо того, чтобы листаться.
+            _sectionCards.style.flexShrink = 0;
             _sections.Add(_sectionCards);
 
             ApplyMorph(0f);
+        }
+
+        /// <summary>Пара «стрелка + число» в легенде графика: стрелка — цветом
+        /// ряда, число жирно. Стрелка отдельной подписью: значение обязано
+        /// оставаться чистым числом — по нему сверяются проверки.</summary>
+        private static Label LegendValue(VisualElement host, string arrow, Color tint)
+        {
+            var a = new Label(arrow) { pickingMode = PickingMode.Ignore };
+            a.style.color = tint;
+            a.style.fontSize = LvnTokens.TextXs;
+            a.style.marginLeft = LvnTokens.Space2;
+            a.style.marginRight = LvnTokens.Tight;
+            host.Add(a);
+            var v = new Label("—") { pickingMode = PickingMode.Ignore };
+            v.style.color = tint;
+            v.style.fontSize = LvnTokens.TextXs;
+            v.style.unityFontStyleAndWeight = FontStyle.Bold;
+            host.Add(v);
+            return v;
         }
 
 

@@ -12,6 +12,7 @@ namespace Lvn.UI.Screens
         private float _quietSince = -1f, _lastAt = -1f, _lastProgressAt;
         private float _speed, _sampleStarted;
         private long _lastBytes;
+        private long _lastSent = -1;
         private int _lastEpoch, _lastDone, _lastPending;
         private bool _centerDirty;
         private DownloadCenter _watched;
@@ -36,7 +37,20 @@ namespace Lvn.UI.Screens
             // Уменьшение байтов ловит повтор/перезапуск одиночного запроса.
             bool reset = _lastAt < 0f || t.Epoch != _lastEpoch || t.Received < _lastBytes
                 || t.BatchDone < _lastDone || (work && !_wasWorking);
-            if (reset)
+            // ПАКЕТ СМЕНИЛСЯ, А РАБОТА НЕТ. «Скачать всю игру» ставит главу за
+            // главой, прогрев библиотеки идёт ступенями — каждый пакет новая
+            // эпоха. Сбрасывать на ней скорость значило показывать «—» на
+            // каждой границе, а график — стирать минуту по десять раз. Между
+            // пакетами скорость продолжается, а байты нового пакета считаются
+            // с его первого снимка.
+            bool handover = reset && work && _wasWorking && t.Epoch != _lastEpoch && _lastAt >= 0f;
+            float chartDown = 0f;
+            if (handover)
+            {
+                chartDown = t.Received;
+                _lastProgressAt = now;
+            }
+            else if (reset)
             {
                 _speed = 0f;
                 _lastProgressAt = _sampleStarted = now;
@@ -51,6 +65,19 @@ namespace Lvn.UI.Screens
                 }
                 if (t.Received > _lastBytes || t.BatchDone > _lastDone) _lastProgressAt = now;
             }
+            // Байты этой секунды — в график: приём из снимка, отдача от служб.
+            // ГРАФИК НЕ СБРАСЫВАЕТСЯ НИКОГДА: это скользящая минута, и она
+            // чистит себя сама. Сброс по «байт стало меньше» (файл закрылся,
+            // повтор запроса) стирал историю по десять раз в секунду — кривая
+            // не успевала прожить и одной секунды, лист показывал ровный ноль
+            // при живых мегабайтах в подписи. Провал байтов — это ноль за тик,
+            // а не новая жизнь.
+            long sentNow = Lvn.Services.LvnBackend.BytesSent;
+            float upDelta = _lastSent < 0 ? 0f : Mathf.Max(0f, sentNow - _lastSent);
+            _lastSent = sentNow;
+            float downDelta = handover ? chartDown
+                : t.Received > _lastBytes && _lastAt >= 0f ? t.Received - _lastBytes : 0f;
+            _chart.Add(now, downDelta, upDelta);
             _lastAt = now;
             _lastEpoch = t.Epoch;
             _lastBytes = t.Received;
@@ -59,7 +86,23 @@ namespace Lvn.UI.Screens
             var phase = DownloadTally.PhaseOf(work, off, pend, now - _lastProgressAt);
             // Оценку уже превысили — остаток неизвестен, а не равен нулю.
             long plan = work && t.Received >= t.PlannedBytes ? 0 : t.PlannedBytes;
-            var tally = new DownloadTally(t.Received, plan,
+            // ВСЯ ОЧЕРЕДЬ, А НЕ ОДИН ПАКЕТ. «Скачать всю игру» ставит главу за
+            // главой, и процент по одному пакету прыгал бы к нулю на каждой —
+            // игрок видел бы не «сколько осталось игры», а «сколько осталось
+            // главы». Пока очередь идёт, доля считается по ней: завершённые
+            // главы (их оценки) плюс живые байты текущего пакета — против
+            // суммы всех поставленных. Без очереди — прежний пакетный счёт.
+            var entry = CurrentEntry(t);
+            var queue = Center != null ? Center.Progress : (0L, 0L);
+            bool wholeQueue = work && Center != null && Center.Queue.Count > 0 && queue.Item2 > 0;
+            long received = t.Received, planned = plan;
+            if (wholeQueue)
+            {
+                long inFlight = entry != null ? System.Math.Min(t.Received, entry.Bytes) : 0L;
+                received = queue.Item1 + inFlight;
+                planned = System.Math.Max(queue.Item2, received);
+            }
+            var tally = new DownloadTally(received, planned,
                 t.BatchDone, t.BatchTotal, _speed, phase);
             bool moving = phase == DownloadTally.Phase.Running;
             _miniRing.Glyph = off || failed ? RingGlyph.Alert
@@ -69,7 +112,6 @@ namespace Lvn.UI.Screens
             _barFill.style.width = Length.Percent(Mathf.Clamp01(tally.Fraction) * 100f);
             _info.style.display = work ? DisplayStyle.Flex : DisplayStyle.None;
 
-            var entry = CurrentEntry(t);
             string category = Humanize(ActiveUrl?.Invoke(), LvnWords.Of("downloads.content", "Downloading content"));
             _file.text = entry?.Label ?? category;
             // Область показателей названа словами: это не вся библиотека и
@@ -118,6 +160,12 @@ namespace Lvn.UI.Screens
             _eta.text = etaReady
                 ? LvnWords.Of("dl.eta", "≈{0} left", Lvn.UI.LvnTimeWords.Coarse((long)tally.EtaSeconds)) : "";
             ScreenUi.SetText(_vSpeed, moving && _speed >= 1024f ? Speed(_speed) : "—");
+            ScreenUi.SetText(_vUp, _chart.LastUp >= 256f ? Speed(_chart.LastUp) : "—");
+            // Процент — только когда план известен: доля без плана это догадка.
+            bool showPercent = work && tally.PlanKnown;
+            _percent.style.display = showPercent ? DisplayStyle.Flex : DisplayStyle.None;
+            if (showPercent) _percent.text = Mathf.FloorToInt(Mathf.Clamp01(tally.Fraction) * 100f) + "%";
+            ApplyStateChip(phase, work, failed, _queueFinished);
             ScreenUi.SetText(_vGot, tally.PlanKnown
                 ? Mb(tally.DoneBytes) + " " + LvnWords.Of("common.of", "of") + " " + LvnBytes.Approx(tally.PlanBytes)
                 : Mb(tally.DoneBytes));
@@ -159,6 +207,22 @@ namespace Lvn.UI.Screens
                     });
                 }
             }
+        }
+
+        /// <summary>Чип состояния в шапке листа: одно слово о том, что сейчас
+        /// происходит, — идёт, ждёт, нет сети, синк, готово, отказ.</summary>
+        private void ApplyStateChip(DownloadTally.Phase phase, bool work, bool failed, bool finished)
+        {
+            string text; Color tint;
+            if (phase == DownloadTally.Phase.Offline) { text = LvnWords.Of("dl.state_offline", "Offline"); tint = LvnTokens.Warn; }
+            else if (failed && !work) { text = LvnWords.Of("dl.state_failed", "Incomplete"); tint = LvnTokens.Warn; }
+            else if (phase == DownloadTally.Phase.Syncing) { text = LvnWords.Of("dl.state_syncing", "Syncing"); tint = LvnTokens.Gold; }
+            else if (phase == DownloadTally.Phase.Stalled) { text = LvnWords.Of("dl.state_waiting", "Waiting"); tint = LvnTokens.TextDim; }
+            else if (work) { text = LvnWords.Of("dl.state_running", "Downloading"); tint = LvnTokens.Accent; }
+            else if (finished) { text = LvnWords.Of("dl.state_done", "Done"); tint = LvnTokens.Ok; }
+            else { text = LvnWords.Of("dl.state_idle", "Idle"); tint = LvnTokens.TextDim; }
+            _state.text = text.ToUpperInvariant();
+            _state.style.color = tint;
         }
 
         private DownloadCenter.Entry CurrentEntry(TransferSnapshot snapshot)

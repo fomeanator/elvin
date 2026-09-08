@@ -244,6 +244,15 @@ namespace Lvn.Services
         public static Task<(long code, string body)> PostAsync(string path, string json, bool auth = true)
             => SendAsync("POST", path, json, auth);
 
+        /// <summary>Сколько байт службы ОТПРАВИЛИ на сервер за жизнь
+        /// приложения (тело письма плюс оценка заголовков). Загрузчик рисует
+        /// по этому отдачу рядом с приёмом: игроку видно, что синк идёт, а не
+        /// висит. Приём считает тракт контента, у него своя бухгалтерия.</summary>
+        public static long BytesSent { get; private set; }
+
+        // Оценка заголовков одного запроса: метод, путь, токен, тип тела.
+        private const int HeaderBytesEstimate = 320;
+
         /// <summary>
         /// ОДИН ЗАПРОС НА ВСЕ СЛУЖБЫ: адрес, токен, терпение, ожидание ответа и
         /// правило «транспорт не дошёл» (код 0).
@@ -253,15 +262,20 @@ namespace Lvn.Services
         /// параметру, GET — всегда; добавить общий заголовок или заменить
         /// правило отказа значило бы вспомнить про оба.</para>
         /// </summary>
+
         private static async Task<(long code, string body)> SendAsync(string method, string path, string json, bool auth)
         {
             if (string.IsNullOrEmpty(BaseUrl)) return (0, null);
             using var req = new UnityWebRequest(BaseUrl + path, method);
+            long sent = HeaderBytesEstimate + (path?.Length ?? 0);
             if (json != null || method == "POST")
             {
-                req.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json ?? "{}"));
+                var payload = Encoding.UTF8.GetBytes(json ?? "{}");
+                sent += payload.Length;
+                req.uploadHandler = new UploadHandlerRaw(payload);
                 req.SetRequestHeader("Content-Type", "application/json");
             }
+            BytesSent += sent;
             req.downloadHandler = new DownloadHandlerBuffer();
             if (auth && SignedIn) req.SetRequestHeader("Authorization", "Bearer " + Token);
             req.timeout = Lvn.LvnNetPatience.RequestSeconds;

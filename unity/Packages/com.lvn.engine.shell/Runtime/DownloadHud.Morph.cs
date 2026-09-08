@@ -29,14 +29,17 @@ namespace Lvn.UI.Screens
             // первые кадры разворота). Вся карточка раскрывается одним жестом.
             if (on)
             {
+                // Лист: половина экрана, но не выше, чем остаётся под шапкой,
+                // и не ниже домашней полосы телефона. Ширина — экран без полей.
                 float avail = resolvedStyle.height;
+                float bottomInset = Lvn.UI.LvnEdges.Insets(this).y;
+                float ceiling = avail - _safeTop - 40f;
                 _fullH = avail > 100f
-                    ? Mathf.Max(MiniSize, Mathf.Min(avail - _safeTop - 29f, FullHMax))
-                    : FullHMax;
+                    ? Mathf.Clamp(avail * SheetHeightShare, MiniSize, Mathf.Max(MiniSize, ceiling))
+                    : 560f;
                 float availW = resolvedStyle.width;
-                _fullW = availW > 100f
-                    ? Mathf.Min(availW - 32f, Mathf.Clamp(availW * 0.6f, 420f, FullWMax))
-                    : 520f;
+                _fullW = availW > 100f ? availW - SheetSide * 2f : 520f;
+                _sheetTop = avail > 100f ? avail - _fullH - bottomInset - 12f : _safeTop + 5f;
                 _capsule.schedule.Execute(() => { if (_expanded) RebuildSections(); }).ExecuteLater(70);
             }
             float from = _morph, to = on ? 1f : 0f;
@@ -53,7 +56,16 @@ namespace Lvn.UI.Screens
             ApplyChapterMode();
             _capsule.style.width = Mathf.Lerp(MiniSize, _fullW, k);
             _capsule.style.height = Mathf.Lerp(MiniSize, _fullH, k);
+            // Кружок сидит под вырезом в строке бара; лист стоит у низа экрана.
+            _capsule.style.marginTop = Mathf.Lerp(_safeTop + 5f, _sheetTop, k);
             LvnChrome.Round(_capsule, Mathf.Lerp(MiniSize * 0.5f, 22f, k));
+            // Кружок — полупрозрачный тон (Илья, 26.08), а ЛИСТ — глухой:
+            // на пол-экрана цифр сквозь 6 % просвета проступала витрина
+            // («ТЕКУЩИЕ ЭКСПЕДИЦИИ», героиня), и скорость читалась поверх
+            // призрака. Заодно за листом встаёт затемнение, как у попапов
+            // оболочки: витрина гаснет, внимание — на загрузках.
+            _capsule.style.backgroundColor = UiColor.WithAlpha(LvnTokens.PanelBg, Mathf.Lerp(0.94f, 1f, k));
+            _scrim.style.backgroundColor = UiColor.WithAlpha(LvnTokens.Scrim, LvnTokens.Scrim.a * k);
             // Верхняя кромка наливается акцентом по мере разворота — та же
             // «крышка», что у попап-экранов оболочки (AdoptSheet).
             LvnChrome.EdgeOn(_capsule, LvnSide.Top,
