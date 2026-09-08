@@ -323,10 +323,17 @@ namespace Lvn.UI.Screens
             // витрина (ui.browse.skin), а не магазин: рамка у панели новостей,
             // у карточки новеллы и у пакета одна и та же, и второе поле в
             // манифесте означало бы, что их можно рассогласовать.
-            _skin = manifest?.ui?.browse?.skin;
-            _spine = FirstSpine(manifest);
-            if (Dressed && !_dressedApplied) { _dressedApplied = true; DressAsStageColumn(); }
-            Rebuild();
+            // ПЕРЕСБОРКА — ТОЛЬКО ПО ДЕЛУ. Живое обновление приходит после
+            // каждого синка состояния, и пересборка на каждое мигала всем
+            // столбиком («спайны мелькают» — Илья 08.09). Облик и спайн те же
+            // — карточки стоят как стояли.
+            var skin = manifest?.ui?.browse?.skin;
+            var spine = FirstSpine(manifest);
+            string spineKey = spine == null ? null : Newtonsoft.Json.JsonConvert.SerializeObject(spine);
+            bool changed = skin != _skin || spineKey != _spineKey;
+            _skin = skin; _spine = spine; _spineKey = spineKey;
+            if (Dressed && !_dressedApplied) { _dressedApplied = true; DressAsStageColumn(); changed = true; }
+            if (changed) Rebuild();
         }
 
         /// <summary>Папка рисованных рамок облика «сцена»; пусто — магазин
