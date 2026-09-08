@@ -22,6 +22,12 @@ namespace Lvn.UI
         void SetBackground(Sprite sprite, float crossfadeSeconds);
         /// <summary>Пан по фону: from → to (0=левый край, 1=правый) за seconds.</summary>
         void PanBackground(float from01, float to01, float seconds);
+        /// <summary>Кадр полотна разом по двум осям (x: 0 левый край … 1 правый;
+        /// y: 0 низ … 1 верх). Без анимации — ведущий шлёт его покадрово.</summary>
+        void SetBackgroundPan(float x01, float y01);
+        /// <summary>Блуждание кадра вокруг своей точки: амплитуды по осям
+        /// (доли картины) и период в секундах. Ноль — полотно стоит.</summary>
+        void SetBackgroundDrift(float x, float y, float seconds);
         /// <summary>Reset the backdrop on a stage wipe: the Canvas path keeps
         /// its own black board (its historical behaviour — the next chapter's bg
         /// paints over it).</summary>
@@ -63,6 +69,15 @@ namespace Lvn.UI
         // ── camera ──
         void Shake(float amplitude, float seconds);
         void Zoom(float factor, float seconds);
+        /// <summary>Убрать/вернуть фигуры, оставив полотно во весь кадр.</summary>
+        void CastFade(float alpha, float seconds);
+        /// <summary>Сдвинуть ФИГУР по кадру, не трогая полотно: доля ширины
+        /// кадра (+ вправо, − влево), 0 — место, назначенное сценой.</summary>
+        void CastShift(float shareOfWidth, float seconds);
+        /// <summary>Отдалить ФИГУР от камеры, не трогая полотно (1 — как есть).</summary>
+        void CastZoom(float scale, float seconds);
+        /// <summary>Приблизить само полотно — запас для панорамы.</summary>
+        void SetBackgroundZoom(float zoom);
         void Pan(float x, float y, float seconds);
         void ResetCamera(float seconds);
 
@@ -144,6 +159,9 @@ namespace Lvn.UI
             => _scene.SetBackgroundSprite(sprite, crossfadeSeconds);
         public void PanBackground(float from01, float to01, float seconds)
             => _scene.PanBackground(from01, to01, seconds);
+        public void SetBackgroundPan(float x01, float y01) => _scene.SetBackgroundPan(x01, y01);
+        public void SetBackgroundDrift(float x, float y, float seconds)
+            => _scene.SetBackgroundDrift(x, y, seconds);
         // The canvas keeps its black board for flat art (the next bg paints over
         // it), but a 3D set is a live object being filmed — leaving it standing
         // would show the previous novel's room behind the next one's scene.
@@ -230,6 +248,11 @@ namespace Lvn.UI
 
         public void Shake(float amplitude, float seconds) => _scene.Shake(amplitude, seconds);
         public void Zoom(float factor, float seconds) => _scene.Zoom(factor, seconds);
+        public void CastFade(float alpha, float seconds) => _scene.CastFade(alpha, seconds);
+        public void CastShift(float shareOfWidth, float seconds)
+            => _scene.CastShift(shareOfWidth, seconds);
+        public void CastZoom(float scale, float seconds) => _scene.CastZoom(scale, seconds);
+        public void SetBackgroundZoom(float zoom) => _scene.SetBackgroundZoom(zoom);
         public void Pan(float x, float y, float seconds) => _scene.Pan(x, y, seconds);
         public void ResetCamera(float seconds) => _scene.ResetCamera(seconds);
 

@@ -94,6 +94,12 @@ namespace Lvn.UI.Screens
         // (translate — только анимация, никогда не состояние). Гонки отрезаны
         // флагом занятости.
         private int _tab;
+
+        /// <summary>НА КАКОЙ ВКЛАДКЕ ИГРОК СЕЙЧАС. Спрашивает витрина: сцену
+        /// меню пересобирают и посреди гардероба (сменил наряд), и вставать
+        /// она обязана в композицию ТОЙ вкладки, а не «как на главной» —
+        /// иначе героиня прыгала бы в сторону на каждой примерке.</summary>
+        public int Tab => _tab;
         private bool _tabBusy;
         private float _tabCanvasX; // смещение полотна: четверть на вкладку
         private VisualElement _canvasTint; // «шейдер-лайт»: тон вкладки поверх фото
@@ -310,6 +316,8 @@ namespace Lvn.UI.Screens
             // «Во весь рост» освобождает кадр ЦЕЛИКОМ: хром прячет его хозяин —
             // оболочка, а не экран (у экрана до чужих слоёв руки не достают).
             WardrobeTab.PeekChrome = PeekChrome;
+            // Панель гардероба встаёт НАД нижней лентой: высоту знает хаб.
+            WardrobeTab.NavHeight = () => Hub?.NavHeight ?? 0f;
             Add(WardrobeTab);
             // Покупка в меню-гардеробе идёт через кошелёк; нехватка средств
             // ведёт в БЫСТРЫЙ модальный магазин прямо поверх вкладки.
@@ -357,6 +365,8 @@ namespace Lvn.UI.Screens
             if (assets is CachingAssets ca)
             {
                 DownloadHud = new Lvn.UI.Screens.DownloadHud();
+                // Кружок садится на циферблат логотипа, когда логотип на
+                // экране: шапка знает, где он, — кружок только спрашивает.
                 AddChrome(DownloadHud);
                 _root.schedule.Execute(() =>
                 {

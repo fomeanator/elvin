@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Lvn.Content;
 using Lvn.UI;
+using UnityEngine;
 
 namespace Lvn.UI.Screens
 {
@@ -46,6 +47,47 @@ namespace Lvn.UI.Screens
         public const int Profile = 3;
         /// <summary>Галерея — вкладка БЕЗ страницы: открывает модаль.</summary>
         public const int Gallery = 4;
+
+        /// <summary>
+        /// КАРТА КОМНАТ — где какая вкладка стоит в пространстве витрины.
+        /// Координаты экранные: x 0 левый край … 1 правый, y 0 верх … 1 низ.
+        ///
+        /// <para>Комнаты стоят на месте, летит камера: к нижней комнате она
+        /// опускается и страница приезжает снизу, полотно показывает низ
+        /// картины. Карта — решение композиции, а не измерение ленты: ромб
+        /// «по местам кнопок» (кнопка выше — комната выше) ходил поперёк
+        /// глаза, и Илья 08.09 нарисовал её сам:</para>
+        /// <code>
+        /// профиль----------------
+        /// --------Главная--------
+        /// Гардероб--------Магазин
+        /// </code>
+        /// </summary>
+        public static Vector2 Room(int tab)
+        {
+            switch (tab)
+            {
+                case Profile:  return new Vector2(0f,   0f);   // слева сверху
+                case Home:     return new Vector2(0.5f, 0.5f); // центр
+                case Wardrobe: return new Vector2(0f,   1f);   // слева снизу
+                case Store:    return new Vector2(1f,   1f);   // справа снизу
+                case Gallery:  return new Vector2(1f,   0f);   // справа сверху (зеркало профиля)
+                default:       return new Vector2(0.5f, 0.5f);
+            }
+        }
+
+        /// <summary>РОД КОМНАТЫ для композиции витрины: где стоит героиня и
+        /// каким планом (числа — у <see cref="LvnMenuStage"/>). Магазин —
+        /// своя комната, остальные боковые — на один лад.</summary>
+        public static LvnMenuStage.Room RoomOf(int tab)
+        {
+            switch (tab)
+            {
+                case Home:  return LvnMenuStage.Room.Home;
+                case Store: return LvnMenuStage.Room.Store;
+                default:    return LvnMenuStage.Room.Side;
+            }
+        }
 
         /// <summary>Вкладки В ПОРЯДКЕ ПОКАЗА (не в порядке номеров).</summary>
         public static readonly IReadOnlyList<LvnTab> Shown = new[]

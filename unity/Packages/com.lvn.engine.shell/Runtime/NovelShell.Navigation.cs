@@ -92,25 +92,78 @@ namespace Lvn.UI.Screens
             {
                 var from = TabPage(_tab);
                 int dir = target > _tab ? 1 : -1;
+                int leaving = _tab;
+                // КУДА ЕДЕМ — ИЗВЕСТНО СРАЗУ. Номер вкладки менялся в КОНЦЕ
+                // переезда, и всё, что спрашивало «где игрок» по дороге,
+                // получало старый ответ: закрытие гардероба идёт ВНУТРИ этого
+                // же перехода и возвращало сцене БОКОВУЮ композицию — героиня,
+                // уже уехавшая на главную, отскакивала вправо («героиня ходуном
+                // ходит… по центру, а становится справа» — Илья 08.09).
+                _tab = target;
                 float w = _root.resolvedStyle.width;
                 if (w <= 0f || float.IsNaN(w)) w = 1080f;
+                // ЭКРАНЫ СТОЯТ В ПРОСТРАНСТВЕ, ЛЕТИТ КАМЕРА. Раньше каждая
+                // страница приезжала по своей траектории, и мир на переезде
+                // разваливался. Комнаты расставлены ромбом — Главная сверху,
+                // гардероб слева, магазин справа, профиль снизу, — и переход
+                // это ОДИН перелёт между двумя точками: обе страницы едут по
+                // общему вектору, сохраняя расстояние между собой, а полотно и
+                // героиня летят с ними («будто интерфейс в пространстве был, а
+                // к нему камера с героиней прилетали» — Илья 08.09).
+                Vector2 hop = TabHop(leaving, target, w);
+                Vector2 toStart = hop, fromEnd = -hop;
+                Lvn.LvnLog.Trace($"[lvn-hop] переезд {leaving} → {target}: вектор "
+                               + $"({hop.x:0}, {hop.y:0}) при экране {w:0}x{_root.resolvedStyle.height:0}; "
+                               + $"приходящая стартует с ({toStart.x:0}, {toStart.y:0}), "
+                               + $"уходящая уедет в ({fromEnd.x:0}, {fromEnd.y:0})");
 
                 to.scr?.ShowAsTab();
                 to.el.style.display = DisplayStyle.Flex;
-                to.el.style.translate = new Translate(dir * w, 0f);
+                to.el.style.translate = new Translate(toStart.x, toStart.y);
                 Hub?.SetActiveTab(target);
+                // СНАЧАЛА СОБРАТЬСЯ, ПОТОМ ЕХАТЬ. Экран вкладки пересобирает
+                // своё тело в ShowAsTab и проявляется сам, как только посчитана
+                // геометрия. Пока это происходило ВО ВРЕМЯ переезда, движение
+                // читалось не переездом, а пересборкой: панель проступала
+                // кусками там, куда её как раз везли («не переезжает, а
+                // перестраивается будто» — Илья 08.09). Ждём готовый кадр — с
+                // потолком, чтобы медленный экран не подвесил переход.
+                await WaitLaidOutAsync(to.el);
 
                 var fromEl = from.el;
                 float canvasFrom = _tabCanvasX, canvasTo = target * w * 0.067f; // втрое медленнее — глубина
                 // 338 = 260 + 30% — «чуть медленнее» (26.08). Ожидание конца
                 // движения — у дома движения: оборванная анимация не должна
                 // оставить флаг «занято» поднятым навсегда.
-                await Lvn.UI.LvnMotion.PlayAsync(to.el, 338, (e, p) =>
+                await Lvn.UI.LvnMotion.PlayAsync(to.el, Lvn.UI.LvnMenuStage.TravelMs, (e, p) =>
                 {
-                    float k = Lvn.UI.LvnMotion.Settle(p);
-                    e.style.translate = new Translate(Mathf.Lerp(dir * w, 0f, k), 0f);
+                    // Кривая ПОЛЁТА, не «прихода»: камера с героиней летят к
+                    // комнате, а сцена везёт фигуру между слотами той же
+                    // кривой — иначе интерфейс уже стоит, а героиня ещё едет.
+                    float k = Lvn.UI.LvnMotion.Glide(p);
+                    var here = Vector2.Lerp(toStart, Vector2.zero, k);
+                    e.style.translate = new Translate(here.x, here.y);
+                    // ИЗДАЛЕКА — И ВДАЛЬ. Приходящая комната растёт из дальнего
+                    // плана до полного размера, уходящая уменьшается: без
+                    // этого страницы скользят в одной плоскости, а Илья хочет
+                    // глубину («как будто издалека приезжают и уезжают» —
+                    // 08.09).
+                    float near = Mathf.Lerp(FarScale, 1f, k);
+                    e.style.scale = new Scale(new Vector2(near, near));
+                    // ГАСНЕТ ТОЛЬКО УХОДЯЩАЯ. Приходящая едет как есть — это и
+                    // читается переездом. А вот уходящая обязана гаснуть: лист
+                    // гардероба и магазин полупрозрачны, под ними видна главная,
+                    // и без угасания две комнаты наезжают друг на друга
+                    // («при переходе накладывает друг на друга интерфейс» —
+                    // Илья 08.09).
                     if (fromEl != null)
-                        fromEl.style.translate = new Translate(Mathf.Lerp(0f, -dir * w, k), 0f);
+                    {
+                        var gone = Vector2.Lerp(Vector2.zero, fromEnd, k);
+                        fromEl.style.translate = new Translate(gone.x, gone.y);
+                        fromEl.style.opacity = Mathf.Clamp01(1f - k / 0.5f);
+                        float far = Mathf.Lerp(1f, FarScale, k);
+                        fromEl.style.scale = new Scale(new Vector2(far, far));
+                    }
                     _tabCanvasX = Mathf.Lerp(canvasFrom, canvasTo, k); // полотно едет с нами
                     OnTabTravelTick?.Invoke(k); // сцена меню — той же кривой
                     if (_canvasTint != null)
@@ -119,14 +172,84 @@ namespace Lvn.UI.Screens
                             TabTints[Mathf.Clamp(target, 0, LvnTabs.PageCount - 1)], k);
                 });
                 _tabCanvasX = canvasTo;
+                Lvn.LvnLog.Trace($"[lvn-hop] переезд {leaving} → {target} доехал: "
+                               + $"приходящая на ({to.el.resolvedStyle.translate.x:0}, "
+                               + $"{to.el.resolvedStyle.translate.y:0}), должна быть в (0, 0)");
 
                 if (from.scr != null) from.scr.HideAsTab();
                 else if (fromEl != null) fromEl.style.display = DisplayStyle.None;
-                if (fromEl != null) fromEl.style.translate = new Translate(0f, 0f);
+                if (fromEl != null)
+                {
+                    fromEl.style.translate = new Translate(0f, 0f);
+                    fromEl.style.opacity = 1f;   // спрятана — но не полупрозрачна
+                    fromEl.style.scale = new Scale(Vector2.one);
+                }
                 to.el.style.translate = new Translate(0f, 0f);
-                _tab = target;
+                to.el.style.scale = new Scale(Vector2.one);
+                to.scr?.Settled();   // экран на месте — можно считать раскладку
+                _ = dir;   // направление больше не решает: решает место кнопки
             }
             finally { _tabBusy = false; }
+        }
+
+        /// <summary>
+        /// ПЕРЕЛЁТ КАМЕРЫ между двумя комнатами витрины — вектор в единицах
+        /// экрана. Комнаты стоят по карте (<see cref="LvnTabs.Room"/>):
+        /// приходящая страница стартует со стороны своей комнаты, уходящая
+        /// уезжает в противоположную.
+        ///
+        /// <para>Путь НАРОЧНО короткий: экран во всю ширину за 340 мс читается
+        /// рывком, а не движением — UITK везёт живую страницу целиком.
+        /// Направление важнее размаха, остальное доскажет прозрачность.</para>
+        /// </summary>
+        /// <summary>Сколько экранов между комнатами по главной оси перелёта —
+        /// не меньше: больше единицы, чтобы страницы не перекрывались.</summary>
+        private const float MinScreensApart = 1.1f;
+
+        /// <summary>Масштаб «дальней» комнаты: с него приходящая растёт до
+        /// полного размера, до него уходящая сжимается.</summary>
+        private const float FarScale = 0.86f;
+
+        private Vector2 TabHop(int from, int to, float w)
+        {
+            var a = LvnTabs.Room(from);
+            var b = LvnTabs.Room(to);
+            float h = _root.resolvedStyle.height;
+            if (h <= 0f || float.IsNaN(h)) h = 1920f;
+            // Карта в экранных осях (y вниз), как и translate страницы:
+            // комната ниже — страница приезжает снизу, знак общий.
+            //
+            // ХОД БОЛЬШОЙ — НАРАВНЕ С КАМЕРОЙ. Короткий путь читался как
+            // «интерфейс искусственный»: полотно уезжало на полкартины, а
+            // панели едва трогались с места, и мир распадался на два. Между
+            // крайними комнатами экран проходит больше своей ширины и три
+            // четверти высоты — столько же, сколько взгляд («надо, чтобы
+            // прям ездил… вместе с камерой наравне» — Илья 08.09).
+            var hop = new Vector2((b.x - a.x) * 2.0f * w, (b.y - a.y) * 1.5f * h);
+            // ЭКРАНЫ НЕ ПЕРЕКРЫВАЮТСЯ. Приходящая и уходящая страницы стоят
+            // друг от друга ровно на вектор перелёта; если по главной оси он
+            // короче экрана, по дороге они наезжают друг на друга («надо чуть
+            // раздвинуть, а то наезжают» — Илья 08.09). Вектор тянется до
+            // 1.1 экрана по своей главной оси — между комнатами остаётся
+            // просвет.
+            float span = Mathf.Max(Mathf.Abs(hop.x) / w, Mathf.Abs(hop.y) / h);
+            if (span > 0.001f && span < MinScreensApart) hop *= MinScreensApart / span;
+            Lvn.LvnLog.Trace($"[lvn-hop] комнаты: {from} = ({a.x:0.00}, {a.y:0.00}) → "
+                           + $"{to} = ({b.x:0.00}, {b.y:0.00}); шаг ({hop.x:0}, {hop.y:0}), "
+                           + $"экранов по главной оси {Mathf.Max(Mathf.Abs(hop.x) / w, Mathf.Abs(hop.y) / h):0.00}");
+            return hop;
+        }
+
+        /// <summary>ДОЖДАТЬСЯ ГОТОВОГО КАДРА страницы: пересобранное тело
+        /// показывается по первой раскладке (LvnMontage.RevealWhenLaidOut), и
+        /// до неё везти нечего. Потолок обязателен: страница может собираться
+        /// долго (гардероб идёт на диск), а переход стоять не имеет права.</summary>
+        private static async Task WaitLaidOutAsync(VisualElement el, float capSeconds = 0.16f)
+        {
+            if (el == null) return;
+            float until = Lvn.LvnClock.Now() + capSeconds;
+            while (Lvn.LvnClock.Now() < until && el.resolvedStyle.opacity < 0.99f)
+                await Task.Yield();
         }
 
         /// <summary>Мгновенно домой (гардероб/старт главы): без анимации.</summary>

@@ -95,6 +95,36 @@ namespace Lvn.UI.Screens
 
         /// <summary>Убрать/вернуть нижнюю ленту вкладок. Зовёт оболочка, когда
         /// экран просит кадр целиком («Во весь рост» в гардеробе).</summary>
+        /// <summary>ВЫСОТА НИЖНЕЙ ЛЕНТЫ — её спрашивают экраны, встающие над
+        /// ней (лист гардероба). Числом её не задать: у облика «сцена» лента
+        /// рисованная и выше обычной, и жёсткий отступ у гардероба перестал
+        /// сходиться — кнопки «Отменить/Выбрать» уехали под меню (скрин Ильи
+        /// 08.09). Спрашиваем у самой ленты, сколько она заняла.</summary>
+        public float NavHeight
+            => _bottomNav == null || _bottomNav.style.display == DisplayStyle.None
+                ? 0f : _bottomNav.resolvedStyle.height;
+
+        // Место вкладки в пространстве витрины — КАРТА КОМНАТ (LvnTabs.Room),
+        // а не измерение ленты: здесь стоял TabSeat, меривший worldBound
+        // кнопок и строивший ромб «кнопка выше — комната выше». Он ходил
+        // поперёк глаза и дрожал на пикселях раскладки; композиция — решение,
+        // и она записана словами у вкладок.
+
+        /// <summary>Запасное место — по порядку показа: пока лента не
+        /// разложена, спрашивать у неё геометрию нечего.</summary>
+        private static float SeatByOrder(int index)
+        {
+            int n = 0, mine = -1;
+            for (int i = 0; i < LvnTabs.Shown.Count; i++)
+            {
+                if (LvnTabs.Shown[i].Index == index) mine = n;
+                n++;
+            }
+            if (mine < 0 || n <= 1) return 0.5f;
+            return (mine + 0.5f) / n;
+
+        }
+
         public void SetNavHidden(bool hidden)
         {
             if (_bottomNav == null) return;

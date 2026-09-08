@@ -47,11 +47,8 @@ namespace Lvn.UI.Screens
         private Label _stageChapter, _stageTitle, _stageSubtitle, _stageAdAmount;
         private LvnTitle _stageFeatured;
 
-        private string SkinUrl(string file)
-        {
-            var root = _cfg.skin ?? "";
-            return (root.EndsWith("/") ? root : root + "/") + file;
-        }
+        // Склейка адреса — у набора деталей: тем же правилом бут греет рамки.
+        private string SkinUrl(string file) => LvnStageKit.SkinUrl(_cfg.skin, file);
 
         private VisualElement StageImage(string file, float x, float y, float w, float h)
             => LvnStageKit.Art(SkinUrl(file), _assets, x, y, w, h);
@@ -62,27 +59,20 @@ namespace Lvn.UI.Screens
 
         // ── страница ─────────────────────────────────────────────────────────
 
-        /// <summary>Страница главной в облике «сцена»: вуали сверху и снизу
-        /// (текст обязан читаться поверх полотна) и столбик справа, прижатый к
-        /// низу над рисованным меню.</summary>
+        /// <summary>Страница главной в облике «сцена»: столбик справа,
+        /// прижатый к низу над рисованным меню. Полотно и героиня — без
+        /// вуалей.</summary>
         private VisualElement BuildStageView()
         {
             var view = new VisualElement { pickingMode = PickingMode.Ignore };
             ScreenUi.Stretch(view);
 
-            // Вуаль сверху: строка состояния и шапка стоят на тёмном.
-            var topVeil = new VisualElement { pickingMode = PickingMode.Ignore };
-            topVeil.style.position = Position.Absolute;
-            topVeil.style.left = 0; topVeil.style.right = 0; topVeil.style.top = 0;
-            topVeil.style.height = D(130f);
-            topVeil.style.backgroundImage = Gradient(_bg, UiColor.WithAlpha(_bg, 0f));
-            view.Add(topVeil);
-            // Вуаль снизу: столбик и меню стоят на тёмном, героиня уходит в тень.
-            var bottomVeil = new VisualElement { pickingMode = PickingMode.Ignore };
-            LvnChrome.BottomStrip(bottomVeil);
-            bottomVeil.style.height = D(197f);
-            bottomVeil.style.backgroundImage = Gradient(UiColor.WithAlpha(_bg, 0f), _bg);
-            view.Add(bottomVeil);
+            // ВУАЛЕЙ НЕТ. Здесь стояли две тени — сверху (130) под шапкой и
+            // снизу (197) над меню, «героиня уходит в тень». С полотном,
+            // которое теперь живёт и ездит с камерой, они читались как грязь
+            // на картине, а не как подложка под текст («что за тень на
+            // главной? надо убрать её» — Илья 08.09). Шапка и меню несут свой
+            // фон сами.
 
             var stack = new VisualElement { pickingMode = PickingMode.Ignore };
             _stageStack = stack;
@@ -295,7 +285,24 @@ namespace Lvn.UI.Screens
             _stageCard.style.display = featured == null ? DisplayStyle.None : DisplayStyle.Flex;
             if (featured == null) return;
             var art = featured.CardArt();
-            if (!string.IsNullOrEmpty(art)) LvnPicture.Photo(_stageCover, art, _assets);
+            // ЖИВОЙ СПАЙН ВМЕСТО ОБЛОЖКИ — тем же приёмом, что в карточках
+            // ленты: постер вешает фигуру фоном на элемент интерфейса. Облик
+            // «сцена» про это не знал и ставил статичную картинку, хотя
+            // спайн у новеллы есть (просьба Ильи 08.09: «спайн в главное
+            // меню вместо бг новеллы»).
+            //
+            // ОБЛОЖКУ ПРИ ЭТОМ НЕ СТАВИМ: и она, и спайн пишут ОДНО поле
+            // backgroundImage, и обе едут асинхронно — приехавшая позже
+            // обложка молча затёрла бы фигуру. Не сложился спайн — постер
+            // сам откатится на обложку (последний довод Attach).
+            var cardSpine = Lvn.UI.LvnSpineBridge.Available ? SpineForTitle(featured) : null;
+            if (cardSpine != null)
+                Lvn.UI.LvnSpinePoster.Attach(_stageCover, cardSpine,
+                    url => _assets.LoadTextAsync(url, default),
+                    url => _assets.LoadSpriteAsync(url, default),
+                    (_assets as Lvn.UI.CachingAssets)?.Loader,
+                    () => { if (!string.IsNullOrEmpty(art)) LvnPicture.Photo(_stageCover, art, _assets); });
+            else if (!string.IsNullOrEmpty(art)) LvnPicture.Photo(_stageCover, art, _assets);
             int total = featured.ChaptersOf().Count;
             float frac = total > 0 ? Mathf.Clamp01((float)Mathf.Clamp(LvnProgress.Reached(featured), 1, total) / total) : 0f;
             LvnStageKit.Fill(_stageFill, frac);
@@ -336,13 +343,15 @@ namespace Lvn.UI.Screens
             _bottomNav = nav;
             nav.style.height = D(146f);
             nav.style.flexShrink = 0;
-            // Полоса под самой панелью (домашняя полоса телефона) — тёмная,
-            // как и заливка нарисованного меню; выше 74 dp картинка прозрачна.
-            var floor = new VisualElement { pickingMode = PickingMode.Ignore };
-            floor.style.position = Position.Absolute;
-            floor.style.left = 0; floor.style.right = 0; floor.style.top = D(74f); floor.style.bottom = 0;
-            floor.style.backgroundColor = _bg;
-            nav.Add(floor);
+            // ПОД ЛЕНТОЙ — СЦЕНА, А НЕ ЧЁРНОТА. Здесь стояла заливка цветом
+            // фона от 74 dp до низа: рисунок меню ниже своей панели прозрачен,
+            // и полосу «домашней кнопки» закрашивали, чтобы она читалась как
+            // продолжение меню. На живом экране это ровно наоборот — чёрный
+            // язык под рисованной лентой, оборванный ровной кромкой («там ещё
+            // чернота под нижним меню, надо чтобы фон туда заезжал внутрь до
+            // низа экрана самого» — Илья 08.09). Полотно витрины идёт во весь
+            // экран и само доходит до нижней кромки; ленте достаточно своего
+            // рисунка.
             var art = new VisualElement { name = "stage-img", pickingMode = PickingMode.Ignore };
             art.style.position = Position.Absolute;
             art.style.left = -D(12f); art.style.right = -D(12f); art.style.top = -D(12f);

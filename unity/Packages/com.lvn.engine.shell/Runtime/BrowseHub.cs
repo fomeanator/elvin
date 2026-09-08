@@ -64,6 +64,10 @@ namespace Lvn.UI.Screens
         private Label _playerNameLabel, _playerLevelLabel;
         private readonly BrowseConfig _cfg;
         private readonly ILvnAssets _assets;
+        // Каталог сущностей-спайнов из манифеста (ключ → json/atlas/страницы).
+        // Живые спайны на карточках ленты берут фигуру отсюда; нет каталога —
+        // карточки остаются с обложкой.
+        private Dictionary<string, LvnSpriteEntity> _sprites;
         private readonly Color _bg, _titleColor, _text, _dim, _card, _cardText, _accent, _accentText, _border;
         private readonly float _radius;
         private readonly LvnTheme _theme;
@@ -412,8 +416,29 @@ namespace Lvn.UI.Screens
         }
 
         /// <inheritdoc/>
-        public void SetContent(LvnManifest manifest) =>
+        public void SetContent(LvnManifest manifest)
+        {
+            _sprites = manifest?.sprites;
             SetData(manifest?.collections, manifest?.titles);
+        }
+
+        // Какой карточке достаётся живая фигура. Пока в каталоге один спайн
+        // (noel), и вешать его НА ВСЕ карточки нельзя — он лез и на «Полигон».
+        // Когда у каждой главы появится свой спайн, эта строка уступит место
+        // сопоставлению «титул → ключ каталога» из манифеста.
+        private const string SpineTitleId = "agency";
+
+        // Живая фигура для карточки новеллы: только для витринного титула выше.
+        // Нет каталога, нет спайна или титул не тот — null, и карточка рисует
+        // обычную обложку.
+        private LvnSpineRef SpineForTitle(LvnTitle t)
+        {
+            if (_sprites == null || t == null || t.id != SpineTitleId) return null;
+            foreach (var kv in _sprites)
+                if (kv.Value != null && kv.Value.spine != null)
+                    return kv.Value.spine;
+            return null;
+        }
 
         // ── navigation ──────────────────────────────────────────────────────────
         private void ShowHub()

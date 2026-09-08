@@ -335,10 +335,19 @@ namespace Lvn.UI
         private async Task ApplySpineAsync(string id, Lvn.Content.LvnSpriteEntity e, JObject cmd)
         {
             int epoch = _stageEpoch; // the scene this build belongs to (see ResetStage)
-            var placement = _memory.TryWhere(id, out var prevSp)
-                ? PlacementFrom(cmd, prevSp, SlotsOf(id)) : PlacementFrom(cmd, SlotsOf(id));
+            bool known = _memory.TryWhere(id, out var prevSp);
+            var placement = known ? PlacementFrom(cmd, prevSp, SlotsOf(id)) : PlacementFrom(cmd, SlotsOf(id));
             FillTransitionDefaults(cmd, ref placement);
+            ApplyPresentationTempo(ref placement);   // тот же темп, что у спрайтовых актёров
             _memory.SetWhere(id, placement); // sticky base (spine actors too)
+            // СМЕНА МЕСТА У ВИДИМОЙ КУКЛЫ — МИЗАНСЦЕНА, А НЕ НОВЫЙ ВЫХОД: едет
+            // плавно, как спрайтовый актёр (WorldStage.MoveSlotBase). Спайн шёл
+            // мимо этого правила и прыгал слот-в-слот, хотя словарь постановки
+            // у них общий. Флаг одноразовый — в памяти его нет (перетаскивание
+            // остаётся 1:1).
+            placement.SmoothPosition = known && prevSp.Show && placement.Show
+                && (cmd["position"] != null || cmd["x"] != null || cmd["y"] != null);
+            ShortenCharacterMovement(cmd, ref placement);
 
             if (!LvnSpineBridge.Available)
             {
@@ -508,6 +517,9 @@ namespace Lvn.UI
             if (existing != null)
             {
                 bool show = _memory.TryWhere(id, out var cur) ? cur.Show : placement.Show;
+                LvnLog.Trace($"[lvn-spine] {id}: уже построен → место x={placement.X:0.000}, "
+                           + $"плавно={placement.SmoothPosition}, показать={show}, "
+                           + $"был активен={existing.activeSelf}, play={(string)cmd["play"] ?? "-"}");
                 // Real-time size: re-fit to the screen each command, so `scale`/
                 // `fit` resize the Spine on the fly. Refit BEFORE the fade so the
                 // reveal is already correctly sized.

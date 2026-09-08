@@ -25,7 +25,7 @@ namespace Lvn.UI
             // Рост в метрах — постановка, а не ось каста: без этого `meters=1.7`
             // ушло бы в шаблон слоя как значение оси и молча не нашло файла.
             "meters", "height_m",
-            "anchor", "anchor_x", "anchor_y", "z", "flip", "mirror", "rotation", "opacity",
+            "anchor", "anchor_x", "anchor_y", "z", "flip", "mirror", "rotation", "opacity", "crop",
             "on_click", "hover_opacity", "breathing", "sprite_url", "body_url", "clothes_url", "hair_url",
             "transition", "transition_duration", "enter", "exit", "play",
         };
@@ -186,6 +186,14 @@ namespace Lvn.UI
             var spineEntity = SpineEntityFor(id, cmd);
             if (spineEntity != null)
             {
+                // ПАМЯТЬ КОМАНДЫ — И У СПАЙНА ТОЖЕ. Запись ниже (после арбитра)
+                // спайновая ветка обходила выходом, и сцена помнила за куклой
+                // команду, которой давно нет: реплей гардероба (снятие
+                // примерки при закрытии листа) ставил её по этой старой
+                // команде — героиня, уехавшая в слот вкладки, возвращалась
+                // туда, где стояла до гардероба (живой репорт 08.09).
+                if (BoolOr(cmd["show"], true)) _memory.Remember(id, cmd, sender);
+                else _memory.RememberCommandOnly(id, cmd);
                 await ApplySpineAsync(id, spineEntity, cmd);
                 return;
             }

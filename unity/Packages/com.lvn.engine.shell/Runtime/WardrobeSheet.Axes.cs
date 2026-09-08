@@ -30,10 +30,10 @@ namespace Lvn.UI.Screens
         /// витриной ему самое место (просьба Ильи 28.08).</para>
         /// </summary>
         private bool IsSubAxis(string axis) =>
-            axis != null && _def?.wardrobe != null
-            && _def.wardrobe.TryGetValue(axis, out var s)
+            axis != null && _slots != null
+            && _slots.TryGetValue(axis, out var s)
             && !string.IsNullOrEmpty(s?.subOf)
-            && (s.subOf == AllTab || _def.wardrobe.ContainsKey(s.subOf));
+            && (s.subOf == AllTab || _slots.ContainsKey(s.subOf));
 
         /// <summary>
         /// Чем листает карусель вкладки «Моё».
@@ -55,8 +55,8 @@ namespace Lvn.UI.Screens
 
         private IEnumerable<string> SubAxesOf(string parent)
         {
-            if (parent == null || _def?.wardrobe == null) yield break;
-            foreach (var kv in _def.wardrobe)
+            if (parent == null || _slots == null) yield break;
+            foreach (var kv in _slots)
                 if (kv.Value?.subOf == parent && IsSubAxis(kv.Key)) yield return kv.Key;
         }
 

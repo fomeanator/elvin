@@ -68,13 +68,20 @@ namespace Lvn.UI
         /// Катсцена ведёт кадр сама и называет порядок слоя явно: там она
         /// обязана стоять перед всеми.</para>
         /// </summary>
-        public bool Stand(LvnSender sender, int? z = null)
+        /// <param name="place">Стоячий слот сцены; молчание — слот главной.
+        /// Место словом сцены, а не долей: так героиня меню и героиня главы
+        /// стоят в одних и тех же точках.</param>
+        /// <param name="seconds">За сколько ЭКРАННЫХ секунд дойти до слота,
+        /// если фигура уже видна; 0 — встать сразу. Перевод в заявленное
+        /// время знает сцена (<see cref="VnStage.DeclareMovement"/>).</param>
+        public bool Stand(LvnSender sender, int? z = null, string place = null, float seconds = 0f)
         {
             if (_stage == null || !Exists) return false;
-            // Место — у витрины (ui.browse.doll_place): там же, где рост и
-            // ширина. Своё поле остаётся запасным, когда витрина молчит.
-            var place = string.IsNullOrEmpty(LvnMenuStage.DollPlace) ? Place : LvnMenuStage.DollPlace;
+            if (string.IsNullOrEmpty(place)) place = LvnMenuStage.HomeDollSlot;
             var pose = Pose(Id, place, LvnMenuStage.DollWidth, LvnMenuStage.DollHeight, z ?? 0);
+            if (seconds > 0f) pose["transition_duration"] = VnStage.DeclareMovement(seconds);
+            LvnLog.Trace($"[lvn-doll] {Id}: в слот «{place}» ({Placement.SlotX(place):0.000} ширины)"
+                       + (seconds > 0f ? $" за {seconds:0.00}с" : " сразу") + $" от {sender}");
             if (sender == LvnSender.Menu) _stage.ShowMenuDoll(Id, pose);
             else _stage.ApplyStage(pose, sender);
             return true;
@@ -108,6 +115,11 @@ namespace Lvn.UI
                 ["width"] = width,
                 ["height"] = height,
                 ["z"] = z,
+                // ВИТРИНА — ПОРТРЕТ, И ОБРЕЗ ЗДЕСЬ НАМЕРЕННЫЙ. Кукла в 0.9 ширины
+                // экрана «слева» стоит только краем за кадром; без этого
+                // зажим сцены (фигура целиком на экране) молча возвращал её
+                // почти в центр при любом слоте.
+                ["crop"] = true,
             };
             // Место — словом («left», «center»…) или долей ширины кадра
             // («0.32»): доля идёт полем x, у слова свой словарь мест.

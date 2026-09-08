@@ -62,6 +62,7 @@ namespace Lvn.UI
             if (_artQuality == "" && LvnKeep.Get(P + "art_eco", 0) == 1) _artQuality = "1k";
             _menuTrack = LvnKeep.Get(P + "menu_track", "");
             _menuFavorite = LvnKeep.Get(P + "menu_favorite", "");
+            _menuBackdrop = LvnKeep.Get(P + "menu_backdrop", "");
             _targetFps = LvnKeep.Get(P + "target_fps", 60) == 30 ? 30 : 60;
 
             // ЧИТАЕМ ЧУЖУЮ СБОРКУ. Настройки пишутся через ручки, а ручки
@@ -284,6 +285,17 @@ namespace Lvn.UI
             set { EnsureLoaded(); Set(ref _menuFavorite, "menu_favorite", value ?? ""); }
         }
         private static string _menuFavorite = "";
+
+        /// <summary>Выбранное ПОЛОТНО главного меню (id из ui.browse.canvas_options;
+        /// пусто — авторское ui.browse.canvas). Хранится на устройстве, как и
+        /// выбор трека; ВЛАДЕНИЕ платным фоном хранит кошелёк, поэтому один
+        /// лишь этот ключ фон не открывает.</summary>
+        public static string MenuBackdrop
+        {
+            get { EnsureLoaded(); return _menuBackdrop; }
+            set { EnsureLoaded(); Set(ref _menuBackdrop, "menu_backdrop", value ?? ""); }
+        }
+        private static string _menuBackdrop = "";
 
         /// <summary>Выбранный трек главного меню (id из ui.browse.music_options;
         /// пусто — базовый ui.browse.music).</summary>

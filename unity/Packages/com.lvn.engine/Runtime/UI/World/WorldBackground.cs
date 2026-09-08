@@ -51,7 +51,8 @@ namespace Lvn.UI.World
             _image.texture = _tex;
             _wantsArt = true;
             _image.enabled = true;   // картинка приехала — полотну снова есть чем рисовать
-            _panGen++; _panX = 0.5f; // новый фон = центр, прежний пан отменён
+            _panGen++; _panX = 0.5f; _panY = 0.5f; // новый фон = центр, прежний пан отменён
+            _driftX = _driftY = 0f;                // …и неподвижен, пока не попросят гулять
             UpdateCover();
             // ПЕРВАЯ КАРТИНКА ТОЖЕ ПРИХОДИТ ПЕРЕХОДОМ. Кроссфейд умеет только
             // «из прежнего кадра в новый», а когда прежнего нет — картинка
@@ -93,12 +94,78 @@ namespace Lvn.UI.World
         // фон 16:9 на портретном экране даёт ~68% хода — сцена начинается в
         // левой части кадра и за десятки секунд доезжает до правой.
         private float _panX = 0.5f;
+        // ВТОРАЯ ОСЬ ПАНА. Кадр ездил только влево-вправо, потому что запас у
+        // cover-кроя был только там: вертикальная картина на портретном экране
+        // обрезается по бокам, а сверху и снизу подходит впритык. Приближение
+        // (SetZoom) сужает окно по ОБЕИМ осям сразу — и вертикальный запас
+        // появляется вместе с горизонтальным. Им и ходит витрина: у нижнего
+        // меню центральная вкладка приподнята над боковыми, и полотно
+        // повторяет эту геометрию, а не одну её половину.
+        private float _panY = 0.5f;
+
+        // ── БЛУЖДАНИЕ ────────────────────────────────────────────────────────
+        // Кадр чуть гуляет вокруг своей точки — так снимают с рук: даже
+        // неподвижный план дышит, и witрина перестаёт быть картинкой под
+        // стеклом. Медленно и мало: заметное качание превращается в дёрганье,
+        // а «чуток» — в жизнь («чтобы он погуливал туда-сюда чуток, как будто
+        // камерой снимают… только медленно, чтобы не дёргало» — Илья 08.09).
+        private float _driftX, _driftY, _driftSeconds = 18f;
+
+        /// <summary>Пустить кадр гулять: амплитуда по осям (доли картины) и
+        /// период полного круга в секундах. Ноль — стоять неподвижно.</summary>
+        public void SetDrift(float x, float y, float seconds)
+        {
+            _driftX = Mathf.Clamp(x, 0f, 0.2f);
+            _driftY = Mathf.Clamp(y, 0f, 0.2f);
+            _driftSeconds = Mathf.Max(2f, seconds);
+            if (_driftX <= 0f && _driftY <= 0f) UpdateCover();   // встали ровно
+        }
+
+        /// <summary>Кадр блуждания — зовёт риг каждый кадр. Ничего не считает,
+        /// когда блуждания нет: витрина гуляет, глава стоит.</summary>
+        public void Breathe()
+        {
+            if (_driftX <= 0f && _driftY <= 0f) return;
+            UpdateCover();
+        }
+
+        /// <summary>Смещение блуждания на эту секунду. Два синуса с несхожими
+        /// периодами: одинаковые дали бы маятник, а несхожие — неповторяющийся
+        /// ход, который глаз не читает как цикл.</summary>
+        private Vector2 DriftNow()
+        {
+            if (_driftX <= 0f && _driftY <= 0f) return Vector2.zero;
+            float t = LvnClock.Now();
+            return new Vector2(
+                _driftX * Mathf.Sin(t * 2f * Mathf.PI / _driftSeconds),
+                _driftY * Mathf.Sin(t * 2f * Mathf.PI / (_driftSeconds * 1.37f) + 1.1f));
+        }
+        // ЗУМ ПОЛОТНА. Панораме нужен запас по ширине, а он берётся только из
+        // разницы пропорций: вертикальная картина 1911×2560 на экране 9:16
+        // оставляет 24.6% хода — и панорама проходит их ЦЕЛИКОМ. Больше можно
+        // получить единственным способом: сузить окно, то есть приблизиться.
+        // Плата честная — видно меньшую часть картины, и она растягивается.
+        private float _zoom = 1f;
+
+        /// <summary>Приблизить полотно (1 — вписано как есть). Растит запас для
+        /// панорамы за счёт того, что видно меньший кусок картины.</summary>
+        public void SetZoom(float zoom)
+        {
+            float z = Mathf.Clamp(zoom, 1f, 4f);
+            if (Mathf.Approximately(z, _zoom)) return;
+            _zoom = z; UpdateCover();
+        }
         private int _panGen;
 
-        public void SetPan(float x01)
+        public void SetPan(float x01) => SetPan(x01, _panY);
+
+        /// <summary>Поставить кадр: x — по ширине картины (0 левый край,
+        /// 1 правый), y — по высоте (0 низ, 1 верх).</summary>
+        public void SetPan(float x01, float y01)
         {
             _panGen++;
             _panX = Mathf.Clamp01(x01);
+            _panY = Mathf.Clamp01(y01);
             UpdateCover();
         }
 
@@ -255,7 +322,11 @@ namespace Lvn.UI.World
             float u = 1f, v = 1f;
             if (texAspect > slotAspect) u = slotAspect / texAspect; // crop sides
             else v = texAspect / slotAspect;                        // crop top/bottom
-            _image.uvRect = new Rect((1f - u) * _panX, (1f - v) * 0.5f, u, v);
+            // Приближение сужает окно по обеим осям сразу — иначе кадр поплывёт.
+            if (_zoom > 1f) { u /= _zoom; v /= _zoom; }
+            var drift = DriftNow();
+            _image.uvRect = new Rect((1f - u) * Mathf.Clamp01(_panX + drift.x),
+                                     (1f - v) * Mathf.Clamp01(_panY + drift.y), u, v);
         }
 
         // Полотну пивот в центре — в отличие от фигуры, которая растёт от ног.

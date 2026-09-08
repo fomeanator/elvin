@@ -287,7 +287,7 @@ namespace Lvn.UI.Screens
             {
                 // ПОЛНЫЙ навбар (лого/валюты/бургер) + строка кнопок ПОД ним —
                 // ансамблем сверху; баблики на это время прячутся (дубль).
-                _gameRow.style.top = BottomEdge(_safeTop);
+                _gameRow.style.top = GameRowTop();
                 _gameRow.style.paddingTop = LvnTokens.Space2;
                 ApplyBarVisibility();   // баблики — дубль бара: на это время уходят
                 _row.style.translate = new Translate(0f, -slide);
@@ -355,6 +355,60 @@ namespace Lvn.UI.Screens
         /// что у главной (BrowseHub.Stage).</summary>
         private static float StageD(float dp) => Mathf.Round(dp * (1080f / 390f));
 
+        /// <summary>Картинка логотипа облика «сцена» — по ней считается место
+        /// циферблата (см. <see cref="LogoDialRect"/>).</summary>
+        private VisualElement _stageLogo;
+
+        // ЦИФЕРБЛАТ В ЛОГОТИПЕ — доли от габаритов картинки. В логотипе Time
+        // Romance буква «O» слова ROMANCE нарисована карманными часами, и
+        // кружок загрузок садится ровно в неё: синее кольцо крутится вокруг
+        // циферблата, «по размеру её» (просьба Ильи 08.09). Числа сняты с самой
+        // картинки (1152×246: центр 501.5×160, оправа 53 px), поэтому держатся
+        // за пропорции, а не за пиксели экрана.
+        private const float DialCenterX = 0.4353f;
+        private const float DialCenterY = 0.6484f;
+        private const float DialSize = 0.046f;
+
+        /// <summary>Докуда в картинке логотипа доходят БУКВЫ (доля высоты):
+        /// ниже — только прозрачный запас под свечение. Картинка нарисована
+        /// выше своего места, и без этой доли «под логотипом» означало бы «под
+        /// его пустотой».</summary>
+        private const float LogoInkBottom = 0.781f;
+
+        /// <summary>ГДЕ НАЧИНАЕТСЯ ИГРОВОЙ РЯД. Обычно сразу под строкой
+        /// шапки, но логотип облика «сцена» свисает НИЖЕ неё — и кнопки
+        /// «Выйти в меню / История / Гардероб / Магазин» ложились прямо на
+        /// слово ROMANCE (скрин Ильи 08.09). Считаем по самой картинке, а не
+        /// подбираем отступ: её высота и вылет заданы рядом, тут же.</summary>
+        private float GameRowTop()
+        {
+            float row = BottomEdge(_safeTop);
+            if (_stageLogo == null) return row;
+            float logoInk = _safeTop - StageD(12f) + StageD(82f) * LogoInkBottom + StageD(6f);
+            return Mathf.Max(row, logoInk);
+        }
+
+        /// <summary>
+        /// МЕСТО ЦИФЕРБЛАТА НА ЭКРАНЕ — прямоугольник в координатах панели,
+        /// или null, если логотипа облика на экране сейчас нет (обычная шапка,
+        /// глава со свёрнутым баром, ещё не разложенная панель).
+        ///
+        /// <para>Спрашивает кружок загрузок: держать его собственные координаты
+        /// он не может — логотип живёт по своей вёрстке и меняет место вместе с
+        /// шириной экрана и safe area.</para>
+        /// </summary>
+        public Rect? LogoDialRect()
+        {
+            if (_stageLogo == null || _row == null) return null;
+            if (_row.style.display == DisplayStyle.None
+                || _stageLogo.style.display == DisplayStyle.None) return null;
+            var r = _stageLogo.worldBound;
+            if (float.IsNaN(r.width) || r.width <= 1f || float.IsNaN(r.height)) return null;
+            float d = r.width * DialSize;
+            return new Rect(r.xMin + r.width * DialCenterX - d * 0.5f,
+                            r.yMin + r.height * DialCenterY - d * 0.5f, d, d);
+        }
+
         /// <summary>Одеть шапку по макету. Зовёт хост, когда манифест назвал
         /// облик «сцена»; повторный вызов пересобирает только живое.</summary>
         public void SetStage(StageLook look, ILvnAssets assets, Action onAvatar)
@@ -400,7 +454,9 @@ namespace Lvn.UI.Screens
                 art.style.top = -StageD(12f); art.style.height = StageD(82f);
                 LvnPicture.Skin(art, look.Logo, assets, "StageLogo");
                 _row.Add(art);
+                _stageLogo = art;
             }
+            else _stageLogo = null;
 
             // Пилюли пересобираются под облик: значки картинками, без подложки.
             _pills.Clear();

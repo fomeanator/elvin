@@ -34,6 +34,20 @@ namespace Lvn.UI.Screens
         /// облика доедет.</summary>
         public const string ArtName = "stage-img";
 
+        /// <summary>РАМКИ ОБЛИКА — ровно те файлы, что кладёт главная
+        /// (BrowseHub.Stage) и шапка («плюс»). Список один: по нему бут греет
+        /// витрину до снятия вуали, по нему же автор знает, что рисовать.</summary>
+        public static readonly string[] SkinFiles =
+            { "nav.png", "panel.png", "card-back.png", "card-front.png", "adv.png", "plus.png" };
+
+        /// <summary>Адрес файла в папке облика — папка с косой чертой на
+        /// конце или без неё.</summary>
+        public static string SkinUrl(string root, string file)
+        {
+            root ??= "";
+            return (root.EndsWith("/") ? root : root + "/") + file;
+        }
+
         /// <summary>Поставить элемент абсолютно: место и размер одним вызовом.</summary>
         public static T At<T>(T el, float x, float y, float w, float h) where T : VisualElement
         {

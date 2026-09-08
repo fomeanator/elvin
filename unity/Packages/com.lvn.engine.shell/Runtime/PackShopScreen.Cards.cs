@@ -104,9 +104,92 @@ namespace Lvn.UI.Screens
         }
 
         // ── One pack card ─────────────────────────────────────────────────────
+        /// <summary>Пропорция рисованной панели облика (200×124 dp): рамка
+        /// тянется по ширине столбика, а высота держит рисунок неискажённым.</summary>
+        private const float PanelAspect = 124f / 200f;
+
+        /// <summary>
+        /// ПАКЕТ В ОБЛИКЕ «СЦЕНА» — та же рисованная панель, что несёт на
+        /// главной новости и карточку новеллы («магазин надо уже сделать
+        /// карточки» — Илья 08.09).
+        ///
+        /// <para>Рамка нарисована, живое собрано элементами: плашка сверху —
+        /// либо лента («ПОПУЛЯРНЫЙ»), либо название валюты; в теле сумма со
+        /// значком и бонус; снизу кнопка с ценой. Ширину задаёт столбик, а
+        /// высоту — пропорция рисунка: растянутая по обеим осям рамка ломает
+        /// углы и блики, и это первое, что видно глазом.</para>
+        /// </summary>
+        private VisualElement StagePack(Pack pack)
+        {
+            var card = new VisualElement();
+            card.style.marginBottom = LvnTokens.Space2;
+            card.style.flexShrink = 0;
+            card.RegisterCallback<GeometryChangedEvent>(e =>
+            {
+                float w = e.newRect.width;
+                if (w > 1f) card.style.height = Mathf.Round(w * PanelAspect);
+            });
+
+            var frame = new VisualElement { name = LvnStageKit.ArtName, pickingMode = PickingMode.Ignore };
+            LvnChrome.Stretch(frame);
+            LvnPicture.Skin(frame, LvnStageKit.SkinUrl(_skin, "panel.png"), _assets, what: "StageSkin");
+            card.Add(frame);
+
+            string head = pack.Badge == Ribbon.Popular ? LvnWords.Of("shop.popular", "POPULAR")
+                        : pack.Badge == Ribbon.Value ? LvnWords.Of("shop.value", "BEST VALUE")
+                        : pack.Badge == Ribbon.BestPrice ? LvnWords.Of("shop.best_price", "BEST PRICE")
+                        : pack.Grants != null ? LvnWords.Of("shop.story_bundle", "STORY BUNDLE")
+                        : TabTitle(pack.Currency).ToUpperInvariant();
+            var plaque = LvnStageKit.Plaque(() => head);
+            plaque.style.position = Position.Absolute;
+            plaque.style.left = Length.Percent(12f);
+            plaque.style.right = Length.Percent(12f);
+            plaque.style.top = 0f;
+            plaque.style.height = LvnStageKit.D(28f);
+            card.Add(plaque);
+
+            // Тело: сумма со значком, под ней бонус. Ряд по центру — рисунок
+            // рамки симметричен, и прижатое к краю число смотрится сбоем.
+            var body = new VisualElement { pickingMode = PickingMode.Ignore };
+            body.style.position = Position.Absolute;
+            body.style.left = Length.Percent(10f);
+            body.style.right = Length.Percent(10f);
+            body.style.top = LvnStageKit.D(34f);
+            body.style.alignItems = Align.Center;
+            card.Add(body);
+
+            if (!string.IsNullOrEmpty(pack.Headline))
+            {
+                var title = LvnStageKit.Text(() => pack.Headline, LvnTokens.TextXl, LvnTokens.Gold, medium: true);
+                title.style.whiteSpace = WhiteSpace.Normal;
+                body.Add(title);
+            }
+            else body.Add(LvnPriceTag.Tag(pack.Currency, pack.Amount,
+                new LvnPriceTag.Row { FontSize = LvnTokens.TextXl, TextColor = LvnTokens.Gold, Gap = 8f }));
+
+            if (pack.Grants != null && pack.Grants.Count > 0 && !string.IsNullOrEmpty(pack.SubLine))
+                body.Add(LvnStageKit.Text(() => pack.SubLine, LvnTokens.TextXs, LvnTokens.Silver));
+            else if (pack.Bonus > 0)
+                body.Add(LvnStageKit.Text(
+                    () => LvnWords.Of("shop.bonus", "+{0} bonus", LvnPriceTag.Amount(pack.Bonus)),
+                    LvnTokens.TextSm, LvnTokens.Gold, medium: true));
+
+            // Цена — кнопкой облика: тот же вид, что «Открыть» на главной.
+            var buy = LvnStageKit.Button(() => pack.Price, null);
+            buy.style.position = Position.Absolute;
+            buy.style.left = Length.Percent(22f);
+            buy.style.right = Length.Percent(22f);
+            buy.style.bottom = LvnStageKit.D(10f);
+            buy.style.height = LvnStageKit.D(38f);
+            buy.AddManipulator(new Clickable(() => Buy(null, pack)));
+            card.Add(buy);
+            return card;
+        }
+
         private VisualElement Card(Pack pack)
         {
-            bool wide = pack.Best || pack.Grants != null; // герой и наборы — во всю ширину
+            if (Dressed) return StagePack(pack);
+            bool wide = _column || pack.Best || pack.Grants != null; // герой, наборы и весь столбик — во всю ширину
             var card = new VisualElement();
             card.style.width = Length.Percent(wide ? 100f : 48.5f);
             card.style.marginBottom = LvnTokens.Space2;

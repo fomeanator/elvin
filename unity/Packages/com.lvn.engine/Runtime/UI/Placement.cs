@@ -55,6 +55,14 @@ namespace Lvn.UI
         public float AnchorX, AnchorY;
         public int? Z;
         public bool Flip;
+        /// <summary>РАЗРЕШЁН ОБРЕЗ КРАЕМ КАДРА. По умолчанию именованное место
+        /// («left») — сторона сцены, а не позволение отрезать фигуру: широкую
+        /// зажимают так, чтобы она целиком осталась на экране. Портрет
+        /// витрины — обратный случай: кукла в 0.9 ширины экрана «слева» только
+        /// обрезом и стоит, и зажим молча возвращал её почти в центр (живой
+        /// лог 08.09: «место 0.250 → 0.447»). <c>crop=true</c> отдаёт слово
+        /// автору.</summary>
+        public bool Crop;
         public float Rotation;       // degrees
         public float Opacity;
         public float HoverOpacity;
@@ -148,6 +156,13 @@ namespace Lvn.UI
         {
             0.12f, 0.25f, 0.38f, 0.50f, 0.62f, 0.75f, 0.88f,
         };
+
+        /// <summary>Это имя стоячего слота сцены? Заэкранные места и всё, что
+        /// не из словаря, — нет: там нельзя поставить фигуру «в кадр».</summary>
+        public static bool IsStandingSlot(string position)
+            => !string.IsNullOrEmpty(position)
+            && System.Array.IndexOf(SlotNames, position) >= 0
+            && System.Array.IndexOf(StandingSlotXs, SlotX(position)) >= 0;
 
         public static float SlotX(string position)
         {
