@@ -144,6 +144,7 @@ namespace Lvn.UI.Screens
             p.Add(body);
 
             var open = StageButton(() => LvnWords.Pick("hub.open", _cfg.open_text, "Open"), ShowLibrary);
+            open.name = "stage-open-panel";
             At(open, D(25f), D(82f), D(150f), D(42f));
             p.Add(open);
             return p;
@@ -222,6 +223,7 @@ namespace Lvn.UI.Screens
             c.Add(caption);
 
             var open = StageButton(() => LvnWords.Pick("hub.open", _cfg.open_text, "Open"), OpenFeatured);
+            open.name = "stage-open-card";
             At(open, D(54f), D(213f), D(150f), D(42f));
             c.Add(open);
 
@@ -254,7 +256,7 @@ namespace Lvn.UI.Screens
         /// (каталог площадок), показ — через дом рекламы.</summary>
         private VisualElement StageAdButton()
         {
-            var b = new VisualElement();
+            var b = new VisualElement { name = "stage-ad" };
             float aw = LvnStageSkin.Adv.Width, ah = LvnStageSkin.Adv.Height;
             b.style.width = D(aw); b.style.height = D(ah);
             b.style.flexShrink = 0;
@@ -360,6 +362,12 @@ namespace Lvn.UI.Screens
                 _bottomNav.style.paddingBottom = 0;
                 _bottomNav.style.height = D(146f - StageHomeBarDp) + inset;
             }
+            // Внутренние страницы (подборка, деталь) начинаются ПОД шапкой
+            // облика: её логотип свисает ниже ряда, и заголовок страницы
+            // ложился под аватар.
+            float top = LvnEdges.Top(this) + D(StageTopBlockDp);
+            if (_collectionView != null) _collectionView.style.paddingTop = top;
+            if (_detailView != null) _detailView.style.paddingTop = top;
             if (_stageStack == null) return;
             float bottom = D(LvnStageSkin.Home.Bottom - StageHomeBarDp) + inset;
             float top = LvnEdges.Top(this) + D(StageTopBlockDp);
@@ -381,7 +389,12 @@ namespace Lvn.UI.Screens
         /// Значки нарисованы в самой картинке; живут только слова.</summary>
         private VisualElement StageNav()
         {
-            var nav = new VisualElement();
+            // Коробка меню выше нарисованной полосы: над ней в тех же 146 dp
+            // стоит кольцо, а кнопка награды из столбика заходит в её верх.
+            // Коробка тапы НЕ ловит — иначе она глотала бы нажатия по кнопке
+            // награды (тур 08.09: до кнопки доходил только отпуск). Ловят
+            // нарисованная полоса (floor), вкладки и кольцо.
+            var nav = new VisualElement { pickingMode = PickingMode.Ignore };
             _bottomNav = nav;
             nav.style.height = D(146f);
             nav.style.flexShrink = 0;
@@ -394,6 +407,14 @@ namespace Lvn.UI.Screens
             // низа экрана самого» — Илья 08.09). Полотно витрины идёт во весь
             // экран и само доходит до нижней кромки; ленте достаточно своего
             // рисунка.
+            // Ниже 74 dp рисунок прозрачен, но ПОЛОСА ЛОВИТ ТАПЫ: под ней едут
+            // страницы вкладок, и щель между кнопками не должна пропускать
+            // нажатие к магазину. Заливки нет — полотно видно до низа.
+            var floor = new VisualElement();
+            floor.style.position = Position.Absolute;
+            floor.style.left = 0; floor.style.right = 0; floor.style.top = D(74f); floor.style.bottom = 0;
+            floor.style.backgroundColor = Color.clear;
+            nav.Add(floor);
             var art = new VisualElement { name = "stage-img", pickingMode = PickingMode.Ignore };
             art.style.position = Position.Absolute;
             art.style.left = -D(12f); art.style.right = -D(12f); art.style.top = -D(12f);
@@ -406,7 +427,7 @@ namespace Lvn.UI.Screens
             nav.Add(StageTab(LvnTabs.Store, left: false, ink));
 
             // Центр: круг нарисован; слово и подпись состояния — живые.
-            var home = new VisualElement();
+            var home = new VisualElement { name = "stage-tab-home" };
             At(home, 0f, -D(20f), D(142f), D(162.5f));
             home.style.left = Length.Percent(50f);
             home.style.marginLeft = -D(71f);
@@ -433,7 +454,7 @@ namespace Lvn.UI.Screens
 
         private VisualElement StageTab(int index, bool left, Color ink)
         {
-            var tab = new VisualElement();
+            var tab = new VisualElement { name = "stage-tab-" + index };
             tab.style.position = Position.Absolute;
             tab.style.top = D(80f); tab.style.bottom = 0;
             tab.style.width = D(150f);
