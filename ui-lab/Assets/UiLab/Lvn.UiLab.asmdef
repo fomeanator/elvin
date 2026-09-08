@@ -1,5 +1,11 @@
 {
-  "name": "Lvn.UiLab",
-  "references": ["Lvn.Engine", "Lvn.Engine.UI", "Lvn.Engine.Content", "Lvn.Engine.Shell"],
-  "autoReferenced": true
+    "name": "Lvn.UiLab",
+    "references": [
+        "Lvn.Engine",
+        "Lvn.Engine.UI",
+        "Lvn.Engine.Content",
+        "Lvn.Engine.Shell",
+        "Lvn.Engine.Services"
+    ],
+    "autoReferenced": true
 }
