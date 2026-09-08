@@ -58,7 +58,24 @@ namespace Lvn.UiLab
                     + $"экран {Screen.width}×{Screen.height}, safeArea устройства={Screen.safeArea}, подставлен вырез {top}/{bottom}");
         }
 
-        private void Start() => StartCoroutine(Roll());
+        private static string LogPath => Path.Combine(Root, ".shots-log");
+
+        private void Start()
+        {
+            // Свои строки — в файл рядом с флагами: терминалу нужны только они,
+            // а лог редактора может оказаться недоступен.
+            try { File.WriteAllText(LogPath, ""); } catch (Exception) { }
+            Application.logMessageReceived += Mirror;
+            StartCoroutine(Roll());
+        }
+
+        private void OnDestroy() => Application.logMessageReceived -= Mirror;
+
+        private static void Mirror(string condition, string stack, LogType type)
+        {
+            if (!condition.StartsWith("[shots]") && !condition.Contains("СТОРОЖ") && type != LogType.Exception) return;
+            try { File.AppendAllText(LogPath, condition + "\n"); } catch (Exception) { }
+        }
 
         private IEnumerator Shoot(string name)
         {
