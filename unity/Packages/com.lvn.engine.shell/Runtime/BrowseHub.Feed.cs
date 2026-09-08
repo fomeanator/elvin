@@ -77,17 +77,14 @@ namespace Lvn.UI.Screens
             // Воздух сверху (Илья: «главную вниз, как гардероб») — лента
             // стартует под героиней и скроллится поверх неё. РАСТЯЖКА, а не
             // фикс: при коротком контенте воздух добирает всё свободное место
-            // и прижимает ряды вниз В УПОР к нижнему меню (Илья 27.08); при
-            // длинном — сжимается до минимума в 30%.
+            // и прижимает ряды вниз к нижнему меню (Илья 27.08); при длинном —
+            // сжимается до минимума в 30%.
             var air = new VisualElement { pickingMode = PickingMode.Ignore };
             air.style.minHeight = Length.Percent(30f);
             air.style.flexGrow = 1;
             air.style.flexShrink = 0;
             _hubRows.Add(air);
-            var resume = ResumableTitle();
-            var featured = resume ?? FirstTitle();
-            if (featured == null && orphans.Count > 0) _titles.TryGetValue(orphans[0], out featured);
-            if (featured != null) _hubRows.Add(FeaturedBanner(featured, resume != null));
+            // Баннер «Рекомендуем» убран по просьбе Ильи — такого блока нет.
             for (int i = 0; i < _collections.Count; i++)
             {
                 var cr = CollectionRow(_collections[i], hero: i == 0);
@@ -104,10 +101,10 @@ namespace Lvn.UI.Screens
                 var libRow = CollectionRow(lib, hero: _collections.Count == 0);
                 if (libRow != null) _hubRows.Add(libRow);
             }
-            // Последний ряд — вплотную к нижнему меню: его штатная маржа 30px
-            // оставляла зазор под «упором».
+            // Последний ряд стоит на 110px выше нижнего меню (Илья поднимал
+            // лесенкой: +20, +40, +50) — раньше был вплотную (0).
             var cc = _hubRows.contentContainer;
-            if (cc.childCount > 0) cc[cc.childCount - 1].style.marginBottom = 0;
+            if (cc.childCount > 0) cc[cc.childCount - 1].style.marginBottom = 110;
             AnimateIn(_hubRows); // staggered entrance
         }
 

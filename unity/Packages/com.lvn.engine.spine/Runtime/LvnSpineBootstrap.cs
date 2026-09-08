@@ -32,7 +32,7 @@ namespace Lvn.Spine
     ///    once MeshScale settles. The container starts at localScale 0 (hidden).
     /// SkeletonData/atlas/material are parsed ONCE per texture and cached — only
     /// the first show pays the parse. A short CanvasGroup fade-IN
-    /// (<see cref="LvnSpineFader"/>) softens the reveal; hiding is instant.
+    /// (<see cref="LvnSpineFit"/>) softens the reveal; hiding is instant.
     /// </summary>
     internal static class LvnSpineBootstrap
     {
@@ -80,11 +80,11 @@ namespace Lvn.Spine
                 crt.pivot = new Vector2(0.5f, 0.5f);
                 crt.anchoredPosition = Vector2.zero;
                 crt.localScale = Vector3.zero;              // hidden until the deferred fit lands
-                // NOT 0: alpha 0 would make the Canvas cull the children — no
-                // draw call, no MeshScale settle, no shader/texture warmup. The
-                // fader's warm pulse (LvnSpineFader) draws a few frames at this
-                // imperceptible alpha, then hides for real.
-                container.GetComponent<CanvasGroup>().alpha = LvnSpineFader.WarmAlpha;
+                // alpha=1, но контейнер стартует в scale=0 (см. ниже): фигуры не
+                // видно (нулевая площадь), но она РИСУЕТСЯ (alpha 0 отсёк бы её
+                // у Canvas, и MeshScale не устаканился бы). Невидимость даёт
+                // масштаб, рисование — альфа; LvnSpineFit проявит обычным фейдом.
+                container.GetComponent<CanvasGroup>().alpha = 1f;
 
                 // bg child FIRST so it renders behind the skeleton.
                 RawImage bg = null;
@@ -101,7 +101,15 @@ namespace Lvn.Spine
                 }
 
                 // skeleton child (in front of bg).
-                var graphic = SkeletonGraphic.NewSkeletonGraphicGameObject(res.Data, crt, res.Mat);
+                // КОРЕНЬ БЕЛОГО (замер 07.09, рентген + исходник spine): при
+                // одной странице атласа SkeletonGraphic рисует ОДНИМ рендерером
+                // и берёт текстуру из материала ГРАФИКА. res.Mat — голый шаблон
+                // (mainTexture=null) → рендерер без текстуры → белые
+                // прямоугольники. Материал с текстурой держит атлас
+                // (PrimaryMaterial = клон шаблона с mainTexture=страница).
+                var baseMat = res.Atlas != null && res.Atlas.PrimaryMaterial != null
+                    ? res.Atlas.PrimaryMaterial : res.Mat;
+                var graphic = SkeletonGraphic.NewSkeletonGraphicGameObject(res.Data, crt, baseMat);
                 // A multi-page atlas NEEDS one CanvasRenderer per page material:
                 // with a single renderer the whole mesh draws with page 1's
                 // texture, so every attachment packed on page 2 samples the
@@ -113,6 +121,14 @@ namespace Lvn.Spine
                 if (data != null && data.Animations.Count > 0)
                     graphic.AnimationState.SetAnimation(0, data.Animations.Items[0].Name, true);
                 graphic.Update(0f);
+                // Гвоздь: одностраничному скелету явно назначаем текстуру
+                // страницы штатным рычагом spine — canvasRenderer.SetTexture
+                // внутри сеттера. Иначе одно-рендерерный путь может остаться с
+                // пустой baseTexture (замер: gTex=NULL, r0 tex=NULL).
+                if (textures != null && textures.Length == 1 && textures[0] != null)
+                    graphic.OverrideTexture = textures[0];
+
+
                 var srt = graphic.rectTransform;
                 graphic.layoutScaleMode = SkeletonGraphic.LayoutMode.None; // manual — FitInParent would overwrite us
                 srt.anchorMin = srt.anchorMax = new Vector2(0.5f, 0.5f);
@@ -120,7 +136,6 @@ namespace Lvn.Spine
                 srt.anchoredPosition = Vector2.zero;
                 srt.localScale = Vector3.one;
 
-                container.AddComponent<LvnSpineFader>();
                 var fit = container.AddComponent<LvnSpineFit>();
                 fit.Setup(graphic, bg);
                 fit.Request(scale, "width"); // fits in LateUpdate once MeshScale settles
@@ -144,7 +159,7 @@ namespace Lvn.Spine
             LvnSpineBridge.SetVisible = (go, visible) =>
             {
                 if (go == null) return;
-                var f = go.GetComponent<LvnSpineFader>();
+                var f = go.GetComponent<LvnSpineFit>();
                 if (f != null) f.Show(visible);
                 else go.SetActive(visible);
             };
@@ -152,7 +167,7 @@ namespace Lvn.Spine
             LvnSpineBridge.Prepare = PrepareAsync;
             LvnSpineBridge.ClearCache = ClearCache;
 
-            Debug.Log("[lvn] spine-unity bridge hooked");
+            Debug.Log("[lvn] spine-unity bridge hooked — reveal v3 (scale-gate + atlas-material texture bind)");
         }
 
         // Fit the CONTAINER to the SCREEN by the skeleton's AUTHOR CANVAS — the

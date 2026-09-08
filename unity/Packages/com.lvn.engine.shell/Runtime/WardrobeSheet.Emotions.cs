@@ -99,10 +99,17 @@ namespace Lvn.UI.Screens
         // Колонка эмоций стоит от низа НАВБАРА до верха плашки — в координатах
         // листа, потому пересчёт на каждый layout: лист живёт на разной высоте
         // в меню и в игре, а safe area у каждого устройства своя.
-        private void PlaceEmotions()
+        internal void PlaceEmotions()
         {
             if (_emotions == null || panel == null) return;
-            float sheetTop = worldBound.yMin;
+            // ВЕРХ ЛИСТА — В ПОКОЕ, А НЕ НА ПОЛПУТИ. worldBound включает
+            // смещение переезда: экран вкладки едет к своему месту, и раскладка,
+            // случившаяся по дороге, ловила промежуточную высоту — колонки
+            // героев и лиц вставали то выше, то ниже, смотря откуда приехали
+            // («у гардероба после переезда герои и эмоции разъезжает туда-сюда»
+            // — Илья 08.09). Смещение вычитаем: место считается по тому, где
+            // лист ОСТАНОВИТСЯ.
+            float sheetTop = worldBound.yMin - TravelShiftY(this);
             if (float.IsNaN(sheetTop) || sheetTop <= 0f) return;
             // Нижний край шапки спрашиваем у самой шапки: складывать его из
             // безопасного верха и высоты ряда значило бы держать третью копию
@@ -128,8 +135,26 @@ namespace Lvn.UI.Screens
             {
                 _rosterRow.style.top = top - sheetTop;
                 _rosterRow.style.maxHeight = height;
+                // Полка у героев та же, что у лиц, — и они обязаны в неё
+                // ВЛЕЗТЬ, а не быть обрезанными по ней.
+                _rosterRow.style.overflow = Overflow.Hidden;
+                FitRoster(height);
             }
             UpdateEmoScrollBar();
+        }
+
+        /// <summary>Насколько элемент смещён переездом: сумма translate по всей
+        /// цепочке предков. Своего поля у этого нет — смещение ставит
+        /// навигатор оболочки прямо в стиль экрана.</summary>
+        private static float TravelShiftY(VisualElement el)
+        {
+            float sum = 0f;
+            for (var e = el; e != null; e = e.parent)
+            {
+                float t = e.resolvedStyle.translate.y;
+                if (!float.IsNaN(t)) sum += t;
+            }
+            return sum;
         }
 
         // Бегунок дорожки: длина — доля видимого списка, положение — доля
@@ -172,8 +197,8 @@ namespace Lvn.UI.Screens
                     { _emotionAxis = kv.Key; vals = kv.Value; break; }
                 }
             // Ось, оформленная гардеробным слотом, — наряд, а не лицо.
-            if (_emotionAxis != null && _def.wardrobe != null
-                && _def.wardrobe.ContainsKey(_emotionAxis)) _emotionAxis = null;
+            if (_emotionAxis != null && _slots != null
+                && _slots.ContainsKey(_emotionAxis)) _emotionAxis = null;
             _emotions.style.display = _emotionAxis == null ? DisplayStyle.None : DisplayStyle.Flex;
             if (_emotionAxis == null)
             {

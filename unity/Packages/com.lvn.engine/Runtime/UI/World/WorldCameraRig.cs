@@ -25,6 +25,15 @@ namespace Lvn.UI.World
         // Прозрачность снимает её мгновенно и так же мгновенно возвращает.
         private CanvasGroup _cast;
         private float _castFrom = 1f, _castTo = 1f, _castDur, _castStart = -1f, _castAlpha = 1f;
+        // ФИГУРЫ ХОДЯТ ОТДЕЛЬНО ОТ ПОЛОТНА. Пан камеры тянет GameRoot целиком:
+        // сдвинуть им героиню значит сдвинуть вместе с ней картину и оголить
+        // край кадра. На витрине это ровно то, чего делать нельзя — героиня
+        // уходит влево на главной и возвращается в центр на боковых вкладках,
+        // а полотно в это время ездит СВОИМ ходом. Поэтому слой фигур двигаем
+        // сам по себе, тем же слоем, который уже умеет гаснуть.
+        private RectTransform _castRt;
+        private float _shiftFrom, _shiftTo, _shiftDur, _shiftStart = -1f, _shiftX;
+        private float _zoomCastFrom = 1f, _zoomCastTo = 1f, _zoomCastDur, _zoomCastStart = -1f, _castScale = 1f;
         // pan
         private Vector2 _panFrom, _panTo, _panBase;
         private float _panDur, _panStart = -1f;
@@ -36,7 +45,8 @@ namespace Lvn.UI.World
         /// <summary>Слой актёров — его и только его гасит <see cref="CastFade"/>.</summary>
         public void BindCast(RectTransform cast)
         {
-            if (cast == null) { _cast = null; return; }
+            if (cast == null) { _cast = null; _castRt = null; return; }
+            _castRt = cast;
             _cast = cast.GetComponent<CanvasGroup>() ?? cast.gameObject.AddComponent<CanvasGroup>();
         }
 
@@ -60,6 +70,7 @@ namespace Lvn.UI.World
             var root = transform.Find(GameRootName);
             var cast = root == null ? null : root.Find(CastName) as RectTransform;
             if (cast == null) return;
+            _castRt = cast;
             _cast = cast.GetComponent<CanvasGroup>();
             if (_cast == null) _cast = cast.gameObject.AddComponent<CanvasGroup>();
             _cast.alpha = _castAlpha;   // экран не должен мигать от находки
@@ -90,12 +101,54 @@ namespace Lvn.UI.World
             _castDur = seconds; _castStart = Now;
         }
 
+        /// <summary>СДВИНУТЬ ФИГУРЫ по ширине кадра, не трогая полотно
+        /// (единицы канваса; 0 — там, где их поставила сцена). Мгновенный
+        /// вызов (seconds = 0) годится для покадрового ведения: витрина двигает
+        /// героиню тиком той же анимации, что везёт вкладки.</summary>
+        public void CastShift(float x, float seconds)
+        {
+            if (_castRt == null) Recast();
+            if (_castRt == null) return;
+            _shiftFrom = ShiftNow(); _shiftTo = x; _shiftX = x;
+            if (seconds <= 0f)
+            {
+                _shiftStart = -1f;
+                _castRt.anchoredPosition = new Vector2(x, _castRt.anchoredPosition.y);
+                return;
+            }
+            _shiftDur = seconds; _shiftStart = Now;
+        }
+
+        /// <summary>ОТДАЛИТЬ ФИГУР, не трогая полотно (1 — как поставлено).
+        ///
+        /// <para>Масштаб берётся от НИЗА кадра: у куклы якорь в ногах, и
+        /// уменьшение вокруг центра оторвало бы её от нижней кромки — фигура
+        /// повисла бы в воздухе.</para></summary>
+        public void CastZoom(float scale, float seconds)
+        {
+            if (_castRt == null) Recast();
+            if (_castRt == null) return;
+            _castRt.pivot = new Vector2(0.5f, 0f);
+            _zoomCastFrom = CastScaleNow(); _zoomCastTo = Mathf.Clamp(scale, 0.2f, 3f);
+            _castScale = _zoomCastTo;
+            if (seconds <= 0f)
+            {
+                _zoomCastStart = -1f;
+                _castRt.localScale = new Vector3(_castScale, _castScale, 1f);
+                return;
+            }
+            _zoomCastDur = seconds; _zoomCastStart = Now;
+        }
+
         /// <summary>Called every frame with what the rig is doing right now:
         /// the 2D offset in canvas units and the zoom factor. A 3D backdrop
         /// listens so a hit shakes the SET too — without it the sprites jolt
         /// while the world behind them stands perfectly still, which reads as a
         /// painted backdrop no matter how good the geometry is.</summary>
         public System.Action<Vector2, float> Echo;
+
+        /// <summary>Кадр блуждания полотна — ставит сцена при рождении.</summary>
+        public System.Action Breathe;
 
         public void Shake(float amplitude, float seconds)
         {
@@ -106,7 +159,7 @@ namespace Lvn.UI.World
         public void Zoom(float factor, float seconds)
         {
             if (_t == null) return;
-            _zoomFrom = _scale; _zoomTo = Mathf.Max(0.1f, factor); _scale = _zoomTo;
+            _zoomFrom = ScaleNow(); _zoomTo = Mathf.Max(0.1f, factor); _scale = _zoomTo;
             if (seconds <= 0f) { _t.localScale = new Vector3(_zoomTo, _zoomTo, 1f); _zoomStart = -1f; return; }
             _zoomDur = seconds; _zoomStart = Now;
         }
@@ -121,12 +174,32 @@ namespace Lvn.UI.World
             _panDur = seconds; _panStart = Now;
         }
 
+        // ТВИН СТАРТУЕТ С ТОГО, ЧТО НА ЭКРАНЕ, а не с цели предыдущего. Поля
+        // _scale/_castScale/_shiftX хранят ЦЕЛЬ, и новый твин, взявший их за
+        // начало, прыгал: сброс камеры при закрытии листа ставил план фигур
+        // в 1.0, витрина тут же просила 0.9 — и фигура, стоявшая на 0.9,
+        // дёргалась до 1.0 и ехала обратно («чуть больше делает, потом
+        // меньше» — Илья 08.09). Начало — то, что видно сейчас.
+        private float ScaleNow()     => Along(_zoomFrom,     _zoomTo,     _zoomStart,     _zoomDur,     _scale);
+        private float CastScaleNow() => Along(_zoomCastFrom, _zoomCastTo, _zoomCastStart, _zoomCastDur, _castScale);
+        private float ShiftNow()     => Along(_shiftFrom,    _shiftTo,    _shiftStart,    _shiftDur,    _shiftX);
+
+        /// <summary>Где сейчас значение твина: между началом и целью по той же
+        /// кривой, что и в Update; вне твина — покой.</summary>
+        private float Along(float from, float to, float start, float dur, float rest)
+            => start >= 0f ? Along(from, to, Mathf.Clamp01((Now - start) / Mathf.Max(0.0001f, dur))) : rest;
+
+        internal static float Along(float from, float to, float progress01)
+            => Mathf.LerpUnclamped(from, to, Ease(Mathf.Clamp01(progress01)));
+
         public void Reset(float seconds)
         {
             _shakeStart = -1f;
             Pan(0f, 0f, seconds);
             Zoom(1f, seconds);
             CastFade(1f, seconds);   // общий план возвращает и фигуры
+            CastShift(0f, seconds);  // …и ставит их туда, где их поставила сцена
+            CastZoom(1f, seconds);   // …в их собственном росте
         }
 
         // Наезды и паны идут smoothstep'ом: линейный ход читался механическим
@@ -170,11 +243,30 @@ namespace Lvn.UI.World
                 if (p >= 1f) _castStart = -1f;
             }
 
+            if (_shiftStart >= 0f && _castRt != null)
+            {
+                float p = Mathf.Clamp01((Now - _shiftStart) / Mathf.Max(0.0001f, _shiftDur));
+                float x = Mathf.LerpUnclamped(_shiftFrom, _shiftTo, Ease(p));
+                _castRt.anchoredPosition = new Vector2(x, _castRt.anchoredPosition.y);
+                if (p >= 1f) _shiftStart = -1f;
+            }
+
+            if (_zoomCastStart >= 0f && _castRt != null)
+            {
+                float p = Mathf.Clamp01((Now - _zoomCastStart) / Mathf.Max(0.0001f, _zoomCastDur));
+                float sc = Mathf.LerpUnclamped(_zoomCastFrom, _zoomCastTo, Ease(p));
+                _castRt.localScale = new Vector3(sc, sc, 1f);
+                if (p >= 1f) _zoomCastStart = -1f;
+            }
+
             // Reapply position every frame while shaking or panning.
             if (_shakeStart >= 0f || _panStart >= 0f) ApplyPosition();
             else if (_t.anchoredPosition != _panBase) _t.anchoredPosition = _panBase;
 
             Echo?.Invoke(_t.anchoredPosition, _t.localScale.x);
+            // Полотну нужен ход времени для блуждания. Своего Update у него нет
+            // и заводить его незачем: риг и так тикает каждый кадр.
+            Breathe?.Invoke();
         }
     }
 }

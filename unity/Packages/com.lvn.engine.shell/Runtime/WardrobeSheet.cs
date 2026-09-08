@@ -39,7 +39,6 @@ namespace Lvn.UI.Screens
         private const int EmoBarSegments = 4;
         private readonly Button _confirm;
         private readonly Button _cancel;
-        private Label _peekLabel;
 
         /// <summary>
         /// Слова или шрифт сменились. Гардероб держит состояние примерки —
@@ -50,7 +49,6 @@ namespace Lvn.UI.Screens
         public void Redress()
         {
             if (_title != null) _title.text = LvnWords.Pick("wardrobe.title", _cfg.title, "Wardrobe");
-            if (_peekLabel != null) _peekLabel.text = LvnWords.Pick("wardrobe.peek", _cfg.peek_text, "Full height");
             RefreshConfirm();     // «Выбрать» / «Купить за N» — своя логика подписи
             RebuildStrip();       // плитки несут названия нарядов
             RebuildSubRow(false); // подписи подосей («Основа», «Цвет волос»)
@@ -95,6 +93,64 @@ namespace Lvn.UI.Screens
         /// shows the author's full catalog for the beat and MARKS it seen.
         /// Set before every ShowAsync — the instance is shared between paths.</summary>
         public bool OnlySeen;
+
+        /// <summary>Ось полотна меню. Не принадлежит облику героя, но живёт в
+        /// листе НАРАВНЕ с ним — см. <see cref="RebuildSlots"/>.</summary>
+        internal const string BackdropAxis = "backdrop";
+
+        /// <summary>ВЛАДЕЛЕЦ ПОЛОТЕН — общий, а не персонаж. Здесь проходит
+        /// граница между «моим» и «его»: ПОКУПКА общая (купил фон один раз —
+        /// он твой, и требовать вторую плату за того же героя было бы обманом),
+        /// а НАЗНАЧЕНИЕ персональное — каждому герою свой фон, и на главной
+        /// стоит фон того, кто на ней стоит (Илья).</summary>
+        internal const string BackdropOwner = "menu";
+
+        private string OwnerOf(string axis) => OwnerOf(_entity, axis);
+        private static string OwnerOf(string entity, string axis)
+            => axis == BackdropAxis ? BackdropOwner : entity;
+
+        /// <summary>СЛОТЫ ЛИСТА = ОБЛИК ГЕРОЯ + ФОН. Всё в гардеробе — ряд
+        /// вкладок, лента карточек, цены, «куплено», примерка и «Выбрать» —
+        /// читает ОДИН источник слотов (27 обращений в шести файлах). Илья
+        /// попросил фон «точ в точ как остальные скины»; вписывать его особым
+        /// случаем в каждое из этих мест значило бы обречь его ломаться
+        /// поодиночке при любой правке гардероба. Поэтому фон — такой же слот,
+        /// собранный из каталога полотен, и вкладка достаётся даром.
+        ///
+        /// <para>Порядок вставки = порядок вкладок, поэтому «Фон» кладётся
+        /// ПОСЛЕДНИМ: облик героя важнее.</para></summary>
+        private Dictionary<string, LvnWardrobeSlot> _slots = new Dictionary<string, LvnWardrobeSlot>();
+
+        private void RebuildSlots()
+        {
+            _slots = new Dictionary<string, LvnWardrobeSlot>();
+            if (_def?.wardrobe != null)
+                foreach (var kv in _def.wardrobe) _slots[kv.Key] = kv.Value;
+
+            var opts = _manifest?.ui?.browse?.canvas_options;
+            if (opts == null) return;
+            var items = new List<LvnWardrobeItem>();
+            foreach (var o in opts)
+                if (o != null && !string.IsNullOrEmpty(o.id) && !string.IsNullOrEmpty(o.url))
+                    items.Add(new LvnWardrobeItem
+                    {
+                        value = o.id,
+                        name = string.IsNullOrEmpty(o.title) ? o.id : o.title,
+                        // Карточка показывает превью, если автор его дал; иначе
+                        // само полотно — ужимать его до плитки умеет загрузчик.
+                        icon = string.IsNullOrEmpty(o.preview) ? o.url : o.preview,
+                        currency = o.currency,
+                        price = o.price,
+                        rarity = o.rarity,
+                    });
+            if (items.Count == 0) return;   // каталога нет — и вкладки нет
+            _slots[BackdropAxis] = new LvnWardrobeSlot
+            {
+                name = LvnWords.Pick("wardrobe.backdrop", _cfg?.backdrop_text, "Background"),
+                items = items,
+            };
+        }
+
 
         /// <summary>Какую зону куклы смотрит игрок: ось активного раздела
         /// (null — общий план: таб «Все», «Во весь рост», закрытие). Хост со
@@ -209,19 +265,26 @@ namespace Lvn.UI.Screens
             // переехал вниз, к «Выбрать», отдельной кнопкой «Отменить».
             // «Во весь рост» обязан показать фигуру ЦЕЛИКОМ — зум раздела
             // снимается вместе с панелью; возврат наводит его заново (хост).
-            var peek = new Button(() => { FireSectionFocus(null); OnPeek?.Invoke(true); }) { text = "" };
+            // НА ВКЛАДКЕ ФОНА «во весь рост» показывает ФОН, а не рост: героиню
+            // не возвращаем, кадр там и так общий. Сброс раздела (null) означает
+            // «общий план и фигура на месте» — для остальных вкладок это верно,
+            // для фона он вернул бы ровно то, что игрок только что убрал.
+            var peek = new Button(() =>
+            {
+                FireSectionFocus(
+                    Lvn.UI.LvnWardrobeStage.KindOf(_tab) == Lvn.UI.LvnWardrobeAxisKind.Backdrop
+                        ? _tab : null);
+                OnPeek?.Invoke(true);
+            }) { text = "" };
             peek.style.flexShrink = 0; // разделы жмутся, кнопка — никогда
             ScreenUi.Row(peek);
             peek.style.justifyContent = Justify.Center;
-            var peekIcon = LvnIcons.Make(LvnIcon.Chevron, 20f, LvnTokens.Text);
+            // ОДИН СИМВОЛ, БЕЗ СЛОВА. Подпись отъедала ширину у разделов —
+            // строка вкладок не влезала и обрезалась на самой кнопке; стрелка
+            // вниз читается без пояснения.
+            var peekIcon = LvnIcons.Make(LvnIcon.Chevron, 22f, LvnTokens.Text);
             peekIcon.style.rotate = new Rotate(90f);
             peek.Add(peekIcon);
-            _peekLabel = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Pick("wardrobe.peek", _cfg.peek_text, "Full height"));
-            var peekLabel = _peekLabel;
-            peekLabel.style.fontSize = LvnTokens.TextXs;
-            peekLabel.style.marginLeft = LvnTokens.Space1;
-            peekLabel.style.color = LvnTokens.Text;
-            peek.Add(peekLabel);
             LvnAir.Pad(peek, LvnTokens.Space2, LvnTokens.Space1);
             SkinButton(peek, false);
 
@@ -232,11 +295,18 @@ namespace Lvn.UI.Screens
             // Колонка У ЛЕВОГО КРАЯ, поверх куклы (Илья 26.08: «героев надо
             // перечислять слева сбоку, как эмоции»): строка в листе съедала
             // место и повторяла то, что и так читается по кукле.
-            _rosterRow = new VisualElement();
+            // ГЕРОИ — КОЛОНКА С ПРОКРУТКОЙ. Плитки ужимались под полку, и
+            // третьего героя всё равно резало по низу; героиня и пять
+            // фаворитов в полку не влезут никаким кеглем («баблик с героями
+            // обрезается, нужен скролл» — Илья 08.09). Полка задаёт высоту,
+            // остальное листается пальцем, как колонка лиц справа.
+            _rosterRow = new ScrollView(ScrollViewMode.Vertical);
+            _rosterRow.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            _rosterRow.verticalScrollerVisibility = ScrollerVisibility.Hidden;
             _rosterRow.style.position = Position.Absolute;
             _rosterRow.style.left = 0;
-            _rosterRow.style.flexDirection = FlexDirection.Column;
-            _rosterRow.style.alignItems = Align.FlexStart;
+            _rosterRow.contentContainer.style.flexDirection = FlexDirection.Column;
+            _rosterRow.contentContainer.style.alignItems = Align.FlexStart;
             _rosterRow.style.display = DisplayStyle.None;
             Add(_rosterRow);
 
@@ -374,7 +444,7 @@ namespace Lvn.UI.Screens
         /// </summary>
         public void SetContent(LvnManifest manifest) => _manifest = manifest;
 
-        private VisualElement _rosterRow;
+        private ScrollView _rosterRow;
         /// <summary>Open the sheet for a character; resolves when the player
         /// confirms or collapses it. The story op awaits this.</summary>
         public async Task ShowAsync(string entityId, CancellationToken ct = default)
@@ -385,8 +455,8 @@ namespace Lvn.UI.Screens
             BuildFor(entityId);
             // A story wardrobe moment IS the outfits crossing the player's path —
             // everything it offers joins the always-open wardrobe's collection.
-            if (!OnlySeen && MarkSeenOnShow && _def?.wardrobe != null)
-                foreach (var kv in _def.wardrobe)
+            if (!OnlySeen && MarkSeenOnShow && _slots != null)
+                foreach (var kv in _slots)
                     if (kv.Value?.items != null)
                         foreach (var it in kv.Value.items)
                             if (it != null && !string.IsNullOrEmpty(it.value))
@@ -421,8 +491,8 @@ namespace Lvn.UI.Screens
             _balances.style.display = HideBalances ? DisplayStyle.None : DisplayStyle.Flex;
             if (HideBalances) return;
             var currencies = new List<string>();
-            if (_def?.wardrobe != null)
-                foreach (var slot in _def.wardrobe.Values)
+            if (_slots != null)
+                foreach (var slot in _slots.Values)
                     if (slot?.items != null)
                         foreach (var it in slot.items)
                             if (it != null && it.price > 0 && !string.IsNullOrEmpty(it.currency)
@@ -464,6 +534,7 @@ namespace Lvn.UI.Screens
             }
             _def = _entity != null && _manifest?.sprites != null
                    && _manifest.sprites.TryGetValue(_entity, out var d) ? d : null;
+            RebuildSlots();   // облик героя + «Фон»; всё ниже читает только его
             _index.Clear();
             _autoDressed.Clear(); // лист собирается заново — и его примерки тоже
             _tabs.Clear();
@@ -472,7 +543,7 @@ namespace Lvn.UI.Screens
             _title.text = LvnWords.Pick("wardrobe.title", _cfg.title, "Wardrobe");
 
             RebuildRoster();
-            if (_def?.wardrobe == null || _def.wardrobe.Count == 0)
+            if (_slots == null || _slots.Count == 0)
             {
                 _itemName.text = LvnWords.Pick("wardrobe.empty", _cfg.empty_text, "The wardrobe is empty");
                 RebuildStrip(); // не показывать карточки прошлого персонажа
@@ -480,7 +551,7 @@ namespace Lvn.UI.Screens
                 return;
             }
 
-            foreach (var kv in _def.wardrobe)
+            foreach (var kv in _slots)
             {
                 var axis = kv.Key;
                 if (Items(axis).Count == 0) continue; // nothing collected here yet
@@ -539,7 +610,7 @@ namespace Lvn.UI.Screens
 
             // «ВСЕ» (Илья 27.08): купленные скины со всех осей одной витриной,
             // кадр без зума — вся фигура.
-            if (_def.wardrobe.Count > 1)
+            if (_slots.Count > 1)
             {
                 var all = new Button(() => SelectTab(AllTab)) { text = "" };
                 all.style.height = LvnTokens.TouchLg;
@@ -585,7 +656,7 @@ namespace Lvn.UI.Screens
             // только открыл гардероб (живой скрин 27.08). Надеть по-настоящему
             // тоже нельзя: покупка и выбор — раздельные акты, а тихий equip на
             // открытии листа сделал бы выбор за игрока.
-            foreach (var kv in _def.wardrobe)
+            foreach (var kv in _slots)
             {
                 var axis = kv.Key;
                 var items = Items(axis);
@@ -611,7 +682,7 @@ namespace Lvn.UI.Screens
 
             RebuildEmotions();
             // «Моё» — вкладка по умолчанию (Илья 28.08), когда она есть.
-            SelectTab(_def.wardrobe.Count > 1 ? AllTab : _tab);
+            SelectTab(_slots.Count > 1 ? AllTab : _tab);
         }
 
 
@@ -629,7 +700,7 @@ namespace Lvn.UI.Screens
                 // «Моё» подписывается выбранной основой, а не собой.
                 var basis = AllTabAxis;
                 if (basis == null) return;
-                var slot = _def.wardrobe[basis];
+                var slot = _slots[basis];
                 var val = CurrentValueOf(basis);
                 var nm = NameOfValue(basis, val);
                 // Строка выбора собирается из ДВУХ подписей — оси и значения, — и

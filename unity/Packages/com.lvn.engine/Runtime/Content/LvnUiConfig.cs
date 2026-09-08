@@ -158,6 +158,10 @@ namespace Lvn.Content
         public string accent_text_color; // action button text; default #14141a
         public float? corner_radius;  // default 12
         public string remove_text;    // default "Take off"
+        /// <summary>Подпись вкладки полотен меню; по умолчанию "Background".
+        /// Авторская, как и остальные подписи гардероба: в русской игре
+        /// английское слово посреди «Платье / Причёска» читается как недоделка.</summary>
+        public string backdrop_text;
         public string confirm_text;   // the in-story sheet's commit button; default "Choose"
         public string buy_text;       // the sheet's purchase button (unowned item browsed); default "Buy"
         public string insufficient_text; // shown when a buy fails for funds; default "Not enough"
@@ -574,6 +578,27 @@ namespace Lvn.Content
         public string url;
     }
 
+    /// <summary>ПОЛОТНО ГЛАВНОГО МЕНЮ НА ВЫБОР — и, в отличие от музыки,
+    /// продаваемое. Форма нарочно та же, что у <see cref="MusicOption"/>
+    /// (id/title/url): в движке уже есть «список вариантов + выбор игрока»,
+    /// и заводить рядом второй такой же с другими именами полей значило бы
+    /// делить пополам одно понятие.
+    ///
+    /// <para><c>price</c> = 0 — фон открыт всем (подарок, награда). Больше
+    /// нуля — покупается за <c>currency</c> через кошелёк, и до покупки меню
+    /// его не поставит, даже если он выбран: выбор хранится на устройстве, а
+    /// владение — на сервере.</para></summary>
+    public sealed class CanvasOption
+    {
+        public string id;
+        public string title;
+        public string url;
+        public string preview;    // маленькая картинка для витрины; пусто — берём url
+        public string currency;   // ключ кошелька; пусто — валюта по умолчанию
+        public long price;        // 0 — бесплатный
+        public string rarity;     // необязательный ключ подсветки
+    }
+
     /// <summary>Витрина: как игрок выбирает новеллу. «carousel» — лента
     /// карточек на главной; «hub» — хаб с подборками (BrowseHub): три
     /// оформляемых экрана — хаб (заголовок игры и плитки подборок), подборка
@@ -590,6 +615,9 @@ namespace Lvn.Content
         /// настройки показывают пилюли, выбор хранится на устройстве.
         /// Пусто — играет просто music.</summary>
         public List<MusicOption> music_options;
+        /// <summary>Выбор ПОЛОТНА меню: список {id,title,url,price}. Продаётся
+        /// в гардеробе. Пусто — стоит авторское <see cref="canvas"/>.</summary>
+        public List<CanvasOption> canvas_options;
         /// <summary>Тема оболочки: "midnight" (по умолчанию) | "cyber". Задаёт
         /// палитру И огранку — скругление, кромку, разрядку заголовков, фон.
         /// Отдельные *_color ниже перекрывают тему поштучно.</summary>

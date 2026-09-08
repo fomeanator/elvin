@@ -113,7 +113,7 @@ namespace Lvn.UI.Screens
             // ней. Вид — как игровая панель: Полночь, скруглённый верх,
             // акцентная кромка (то самое «дорого» единого стиля).
             _panel = new VisualElement();
-            LvnChrome.BottomStrip(_panel, 10f, 140f);
+            LvnChrome.BottomStrip(_panel, 10f, PanelGap);   // низ уточняет LiftAboveNav
             var bg = LvnTokens.PanelBg;
             _panel.style.backgroundColor = UiColor.WithAlpha(bg, 0.94f);
             LvnChrome.Edged(_panel, LvnTokens.Radius);
@@ -138,6 +138,12 @@ namespace Lvn.UI.Screens
         /// кружок). Экран до него не дотягивается сам и не должен: чужие слои
         /// прячет их хозяин. Ставит оболочка при рождении вкладки.</summary>
         public System.Action<bool> PeekChrome;
+
+        /// <summary>СКОЛЬКО ЗАНЯЛА НИЖНЯЯ ЛЕНТА — ставит оболочка (у неё есть
+        /// хаб). Панель гардероба встаёт НАД лентой, и высоту ленты знает
+        /// только она сама: в облике «сцена» она рисованная и выше обычной.
+        /// Пусто — остаёмся на прежнем запасе.</summary>
+        public System.Func<float> NavHeight;
 
         private void SetPeek(bool on)
         {
@@ -213,8 +219,30 @@ namespace Lvn.UI.Screens
         protected override void OnOpening()
         {
             EnsureSheet();
+            LiftAboveNav();
             SetPeek(false);
             LvnAsync.Fire(RunSheetLoopAsync(), "WardrobeTabLoop");
+        }
+
+        /// <summary>ПОДНЯТЬ ПАНЕЛЬ НАД ЛЕНТОЙ. Запас снизу был числом (140),
+        /// и с рисованной лентой облика «сцена» кнопки «Отменить/Выбрать»
+        /// оказались под меню. Спрашиваем ленту, сколько она заняла, и
+        /// добавляем прежний зазор — число остаётся только зазором.</summary>
+        private void LiftAboveNav()
+        {
+            float nav = NavHeight?.Invoke() ?? 0f;
+            _panel.style.bottom = PanelGap + nav;
+        }
+
+        /// <summary>Зазор между панелью и нижней лентой.</summary>
+        private const float PanelGap = 24f;
+
+        /// <summary>Доехали — ставим полки героев и лиц по НАСТОЯЩЕМУ месту
+        /// листа: во время переезда оно было промежуточным.</summary>
+        public override void Settled()
+        {
+            _sheet?.PlaceEmotions();
+            LiftAboveNav();
         }
 
         protected override void OnClosed()

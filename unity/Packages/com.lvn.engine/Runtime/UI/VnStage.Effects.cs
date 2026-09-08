@@ -128,6 +128,13 @@ namespace Lvn.UI
                     _renderer?.Zoom(factor, dur);
                     break;
                 }
+                case "cast":
+                {
+                    // ОДНИ ФИГУРЫ: витрина фонов смотрит картину, а не платье.
+                    float alpha = NumOr(cmd["alpha"], 1f);
+                    _renderer?.CastFade(alpha, dur);
+                    break;
+                }
                 case "pan":
                 {
                     float px = NumOr(cmd["x"], 0f);

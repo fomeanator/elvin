@@ -18,6 +18,14 @@ namespace Lvn.UI.Screens
     /// </summary>
     public sealed partial class BrowseHub
     {
+        // РАЗМЕР КАРТОЧКИ ЛЕНТЫ ЖИВЁТ ОДНОЙ ПАРОЙ ЧИСЕЛ. Высота полосы слайдера
+        // раньше дублировала литерал постера (292f + 112f): постер подняли, а
+        // полоса осталась прежней — и карточки обрезало снизу ВМЕСТЕ С
+        // ПОДПИСЯМИ. Теперь полоса считается отсюда, разъехаться нечему.
+        private const float CardW = 429f;     // подобрано с Ильёй: 500 → 460 → 391 → 405 → 429
+        private const float PosterH = 564f;   // пропорция спайна (w/h 0.8315) + запас высоты
+        private const float CaptionH = 112f;  // цоколь с названием и метаданными
+
         private VisualElement CollectionRow(LvnCollection c, bool hero)
         {
             var row = new VisualElement();
@@ -82,7 +90,7 @@ namespace Lvn.UI.Screens
             // Подпись теперь живёт на собственном матовом цоколе, а не поверх
             // шумного полотна меню. Высота считается от постера и этой плашки:
             // ни буквы, ни нижняя кромка не могут провалиться под навигацию.
-            strip.style.height = 292f + 112f;
+            strip.style.height = PosterH + CaptionH;
             // Плитки просто проступают: волна с въездом и пружиной читалась
             // как дёрганье списка (Илья 26.08).
             Lvn.UI.LvnMotion.FadeInAll(entering);
@@ -99,7 +107,7 @@ namespace Lvn.UI.Screens
         {
             bool locked = IsLocked(t);
             var card = new VisualElement();
-            card.style.width = 250;
+            card.style.width = CardW;
             card.style.flexShrink = 0;      // horizontal slider: keep the poster size
             card.style.marginRight = LvnTokens.Space3;
             card.style.opacity = locked ? 0.5f : 1f;
@@ -112,13 +120,46 @@ namespace Lvn.UI.Screens
             // of the same physical card rather than loose text under an image.
             var poster = new VisualElement();
             poster.style.width = Length.Percent(100f);
-            poster.style.height = 292;
+            // Коробка нарочно ВЫШЕ пропорции фигуры (спайн noel = 2310×2778,
+            // w/h 0.83): постер вписывает спайн целиком (background-size
+            // contain, см. LvnSpinePoster), поэтому фигура видна во весь рост
+            // и не тянется, а лишняя высота уходит в поле карточки.
+            poster.style.height = PosterH;
             poster.style.overflow = Overflow.Hidden;
             poster.style.backgroundColor = _card;
             LvnChrome.RoundTop(poster, _radius + 2f);
 
             string art = t.CardArt();
-            if (!string.IsNullOrEmpty(art))
+            // Живой спайн вместо статичного постера (Илья: «заменить их бг на
+            // спайн»). Каждая карточка поднимает СВОЮ фигуру. Обложка — запас
+            // для карточек БЕЗ спайна.
+            // ...но только если мост со spine-unity ЖИВОЙ. Без него Attach
+            // тихо выходит, а обложку мы на такой карточке уже не ставим —
+            // получился бы пустой прямоугольник вместо новеллы. Нет моста —
+            // карточка честно откатывается на обложку.
+            var cardSpine = Lvn.UI.LvnSpineBridge.Available ? SpineForTitle(t) : null;
+            if (cardSpine != null)
+            {
+                // ОБЛОЖКУ НА СПАЙН-КАРТОЧКЕ НЕ СТАВИМ. И обложка, и спайн пишут
+                // ОДНО поле backgroundImage, оба асинхронно: обложка, приехавшая
+                // позже фигуры, молча затёрла бы её. Не сложилось со спайном —
+                // постер остаётся полем карточки, без мигания подменой.
+                Lvn.UI.LvnSpinePoster.Attach(poster, cardSpine,
+                    url => _assets.LoadTextAsync(url, default),
+                    url => _assets.LoadSpriteAsync(url, default),
+                    // Закрепление страниц атласа — через тот же загрузчик, что их
+                    // выдал; иначе стриминговое окно унесёт текстуры из-под
+                    // живого скелета.
+                    (_assets as Lvn.UI.CachingAssets)?.Loader,
+                    // Спайн не сложился (нет файлов, страницу унесла уборка) —
+                    // карточка НЕ остаётся пустой, а показывает обложку.
+                    () =>
+                    {
+                        if (!string.IsNullOrEmpty(art)) LvnPicture.Layer(poster, art, _assets);
+                        else poster.style.backgroundImage = PosterFallbackImage(useAccent: hero);
+                    });
+            }
+            else if (!string.IsNullOrEmpty(art))
             {
                 LvnPicture.Layer(poster, art, _assets);
             }
@@ -149,7 +190,7 @@ namespace Lvn.UI.Screens
             name.style.color = _text; name.style.fontSize = LvnTokens.TextBase;
             name.style.unityFontStyleAndWeight = FontStyle.Bold;
             name.style.whiteSpace = WhiteSpace.Normal;
-            name.style.maxHeight = 54;      // две строки не съедают метаданные
+            name.style.maxHeight = 108;     // две строки не съедают метаданные (карточка вдвое крупнее)
             name.style.overflow = Overflow.Hidden;
             caption.Add(name);
 

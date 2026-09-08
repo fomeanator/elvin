@@ -27,6 +27,15 @@ namespace Lvn.UI.World
         // −30% (Илья 25.08: «уменьшить путь героев», табличке путь наоборот
         // удлинили — ансамбль читается: герой встаёт коротко, карточка едет).
         private const float ActorEnterDriftScreen = 0.03375f * 0.7f;
+        /// <summary>С какой доли ширины кадра фигура считается ШИРОКОЙ и ей
+        /// разрешён выход за край при боковом слоте (см. ApplyPlacement).</summary>
+        internal const float WideFigureShare = 0.75f;
+
+        /// <summary>Правило одним вопросом: можно ли этой фигуре за край кадра
+        /// — по слову автора (crop) или потому, что она широкая. Отдельно от
+        /// постановки, чтобы стражи спрашивали его без сцены.</summary>
+        internal static bool MayCrossEdge(bool cropAllowed, float figureShareOfFrame)
+            => cropAllowed || figureShareOfFrame >= WideFigureShare;
         // Exit is a dismissal, not a second entrance played backwards: a short
         // nudge reads cleaner once the actor is already disappearing.
         private const float ActorExitDriftScreen = ActorEnterDriftScreen * 0.5f;
@@ -199,6 +208,7 @@ namespace Lvn.UI.World
             _camera = _canvasGo.AddComponent<WorldCameraRig>();
             _camera.Bind(_gameRoot);
             _camera.BindCast(_content);   // фигуры умеют отъезжать без фона
+            _camera.Breathe = _bg.Breathe; // …а полотно — тихо гулять
         }
 
         // ── background ───────────────────────────────────────────────────────
@@ -211,6 +221,23 @@ namespace Lvn.UI.World
             _bg.SetPan(from01);
             if (!Mathf.Approximately(from01, to01)) _bg.PanTo(to01, seconds);
         }
+
+        /// <summary>Поставить кадр полотна разом по обеим осям (0..1). Ведёт
+        /// витрина — покадрово, в такт своей анимации вкладок.</summary>
+        public void SetBackgroundPan(float x01, float y01) => _bg.SetPan(x01, y01);
+
+        /// <summary>Сдвинуть ФИГУР, не трогая полотно: доля ШИРИНЫ КАДРА
+        /// (+ вправо, − влево). Долей, а не единицами: опорную ширину знает
+        /// сцена, и вызывающему незачем повторять её у себя числом.</summary>
+        public void CastShift(float shareOfWidth, float seconds)
+            => _camera.CastShift(shareOfWidth * _reference.x, seconds);
+
+        /// <summary>Отдалить ФИГУР, не трогая полотно (1 — как поставлено).</summary>
+        public void CastZoom(float scale, float seconds) => _camera.CastZoom(scale, seconds);
+
+        /// <summary>Пустить полотно гулять вокруг своей точки (0 — стоять).</summary>
+        public void SetBackgroundDrift(float x, float y, float seconds)
+            => _bg.SetDrift(x, y, seconds);
 
         public void SetBackgroundSprite(Sprite sprite, float crossfadeSeconds)
         {
@@ -489,6 +516,15 @@ namespace Lvn.UI.World
             Vector2 targetSlotBase = a.SlotBase;
             if (p.SmoothPosition && wasVisible && p.Show)
                 a.MoveSlotBase(previousSlotBase, targetSlotBase, p.TransitionDuration);
+            // ХОД СЛОТА — ВСЛУХ. «Героиня всегда по центру» и «анимация дважды»
+            // (08.09) не различались по остальным логам: постановка объявляла
+            // место, а куда слот на самом деле поехал и поехал ли — молчало.
+            if ((targetSlotBase - previousSlotBase).sqrMagnitude > 0.25f || !wasVisible)
+                LvnLog.Trace($"[lvn-move] {id}: слот ({previousSlotBase.x:0}, {previousSlotBase.y:0}) → "
+                           + $"({targetSlotBase.x:0}, {targetSlotBase.y:0}) x={p.X:0.000}"
+                           + (p.SmoothPosition && wasVisible && p.Show
+                              ? $" плавно за {p.TransitionDuration:0.00}с" : " сразу")
+                           + $", был виден={wasVisible}, show={p.Show}, слоёв={(layers?.Count ?? 0)}");
 
             CanvasGroup g = null;
             // Непрозрачность держит САМ АКТЁР (WorldActor.SetBaseOpacity).
@@ -679,7 +715,27 @@ namespace Lvn.UI.World
             float visualAnchorX = p.Flip ? 1f - p.AnchorX : p.AnchorX;
             float minX = visualAnchorX * width01;
             float maxX = 1f - (1f - visualAnchorX) * width01;
-            x01 = minX <= maxX ? Mathf.Clamp(x01, minX, maxX) : 0.5f;
+            // ШИРЕ ЭКРАНА — ЗНАЧИТ В ОБРЕЗ ПРИ ЛЮБОМ МЕСТЕ, и зажимать нечего.
+            // Здесь стояло «тогда центр», и место такой фигуры пропадало
+            // молча: кукла витрины (холст шире кадра) вставала в 0.5 при
+            // любом слоте — и «слева» получалось только сдвигом всего слоя
+            // фигур (живой репорт 08.09: «героиня не слева же»). Слово
+            // автора важнее невозможного зажима.
+            // ШИРОКОЙ ФИГУРЕ МОЖНО ЗА КРАЙ. Фигура шире трёх четвертей кадра
+            // «сбоку» не встанет без обреза: зажим удерживал бы её в восьмушке
+            // от центра, и «left» переставал существовать (кукла витрины в
+            // 0.89 ширины при любом слоте стояла на 0.447 — живой лог 08.09).
+            // Такой фигуре слово автора важнее целости; узкую по-прежнему
+            // держим в кадре, если автор не разрешил обрез явно (crop=true).
+            // «Давай разрешим таким фигурам за край выходить» — Илья 08.09.
+            bool mayCrop = MayCrossEdge(p.Crop, width01);
+            float wanted = x01;
+            if (!mayCrop) x01 = minX <= maxX ? Mathf.Clamp(x01, minX, maxX) : x01;
+            if (Mathf.Abs(x01 - wanted) > 0.005f || mayCrop)
+                LvnLog.Trace($"[lvn-clamp] {id}: место {wanted:0.000} → {x01:0.000}"
+                           + (mayCrop ? (p.Crop ? " (обрез разрешён автором)" : " (широкая — за край можно)") : "") + " "
+                           + $"(фигура {width01:0.00} ширины кадра, якорь {visualAnchorX:0.00}, "
+                           + $"холст {a.Slot.sizeDelta.x:0}×{a.Slot.sizeDelta.y:0}, фигура в холсте {p.FigureW:0.00})");
             var xPos = a.Slot.anchoredPosition;
             xPos.x = x01 * lw;
             a.Slot.anchoredPosition = xPos;

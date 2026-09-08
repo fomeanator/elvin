@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Lvn.Content;
 using UnityEngine;
@@ -49,14 +50,87 @@ namespace Lvn.UI.Screens
         /// <para>Фон СЦЕНЫ (гардероб показывает последний фон главы) сюда не
         /// относится: у него нет переездов, и точка ему не нужна.</para>
         /// </summary>
-        private Newtonsoft.Json.Linq.JObject MenuCanvasCmd(string canvas, float fade)
-            => string.IsNullOrEmpty(canvas) ? null : new Newtonsoft.Json.Linq.JObject
+        /// <summary>ПОЛОТНО МЕНЮ — ОДНО МЕСТО РЕШЕНИЯ. Адрес читался в шести
+        /// местах напрямую из манифеста, и выбор игрока пришлось бы вписывать
+        /// в каждое: забыть одно — и меню в одном из путей (возврат из главы,
+        /// первый показ, створ, прогрев) показало бы чужой фон.
+        ///
+        /// <para>Купленное важнее авторского, но ВЛАДЕНИЕ ПРОВЕРЯЕТСЯ: выбор
+        /// живёт на устройстве, а покупка — в кошельке. Иначе достаточно было
+        /// бы переставить ключ в настройках устройства, чтобы получить платный
+        /// фон даром. Бесплатный (price = 0) ставится без вопросов.</para></summary>
+        /// <summary>Чем объясняется последний ответ <see cref="MenuCanvasUrl"/>.
+        /// Пишется туда же, читается логом сцены: без этого откат на авторское
+        /// полотно происходил молча.</summary>
+        private string _canvasWhy = "—";
+
+        private string MenuCanvasUrl()
+        {
+            var b = _manifest?.ui?.browse;
+            // ФОН ПРИНАДЛЕЖИТ ГЕРОЮ, КОТОРЫЙ СТОИТ НА ГЛАВНОЙ. Илья: «поставить
+            // каждому свой можно будет» и «когда перса выбираешь — фон меняться
+            // будет». Поэтому спрашиваем не «что игрок выбрал вообще», а «что
+            // надето на том, кого он поставил»; смена фаворита меняет полотно
+            // сама собой, без второго переключателя.
+            var who = LvnFavorite.Entity(_manifest);
+            string picked = null;
+            bool trying = false;        // идёт примерка, а не показ купленного
+            if (!string.IsNullOrEmpty(who))
+            {
+                // ПРИМЕРКА ВЫШЕ НАДЕТОГО. Полотно — такой же скин, и меряют его
+                // до покупки, как платье: пока лист открыт, сцена показывает
+                // выбранное. Здесь спрашивали только надетое, поэтому карточка
+                // нажималась, а фон не менялся до самой оплаты.
+                if (Lvn.UI.LvnWardrobe.Previewed(who)
+                        .TryGetValue(WardrobeSheet.BackdropAxis, out picked))
+                    trying = !string.IsNullOrEmpty(picked);
+                if (!trying)
+                    Lvn.UI.LvnWardrobe.Equipped(who)
+                        .TryGetValue(WardrobeSheet.BackdropAxis, out picked);
+            }
+            _canvasWhy = "авторское";   // объяснение решения — на случай молчания
+            // Хвост: героя ещё нет (первый запуск, пустой каталог обликов) —
+            // берём выбор игрока как таковой, иначе фон нельзя было бы
+            // поставить вовсе.
+            if (string.IsNullOrEmpty(picked)) picked = Lvn.UI.LvnPrefs.MenuBackdrop;
+            if (!string.IsNullOrEmpty(picked) && b?.canvas_options != null)
+                foreach (var o in b.canvas_options)
+                    if (o != null && o.id == picked && !string.IsNullOrEmpty(o.url))
+                    {
+                        // ПОЧЕМУ выбор игрока не поехал — вслух. Молчаливый
+                        // откат на авторское полотно стоил половины вечера:
+                        // выбор стоял, кнопка нажималась, а сцена показывала
+                        // старое и не говорила ни слова.
+                        // За примерку не платят: показываем, что меряют.
+                        bool owned = trying || o.price <= 0
+                                  || WardrobeSheet.OwnsBackdrop(who, o.id);
+                        _canvasWhy = trying ? $"примерка «{o.id}»"
+                                   : owned  ? $"надет «{o.id}» (герой {who})"
+                                            : $"выбран «{o.id}», но НЕ КУПЛЕН — откат на авторское";
+                        if (owned) return o.url;
+                        break;
+                    }
+            else if (!string.IsNullOrEmpty(picked))
+                _canvasWhy = $"выбран «{picked}», но его нет в ui.browse.canvas_options";
+            return b?.canvas;
+        }
+
+        /// <param name="fade">null — растворять как фон внутри главы (тема
+        /// <c>ui.stage.bg_fade</c>); число — своя длительность, 0 — мгновенно.</param>
+        private Newtonsoft.Json.Linq.JObject MenuCanvasCmd(string canvas, float? fade)
+        {
+            if (string.IsNullOrEmpty(canvas)) return null;
+            var cmd = new Newtonsoft.Json.Linq.JObject
             {
                 ["op"] = "bg",
                 ["sprite_url"] = canvas,
-                ["pan"] = _menuPanSet ? _menuPanTo : LvnMenuStage.PanStart,
-                ["fade"] = fade,
+                ["pan"] = MenuPoint().x,
+                ["pan_y"] = MenuPoint().y,          // комнаты стоят и по высоте — см. LvnTabs.Room
+                ["zoom"] = LvnMenuStage.PanZoom,   // запас, по которому едет переезд
             };
+            if (fade.HasValue) cmd["fade"] = fade.Value;
+            return cmd;
+        }
 
         /// <summary>Настройки ВИТРИН из манифеста: рост куклы и переезд
         /// полотна в меню (<c>ui.browse</c>), кадр плиток гардероба
@@ -80,7 +154,7 @@ namespace Lvn.UI.Screens
         private void WarmMenuCanvas()
         {
             if (Stage == null) return;
-            var canvas = _manifest?.ui?.browse?.canvas;
+            var canvas = MenuCanvasUrl();
             if (!string.IsNullOrEmpty(canvas))
                 LvnAsync.Fire(Stage.WarmMenuCanvasAsync(canvas), "WarmMenuCanvas");
 
@@ -95,6 +169,43 @@ namespace Lvn.UI.Screens
             var fav = MenuFavoriteEntity();
             if (!string.IsNullOrEmpty(fav))
                 LvnAsync.Fire(Stage.WarmActorAsync(fav), "WarmMenuHeroine");
+
+            // И РАМКИ ВИТРИНЫ — ТОЙ ЖЕ ПАЧКОЙ. Панель, карточка, нижнее меню,
+            // лого и значки качались и декодились уже ПОСЛЕ снятия вуали и
+            // всплывали по одной, а через секунду живое обновление
+            // пересобирало витрину и декодировало их второй раз («картинки
+            // с главного меню надо при старте прогревать, а то мелькают» —
+            // Илья 08.09). Задача остаётся у нас: бут-вуаль ждёт её вместе
+            // с полотном.
+            var art = MenuArtUrls(_manifest?.ui?.browse);
+            if (art.Count > 0)
+            {
+                _menuArtWarm = Stage.WarmMenuArtAsync(art);
+                LvnAsync.Fire(_menuArtWarm, "WarmMenuArt");
+            }
+        }
+
+        /// <summary>Прогрев арта витрины — задача, которую бут-вуаль ждёт
+        /// вместе с полотном, в тот же бюджет времени.</summary>
+        private Task _menuArtWarm;
+        private bool MenuArtReady => _menuArtWarm == null || _menuArtWarm.IsCompleted;
+
+        /// <summary>АДРЕСА АРТА ВИТРИНЫ по манифесту: рамки облика «сцена» из
+        /// папки skin (тот же список, что кладут главная и шапка), лого,
+        /// аватар и значки валют. Пусто — витрина без облика, греть нечего.
+        /// Без повторов: один адрес — один декод.</summary>
+        internal static List<string> MenuArtUrls(BrowseConfig b)
+        {
+            var urls = new List<string>();
+            if (b == null) return urls;
+            void Add(string u) { if (!string.IsNullOrEmpty(u) && !urls.Contains(u)) urls.Add(u); }
+            if (!string.IsNullOrEmpty(b.skin))
+                foreach (var file in LvnStageKit.SkinFiles) Add(LvnStageKit.SkinUrl(b.skin, file));
+            Add(b.logo);
+            Add(b.avatar);
+            if (b.currency_icons != null)
+                foreach (var kv in b.currency_icons) Add(kv.Value);
+            return urls;
         }
 
         /// <summary>
@@ -114,7 +225,7 @@ namespace Lvn.UI.Screens
         private void HandOverToMenu()
         {
             if (Stage == null) return;
-            var canvas = _manifest?.ui?.browse?.canvas;
+            var canvas = MenuCanvasUrl();
             var fav = MenuFavoriteEntity();
             // ВОЗВРАЩЕНИЕ — ДЛИННЫЙ ВЫДОХ, а не переключение. Полторы секунды
             // кроссфейда: мир главы отпускает, полотно меню проступает.
@@ -178,7 +289,13 @@ namespace Lvn.UI.Screens
             // означала другого человека на экране; из этого и состояла неделя
             // дефектов «героинь две / встаёт по-менюшному / рост скачет».
             Stage.Prima.Cast(fav);
-            if (!Stage.Prima.Stand(sender, z)) return false;
+            // МЕСТО — СЛОТ ТЕКУЩЕЙ ВКЛАДКИ. Фигуру ставят заново на каждую
+            // смену наряда и на каждый возврат из главы; ставь её всегда в
+            // слот главной — и она прыгала бы влево посреди гардероба, где её
+            // только что увели в центр.
+            if (!Stage.Prima.Stand(sender, z, MenuDollSlot())) return false;
+            // План и дыхание полотна — тоже свойства вкладки, не картинки.
+            if (sender == LvnSender.Menu) RestoreMenuComposition();
             _menuSceneActor = fav;
             return true;
         }
@@ -202,20 +319,26 @@ namespace Lvn.UI.Screens
                 LvnLog.Trace($"[lvn-menu] сцена меню ПРОПУЩЕНА: stage={(Stage != null)}, играется глава={InChapter}");
                 return;
             }
-            var canvas = _manifest?.ui?.browse?.canvas;
+            var canvas = MenuCanvasUrl();
             // «Стоит ли уже полотно» спрашиваем У СЦЕНЫ. Здесь жил свой флажок,
             // и он врал ровно тогда, когда это было важнее всего: картинка со
             // сцены пропадала, а флажок держал «стоит».
             bool already = Stage.ShowsBackdrop(canvas);
-            LvnLog.Trace($"[lvn-menu] сцена меню: canvas={(string.IsNullOrEmpty(canvas) ? "НЕТ" : "есть")}, "
-                      + $"уже стоит={already} → полотно {(!string.IsNullOrEmpty(canvas) && !already ? "СТАВИМ" : "не трогаем")}");
+            LvnLog.Trace($"[lvn-menu] сцена меню: canvas={(string.IsNullOrEmpty(canvas) ? "НЕТ" : canvas)} "
+                      + $"[{_canvasWhy}], уже стоит={already} → полотно "
+                      + $"{(!string.IsNullOrEmpty(canvas) && !already ? "СТАВИМ" : "не трогаем")}");
             if (!string.IsNullOrEmpty(canvas) && !already)
             {
                 // Точку выбирает MenuCanvasCmd: стартовая четверть — вкладка
                 // «Главная» (меню всегда открывается с неё), а если переезды уже
                 // были — полотно встаёт СРАЗУ на их точку, иначе первый же тик
                 // дёрнул бы его через полкадра.
-                Stage.ApplyStage(MenuCanvasCmd(canvas, 0f), LvnSender.Menu);
+                // ПЕРВОЕ ПОЛОТНО ВСТАЁТ МГНОВЕННО (растворять не из чего), а
+                // ЗАМЕНА — кроссфейдом темы, тем же, что у фона внутри главы:
+                // примерка фонов подменяет картину под ногами, и рывок читался
+                // как сбой, а не как выбор.
+                Stage.ApplyStage(MenuCanvasCmd(canvas, Stage.HasBackdrop ? (float?)null : 0f),
+                                 LvnSender.Menu);
             }
             var fav = MenuFavoriteEntity();
             // ГЕРОИНЯ ОДНА, И РИСУЕТ ЕЁ СЦЕНА. Рисовать её умели двое — сцена
@@ -265,18 +388,65 @@ namespace Lvn.UI.Screens
         // страниц. Собственный пан-таймер фона (bg-команда, 0.30с smoothstep)
         // стартовал позже async-тракта и ехал иначе — «рассинхрон в глаза
         // бросается» (Илья 28.08). Здесь запоминаются только конечные точки.
-        private float _menuPanFrom, _menuPanTo;
+        private Vector2 _menuPanFrom, _menuPanTo;
+        // Куда уходит ГЕРОИНЯ на этих же вкладках: на главной она стоит там,
+        // где её поставил автор, на боковых возвращается в центр кадра.
+        private string _menuDollSlot;     // куда едет героиня в этом переезде
+        private bool _menuDollSent;         // …и послана ли она уже (первым тиком)
+        // …и насколько она отодвинута: на главной свой план, на боковых — вблизи.
+        private float _menuCastZoomFrom = 1f, _menuCastZoomTo = 1f;
+
+        /// <summary>Точка полотна ДЛЯ ТЕКУЩЕГО МЕСТА игрока: переезды уже были —
+        /// их конец, не было — вкладка, на которой он стоит. Сцену меню
+        /// пересобирают и из гардероба, и вставать полотну надо туда, где оно
+        /// и стояло, а не «как на главной».</summary>
+        private Vector2 MenuPoint()
+            => _menuPanSet ? _menuPanTo : MenuPointFor(_shell?.Tab ?? LvnTabs.Home);
+
+        /// <summary>ТОЧКА ПОЛОТНА ДЛЯ ВКЛАДКИ — её комната на карте
+        /// (<see cref="LvnTabs.Room"/>), пропущенная через правило витрины.</summary>
+        private Vector2 MenuPointFor(int tab)
+        {
+            var room = LvnTabs.Room(tab);
+            return LvnMenuStage.CanvasPointFor(room.x, room.y);
+        }
+
         private void PanMenuScene(int fromTab, int toTab)
         {
             if (Stage == null || InChapter) return;
-            var canvas = _manifest?.ui?.browse?.canvas;
+            // ГЕРОИНЯ ТРОГАЕТСЯ С ПЕРВЫМ КАДРОМ ПЕРЕЕЗДА, а не здесь: между
+            // объявлением переезда и его первым кадром страница ещё
+            // раскладывается (до 160 мс), и фигура, посланная сейчас, приехала
+            // бы раньше кадра. Тик посылает её один раз — по этому флагу.
+            _menuDollSlot = LvnMenuStage.DollSlot(LvnTabs.RoomOf(toTab));
+            _menuDollSent = false;
+            // УХОДИМ ИЗ ГАРДЕРОБА — ОБЩИЙ ПЛАН ВОЗВРАЩАЕТСЯ ВМЕСТЕ С ПЕРЕЛЁТОМ.
+            // Наезд гардероба (камера 1.07 на разделе «Моё») снимался при
+            // закрытии листа, а лист закрывается ПОСЛЕ приезда: героиня
+            // прилетала на главную, и уже там отдельным движением
+            // «уменьшалась» — «чуть больше делает, потом меньше, анимация
+            // кривит; с других вкладок нет» (Илья 08.09). Камера — один полёт:
+            // сброс наезда идёт тем же временем, что и переезд. Повторный
+            // сброс при закрытии листа найдёт камеру на месте и ничего не
+            // сдвинет.
+            if (fromTab == LvnTabs.Wardrobe)
+                Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
+                { ["op"] = "camera", ["action"] = "reset",
+                  ["duration"] = LvnMenuStage.TravelMs / 1000f }, LvnSender.Menu);
+            var canvas = MenuCanvasUrl();
             if (string.IsNullOrEmpty(canvas)) return;
-            // Куда едет камера полотна — знает витрина (LvnMenuStage.PanFor;
-            // ui.browse.canvas_pan / canvas_pan_step). Здесь только откуда и
-            // куда: сам переезд ведёт тик анимации вкладок.
-            _menuPanFrom = LvnMenuStage.PanFor(fromTab);
-            _menuPanTo = LvnMenuStage.PanFor(toTab);
+            // Здесь только откуда и куда: сам переезд ведёт тик анимации
+            // вкладок, а правило «место кнопки → точка кадра» — у витрины.
+            _menuPanFrom = MenuPointFor(fromTab);
+            _menuPanTo = MenuPointFor(toTab);
+            _menuCastZoomFrom = LvnMenuStage.CastZoomFor(LvnTabs.RoomOf(fromTab));
+            _menuCastZoomTo = LvnMenuStage.CastZoomFor(LvnTabs.RoomOf(toTab));
             _menuPanSet = true;
+            LvnLog.Trace($"[lvn-pan] полотно {fromTab} → {toTab}: "
+                       + $"кадр ({_menuPanFrom.x:0.000}, {_menuPanFrom.y:0.000}) → "
+                       + $"({_menuPanTo.x:0.000}, {_menuPanTo.y:0.000}); "
+                       + $"героиня → слот «{_menuDollSlot}», "
+                       + $"план {_menuCastZoomFrom:0.00} → {_menuCastZoomTo:0.00}");
             // ФЛАГ «канвас стоит» ЗДЕСЬ НЕ ВЫСТАВЛЯЕТСЯ. Пока пан жил
             // собственной bg-командой, этот метод сам ставил полотно и имел
             // право на такое заявление. Теперь он только запоминает точки — а
@@ -301,6 +471,11 @@ namespace Lvn.UI.Screens
             {
                 Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
                 { ["op"] = "camera", ["action"] = "reset", ["duration"] = 0.5 }, LvnSender.Menu);
+                // «Общий план» — это про НАЕЗД гардероба, а не про композицию
+                // витрины: сброс камеры возвращает фигурам их рост и место,
+                // и без этой строки героиня после закрытия листа вставала на
+                // главной в полный рост, забыв, что там она отодвинута.
+                RestoreMenuComposition(0.5f);
                 return;
             }
             // target — куда в кадре кладём точку интереса (доли высоты экрана
@@ -315,6 +490,12 @@ namespace Lvn.UI.Screens
             float z, focus, target;
             if (axis == Lvn.UI.Screens.WardrobeSheet.AllTab)
             { z = 1.07f; focus = 0.5f; target = 0f; } // «Моё»: лёгкий наезд по центру
+            // ПОЛОТНО СМОТРЯТ, А НЕ ПЛАТЬЕ: отводим камеру на общий план, иначе
+            // фон закрыт героиней (ось попадала в «одежду» и давала наезд 1.31).
+            // Дальше 1.0 не отводим: камера тянет GameRoot целиком (фон + куклу),
+            // и зум <1 ужал бы САМ ФОН, оголив края кадра.
+            else if (Lvn.UI.LvnWardrobeStage.KindOf(axis) == Lvn.UI.LvnWardrobeAxisKind.Backdrop)
+            { z = 1.00f; focus = 0.5f; target = 0f; }
             else switch (Lvn.UI.LvnWardrobeStage.KindOf(axis))
             {
                 case Lvn.UI.LvnWardrobeAxisKind.Hair:
@@ -331,6 +512,49 @@ namespace Lvn.UI.Screens
             { ["op"] = "camera", ["action"] = "zoom", ["factor"] = z, ["duration"] = 0.55 }, LvnSender.Menu);
             Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
             { ["op"] = "camera", ["action"] = "pan", ["y"] = panY, ["duration"] = 0.55 }, LvnSender.Menu);
+            // ФИГУРЫ ОТЪЕЗЖАЮТ, ПОЛОТНО ОСТАЁТСЯ. Зумом камеры так нельзя: он
+            // тянет фон вместе с героиней. На вкладке фона смотрят картину —
+            // героиня уходит вглубь и не закрывает её собой.
+            // НА ВКЛАДКЕ ФОНА ГЕРОИНИ НЕТ. Выбирают картину — она и должна быть
+            // видна целиком; уменьшать фигуру бессмысленно (мелкая читается как
+            // сбой), а снимать со сцены дорого — облик и примерка живут на ней.
+            float cast = Lvn.UI.LvnWardrobeStage.KindOf(axis) == Lvn.UI.LvnWardrobeAxisKind.Backdrop
+                       ? 0f : 1f;
+            LvnLog.Trace($"[lvn-menu] раздел «{axis}» ({Lvn.UI.LvnWardrobeStage.KindOf(axis)}): "
+                       + $"зум {z:0.00}, фигуры {(cast <= 0f ? "УБИРАЕМ" : "показываем")}");
+            Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
+            { ["op"] = "camera", ["action"] = "cast", ["alpha"] = cast, ["duration"] = 0.35 }, LvnSender.Menu);
+        }
+
+        /// <summary>Слот героини для текущей вкладки — по роду её комнаты:
+        /// главная и магазин слева, боковые — центр. Одно место решения на
+        /// всех, кто её ставит.</summary>
+        private string MenuDollSlot()
+            => LvnMenuStage.DollSlot(LvnTabs.RoomOf(_shell?.Tab ?? LvnTabs.Home));
+
+        /// <summary>КОМПОЗИЦИЯ ТЕКУЩЕЙ ВКЛАДКИ — план героини и дыхание
+        /// полотна. Место сюда НЕ входит: его фигура получает позой
+        /// (<see cref="MenuDollSlot"/>), а не сдвигом слоя. Одно место решения
+        /// на всех, кто может сбить план: сброс камеры после гардероба,
+        /// пересборка сцены, возврат из главы.</summary>
+        private void RestoreMenuComposition(float seconds = 0f)
+        {
+            if (Stage == null) return;
+            var room = LvnTabs.RoomOf(_shell?.Tab ?? LvnTabs.Home);
+            float zoom = LvnMenuStage.CastZoomFor(room);
+            LvnLog.Trace($"[lvn-pan] композиция вкладки {_shell?.Tab ?? LvnTabs.Home} "
+                       + $"({room}): слот «{MenuDollSlot()}», "
+                       + $"план {zoom:0.00}, за {seconds:0.00}с");
+            // Слой фигур больше не сдвигается — место у героини своё, слотом.
+            // Ноль здесь — на случай, если слой остался сдвинутым с прежних
+            // сборок (камера сбрасывает его сама, но не на всех путях).
+            Stage.SetCastShift(0f, seconds);
+            Stage.SetCastZoom(zoom, seconds);
+            // ВИТРИНА ДЫШИТ. Блуждание — её свойство, а не картинки: новый фон
+            // приходит неподвижным (SetSprite гасит его), и включать гуляние
+            // надо там же, где встаёт композиция вкладки.
+            Stage.SetBackgroundDrift(LvnMenuStage.Drift, LvnMenuStage.Drift,
+                                     LvnMenuStage.DriftSeconds);
         }
 
         /// <summary>
@@ -354,7 +578,7 @@ namespace Lvn.UI.Screens
             if (Stage == null) return;
             Stage.Healer.Watch("полотно витрины",
                 () => !InChapter
-                      && !string.IsNullOrEmpty(_manifest?.ui?.browse?.canvas)
+                      && !string.IsNullOrEmpty(MenuCanvasUrl())
                       && !Stage.BackdropHasArt,
                 () =>
                 {
@@ -367,7 +591,7 @@ namespace Lvn.UI.Screens
                 // секунды хватало на декод крупного канваса тут, на этой
                 // машине; на слабом телефоне картинку везут дольше, и лечение
                 // забирало у фона поколение, начиная лестницу повторов заново.
-                working: () => Stage.BringingBackdrop(_manifest?.ui?.browse?.canvas));
+                working: () => Stage.BringingBackdrop(MenuCanvasUrl()));
         }
 
         // Перечисление сплошных светлых поверхностей сцены — снасть охоты на

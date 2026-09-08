@@ -60,6 +60,14 @@ namespace Lvn.UI
         /// <summary>Side entrances and changes between stage positions should
         /// read as a quick piece of blocking, not as the actor skating through
         /// the shot. Fade-only exits deliberately keep their own timing.</summary>
+        /// <summary>СКОЛЬКО ЗАЯВИТЬ, чтобы переход между слотами длился
+        /// <paramref name="onScreenSeconds"/> на экране. Заявленное время
+        /// проходит темп темы и укорачивание мизансцены; тот, кому надо
+        /// попасть в чужой ритм (витрина везёт героиню вместе с кадром),
+        /// обратную формулу знать не должен — она живёт у этих констант.</summary>
+        public static float DeclareMovement(float onScreenSeconds)
+            => onScreenSeconds / (VnTheme.MotionDurationScale * ActorMovementDurationScale);
+
         private static void ShortenCharacterMovement(JObject cmd, ref Placement p)
         {
             if (!IsCharacterCommand(cmd) || p.TransitionDuration <= 0.001f) return;
@@ -170,6 +178,7 @@ namespace Lvn.UI
             ApplyScale(cmd, ref p);
             if (cmd["z"] != null) p.Z = IntOrNull(cmd["z"]);
             if (cmd["flip"] != null || cmd["mirror"] != null) p.Flip = BoolOr(cmd["flip"] ?? cmd["mirror"], false);
+            if (cmd["crop"] != null) p.Crop = BoolOr(cmd["crop"], false);
             if (cmd["rotation"] != null) p.Rotation = NumOr(cmd["rotation"], 0f);
             if (cmd["opacity"] != null) p.Opacity = NumOr(cmd["opacity"], 1f);
             if (cmd["hover_opacity"] != null) p.HoverOpacity = NumOr(cmd["hover_opacity"], 1f);

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Lvn.Content;
 using Lvn.UI;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Lvn.Tests
 {
@@ -58,6 +59,165 @@ namespace Lvn.Tests
             Assert.AreEqual(LvnMenuStage.PanFor(3), LvnMenuStage.PanFor(9), 1e-4f,
                 "за последнюю вкладку полотно не уезжает");
             Assert.LessOrEqual(LvnMenuStage.PanFor(3), 1f, "и не съезжает с картины");
+        }
+
+        [Test]
+        public void MenuCanvas_FollowsTheRoomMap()
+        {
+            LvnMenuStage.PanSpread = 1f; LvnMenuStage.LiftSpread = 1f;
+            // Карта Ильи (08.09): профиль слева сверху, главная в центре,
+            // гардероб слева снизу, магазин справа снизу. Комнаты — в экранных
+            // осях (y вниз), полотно — в осях картины (y вверх): к верхней
+            // комнате камера показывает ВЕРХ картины.
+            var profile  = LvnMenuStage.CanvasPointFor(0f,   0f);
+            var home     = LvnMenuStage.CanvasPointFor(0.5f, 0.5f);
+            var wardrobe = LvnMenuStage.CanvasPointFor(0f,   1f);
+            var store    = LvnMenuStage.CanvasPointFor(1f,   1f);
+
+            Assert.Less(wardrobe.x, home.x, "левая комната показывает левую часть картины");
+            Assert.Less(home.x, store.x, "правая — правую");
+            Assert.AreEqual(new Vector2(0.5f, 0.5f), home, "главная — центр полотна");
+            Assert.Greater(profile.y, home.y, "верхняя комната поднимает кадр к верху картины");
+            Assert.Less(wardrobe.y, home.y, "нижняя — опускает к низу");
+            Assert.AreEqual(wardrobe.y, store.y, 1e-4f, "нижние комнаты на одной высоте");
+            Assert.AreEqual(profile.x, wardrobe.x, 1e-4f, "профиль и гардероб — по одной вертикали");
+
+            LvnMenuStage.PanSpread = 0f;
+            Assert.AreEqual(0.5f, LvnMenuStage.CanvasPointFor(0f, 1f).x, 1e-4f,
+                "нулевой размах — полотно стоит на месте");
+            LvnMenuStage.PanSpread = 1f;
+        }
+
+        [Test]
+        public void MenuHeroine_StandsInStageSlots_HomeLeftOfCentre_SidesCentred()
+        {
+            // МЕСТА ГЕРОИНИ — ТОЛЬКО СТОЯЧИЕ СЛОТЫ СЦЕНЫ. Своих долей у витрины
+            // нет: доля из манифеста («0.32») не действует, слово-слот — да.
+            string wasHome = LvnMenuStage.HomeDollSlot;
+            try
+            {
+                foreach (var place in new[] { "0.32", "", null, "offscreen_left" })
+                {
+                    LvnMenuStage.HomeDollSlot = "center_left";
+                    LvnMenuStage.Apply(null, null, null, null, place);
+                    Assert.AreEqual("center_left", LvnMenuStage.HomeDollSlot,
+                        $"«{place}» — не стоячий слот, витрина остаётся при своём");
+                }
+                LvnMenuStage.Apply(null, null, null, null, "left");
+                Assert.AreEqual("left", LvnMenuStage.HomeDollSlot, "автор назвал слот — он и стоит");
+
+                foreach (var home in new[] { "center_left", "left" })
+                {
+                    LvnMenuStage.HomeDollSlot = home;
+                    float onHome = LvnMenuStage.DollSlotX(LvnMenuStage.Room.Home);
+                    float onSide = LvnMenuStage.DollSlotX(LvnMenuStage.Room.Side);
+                    Assert.Less(onHome, onSide, "с главной она уходит именно ВЛЕВО от центра");
+                    Assert.AreEqual(0.5f, onSide, 1e-4f, "на боковых — центр кадра");
+                    CollectionAssert.Contains(Placement.StandingSlotXs, onHome);
+                    CollectionAssert.Contains(Placement.StandingSlotXs, onSide);
+                }
+            }
+            finally { LvnMenuStage.HomeDollSlot = wasHome; }
+        }
+
+        [Test]
+        public void MenuHeroine_InTheStore_StandsLeft_OnACloserPlan()
+        {
+            // Магазин — своя комната: героиня снова слева (справа товары, как
+            // на главной карточки) и на пять сотых КРУПНЕЕ обычного плана
+            // боковых («в магазине героиня наоборот слева и больше на 5
+            // процентов, чем обычно» — Илья 08.09).
+            Assert.AreEqual("left", LvnMenuStage.DollSlot(LvnMenuStage.Room.Store));
+            Assert.AreEqual(LvnMenuStage.DollSlotX(LvnMenuStage.Room.Home),
+                            LvnMenuStage.DollSlotX(LvnMenuStage.Room.Store), 1e-4f,
+                            "в магазине она стоит там же, где на главной");
+            Assert.IsTrue(Placement.IsStandingSlot(LvnMenuStage.StoreDollSlot), "слот магазина — стоячий слот сцены");
+
+            float home = LvnMenuStage.CastZoomFor(LvnMenuStage.Room.Home);
+            float store = LvnMenuStage.CastZoomFor(LvnMenuStage.Room.Store);
+            Assert.AreEqual(1.05f, store / home, 1e-3f,
+                "магазин крупнее ОБЫЧНОГО роста (того, что на главной) ровно на 5 %");
+
+            // РОСТ НА ГЛАВНОЙ — ПОЛНЫЙ. Витрина героиню НЕ УМЕНЬШАЕТ: место
+            // ей освобождает композиция (панели столбиком справа), а не
+            // масштаб. Отодвинутая фигура читается мельче, а не дальше — это
+            // и вернули 08.09 после двух заходов.
+            float side = LvnMenuStage.CastZoomFor(LvnMenuStage.Room.Side);
+            Assert.AreEqual(side, home, 1e-4f, "на главной героиня того же роста, что и на боковых");
+            Assert.GreaterOrEqual(home, 1f, "витрина героиню не уменьшает");
+        }
+
+        [Test]
+        public void SceneCleanup_KeepsWhatTheMenuShowsAfterEveryChapter()
+        {
+            // Уборка сцены отпускает пины кадра, но не то, что витрина покажет
+            // сразу после главы: полотно, прогретый арт рамок, ядро створа,
+            // текущий фон и облик хранимой героини. Всё прочее — отпускается.
+            Assert.IsTrue(VnStage.SurvivesCleanup("menu-canvas", null), "полотно витрины");
+            Assert.IsTrue(VnStage.SurvivesCleanup("menu-art", null), "арт витрины (рамки, нав, лого)");
+            Assert.IsTrue(VnStage.SurvivesCleanup("portal-core", null), "ядро створа");
+            Assert.IsTrue(VnStage.SurvivesCleanup("bg", null), "фон остаётся до нового bg");
+            Assert.IsTrue(VnStage.SurvivesCleanup("actor:prima", "prima"), "хранимая героиня");
+            Assert.IsFalse(VnStage.SurvivesCleanup("actor:prima", null), "без хранения — отпускается");
+            Assert.IsFalse(VnStage.SurvivesCleanup("actor:mara", "prima"), "чужой актёр — отпускается");
+        }
+
+        [Test]
+        public void MenuHeroine_MayBeCroppedByTheFrame_StoryActorsMayNot()
+        {
+            // Портрет витрины в 0.9 ширины экрана «слева» стоит только обрезом:
+            // поза витрины разрешает его явно, а у актёра истории разрешения
+            // нет — там зажим по-прежнему держит фигуру целиком в кадре.
+            var doll = LvnPrima.Pose("v", "left", 1f, 1f, 0);
+            Assert.IsTrue((bool)doll["crop"], "витрина разрешает обрез");
+            Assert.IsTrue(VnStage.PlacementFrom(doll).Crop, "поле доходит до постановки");
+            var story = new Newtonsoft.Json.Linq.JObject { ["op"] = "actor", ["id"] = "v", ["position"] = "left" };
+            Assert.IsFalse(VnStage.PlacementFrom(story).Crop, "актёр истории без crop= не обрезается");
+            CollectionAssert.Contains(VnStage.ReservedActorFields, "crop",
+                "crop — поле постановки, а не ось каста");
+        }
+
+        [Test]
+        public void WideFigure_MayCrossTheEdge_NarrowOneStaysInFrame()
+        {
+            // «Давай разрешим таким фигурам за край выходить» (Илья 08.09):
+            // кукла витрины в 0.89 ширины кадра сбоку стоит только обрезом.
+            // Узкий актёр истории без разрешения остаётся целиком в кадре.
+            Assert.IsTrue(Lvn.UI.World.WorldStage.MayCrossEdge(false, 0.89f), "широкой — за край можно");
+            Assert.IsFalse(Lvn.UI.World.WorldStage.MayCrossEdge(false, 0.5f), "узкую держим в кадре");
+            Assert.IsTrue(Lvn.UI.World.WorldStage.MayCrossEdge(true, 0.5f), "…если автор не разрешил обрез явно");
+            Assert.That(Lvn.UI.World.WorldStage.WideFigureShare, Is.InRange(0.6f, 0.9f),
+                "порог «широкой» — между половиной и почти всем кадром");
+        }
+
+        [Test]
+        public void CameraTween_StartsFromWhatIsOnScreen_NotFromTheOldTarget()
+        {
+            // Твин на середине пути от 0.9 к 1.0 показывает ~0.95; новый твин
+            // обязан стартовать оттуда, а не с цели 1.0 (прыжок фигуры при
+            // закрытии гардероба, 08.09).
+            float mid = Lvn.UI.World.WorldCameraRig.Along(0.9f, 1f, 0.5f);
+            Assert.Greater(mid, 0.9f); Assert.Less(mid, 1f);
+            Assert.AreEqual(0.9f, Lvn.UI.World.WorldCameraRig.Along(0.9f, 1f, 0f), 1e-5f, "в начале — начало");
+            Assert.AreEqual(1f,   Lvn.UI.World.WorldCameraRig.Along(0.9f, 1f, 1f), 1e-5f, "в конце — цель");
+        }
+
+        [Test]
+        public void MenuHeroine_ArrivesWithTheFrame_NotBeforeIt()
+        {
+            // Заявленное сцене время проходит темп темы и укорачивание
+            // мизансцены; витрина просит ЭКРАННЫЕ секунды и должна получить
+            // ровно их — иначе героиня приезжает раньше интерфейса.
+            float wanted = LvnMenuStage.TravelMs / 1000f;
+            float declared = VnStage.DeclareMovement(wanted);
+            Assert.Greater(declared, wanted, "заявляют больше, чем хотят увидеть");
+            var pose = LvnPrima.Pose("v", "center", 1f, 1f, 0);
+            pose["transition_duration"] = declared;
+            var p = VnStage.PlacementFrom(pose);
+            // тот же путь, что у команды: темп темы, затем укорачивание хода
+            p.TransitionDuration = VnTheme.Motion(p.TransitionDuration) * 0.75f;
+            Assert.AreEqual(Lvn.UI.LvnMotion.Sec(wanted), p.TransitionDuration, 1e-3f,
+                "на экране движение длится столько, сколько просила витрина");
         }
 
         [Test]

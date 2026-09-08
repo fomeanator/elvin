@@ -278,9 +278,37 @@ namespace Lvn.UI.Screens
             _shell.OnTabTravel = PanMenuScene;     // полотно панорамирует с вкладками
             _shell.OnTabTravelTick = k =>          // …кадр в кадр с UI
             {
-                if (InChapter || Stage == null
-                    || !Stage.ShowsBackdrop(_manifest?.ui?.browse?.canvas)) return;
-                Stage.SetBackgroundPan(Mathf.Lerp(_menuPanFrom, _menuPanTo, k));
+                // ПОЧЕМУ ПОЛОТНО МОГЛО НЕ ПОЕХАТЬ — вслух и один раз за переезд.
+                // Условие тут не украшение: пока на сцене чужой фон (примерка в
+                // гардеробе меняет его на лету), вести его нельзя — но молчащий
+                // выход выглядел как «недокрут», а не как отказ.
+                if (InChapter || Stage == null) return;
+                // ГЕРОИНЯ ЕДЕТ СВОИМ ХОДОМ, СЛОТ В СЛОТ — и НЕЗАВИСИМО от того,
+                // что сейчас на полотне: в гардеробе фон подменён примеркой, и
+                // проверка ниже пропускает тик целиком. Фигура же обязана
+                // доехать до слота вкладки всегда. Один раз, с первым кадром
+                // переезда: сцена везёт видимую фигуру между слотами сама —
+                // той же кривой и за то же время, что и кадр.
+                if (!_menuDollSent && !string.IsNullOrEmpty(_menuDollSlot))
+                {
+                    _menuDollSent = true;
+                    Stage.Prima.Stand(LvnSender.Menu, place: _menuDollSlot,
+                                      seconds: LvnMenuStage.TravelMs / 1000f);
+                }
+                if (!Stage.ShowsBackdrop(MenuCanvasUrl()))
+                {
+                    if (k <= 0.02f)
+                        LvnLog.Trace($"[lvn-pan] полотно НЕ ВЕДЁМ: на нём не «{MenuCanvasUrl()}» "
+                                   + "(примерка фона?) — героиня едет, кадр стоит");
+                    return;
+                }
+                if (k >= 0.999f)
+                    LvnLog.Trace($"[lvn-pan] полотно доехало: кадр "
+                               + $"({_menuPanTo.x:0.000}, {_menuPanTo.y:0.000}), "
+                               + $"героиня в «{_menuDollSlot}» / план {_menuCastZoomTo:0.00}");
+                var p = Vector2.Lerp(_menuPanFrom, _menuPanTo, k);
+                Stage.SetBackgroundPan(p.x, p.y);
+                Stage.SetCastZoom(Mathf.Lerp(_menuCastZoomFrom, _menuCastZoomTo, k));
             };
             // Смена наряда в гардеробе не должна ронять фон (живой скрин:
             // Equip стирал полотно) — пере-ставим сцену меню следом.

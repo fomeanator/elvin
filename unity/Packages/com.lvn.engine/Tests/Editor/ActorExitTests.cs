@@ -68,6 +68,8 @@ namespace Lvn.Tests
             public void SetBackground(Sprite sprite) { }
             public void SetBackground(Sprite sprite, float crossfadeSeconds) { }
             public void PanBackground(float from01, float to01, float seconds) { }
+            public void SetBackgroundPan(float x01, float y01) { }
+            public void SetBackgroundDrift(float x, float y, float seconds) { }
             public void ClearBackground() { }
             public Rect? ActorScreenRect(string id) => null;
             public void RemoveAll() { }
@@ -83,6 +85,10 @@ namespace Lvn.Tests
             public void HighlightSpeaker(string who) { }
             public void Shake(float amplitude, float seconds) { }
             public void Zoom(float factor, float seconds) { }
+            public void CastFade(float alpha, float seconds) { }
+            public void CastShift(float shareOfWidth, float seconds) { }
+            public void CastZoom(float scale, float seconds) { }
+            public void SetBackgroundZoom(float zoom) { }
             public void Pan(float x, float y, float seconds) { }
             public void ResetCamera(float seconds) { }
             public void Set3DBackdrop(GameObject prefab) { }

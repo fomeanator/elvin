@@ -74,6 +74,39 @@ namespace Lvn.UI.Screens
         /// молча — две вкладки одной витрины с разной высотой воздуха читаются
         /// как небрежность, а не как разные экраны.</para>
         /// </summary>
+        /// <summary>
+        /// СТОЛБИК ВКЛАДКИ — то же, что <see cref="HubTabSheet"/>, но не во
+        /// всю ширину, а СПРАВА: героиня остаётся в кадре целиком, а не по
+        /// грудь («переделай ui магазина, сделай его справа» — Илья 08.09).
+        ///
+        /// <para>Границы взяты у столбика главной (панель сообщений, карточка,
+        /// кнопка награды): 257 из 390 dp макета вправо от 30 % ширины. Так
+        /// две вкладки одной витрины читаются как один экран с разным
+        /// содержимым, а не как два разных приложения.</para>
+        ///
+        /// <para>Столбик выше листа: он начинается под шапкой, а не с 39 %
+        /// высоты — свободного места слева от него героине хватает, и низкий
+        /// старт покупателю нужнее (пакеты видно без прокрутки).</para>
+        /// </summary>
+        public static void HubSideSheet(VisualElement root, VisualElement sheet)
+        {
+            if (root != null)
+            {
+                root.style.backgroundColor = Color.clear;
+                root.pickingMode = PickingMode.Ignore;
+            }
+            if (sheet == null) return;
+            sheet.style.position = Position.Absolute;
+            sheet.style.left = Length.Percent(30f);   // столбик главной: 257 из 390 dp
+            sheet.style.right = Length.Percent(4f);
+            sheet.style.top = Length.Percent(14f);    // под шапкой с логотипом
+            sheet.style.bottom = 132;                 // дырка нижнего меню
+            LvnAir.PadX(sheet, LvnTokens.Space2);
+            sheet.style.paddingBottom = LvnTokens.Space2;
+            sheet.style.paddingTop = LvnTokens.Space2;
+            SceneSheet(sheet, 0.92f);
+        }
+
         public static void HubTabSheet(VisualElement root, VisualElement sheet)
         {
             if (root != null)

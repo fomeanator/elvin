@@ -160,12 +160,20 @@ namespace Lvn.UI
             // мгновенно — под ним ещё занавес входа.
             float bgFade = NumOr(cmd["fade"], Theme?.BgCrossfadeSeconds ?? 0.35f);
             _renderer?.SetBackground(sprite, bgFade);
+            // Зум полотна СБРАСЫВАЕТСЯ без явного числа: приближение — свойство
+            // конкретного кадра (витрина меню), глава не должна его унаследовать.
+            _renderer?.SetBackgroundZoom(NumOr(cmd["zoom"], 1f));
             RepinSceneSprites("bg", new[] { sprite }); // фон на экране — LRU не трогает
             // Пан по широкому фону: `bg … pan=left pan_to=right pan_dur=30` —
             // сцена начинается в левой части кадра и за pan_dur доезжает до
             // правой. Работает на горизонтальном слаке cover-кроя.
             var panFrom = ParsePan(cmd["pan"]);
             var panTo = ParsePan(cmd["pan_to"]);
+            // Вторая ось ставится ПЕРВОЙ и без анимации: горизонтальный пан её
+            // не трогает (SetPan бережёт свою пару), а обратный порядок стёр бы
+            // её сразу после установки.
+            var panY = ParsePan(cmd["pan_y"]);
+            if (panY.HasValue) _renderer?.SetBackgroundPan(panFrom ?? 0.5f, panY.Value);
             if (panFrom.HasValue || panTo.HasValue)
             {
                 float from = panFrom ?? 0.5f;
@@ -182,6 +190,31 @@ namespace Lvn.UI
         /// и едет другой кривой — рассинхрон с переездом вкладок бросался в
         /// глаза (живой репорт 28.08).</summary>
         public void SetBackgroundPan(float pan01) => _renderer?.PanBackground(pan01, pan01, 0f);
+
+        /// <summary>ТО ЖЕ, НО ПО ДВУМ ОСЯМ. Нижнее меню витрины — не прямая
+        /// линия: центральная вкладка приподнята над боковыми, и полотно
+        /// повторяет её геометрию, иначе «отражает положение вкладки» остаётся
+        /// половиной правды (просьба Ильи 08.09).</summary>
+        public void SetBackgroundPan(float x01, float y01) => _renderer?.SetBackgroundPan(x01, y01);
+
+        /// <summary>СДВИНУТЬ ФИГУР по кадру, не трогая полотно: доля ширины
+        /// кадра (+ вправо, − влево), 0 — там, где их поставила сцена. Витрина
+        /// уводит героиню на главной и возвращает её в центр на боковых
+        /// вкладках; полотно в это время едет своим ходом.</summary>
+        public void SetCastShift(float shareOfWidth, float seconds = 0f)
+            => _renderer?.CastShift(shareOfWidth, seconds);
+
+        /// <summary>ПУСТИТЬ ПОЛОТНО ГУЛЯТЬ вокруг своей точки — «как будто
+        /// камерой снимают». Витрина включает это себе, глава живёт без него:
+        /// там кадр ведёт автор.</summary>
+        public void SetBackgroundDrift(float x, float y, float seconds)
+            => _renderer?.SetBackgroundDrift(x, y, seconds);
+
+        /// <summary>ОТДАЛИТЬ ФИГУР, не трогая полотно: 1 — как поставлено,
+        /// меньше — дальше от камеры. Витрина отводит героиню на главной, где
+        /// рядом с ней стоит карточка новеллы.</summary>
+        public void SetCastZoom(float scale, float seconds = 0f)
+            => _renderer?.CastZoom(scale, seconds);
 
         // ЧТО ВЕЗУТ ПРЯМО СЕЙЧАС. Не «мы что-то просили», а «загрузка этого
         // адреса идёт вот в эту секунду»: между просьбой и картинкой лежат

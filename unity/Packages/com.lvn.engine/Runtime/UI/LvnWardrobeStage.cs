@@ -19,6 +19,9 @@ namespace Lvn.UI
         Emotion,
         /// <summary>Одежда: платье, броня, форма — вещь на корпусе.</summary>
         Outfit,
+        /// <summary>Полотно меню: не вещь на героине, а картина ЗА ней. Кадр
+        /// ей нужен обратный одежде — общий план, иначе смотреть не на что.</summary>
+        Backdrop,
     }
 
     /// <summary>
@@ -54,6 +57,11 @@ namespace Lvn.UI
                 return LvnWardrobeAxisKind.Hair;
             if (key.Contains("decor") || key.Contains("jewel") || key.Contains("acc")
                 || key.Contains("украш")) return LvnWardrobeAxisKind.Decor;
+            // Полотно — раньше «одежды»: без этой ветки оно ею и было, отчего
+            // получало вешалку в значке, наезд камеры на корпус (фон закрыт
+            // героиней) и кадрированную плитку.
+            if (key.Contains("backdrop") || key.Contains("фон"))
+                return LvnWardrobeAxisKind.Backdrop;
             return LvnWardrobeAxisKind.Outfit;
         }
 
@@ -68,7 +76,14 @@ namespace Lvn.UI
 
         /// <summary>Значок раздела, когда новелла не дала своего (slot.icon).</summary>
         public static LvnIcon IconFor(string axis)
-            => KindOf(axis) == LvnWardrobeAxisKind.Hair ? LvnIcon.Crown : LvnIcon.Wardrobe;
+        {
+            switch (KindOf(axis))
+            {
+                case LvnWardrobeAxisKind.Hair: return LvnIcon.Crown;
+                case LvnWardrobeAxisKind.Backdrop: return LvnIcon.Gallery; // картина, не вешалка
+                default: return LvnIcon.Wardrobe;
+            }
+        }
 
         // ── кадр витрины ──────────────────────────────────────────────────────
         // zoom — во сколько раз фигура крупнее плитки, anchorY — какая её высота
@@ -101,6 +116,8 @@ namespace Lvn.UI
             {
                 case LvnWardrobeAxisKind.Hair: return (HairZoom, HairAnchorY);
                 case LvnWardrobeAxisKind.Decor: return (DecorZoom, DecorAnchorY);
+                // Полотно показываем целиком: кадрировать картину незачем.
+                case LvnWardrobeAxisKind.Backdrop: return (1f, 0.5f);
                 default: return (OutfitZoom, OutfitAnchorY);
             }
         }
