@@ -38,6 +38,63 @@ namespace Lvn.UI.Screens
         /// пока везде один и тот же» — Илья 08.09). Нет спайна — панель без
         /// фигуры.</summary>
         private LvnSpineRef _spine;
+        private string _spineKey;
+
+        /// <summary>ОДИН ПОСТЕР НА ВЕСЬ СТОЛБИК. Спайн у пакетов пока один, а
+        /// каждая карточка строила свой скелет, камеру и текстуру: пять
+        /// постеров на экран, затык полторы секунды и мигание при каждой
+        /// пересборке. Скелет живёт на невидимом элементе столбика (он не в
+        /// списке и пересборку переживает), карточки берут его текстуру
+        /// фоном — новых скелетов ноль, пересборка мгновенна.</summary>
+        private VisualElement _spineMaster;
+
+        /// <summary>Поле фигуры: во всю ширину панели, от плашки до
+        /// нарисованной кнопки («спайн на всю ширину карточки растянуть, а
+        /// названия на нём» — Илья 08.09). Сумма и подпись лежат ПОВЕРХ
+        /// фигуры, в её нижней трети.</summary>
+        private const float FigureTop = 24f, FigureH = 156f;
+
+        private void EnsureSpineMaster()
+        {
+            if (_spineMaster != null || _sheet == null || _spine == null || !LvnSpineBridge.Available) return;
+            var m = new VisualElement { name = "shop-spine-master", pickingMode = PickingMode.Ignore };
+            m.style.position = Position.Absolute;
+            m.style.top = 0; m.style.right = 0;
+            m.style.width = D(PackW); m.style.height = D(FigureH);
+            m.style.visibility = Visibility.Hidden;   // держит размер (аспект постера), не рисуется
+            LvnPicture.Fit(m);
+            _sheet.Add(m);
+            _spineMaster = m;
+            // Постер меряет аспект по разложенному элементу — вешаем после
+            // первой раскладки, иначе он возьмёт аспект скелета, а не поля.
+            EventCallback<GeometryChangedEvent> once = null;
+            once = _ =>
+            {
+                m.UnregisterCallback(once);
+                LvnSpinePoster.Attach(m, _spine,
+                    url => _assets.LoadTextAsync(url, default),
+                    url => _assets.LoadSpriteAsync(url, default),
+                    (_assets as CachingAssets)?.Loader);
+            };
+            m.RegisterCallback(once);
+        }
+
+        /// <summary>Фигура карточки — та же текстура, что у общего постера;
+        /// пока постер строится, карточка ждёт его и берёт картинку, как
+        /// только она появится.</summary>
+        private void BindSharedSpine(VisualElement figure)
+        {
+            EnsureSpineMaster();
+            if (_spineMaster == null) return;
+            bool Copy()
+            {
+                var bg = _spineMaster.style.backgroundImage.value;
+                if (bg.renderTexture == null) return false;
+                figure.style.backgroundImage = bg;
+                return true;
+            }
+            if (!Copy()) figure.schedule.Execute(() => Copy()).Every(120).Until(Copy);
+        }
 
         private static LvnSpineRef FirstSpine(LvnManifest manifest)
         {
@@ -164,12 +221,9 @@ namespace Lvn.UI.Screens
             if (_spine != null && LvnSpineBridge.Available)
             {
                 var figure = new VisualElement { pickingMode = PickingMode.Ignore };
-                At(figure, D(10f), D(28f), D(W - 20f), D(120f));
+                At(figure, 0f, D(FigureTop), D(W), D(FigureH));
                 LvnPicture.Fit(figure);
-                LvnSpinePoster.Attach(figure, _spine,
-                    url => _assets.LoadTextAsync(url, default),
-                    url => _assets.LoadSpriteAsync(url, default),
-                    (_assets as CachingAssets)?.Loader);
+                BindSharedSpine(figure);
                 p.Add(figure);
             }
 
@@ -186,7 +240,7 @@ namespace Lvn.UI.Screens
             // Сумма под фигурой: набор — заголовком, валюта — числом со
             // значком; и то и другое золотом, как названия на главной.
             var row = new VisualElement { pickingMode = PickingMode.Ignore };
-            At(row, 0f, D(H - 80f), D(W), D(28f));
+            At(row, 0f, D(H - 100f), D(W), D(28f));
             row.style.alignItems = Align.Center; row.style.justifyContent = Justify.Center;
             VisualElement amount = !string.IsNullOrEmpty(pack.Headline)
                 ? LvnStageKit.Text(() => pack.Headline, LvnTokens.TextLg, LvnTokens.Gold, medium: true)
@@ -199,7 +253,7 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(pack.SubLine))
             {
                 var sub = LvnStageKit.Text(() => pack.SubLine, LvnTokens.TextXs, LvnTokens.Silver);
-                At(sub, 0f, D(H - 52f), D(W), D(18f));
+                At(sub, 0f, D(H - 74f), D(W), D(18f));
                 p.Add(sub);
             }
             else if (pack.Bonus > 0)
@@ -207,7 +261,7 @@ namespace Lvn.UI.Screens
                 var bonus = LvnStageKit.Text(
                     () => LvnWords.Of("shop.bonus", "+{0} bonus", LvnPriceTag.Amount(pack.Bonus)),
                     LvnTokens.TextXs, LvnTokens.Silver);
-                At(bonus, 0f, D(H - 52f), D(W), D(18f));
+                At(bonus, 0f, D(H - 74f), D(W), D(18f));
                 p.Add(bonus);
             }
 
