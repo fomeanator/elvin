@@ -18,6 +18,13 @@ namespace Lvn.UI.World
         private float _shakeAmp, _shakeDur, _shakeStart = -1f;
         // zoom
         private float _zoomFrom = 1f, _zoomTo = 1f, _zoomDur, _zoomStart = -1f, _scale = 1f;
+        // КАСТ УХОДИТ ЦЕЛИКОМ — прозрачностью, а не масштабом. На витрине
+        // фонов смотрят картину, и героиня там лишняя; уменьшать её нельзя
+        // (зум камеры тянет и полотно, а мелкая фигура читается как поломка),
+        // убирать со сцены — дорого: облик собран, примерка живёт на нём.
+        // Прозрачность снимает её мгновенно и так же мгновенно возвращает.
+        private CanvasGroup _cast;
+        private float _castFrom = 1f, _castTo = 1f, _castDur, _castStart = -1f, _castAlpha = 1f;
         // pan
         private Vector2 _panFrom, _panTo, _panBase;
         private float _panDur, _panStart = -1f;
@@ -25,6 +32,63 @@ namespace Lvn.UI.World
         private static float Now => LvnClock.Now();
 
         public void Bind(RectTransform target) { _t = target; }
+
+        /// <summary>Слой актёров — его и только его гасит <see cref="CastFade"/>.</summary>
+        public void BindCast(RectTransform cast)
+        {
+            if (cast == null) { _cast = null; return; }
+            _cast = cast.GetComponent<CanvasGroup>() ?? cast.gameObject.AddComponent<CanvasGroup>();
+        }
+
+        internal const string GameRootName = "game-root";
+        internal const string CastName = "content";
+
+        /// <summary>ВЕРНУТЬ СЕБЕ СЛОЙ ФИГУР, если ссылка на него пропала.
+        ///
+        /// <para>Привязка делается один раз, при рождении сцены, и держится
+        /// ссылкой на компонент. Ссылка на компонент — вещь хрупкая: слой
+        /// живёт в иерархии, а <c>CanvasGroup</c> на нём мог быть снят или
+        /// пересоздан кем-то другим, и тогда команда «убрать фигуры» уходила
+        /// в пустоту молча (живой лог редактора 08.09: на вкладке «Фон»
+        /// героиня не пряталась, в сборке — пряталась).</para>
+        ///
+        /// <para>Слой при этом НИКУДА НЕ ДЕВАЛСЯ: он на своём месте в
+        /// иерархии под ригом. Поэтому не ждём, пока нас привяжут заново, —
+        /// находим его сами. Имена те же, которыми сцена его и создаёт.</para></summary>
+        private void Recast()
+        {
+            var root = transform.Find(GameRootName);
+            var cast = root == null ? null : root.Find(CastName) as RectTransform;
+            if (cast == null) return;
+            _cast = cast.GetComponent<CanvasGroup>();
+            if (_cast == null) _cast = cast.gameObject.AddComponent<CanvasGroup>();
+            _cast.alpha = _castAlpha;   // экран не должен мигать от находки
+            Lvn.LvnLog.Trace($"[lvn-cast] слой фигур найден заново ({GameRootName}/{CastName}) — "
+                           + "ссылка на него была потеряна");
+        }
+
+        /// <summary>Показать/убрать ФИГУРЫ, не трогая полотно (1 — видны, 0 — нет).</summary>
+        public void CastFade(float alpha, float seconds)
+        {
+            if (_cast == null) Recast();
+            if (_cast == null)
+            {
+                // Молчать здесь нельзя: команда уходит, ничего не происходит,
+                // и искать обрыв будет негде. Раз даже поиск по иерархии не
+                // помог — рассказываем, ЧТО именно видно с этого места.
+                var root = transform.Find(GameRootName);
+                Debug.LogWarning($"[lvn-cast] слой фигур не привязан — гасить нечего "
+                    + $"(канвас «{name}», ригов на нём {GetComponents<WorldCameraRig>().Length}, "
+                    + $"{GameRootName}={(root == null ? "НЕТ" : "есть")}, "
+                    + $"{CastName}={(root == null || root.Find(CastName) == null ? "НЕТ" : "есть")})");
+                return;
+            }
+            _castFrom = _castAlpha; _castTo = Mathf.Clamp01(alpha); _castAlpha = _castTo;
+            Lvn.LvnLog.Trace($"[lvn-cast] фигуры {_castFrom:0.00} → {_castTo:0.00} "
+                           + $"за {seconds:0.00}с (слой {_cast.name})");
+            if (seconds <= 0f) { _cast.alpha = _castTo; _castStart = -1f; return; }
+            _castDur = seconds; _castStart = Now;
+        }
 
         /// <summary>Called every frame with what the rig is doing right now:
         /// the 2D offset in canvas units and the zoom factor. A 3D backdrop
@@ -62,6 +126,7 @@ namespace Lvn.UI.World
             _shakeStart = -1f;
             Pan(0f, 0f, seconds);
             Zoom(1f, seconds);
+            CastFade(1f, seconds);   // общий план возвращает и фигуры
         }
 
         // Наезды и паны идут smoothstep'ом: линейный ход читался механическим
@@ -96,6 +161,13 @@ namespace Lvn.UI.World
                 float s = Mathf.LerpUnclamped(_zoomFrom, _zoomTo, Ease(p));
                 _t.localScale = new Vector3(s, s, 1f);
                 if (p >= 1f) _zoomStart = -1f;
+            }
+
+            if (_castStart >= 0f && _cast != null)
+            {
+                float p = Mathf.Clamp01((Now - _castStart) / Mathf.Max(0.0001f, _castDur));
+                _cast.alpha = Mathf.LerpUnclamped(_castFrom, _castTo, Ease(p));
+                if (p >= 1f) _castStart = -1f;
             }
 
             // Reapply position every frame while shaking or panning.

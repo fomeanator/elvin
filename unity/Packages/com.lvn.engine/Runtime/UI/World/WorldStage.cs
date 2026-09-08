@@ -188,16 +188,17 @@ namespace Lvn.UI.World
             // No GraphicRaycaster: the scene is purely visual here; tap-to-advance
             // and choices live on the UITK panel above, so we never steal input.
 
-            _gameRoot = NewStretch("game-root", _canvasGo.transform);
+            _gameRoot = NewStretch(WorldCameraRig.GameRootName, _canvasGo.transform);
             _bg = new WorldBackground(_gameRoot);
             // СТВОР — МЕЖДУ ФОНОМ И АКТЁРАМИ. Порядок в иерархии и есть ответ
             // на «портал должен быть под героиней»: постэффектом такое не
             // делается в принципе, а слоем — само собой.
             Portal = LvnPortalLayer.Create(_gameRoot, siblingIndex: -1);
-            _content = NewStretch("content", _gameRoot);
+            _content = NewStretch(WorldCameraRig.CastName, _gameRoot);
 
             _camera = _canvasGo.AddComponent<WorldCameraRig>();
             _camera.Bind(_gameRoot);
+            _camera.BindCast(_content);   // фигуры умеют отъезжать без фона
         }
 
         // ── background ───────────────────────────────────────────────────────
@@ -299,6 +300,8 @@ namespace Lvn.UI.World
         // ── camera ───────────────────────────────────────────────────────────
         public void Shake(float amplitude, float seconds) => _camera.Shake(amplitude, seconds);
         public void Zoom(float factor, float seconds) => _camera.Zoom(factor, seconds);
+        public void CastFade(float alpha, float seconds) => _camera.CastFade(alpha, seconds);
+        public void SetBackgroundZoom(float zoom) => _bg.SetZoom(zoom);
         public void Pan(float x, float y, float seconds) => _camera.Pan(x, y, seconds);
         public void ResetCamera(float seconds) => _camera.Reset(seconds);
 

@@ -79,6 +79,7 @@ namespace Lvn.UI.Screens
 
         private readonly VisualElement _row;
         private readonly VisualElement _pills;
+        private readonly VisualElement _burger;   // только в главе — см. ApplyBarVisibility
         private readonly VisualElement _miniPills; // игровые баблики валют
         private readonly VisualElement _miniProgress; // баблик прогресса главы
         private readonly Label _miniProgressLabel;
@@ -169,7 +170,8 @@ namespace Lvn.UI.Screens
             ScreenUi.Row(_pills);
             _row.Add(_pills);
 
-            _row.Add(Burger());
+            _burger = Burger();
+            _row.Add(_burger);
 
             // ИГРОВОЙ РЕЖИМ (уточнение Ильи 26.08): бар в сцене пропадает
             // целиком, а валюты живут МИНИ-БАБЛИКАМИ у правого края — свой
@@ -227,6 +229,13 @@ namespace Lvn.UI.Screens
             Add(_gameRow);
 
             RefreshBalances();
+            // ВИД НАДО ПРИМЕНИТЬ СРАЗУ, а не ждать первой смены режима.
+            // Правда о режиме приходит сигналом Режиссёра, но сигнал звучит
+            // только КОГДА РЕЖИМ МЕНЯЕТСЯ. Бар рождается в витрине, где режим
+            // уже стоит и меняться не собирается, — и до первого входа в главу
+            // жил с видом по умолчанию (страж TopBarBurgerTests: бургер
+            // оставался на экране витрины).
+            ApplyBarVisibility();
         }
 
         // Подпись кнопки берётся ИСТОЧНИКОМ: игровой ряд шапки собирается один
@@ -342,6 +351,7 @@ namespace Lvn.UI.Screens
         private VisualElement Burger()
         {
             var b = new VisualElement();
+            b.name = "burger";   // имя нужно стражу и разбору дерева
             b.style.width = 52; b.style.height = 52;
             b.style.marginLeft = LvnTokens.Space2;
             b.style.alignItems = Align.Center;
@@ -510,6 +520,12 @@ namespace Lvn.UI.Screens
             Vis(_miniPills, mini);
             Vis(_miniProgress, mini);
             Vis(_tapCatcher, InChapter && !_silent);
+            // БУРГЕР — ДВЕРЬ ИЗ ГЛАВЫ, а не украшение шапки. Он открывает
+            // игровое меню (сохранения, история, настройки сцены), и в
+            // витрине ему открывать нечего: там те же вещи лежат по вкладкам
+            // навбара. Игрок видел его на главной и на гардеробе, жал — и
+            // получал меню про главу, которой нет (просьба Ильи 08.09).
+            Vis(_burger, InChapter);
         }
 
         private static void Vis(VisualElement el, bool on)
