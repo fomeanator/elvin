@@ -67,7 +67,7 @@ namespace Lvn.UI.Screens
         {
             var b = manifest?.ui?.browse;
             if (b != null)
-                LvnMenuStage.Apply(b.doll_height, b.doll_width, b.canvas_pan, b.canvas_pan_step);
+                LvnMenuStage.Apply(b.doll_height, b.doll_width, b.canvas_pan, b.canvas_pan_step, b.doll_place);
             LvnWardrobeStage.Apply(manifest?.ui?.wardrobe);
         }
 

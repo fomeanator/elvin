@@ -3,6 +3,8 @@
 Шрифты в `Runtime/Resources/Fonts` распространяются по SIL Open Font License 1.1
 (OFL). Лицензия разрешает включение в приложение, в том числе коммерческое; текст
 лицензии обязан ехать вместе со шрифтами — он ниже.
+Исключение — Roboto Condensed (тема «chrono»): Apache License 2.0, тоже свободная
+для коммерческого включения; её уведомление — в конце файла.
 
 | Гарнитура | Автор(ы) | Лицензия |
 |---|---|---|
@@ -15,6 +17,7 @@
 | Caveat | The Caveat Project Authors | OFL 1.1 |
 | Press Start 2P | CodeMan38 | OFL 1.1 |
 | Rubik Mono One | The Rubik Project Authors | OFL 1.1 |
+| Roboto Condensed | Christian Robertson, Google | Apache 2.0 |
 
 ## Inter
 
@@ -798,4 +801,22 @@ INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
 DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
+```
+
+## Roboto Condensed
+
+```
+Copyright 2011 Google Inc. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 ```

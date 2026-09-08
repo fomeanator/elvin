@@ -332,6 +332,10 @@ namespace Lvn.UI
                 Assets = new DirectoryAssets(ContentRoot);
             root.Clear();
             root.style.flexGrow = 1;
+            // Во весь экран, а не долей колонки: корни документов одной панели
+            // Unity 6000.4 кладёт в поток, и два растущих корня (сцена и
+            // оболочка) делили экран пополам. Слоение — по sortingOrder.
+            LvnChrome.Stretch(root);
 
             // Scene = background + actors + camera. Канвас-сцена живёт на
             // СОСЕДНЕМ канвасе ПОД этой UI Toolkit-панелью, поэтому окно, выборы

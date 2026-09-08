@@ -31,6 +31,12 @@ namespace Lvn.UI
         /// мерит сама фигура, а не холст её файла (см. Placement.ContentW).</summary>
         public static float DollWidth = 1f;
 
+        /// <summary>Где стоит кукла по ширине кадра: слово места
+        /// («left | center | right», см. <c>Placement.SlotX</c>) или доля
+        /// 0..1. По центру — фигура на полке; облик «сцена» ставит её левее,
+        /// оставляя правую половину панелям.</summary>
+        public static string DollPlace = "center";
+
         // ── полотно ───────────────────────────────────────────────────────────
 
         /// <summary>Где стоит камера на полотне при открытии меню (0 — левый
@@ -73,12 +79,13 @@ namespace Lvn.UI
         /// оставляют движковый дефолт: манифест не обязан знать про эту
         /// механику, чтобы игра выглядела правильно.</summary>
         public static void Apply(float? dollHeight, float? dollWidth,
-                                 float? panStart, float? panStep)
+                                 float? panStart, float? panStep, string dollPlace = null)
         {
             if (dollHeight.HasValue) DollHeight = Mathf.Clamp(dollHeight.Value, 0.1f, 3f);
             if (dollWidth.HasValue) DollWidth = Mathf.Clamp(dollWidth.Value, 0.1f, 3f);
             if (panStart.HasValue) PanStart = Mathf.Clamp01(panStart.Value);
             if (panStep.HasValue) PanStep = Mathf.Clamp(panStep.Value, 0f, 0.5f);
+            if (!string.IsNullOrEmpty(dollPlace)) DollPlace = dollPlace;
         }
     }
 }

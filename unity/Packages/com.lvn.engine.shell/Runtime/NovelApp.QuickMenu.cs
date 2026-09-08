@@ -361,6 +361,9 @@ namespace Lvn.UI.Screens
                 _shell.Hub.OnHomeNav = () => LvnAsync.Fire(_shell.TabGoTo(LvnTabs.Home), "TabHome");
                 // Tapping a card opens the rich detail page seeded with this title.
                 _shell.Hub.OnOpenDetail = t => OpenDetailWithStatsAsync(t);
+                // Кнопка награды за рекламу в облике «сцена» — та же площадка,
+                // что у бесплатной карточки магазина.
+                _shell.Hub.AdPlacement = manifest.ui?.store?.ad_placement;
             }
         }
 
