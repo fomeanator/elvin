@@ -112,7 +112,7 @@ namespace Lvn.UI.Screens
 
             // ВКЛАДКА как главная (Илья 26.08): без листа и скрима, контент на
             // общей атмосфере, дырка под нижнее меню, root не ловит тапы.
-            var sheet = new VisualElement();
+            var sheet = _sheet = new VisualElement();
             ScreenUi.HubTabSheet(this, sheet);
             Add(sheet);
 
@@ -123,7 +123,7 @@ namespace Lvn.UI.Screens
 
             var titleBlock = new VisualElement();
             titleBlock.Add(ScreenUi.Eyebrow(() => LvnWords.Of("profile.eyebrow", "PROFILE")));
-            var title = SectionTitle(() => LvnWords.Of("profile.title", "Profile"));
+            var title = _title = SectionTitle(() => LvnWords.Of("profile.title", "Profile"));
             titleBlock.Add(title);
             top.Add(titleBlock);
 
@@ -157,7 +157,7 @@ namespace Lvn.UI.Screens
 
             if (!Minimal && Achievements.Count > 0)
             {
-                _body.Add(ScreenUi.SectionHeader(LvnWords.Of("profile.achievements", "Achievements")));
+                _body.Add(StageHeader(ScreenUi.SectionHeader(LvnWords.Of("profile.achievements", "Achievements"))));
                 _body.Add(BuildAchievements());
             }
 
@@ -165,7 +165,7 @@ namespace Lvn.UI.Screens
             // минимальном профиле: это то, ради чего игрок сюда заходит.
             // Пустоту не прячем, а объясняем: игрок должен знать, что здесь
             // вырастет и от чего (живой репорт «там пустота, смысл какой»).
-            _body.Add(ScreenUi.SectionHeader(LvnWords.Of("profile.relations", "Relationships")));
+            _body.Add(StageHeader(ScreenUi.SectionHeader(LvnWords.Of("profile.relations", "Relationships"))));
             if (Relations.Count > 0) _body.Add(BuildRelations());
             else _body.Add(HintCard(
                 LvnWords.Of("profile.relations_empty", "The first choice already bends the story. Start a chapter and your ties appear here.")));
@@ -181,7 +181,7 @@ namespace Lvn.UI.Screens
         // может показать без выдумок на любом аккаунте.
         private VisualElement ProgressLine()
         {
-            var row = LvnStyler.CardRow(ScreenUi.Row());
+            var row = StageCard(LvnStyler.CardRow(ScreenUi.Row()));
             LvnAir.PadX(row, LvnTokens.Space3);   // поля по горизонтали — у экрана
             row.style.marginBottom = LvnTokens.Space2;
             var ic = LvnIcons.Make(LvnIcon.Book, 22f, LvnTokens.Accent);
@@ -200,6 +200,7 @@ namespace Lvn.UI.Screens
         {
             var card = new VisualElement();
             LvnChrome.Card(card, LvnTokens.SurfaceSoft);
+            StageCard(card);
             LvnAir.Pad(card, LvnTokens.Space3);
             card.style.marginBottom = LvnTokens.Space2;
             var lbl = new Label(text);
@@ -215,6 +216,7 @@ namespace Lvn.UI.Screens
             var card = new VisualElement();
             card.style.flexDirection = FlexDirection.Column;
             LvnChrome.Card(card, LvnTokens.SurfaceHi, LvnTokens.Radius);
+            StageCard(card);
             LvnAir.Pad(card, LvnTokens.Space3);
             card.style.marginBottom = LvnTokens.Space3;
 
@@ -311,6 +313,7 @@ namespace Lvn.UI.Screens
             tile.style.marginRight = LvnTokens.Space1;
             tile.style.alignItems = Align.Center;
             LvnChrome.Card(tile);
+            StageCard(tile);
             LvnAir.Pad(tile, LvnTokens.Space1, LvnTokens.Space3);
 
             var value = new Label(s.Value);
@@ -386,6 +389,7 @@ namespace Lvn.UI.Screens
         {
             var row = new VisualElement();
             LvnChrome.Card(row);
+            StageCard(row);
             LvnAir.Pad(row, LvnTokens.Space3, LvnTokens.Space2);
             row.style.marginBottom = LvnTokens.Space2;
 

@@ -86,6 +86,104 @@ namespace Lvn.UI.Screens
 
         /// <summary>Плашка-заголовок: слово прописными на нарисованной плашке.
         /// Место задаёт вызывающий — плашка нарисована в рамке.</summary>
+        /// <summary>РАМКА БЕЗ СЕРЕДИНЫ. Арт рамки (card-back.png) нарисован с
+        /// глухой штрихованной серединой, а под листом гардероба и профиля
+        /// лежит стекло сцены («прозрачное моднее, надо просто рамку добавить,
+        /// как у блоков на главной» — Илья 08.09). Девятидольная нарезка
+        /// середину не вынимает, поэтому рамка собирается из восьми кусков:
+        /// четыре угла показывают углы арта, четыре кромки — его тонкие
+        /// стороны между угловыми скобами, растянутые по своей оси; середины
+        /// нет. Кромки меряются по раскладке контейнера. Кладётся в
+        /// <paramref name="host"/> на место <paramref name="index"/>, поверх
+        /// стекла и под содержимым; глоу выходит за край на <see cref="Bleed"/>.</summary>
+        public static VisualElement HollowFrame(VisualElement host, string url, ILvnAssets assets,
+                                                float imgW, float imgH, float cornerPx, float pxPerDp,
+                                                int index = 0)
+        {
+            var f = new VisualElement { name = "stage-frame", pickingMode = PickingMode.Ignore };
+            f.style.position = Position.Absolute;
+            float bleed = D(Bleed);
+            f.style.left = -bleed; f.style.right = -bleed; f.style.top = -bleed; f.style.bottom = -bleed;
+            float s = D(1f) / pxPerDp;               // экранных px на px арта
+            float c = cornerPx * s;                  // угол на экране
+            float wi = imgW * s, hi = imgH * s;      // арт целиком на экране
+            var pieces = new VisualElement[8];
+            for (int i = 0; i < 8; i++)
+            {
+                var p = new VisualElement { pickingMode = PickingMode.Ignore };
+                p.style.position = Position.Absolute;
+                p.style.overflow = Overflow.Hidden;
+                p.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+                LvnPicture.Skin(p, url, assets, what: "StageSkin");
+                pieces[i] = p; f.Add(p);
+            }
+            void Corner(VisualElement p, bool right, bool bottom)
+            {
+                p.style.width = c; p.style.height = c;
+                if (right) p.style.right = 0; else p.style.left = 0;
+                if (bottom) p.style.bottom = 0; else p.style.top = 0;
+                p.style.backgroundSize = new BackgroundSize(wi, hi);
+                p.style.backgroundPositionX = new BackgroundPosition(right ? BackgroundPositionKeyword.Right : BackgroundPositionKeyword.Left);
+                p.style.backgroundPositionY = new BackgroundPosition(bottom ? BackgroundPositionKeyword.Bottom : BackgroundPositionKeyword.Top);
+            }
+            Corner(pieces[0], false, false); Corner(pieces[1], true, false);
+            Corner(pieces[2], false, true);  Corner(pieces[3], true, true);
+            // кромки: между углами, своя ось тянется так, чтобы скобы арта остались за краем куска
+            void Edge(VisualElement p, bool horizontal, bool far)
+            {
+                if (horizontal)
+                {
+                    p.style.left = c; p.style.right = c; p.style.height = c;
+                    if (far) p.style.bottom = 0; else p.style.top = 0;
+                    p.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
+                    p.style.backgroundPositionY = new BackgroundPosition(far ? BackgroundPositionKeyword.Bottom : BackgroundPositionKeyword.Top);
+                }
+                else
+                {
+                    p.style.top = c; p.style.bottom = c; p.style.width = c;
+                    if (far) p.style.right = 0; else p.style.left = 0;
+                    p.style.backgroundPositionX = new BackgroundPosition(far ? BackgroundPositionKeyword.Right : BackgroundPositionKeyword.Left);
+                    p.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
+                }
+            }
+            Edge(pieces[4], true, false); Edge(pieces[5], true, true);
+            Edge(pieces[6], false, false); Edge(pieces[7], false, true);
+            f.RegisterCallback<GeometryChangedEvent>(_ =>
+            {
+                float w = f.resolvedStyle.width, h = f.resolvedStyle.height;
+                if (float.IsNaN(w) || w <= 1f || float.IsNaN(h) || h <= 1f) return;
+                float innerW = Mathf.Max(1f, w - 2f * c), innerH = Mathf.Max(1f, h - 2f * c);
+                float stretchX = innerW * imgW / Mathf.Max(1f, imgW - 2f * cornerPx);
+                float stretchY = innerH * imgH / Mathf.Max(1f, imgH - 2f * cornerPx);
+                pieces[4].style.backgroundSize = new BackgroundSize(stretchX, hi);
+                pieces[5].style.backgroundSize = new BackgroundSize(stretchX, hi);
+                pieces[6].style.backgroundSize = new BackgroundSize(wi, stretchY);
+                pieces[7].style.backgroundSize = new BackgroundSize(wi, stretchY);
+            });
+            host.Insert(Mathf.Clamp(index, 0, host.childCount), f);
+            return f;
+        }
+
+        /// <summary>card-back.png: 861×795 px под карточку 263 dp, скобы по углам ~84 px.</summary>
+        public const float CardBackW = 861f, CardBackH = 795f, CardBackCornerPx = 84f, CardBackPxPerDp = 861f / 263f;
+
+        /// <summary>СТЕКЛО + РАМКА — задник листа в облике: своя заливка снимается,
+        /// первым ребёнком встаёт стекло сцены (обрезка стекла живёт на нём, а не
+        /// на листе — столбики, стоящие выше листа, остаются видны), вторым —
+        /// рамка без середины.</summary>
+        public static void GlassSheet(VisualElement host, string skin, ILvnAssets assets, float radius)
+        {
+            host.style.backgroundColor = Color.clear;
+            LvnChrome.ClearBorder(host);
+            var glass = new VisualElement { name = "stage-glass", pickingMode = PickingMode.Ignore };
+            LvnChrome.Stretch(glass);
+            LvnChrome.Round(glass, radius);
+            UiGlass.Apply(glass, 1f, UiColor.WithAlpha(LvnTokens.PanelBg, 0.55f));
+            host.Insert(0, glass);
+            HollowFrame(host, SkinUrl(skin, "card-back.png"), assets,
+                        CardBackW, CardBackH, CardBackCornerPx, CardBackPxPerDp, index: 1);
+        }
+
         public static Label Plaque(Func<string> text)
             => Text(() => (text() ?? string.Empty).ToUpperInvariant(), LvnTokens.TextSm, LvnTokens.Text);
 

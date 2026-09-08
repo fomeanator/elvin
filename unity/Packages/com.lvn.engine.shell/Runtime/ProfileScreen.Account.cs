@@ -17,7 +17,7 @@ namespace Lvn.UI.Screens
         // Ссылка на настройки: звук/язык/загрузку ищут в профиле — дадим путь.
         private VisualElement SettingsLink()
         {
-            var row = LvnStyler.CardRow(ScreenUi.Row(spread: true), LvnTokens.SurfaceSoft);
+            var row = StageCard(LvnStyler.CardRow(ScreenUi.Row(spread: true), LvnTokens.SurfaceSoft));
             LvnAir.PadX(row, LvnTokens.Space3);
             LvnAir.MarginY(row, LvnTokens.Space1, LvnTokens.Space2);
             var col = new VisualElement();
@@ -48,7 +48,7 @@ namespace Lvn.UI.Screens
         // невозможно вернуть хозяину.
         private VisualElement SignOutRow()
         {
-            var row = LvnStyler.CardRow(ScreenUi.Row(spread: true), LvnTokens.SurfaceSoft);
+            var row = StageCard(LvnStyler.CardRow(ScreenUi.Row(spread: true), LvnTokens.SurfaceSoft));
             LvnAir.PadX(row, LvnTokens.Space3);
             row.style.marginBottom = LvnTokens.Space2;
 
@@ -98,7 +98,7 @@ namespace Lvn.UI.Screens
         // прямо в кнопке — отдельный диалог тут был бы тяжелее самого действия.
         private VisualElement DeleteAccountRow()
         {
-            var row = LvnStyler.CardRow(ScreenUi.Row(spread: true));
+            var row = StageCard(LvnStyler.CardRow(ScreenUi.Row(spread: true)));
             LvnAir.PadX(row, LvnTokens.Space3);
             row.style.marginBottom = LvnTokens.Space2;
 

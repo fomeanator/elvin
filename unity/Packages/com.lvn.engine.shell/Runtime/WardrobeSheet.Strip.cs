@@ -437,7 +437,7 @@ namespace Lvn.UI.Screens
                 // На «Моё» отмечается НАДЕТОЕ, а не k-я карточка: лента там из
                 // разных осей, и номер вкладки к ней отношения не имеет.
                 bool on = _tab == AllTab ? IsWornCard(_stripCards[k]) : k == cur;
-                LvnStyler.Chosen(_stripCards[k], on, _accent);
+                LvnStyler.Chosen(_stripCards[k], on, ChosenInk);
             }
             // Довозим В КАДР ТУ ЖЕ карточку, что и отметили, — иначе на «Моё»
             // лента уезжала к безразличной k-й, а отмеченная оставалась за краем.
