@@ -65,48 +65,103 @@ namespace Lvn.UI.Screens
                 _sectionCards.Add(card);
             }
 
+            // ЧТО УЖЕ НА УСТРОЙСТВЕ — и в сети тоже. Раньше список глав жил
+            // только в офлайне, и при живой сети под графиком оставалась
+            // пустая половина листа, а вопрос «что у меня скачано» — без
+            // ответа. Список идёт последним: очередь и отказы важнее.
+            if (!off)
+            {
+                var chapters = ChaptersInfo?.Invoke();
+                if (chapters != null && chapters.Count > 0)
+                {
+                    var card = SectionCard();
+                    card.Add(CardHeading(() => LvnWords.Of("dl.on_device", "On this device")));
+                    foreach (var (label, cached) in chapters)
+                        card.Add(ChapterRow(label, cached));
+                    _sectionCards.Add(card);
+                }
+            }
+
+            RebuildActions();
+        }
+
+        /// <summary>
+        /// КНОПКИ ЛИСТА — над прокруткой, не в её хвосте: «Скачать всю игру» —
+        /// то, ради чего лист открывают, и оно обязано быть видно без листания.
+        /// Пока очередь идёт, вместо неё «Остановить»: снимает всё из очереди.
+        /// </summary>
+        private void RebuildActions()
+        {
+            if (_actions == null) return;
+            _actions.Clear();
+            bool off = Offline?.Invoke() ?? false;
+            bool running = Center != null && Center.Queue.Count > 0;
+            if (running)
+            {
+                var stop = Lvn.UI.LvnRedress.Bind(new Button { name = "download-stop" },
+                    () => LvnWords.Of("dl.stop", "Stop downloading"));
+                stop.style.height = LvnTokens.Touch;
+                stop.style.fontSize = LvnTokens.TextSm;
+                stop.style.unityTextAlign = TextAnchor.MiddleCenter;
+                LvnStyler.Plate(stop, LvnTokens.Faint, LvnTokens.TextDim, 14f);
+                stop.clicked += () =>
+                {
+                    foreach (var e in new List<DownloadCenter.Entry>(Center.Queue)) Center.Remove(e);
+                };
+                _actions.Add(stop);
+                return;
+            }
             var missing = MissingInfo?.Invoke() ?? (0, 0);
             // ПРЯЧЕТ ТОЛЬКО ЖИВАЯ ОЧЕРЕДЬ. Отказавшиеся файлы её не прячут:
             // один 404 убирал предложение «вся игра с собой» целиком, а связи
             // между исчезнувшей кнопкой и красной строкой ниже игрок не видит.
             // Именно тогда оно и нужно — докачать то, что не доехало.
-            if (missing.Item2 > 0 && DownloadAll != null
-                && !(Center != null && Center.Queue.Count > 0))
+            if (missing.Item2 <= 0 || DownloadAll == null)
             {
-                var card = SectionCard();
-                card.Add(CardHeading(() => LvnWords.Of("dl.all_title", "The whole game with you")));
-                card.Add(Hint(() => LvnWords.Of("dl.all_hint", "Download once and play with no network: chapters, art and music stay on the device.")));
-                var offer = CurrentChapterOffer?.Invoke();
-                if (offer != null)
-                {
-                    var chBtn = new Button { text = offer.Value.label };
-                    chBtn.style.height = LvnTokens.Touch;
-                    chBtn.style.fontSize = LvnTokens.TextXs;
-                    chBtn.style.marginTop = LvnTokens.Space1;
-                    chBtn.SetEnabled(!off);
-                    LvnStyler.Plate(chBtn, LvnTokens.Faint, LvnTokens.Accent, 14f);
-                    var startCh = offer.Value.start;
-                    chBtn.clicked += () => { chBtn.SetEnabled(false); startCh(); };
-                    card.Add(chBtn);
-                }
-                bool partial = HasSomeDownloaded?.Invoke() ?? false;
-                var btn = new Button { text =
-                    (partial ? LvnWords.Of("dl.resume", "Finish downloading") : LvnWords.Of("dl.get_all", "Download all"))
-                    + " " + Lvn.Content.LvnBytes.Approx(missing.Item1) };
-                btn.style.height = LvnTokens.Touch;
-                btn.style.fontSize = LvnTokens.TextSm;
-                btn.style.marginTop = LvnTokens.Space1;
-                LvnStyler.Primary(btn, 14f);
-                btn.SetEnabled(!off);
-                btn.clicked += () => { btn.SetEnabled(false); Lvn.LvnAsync.Fire(DownloadAll(), "DownloadAll"); };
-                card.Add(btn);
-                _sectionCards.Add(card);
+                var done = Hint(() => LvnWords.Of("dl.all_done", "The whole game is on this device."));
+                _actions.Add(done);
+                return;
             }
+            var hint = Hint(() => LvnWords.Of("dl.all_hint", "Download once and play with no network: chapters, art and music stay on the device."));
+            hint.style.marginBottom = LvnTokens.Space1;
+            _actions.Add(hint);
+            var row = ScreenUi.Row();
+            bool partial = HasSomeDownloaded?.Invoke() ?? false;
+            var btn = new Button { name = "download-all", text =
+                (partial ? LvnWords.Of("dl.resume", "Finish downloading") : LvnWords.Of("dl.get_all", "Download the whole game"))
+                + " · " + Lvn.Content.LvnBytes.Approx(missing.Item1) };
+            btn.style.height = LvnTokens.TouchLg;
+            btn.style.fontSize = LvnTokens.TextSm;
+            btn.style.unityFontStyleAndWeight = FontStyle.Bold;
+            // Без темы-USS у кнопки нет умолчаний: текст лип к левому краю.
+            btn.style.unityTextAlign = TextAnchor.MiddleCenter;
+            btn.style.flexGrow = 1;
+            LvnStyler.Primary(btn, 14f);
+            btn.SetEnabled(!off);
+            btn.clicked += () => { btn.SetEnabled(false); Lvn.LvnAsync.Fire(DownloadAll(), "DownloadAll"); };
+            row.Add(btn);
+            var offer = CurrentChapterOffer?.Invoke();
+            if (offer != null)
+            {
+                var chBtn = new Button { text = offer.Value.label, name = "download-chapter" };
+                chBtn.style.height = LvnTokens.TouchLg;
+                chBtn.style.fontSize = LvnTokens.TextXs;
+                chBtn.style.unityTextAlign = TextAnchor.MiddleCenter;
+                LvnAir.PadX(chBtn, LvnTokens.Space2);
+                chBtn.style.marginLeft = LvnTokens.Space1;
+                chBtn.SetEnabled(!off);
+                LvnStyler.Plate(chBtn, LvnTokens.Faint, LvnTokens.Accent, 14f);
+                var startCh = offer.Value.start;
+                chBtn.clicked += () => { chBtn.SetEnabled(false); startCh(); };
+                row.Add(chBtn);
+            }
+            _actions.Add(row);
         }
 
         private VisualElement SectionCard()
         {
             var card = new VisualElement();
+            card.style.flexShrink = 0;
             card.style.backgroundColor = LvnTokens.Faint;
             LvnChrome.Edged(card, LvnTokens.Radius); // кромка + скругление: карточка, не пятно
             LvnAir.Pad(card, LvnTokens.Space2);
@@ -122,7 +177,7 @@ namespace Lvn.UI.Screens
         {
             var cell = new VisualElement();
             cell.pickingMode = PickingMode.Ignore;
-            cell.style.width = Length.Percent(50f);
+            cell.style.width = Length.Percent(33.3f);
             cell.style.minWidth = 0;
             cell.style.paddingRight = LvnTokens.Space1;
             cell.style.marginBottom = LvnTokens.Space1;
@@ -181,6 +236,7 @@ namespace Lvn.UI.Screens
             var row = ScreenUi.Row();
             row.pickingMode = PickingMode.Ignore;
             ScreenUi.Row(row);
+            row.style.flexShrink = 0;
             row.style.marginTop = LvnTokens.Space1;
             var mark = new Label(cached ? "√" : "○");
             mark.pickingMode = PickingMode.Ignore;
@@ -199,6 +255,7 @@ namespace Lvn.UI.Screens
         private VisualElement QueueRow(DownloadCenter.Entry e, bool failed = false)
         {
             var row = ScreenUi.Row(spread: true);
+            row.style.flexShrink = 0;
             row.style.marginTop = LvnTokens.Space1;
             if (e.Active) LvnChrome.Stripe(row);
             var label = new Label(e.Label) { pickingMode = PickingMode.Ignore };
@@ -216,6 +273,10 @@ namespace Lvn.UI.Screens
                 };
                 LvnStyler.Plate(retry, LvnTokens.Faint, LvnTokens.Accent, 12f);
                 retry.style.minHeight = LvnTokens.Touch;
+                retry.style.fontSize = LvnTokens.TextXs;
+                retry.style.unityTextAlign = TextAnchor.MiddleCenter;
+                LvnAir.PadX(retry, LvnTokens.Space2);
+                retry.style.marginLeft = LvnTokens.Space1;
                 retry.style.flexShrink = 0;
                 retry.SetEnabled(!(Offline?.Invoke() ?? false));
                 row.Add(retry);
@@ -224,6 +285,8 @@ namespace Lvn.UI.Screens
             LvnStyler.Plate(remove, Color.clear, LvnTokens.TextDim, 12f);
             remove.style.width = LvnTokens.Touch;
             remove.style.height = LvnTokens.Touch;
+            remove.style.fontSize = LvnTokens.TextSm;
+            remove.style.unityTextAlign = TextAnchor.MiddleCenter;
             remove.style.flexShrink = 0;
             row.Add(remove);
             return row;
