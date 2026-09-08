@@ -74,7 +74,7 @@ namespace Lvn.UI
             // Место — у витрины (ui.browse.doll_place): там же, где рост и
             // ширина. Своё поле остаётся запасным, когда витрина молчит.
             var place = string.IsNullOrEmpty(LvnMenuStage.DollPlace) ? Place : LvnMenuStage.DollPlace;
-            var pose = Pose(Id, place, LvnMenuStage.DollWidth, LvnMenuStage.DollHeight, z ?? 0);
+            var pose = Pose(Id, place, LvnMenuStage.DollWidth, LvnMenuStage.DollHeightOnScreen, z ?? 0);
             if (sender == LvnSender.Menu) _stage.ShowMenuDoll(Id, pose);
             else _stage.ApplyStage(pose, sender);
             return true;
