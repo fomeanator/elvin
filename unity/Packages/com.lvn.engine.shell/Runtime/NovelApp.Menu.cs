@@ -293,7 +293,9 @@ namespace Lvn.UI.Screens
             // смену наряда и на каждый возврат из главы; ставь её всегда в
             // слот главной — и она прыгала бы влево посреди гардероба, где её
             // только что увели в центр.
-            if (!Stage.Prima.Stand(sender, z, MenuDollSlot())) return false;
+            if (!Stage.Prima.Stand(sender, z, MenuDollSlot(),
+                                   nudge: LvnMenuStage.DollNudge(LvnTabs.RoomOf(_shell?.Tab ?? LvnTabs.Home))))
+                return false;
             // План и дыхание полотна — тоже свойства вкладки, не картинки.
             if (sender == LvnSender.Menu) RestoreMenuComposition();
             _menuSceneActor = fav;
@@ -392,6 +394,7 @@ namespace Lvn.UI.Screens
         // Куда уходит ГЕРОИНЯ на этих же вкладках: на главной она стоит там,
         // где её поставил автор, на боковых возвращается в центр кадра.
         private string _menuDollSlot;     // куда едет героиня в этом переезде
+        private float _menuDollNudge;     // …и на сколько правее слота там стоит
         private bool _menuDollSent;         // …и послана ли она уже (первым тиком)
         // …и насколько она отодвинута: на главной свой план, на боковых — вблизи.
         private float _menuCastZoomFrom = 1f, _menuCastZoomTo = 1f;
@@ -419,6 +422,7 @@ namespace Lvn.UI.Screens
             // раскладывается (до 160 мс), и фигура, посланная сейчас, приехала
             // бы раньше кадра. Тик посылает её один раз — по этому флагу.
             _menuDollSlot = LvnMenuStage.DollSlot(LvnTabs.RoomOf(toTab));
+            _menuDollNudge = LvnMenuStage.DollNudge(LvnTabs.RoomOf(toTab));
             _menuDollSent = false;
             // УХОДИМ ИЗ ГАРДЕРОБА — ОБЩИЙ ПЛАН ВОЗВРАЩАЕТСЯ ВМЕСТЕ С ПЕРЕЛЁТОМ.
             // Наезд гардероба (камера 1.07 на разделе «Моё») снимался при

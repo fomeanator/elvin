@@ -1,4 +1,5 @@
 using Newtonsoft.Json.Linq;
+using UnityEngine;
 
 namespace Lvn.UI
 {
@@ -74,13 +75,19 @@ namespace Lvn.UI
         /// <param name="seconds">За сколько ЭКРАННЫХ секунд дойти до слота,
         /// если фигура уже видна; 0 — встать сразу. Перевод в заявленное
         /// время знает сцена (<see cref="VnStage.DeclareMovement"/>).</param>
-        public bool Stand(LvnSender sender, int? z = null, string place = null, float seconds = 0f)
+        /// <param name="nudge">Сдвиг от слота, доля ширины кадра (вправо
+        /// положительный). Слот остаётся словом сцены — по нему фигура
+        /// ездит и разводится; сдвиг — нюанс композиции витрины.</param>
+        public bool Stand(LvnSender sender, int? z = null, string place = null, float seconds = 0f,
+                          float nudge = 0f)
         {
             if (_stage == null || !Exists) return false;
             if (string.IsNullOrEmpty(place)) place = LvnMenuStage.HomeDollSlot;
-            var pose = Pose(Id, place, LvnMenuStage.DollWidth, LvnMenuStage.DollHeight, z ?? 0);
+            var pose = Pose(Id, place, LvnMenuStage.DollWidth, LvnMenuStage.DollHeight, z ?? 0, nudge);
             if (seconds > 0f) pose["transition_duration"] = VnStage.DeclareMovement(seconds);
-            LvnLog.Trace($"[lvn-doll] {Id}: в слот «{place}» ({Placement.SlotX(place):0.000} ширины)"
+            LvnLog.Trace($"[lvn-doll] {Id}: в слот «{place}» ({Placement.SlotX(place):0.000}"
+                       + (nudge != 0f ? $" {(nudge > 0 ? "+" : "−")} {Mathf.Abs(nudge):0.000} = {(float)pose["x"]:0.000}" : "")
+                       + " ширины)"
                        + (seconds > 0f ? $" за {seconds:0.00}с" : " сразу") + $" от {sender}");
             if (sender == LvnSender.Menu) _stage.ShowMenuDoll(Id, pose);
             else _stage.ApplyStage(pose, sender);
@@ -105,7 +112,8 @@ namespace Lvn.UI
         /// <para>Y НЕ ЗАДАЁТСЯ: у фигуры якорь ног, и число здесь уводило её за
         /// нижнюю кромку кадра.</para>
         /// </summary>
-        public static JObject Pose(string id, string place, float width, float height, int z)
+        public static JObject Pose(string id, string place, float width, float height, int z,
+                                   float nudge = 0f)
         {
             var pose = new JObject
             {
@@ -125,9 +133,16 @@ namespace Lvn.UI
             // («0.32»): доля идёт полем x, у слова свой словарь мест.
             if (float.TryParse(place, System.Globalization.NumberStyles.Float,
                     System.Globalization.CultureInfo.InvariantCulture, out var x))
-                pose["x"] = UnityEngine.Mathf.Clamp01(x);
+                pose["x"] = UnityEngine.Mathf.Clamp01(x + nudge);
             else
+            {
                 pose["position"] = string.IsNullOrEmpty(place) ? "center" : place;
+                // СДВИГ ОТ СЛОТА: слово остаётся в позе (по нему фигура
+                // ездит и разводится), а точное место идёт числом — у сцены
+                // `x` сильнее `position`, поэтому оба поля живут вместе.
+                if (nudge != 0f)
+                    pose["x"] = UnityEngine.Mathf.Clamp01(Placement.SlotX(pose["position"].ToString()) + nudge);
+            }
             return pose;
         }
     }

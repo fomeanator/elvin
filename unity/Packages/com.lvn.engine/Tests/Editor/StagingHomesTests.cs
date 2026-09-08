@@ -150,6 +150,25 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void MenuHeroine_OnHome_StandsATouchRightOfHerSlot()
+        {
+            // Слот остаётся словом сцены, а композиция главной просит чуть
+            // правее («сдвинь вправо чуть героиню на 5 процентов» — Илья
+            // 08.09): в позе живут оба поля — слово для переездов и арбитра,
+            // число для точного места (у сцены x сильнее position).
+            var pose = LvnPrima.Pose("v", "left", 1f, 1f, 0, nudge: LvnMenuStage.HomeDollNudge);
+            Assert.AreEqual("left", (string)pose["position"], "слово-слот остаётся");
+            Assert.AreEqual(Placement.SlotX("left") + 0.05f, (float)pose["x"], 1e-4f, "точное место — правее на двадцатую");
+            Assert.IsNull(LvnPrima.Pose("v", "left", 1f, 1f, 0)["x"], "без сдвига числа нет — слот и только слот");
+
+            Assert.AreEqual(0.05f, LvnMenuStage.DollNudge(LvnMenuStage.Room.Home), 1e-4f);
+            Assert.AreEqual(0f, LvnMenuStage.DollNudge(LvnMenuStage.Room.Store), "магазин стоит ровно в слоте");
+            Assert.AreEqual(0f, LvnMenuStage.DollNudge(LvnMenuStage.Room.Side), "боковые — тоже");
+            Assert.AreEqual(LvnMenuStage.DollSlotX(LvnMenuStage.Room.Home) + 0.05f,
+                            LvnMenuStage.DollX(LvnMenuStage.Room.Home), 1e-4f);
+        }
+
+        [Test]
         public void SceneCleanup_KeepsWhatTheMenuShowsAfterEveryChapter()
         {
             // Уборка сцены отпускает пины кадра, но не то, что витрина покажет
