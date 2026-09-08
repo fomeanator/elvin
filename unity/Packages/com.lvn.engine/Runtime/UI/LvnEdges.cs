@@ -42,13 +42,27 @@ namespace Lvn.UI
         /// неправильно. Стояло пятью числами по месту.</summary>
         public const float PageSide = 30f;
 
+        /// <summary>
+        /// ВЫРЕЗ НАПОКАЗ: снимки и тесты подставляют свой вместо устройства.
+        ///
+        /// <para>Game View редактора при увеличенном рендере (кадр телефона в
+        /// окне вдвое меньше) отдаёт безопасную зону размером с ОКНО, и
+        /// оболочка честно отступает на полэкрана — снимок «шапка посередине».
+        /// Фотограф называет вырез сам: чёлку и домашнюю полосу того телефона,
+        /// который снимает. Пусто — спрашиваем устройство.</para>
+        /// </summary>
+        public static Rect? Simulated;
+
+        /// <summary>Безопасная зона экрана — устройства или подставленная.</summary>
+        public static Rect SafeArea => Simulated ?? Screen.safeArea;
+
         /// <summary>Вырезы устройства в единицах панели: x = сверху, y = снизу.
         /// Ноль, пока элемент не в панели (и на экранах без выреза).</summary>
         public static Vector2 Insets(VisualElement el)
         {
             var panel = el?.panel;
             if (panel == null || Screen.height <= 0) return Vector2.zero;
-            var safe = Screen.safeArea;
+            var safe = SafeArea;
             return new Vector2(ToPanel(panel, Screen.height - safe.yMax),
                                ToPanel(panel, safe.yMin));
         }
