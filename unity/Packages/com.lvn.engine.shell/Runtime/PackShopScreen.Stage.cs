@@ -65,18 +65,19 @@ namespace Lvn.UI.Screens
             LvnPicture.Fit(m);
             _sheet.Add(m);
             _spineMaster = m;
-            // Постер меряет аспект по разложенному элементу — вешаем после
-            // первой раскладки, иначе он возьмёт аспект скелета, а не поля.
-            EventCallback<GeometryChangedEvent> once = null;
-            once = _ =>
+            // ПОСТЕР ЖИВЁТ, ПОКА ЭЛЕМЕНТ В ПАНЕЛИ: уход с вкладки отцепляет экран,
+            // постер по своему правилу чистит камеру и текстуру — и при
+            // возврате его никто не вешал («не показывается спайн» — Илья
+            // 08.09). Вешаем на КАЖДЫЙ вход в панель, кадром позже: постер
+            // меряет аспект по разложенному элементу.
+            m.RegisterCallback<AttachToPanelEvent>(_ => m.schedule.Execute(() =>
             {
-                m.UnregisterCallback(once);
+                if (m.panel == null || _spine == null) return;
                 LvnSpinePoster.Attach(m, _spine,
                     url => _assets.LoadTextAsync(url, default),
                     url => _assets.LoadSpriteAsync(url, default),
                     (_assets as CachingAssets)?.Loader);
-            };
-            m.RegisterCallback(once);
+            }));
         }
 
         /// <summary>Фигура карточки — та же текстура, что у общего постера;
@@ -86,14 +87,23 @@ namespace Lvn.UI.Screens
         {
             EnsureSpineMaster();
             if (_spineMaster == null) return;
+            // Текстура у постера СМЕНЯЕТСЯ на каждом входе в панель (прежнюю
+            // он уничтожил на уходе), поэтому карточка сверяется с ним не
+            // однажды, а при каждом своём входе — пока не возьмёт живую.
             bool Copy()
             {
                 var bg = _spineMaster.style.backgroundImage.value;
                 if (bg.renderTexture == null) return false;
-                figure.style.backgroundImage = bg;
+                if (figure.style.backgroundImage.value.renderTexture != bg.renderTexture)
+                    figure.style.backgroundImage = bg;
                 return true;
             }
-            if (!Copy()) figure.schedule.Execute(() => Copy()).Every(120).Until(Copy);
+            void Follow()
+            {
+                if (!Copy()) figure.schedule.Execute(() => Copy()).Every(120).Until(Copy);
+            }
+            figure.RegisterCallback<AttachToPanelEvent>(_ => Follow());
+            Follow();
         }
 
         private static LvnSpineRef FirstSpine(LvnManifest manifest)
