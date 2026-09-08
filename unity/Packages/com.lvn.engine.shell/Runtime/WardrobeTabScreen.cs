@@ -114,6 +114,9 @@ namespace Lvn.UI.Screens
             // акцентная кромка (то самое «дорого» единого стиля).
             _panel = new VisualElement();
             LvnChrome.BottomStrip(_panel, 10f, 140f);
+            // Отступ от низа — у дырки нижнего меню (ScreenUi.NavHole): облик
+            // «сцена» приносит меню выше движкового, с кольцом над кромкой.
+            LvnEdges.Follow(_panel, _ => _panel.style.bottom = ScreenUi.NavHole(_panel));
             var bg = LvnTokens.PanelBg;
             _panel.style.backgroundColor = UiColor.WithAlpha(bg, 0.94f);
             LvnChrome.Edged(_panel, LvnTokens.Radius);

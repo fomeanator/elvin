@@ -61,6 +61,23 @@ namespace Lvn.UI.Screens
         }
 
         /// <summary>
+        /// ДЫРКА НИЖНЕГО МЕНЮ — сколько единиц снизу занимает меню витрины, и
+        /// на сколько вкладкам (лавка, профиль, гардероб) отступать от низа.
+        ///
+        /// <para>Число стояло дважды (132 у листов вкладок, 140 у гардероба)
+        /// и было ростом ОДНОГО меню — движкового. Облик «сцена» приносит своё
+        /// меню, выше и с кольцом над кромкой, и подставляет сюда свой ответ;
+        /// вкладки спрашивают его, а не помнят за него. Считается от элемента:
+        /// домашняя полоса телефона входит в ответ.</para>
+        /// </summary>
+        public static float NavHole(VisualElement ctx)
+            => NavHoleSource != null ? NavHoleSource(ctx) : 132f;
+
+        // Кто отвечает за дырку сейчас: пусто — движковое меню (132), облик
+        // «сцена» подставляет своё меню при сборке витрины.
+        internal static System.Func<VisualElement, float> NavHoleSource;
+
+        /// <summary>
         /// ВКЛАДКА ХАБА — экран, который не закрывает собой мир.
         ///
         /// <para>Это не окно поверх игры, а ещё одна вкладка той же витрины:
@@ -74,6 +91,7 @@ namespace Lvn.UI.Screens
         /// молча — две вкладки одной витрины с разной высотой воздуха читаются
         /// как небрежность, а не как разные экраны.</para>
         /// </summary>
+
         public static void HubTabSheet(VisualElement root, VisualElement sheet)
         {
             if (root != null)
@@ -85,7 +103,7 @@ namespace Lvn.UI.Screens
             sheet.style.position = Position.Absolute;
             sheet.style.left = 10; sheet.style.right = 10;
             sheet.style.top = Length.Percent(39f);   // лицо героини остаётся в чистой зоне
-            sheet.style.bottom = 132;                // дырка нижнего меню
+            Lvn.UI.LvnEdges.Follow(sheet, _ => sheet.style.bottom = NavHole(sheet)); // дырка нижнего меню
             LvnAir.PadX(sheet, LvnTokens.Space3);
             sheet.style.paddingBottom = LvnTokens.Space2;
             sheet.style.paddingTop = LvnTokens.Space3;
