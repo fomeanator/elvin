@@ -100,6 +100,15 @@ namespace Lvn.UI.Screens
             _tabsRow.style.justifyContent = Justify.FlexEnd;
             _tabsRow.style.marginBottom = D(10f);
             _tabsRow.style.marginRight = D(2f);
+            // ПОДЛОЖКА ПОД СЛОВАМИ ВКЛАДОК. На голом полотне надписи тонули в
+            // витражах («для вкладок задний фон нужен, он пропал» — Илья
+            // 08.09). Тихая тёмная плашка тона панели, а не рамка: рисованные
+            // рамки — у панелей, подложка под строку слов рисуется кодом.
+            _tabsRow.style.alignSelf = Align.FlexEnd;
+            _tabsRow.style.backgroundColor = UiColor.WithAlpha(LvnTokens.PanelBg, 0.82f);
+            LvnChrome.Round(_tabsRow, D(8f));
+            LvnAir.PadX(_tabsRow, D(12f));
+            LvnAir.PadY(_tabsRow, D(2f));
             _list.contentContainer.style.alignItems = Align.FlexEnd;
         }
 
@@ -117,7 +126,7 @@ namespace Lvn.UI.Screens
                     () => idx < _tabIds.Count ? TabTitle(_tabIds[idx]).ToUpperInvariant() : string.Empty,
                     LvnTokens.TextSm, active ? LvnTokens.Gold : LvnTokens.TextDim, medium: true);
                 word.pickingMode = PickingMode.Position;
-                word.style.marginLeft = D(14f);
+                word.style.marginLeft = i == 0 ? 0f : D(14f);
                 LvnAir.PadY(word, D(6f));
                 word.AddManipulator(new Clickable(() => { _tab = idx; Rebuild(); }));
                 LvnMotion.Tappable(word);
