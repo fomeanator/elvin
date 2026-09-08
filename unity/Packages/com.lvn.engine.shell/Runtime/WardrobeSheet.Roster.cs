@@ -91,8 +91,7 @@ namespace Lvn.UI.Screens
             b.style.width = _rosterIcon + 24f;   // имени хватает на одну строку
             LvnAir.MarginX(b, 0);
             b.style.marginBottom = LvnTokens.Space2;
-            b.style.paddingLeft = b.style.paddingRight = LvnTokens.Tight;
-            b.style.paddingTop = b.style.paddingBottom = LvnTokens.Tight;
+            LvnAir.Pad(b, LvnTokens.Tight);
             // ВЫБРАННЫЙ ГЕРОЙ — ПОДЛОЖКА, А НЕ ЗАЛИВКА. Плитка красилась
             // акцентом целиком, а подпись остаётся светлой: у темы «хроно»
             // акцент — яркий голубой, и белое имя на нём не читалось
@@ -122,9 +121,16 @@ namespace Lvn.UI.Screens
             lbl.style.fontSize = LvnTokens.TextSm;
             lbl.style.unityFontStyleAndWeight = FontStyle.Bold;
             lbl.style.unityTextAlign = TextAnchor.MiddleCenter;
-            lbl.style.whiteSpace = WhiteSpace.Normal;
+            // ИМЯ В ОДНУ СТРОКУ. Перенос «Виктори/я» делал плитку выше, чем
+            // считал FitRoster, и столбик резал нижнего героя («боковушки
+            // срезаются» — Илья 08.09). Длинное имя укорачивается многоточием.
+            lbl.style.whiteSpace = WhiteSpace.NoWrap;
+            lbl.style.overflow = Overflow.Hidden;
+            lbl.style.textOverflow = TextOverflow.Ellipsis;
+            lbl.style.maxWidth = _rosterIcon + 16f;
             lbl.style.marginTop = LvnTokens.Tight;
             b.Add(lbl);
+            StageRosterTile(b, lbl, active);
             return b;
         }
 
@@ -204,12 +210,13 @@ namespace Lvn.UI.Screens
             ring.style.marginLeft = -d * 0.5f; ring.style.marginTop = -d * 0.5f;
             LvnChrome.Round(ring, d * 0.5f);
             var faint = UiColor.WithAlpha(_text, 0.16f);
-            ring.style.borderTopWidth = ring.style.borderBottomWidth = 3f;
-            ring.style.borderLeftWidth = ring.style.borderRightWidth = 3f;
-            ring.style.borderTopColor = _accent;
-            ring.style.borderRightColor = faint;
-            ring.style.borderBottomColor = faint;
-            ring.style.borderLeftColor = faint;
+            // НАРОЧНО по сторонам: кольцо ожидания — одна грань акцентом, три бледные, и его вертят.
+            ring.style.borderTopWidth = ring.style.borderBottomWidth = 3f;   // НАРОЧНО
+            ring.style.borderLeftWidth = ring.style.borderRightWidth = 3f;   // НАРОЧНО
+            ring.style.borderTopColor = _accent;                             // НАРОЧНО
+            ring.style.borderRightColor = faint;                             // НАРОЧНО
+            ring.style.borderBottomColor = faint;                            // НАРОЧНО
+            ring.style.borderLeftColor = faint;                              // НАРОЧНО
             float a = 0f;
             ring.schedule.Execute(() =>
             {

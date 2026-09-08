@@ -141,11 +141,27 @@ namespace Lvn.UI.Screens
         private int _tabFit;
         private const int TabFitLast = 3;
 
+        /// <summary>Ширина ряда в миг последнего ужатия: стал шире — расправляем.</summary>
+        private float _tabFitRoom;
+
         private void FitTabs()
         {
-            if (_tabs == null || _tabFit >= TabFitLast) return;
+            if (_tabs == null) return;
             float room = _tabs.resolvedStyle.width;
             if (room <= 1f) return;              // ещё не мерили — придёт следующим событием
+            // РЯД СТАЛ ШИРЕ, ЧЕМ БЫЛ ПРИ УЖАТИИ. Первое открытие меряет лист на
+            // подлёте, когда он ещё узкий: разделы ужимались по той ширине и
+            // такими оставались («при первом открытии уменьшены размеры
+            // категорий» — Илья 08.09). Расправляем до исходной ступени и
+            // меряем заново следующим событием раскладки.
+            if (_tabFit > 0 && room > _tabFitRoom + 2f)
+            {
+                _tabFit = 0;
+                _tabFitRoom = room;
+                ApplyTabFit(0);
+                return;
+            }
+            if (_tabFit >= TabFitLast) return;
             float need = 0f;
             foreach (var c in _tabs.Children())
             {
@@ -154,6 +170,7 @@ namespace Lvn.UI.Screens
                 need += w + c.resolvedStyle.marginLeft + c.resolvedStyle.marginRight;
             }
             if (need <= room) return;
+            _tabFitRoom = room;
             ApplyTabFit(++_tabFit);
         }
 
@@ -220,6 +237,7 @@ namespace Lvn.UI.Screens
                 var icOn = b.Q<VisualElement>("ax-ic-on");
                 if (icOff != null) icOff.style.display = active ? DisplayStyle.None : DisplayStyle.Flex;
                 if (icOn != null) icOn.style.display = active ? DisplayStyle.Flex : DisplayStyle.None;
+                StageSectionTab(b, lbl, active);
             }
 
             var items = Items(_tab);

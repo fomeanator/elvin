@@ -133,12 +133,15 @@ namespace Lvn.UI.Screens
             // Герои — та же полка у левого края: две колонки читаются как пара.
             if (_rosterRow != null)
             {
+                // СТОЛБИК ГЕРОЕВ ВЫШЕ СТОЛБИКА ЭМОЦИЙ: ему можно вниз до самого
+                // листа — эмоции держат долю, чтобы не лечь на лицо, а плитки
+                // стоят слева от фигуры («боковушкам высоту увеличь, они
+                // срезаются» — Илья 08.09).
+                float rosterHeight = Mathf.Max(height, sheetTop - top - 8f);
                 _rosterRow.style.top = top - sheetTop;
-                _rosterRow.style.maxHeight = height;
-                // Полка у героев та же, что у лиц, — и они обязаны в неё
-                // ВЛЕЗТЬ, а не быть обрезанными по ней.
+                _rosterRow.style.maxHeight = rosterHeight;
                 _rosterRow.style.overflow = Overflow.Hidden;
-                FitRoster(height);
+                FitRoster(rosterHeight);
             }
             UpdateEmoScrollBar();
         }
@@ -253,6 +256,7 @@ namespace Lvn.UI.Screens
                 if (b == null) continue;
                 bool on = b.name == "emo-" + current;
                 SkinButton(b, on);
+                StageEmotionChip(b, on);
                 if (on && reveal) _emotions.schedule.Execute(() =>
                 {
                     if (b.panel != null && b.parent == _emotions.contentContainer)

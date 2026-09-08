@@ -333,7 +333,7 @@ namespace Lvn.UI.Screens
             // углу), имя на серой подложке снизу. Тап = примерка; лента и
             // карусель ниже — два руля одного состояния (_index).
             _strip = Lvn.UI.LvnScroll.Horizontal();
-            _strip.style.marginTop = LvnTokens.Space2;
+            _strip.style.marginTop = LvnTokens.Space2 + 15f;   // «ленту на 15 пикс от верха, панель больше» — Илья 08.09
             _strip.contentContainer.style.flexDirection = FlexDirection.Row;
             Add(_strip);
 
@@ -683,6 +683,7 @@ namespace Lvn.UI.Screens
             RebuildEmotions();
             // «Моё» — вкладка по умолчанию (Илья 28.08), когда она есть.
             SelectTab(_slots.Count > 1 ? AllTab : _tab);
+            StageDress();
         }
 
 

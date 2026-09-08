@@ -35,6 +35,27 @@ namespace Lvn.UI.Screens
             if (manifest == null) return;
             _manifest = manifest;
             _sheet?.SetContent(manifest);
+            StageBackdrop(manifest.ui?.browse?.skin);
+        }
+
+        private bool _stageGlass;
+
+        /// <summary>ЗАДНИК В ОБЛИКЕ «СЦЕНА» — СТЕКЛО. Пробовали рамку-арт
+        /// card-back.png девятидольно: тёмная штрихованная середина, растянутая
+        /// в широкий низкий короб, смотрелась глухой плитой («тёмный фон как-то
+        /// неказисто» — Илья 08.09). Стекло показывает сцену сквозь лист, как
+        /// панель реплики в новелле, а кромка и скругление темы остаются.
+        /// Без облика — плашка темы, как была. Один раз: живые обновления
+        /// манифеста стекло не пересобирают.</summary>
+        private void StageBackdrop(string skin)
+        {
+            if (string.IsNullOrEmpty(skin) || _stageGlass) return;
+            _stageGlass = true;
+            // СТЕКЛО НЕ НА САМОЙ ПАНЕЛИ: оно включает обрезку по границам хоста, а
+            // столбики героев и эмоций стоят ВЫШЕ панели — так они и пропали
+            // («нет выбора героя, нет эмоций» — Илья 08.09). Стекло и рамка
+            // живут на своих подложках внутри панели.
+            LvnStageKit.GlassSheet(_panel, skin, _assets, LvnTokens.Radius);
         }
         private readonly ILvnAssets _assets;
         private readonly VisualElement _panel;
