@@ -290,13 +290,15 @@ namespace Lvn.UI.Screens
             // БЕСПЛАТНЫЙ СПОСОБ — ПЕРВЫМ. Игрок, у которого нет денег, пришёл
             // сюда именно за ним; спрятать рекламу под платными паками значит
             // показать ему только то, что он купить не может.
-            var free = AdCard();
+            var free = Dressed ? StageAdButton() : AdCard();
             if (free != null) _list.Add(free);
             if (_tab >= _tabIds.Count || !_catalog.TryGetValue(_tabIds[_tab], out var packs)) return;
             // Витрина, а не таблица: обычные паки — сеткой в две колонки,
-            // «герой» вкладки и наборы — широкими карточками.
+            // «герой» вкладки и наборы — широкими карточками. В облике
+            // «сцена» — панели одна под другой, прижаты вправо, как на главной.
             var grid = new VisualElement();
-            LvnFlow.Wrap(grid, Justify.SpaceBetween);
+            if (Dressed) grid.style.alignItems = Align.FlexEnd;
+            else LvnFlow.Wrap(grid, Justify.SpaceBetween);
             _list.Add(grid);
             foreach (var p in packs) grid.Add(Card(p));
         }
