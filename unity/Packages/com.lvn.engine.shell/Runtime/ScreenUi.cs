@@ -101,9 +101,7 @@ namespace Lvn.UI.Screens
             sheet.style.right = Length.Percent(4f);
             sheet.style.top = Length.Percent(14f);    // под шапкой с логотипом
             sheet.style.bottom = 132;                 // дырка нижнего меню
-            LvnAir.PadX(sheet, LvnTokens.Space2);
-            sheet.style.paddingBottom = LvnTokens.Space2;
-            sheet.style.paddingTop = LvnTokens.Space2;
+            LvnAir.Pad(sheet, LvnTokens.Space2);
             SceneSheet(sheet, 0.92f);
         }
 
