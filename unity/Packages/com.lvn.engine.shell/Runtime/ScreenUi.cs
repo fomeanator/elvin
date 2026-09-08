@@ -103,7 +103,11 @@ namespace Lvn.UI.Screens
             sheet.style.position = Position.Absolute;
             sheet.style.left = 10; sheet.style.right = 10;
             sheet.style.top = Length.Percent(39f);   // лицо героини остаётся в чистой зоне
-            Lvn.UI.LvnEdges.Follow(sheet, _ => sheet.style.bottom = NavHole(sheet)); // дырка нижнего меню
+            // Дырка нижнего меню — СРАЗУ и дальше за вырезами: слежение
+            // срабатывает только в панели, а лист, собранный до привязки,
+            // стоял до первого кадра без отступа и накрывал меню.
+            sheet.style.bottom = NavHole(sheet);
+            Lvn.UI.LvnEdges.Follow(sheet, _ => sheet.style.bottom = NavHole(sheet));
             LvnAir.PadX(sheet, LvnTokens.Space3);
             sheet.style.paddingBottom = LvnTokens.Space2;
             sheet.style.paddingTop = LvnTokens.Space3;
