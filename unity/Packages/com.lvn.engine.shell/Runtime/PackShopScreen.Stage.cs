@@ -146,10 +146,21 @@ namespace Lvn.UI.Screens
             p.style.marginBottom = D(10f);
             p.style.flexShrink = 0;
 
-            // ФИГУРА ПОД РАМКОЙ. Спайн вешается фоном на поле внутри рамки —
-            // тем же постером, что на карточке главной; рамка с её
-            // полупрозрачной заливкой ложится сверху и приглушает фигуру до
-            // фона, на котором читаются сумма и цена.
+            // Рамка — растянутая по высоте девятидольно: плашка сверху и
+            // нарисованная кнопка снизу остаются своих размеров.
+            var frame = new VisualElement { name = LvnStageKit.ArtName, pickingMode = PickingMode.Ignore };
+            At(frame, -D(LvnStageKit.Bleed), -D(LvnStageKit.Bleed),
+               D(W + LvnStageKit.Bleed * 2f), D(H + LvnStageKit.Bleed * 2f));
+            LvnPicture.Slice(frame,
+                new Vector4(0f, 0f, (LvnStageKit.Bleed + 30f) * PanelPxPerDp, (LvnStageKit.Bleed + 46f) * PanelPxPerDp),
+                D(1f) / PanelPxPerDp);
+            LvnPicture.Skin(frame, SkinUrl("panel.png"), _assets, what: "StageSkin");
+            p.Add(frame);
+            // ФИГУРА ПОВЕРХ РАМКИ. Спайн вешается фоном на поле внутри рамки
+            // тем же постером, что на карточке главной, и лежит НАД рамкой:
+            // под её полупрозрачной заливкой фигура тонула в тёмном («спайн
+            // поверх надо, щас он понизу» — Илья 08.09). Плашка, сумма и
+            // кнопка — выше фигуры.
             if (_spine != null && LvnSpineBridge.Available)
             {
                 var figure = new VisualElement { pickingMode = PickingMode.Ignore };
@@ -162,16 +173,6 @@ namespace Lvn.UI.Screens
                 p.Add(figure);
             }
 
-            // Рамка — растянутая по высоте девятидольно: плашка сверху и
-            // нарисованная кнопка снизу остаются своих размеров.
-            var frame = new VisualElement { name = LvnStageKit.ArtName, pickingMode = PickingMode.Ignore };
-            At(frame, -D(LvnStageKit.Bleed), -D(LvnStageKit.Bleed),
-               D(W + LvnStageKit.Bleed * 2f), D(H + LvnStageKit.Bleed * 2f));
-            LvnPicture.Slice(frame,
-                new Vector4(0f, 0f, (LvnStageKit.Bleed + 30f) * PanelPxPerDp, (LvnStageKit.Bleed + 46f) * PanelPxPerDp),
-                D(1f) / PanelPxPerDp);
-            LvnPicture.Skin(frame, SkinUrl("panel.png"), _assets, what: "StageSkin");
-            p.Add(frame);
 
             string head = pack.Badge == Ribbon.Popular ? LvnWords.Of("shop.popular", "POPULAR")
                         : pack.Badge == Ribbon.Value ? LvnWords.Of("shop.value", "BEST VALUE")
