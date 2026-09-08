@@ -145,7 +145,7 @@ namespace Lvn.Tests
             // страж держит смысл, а не сотые.
             float side = LvnMenuStage.CastZoomFor(LvnMenuStage.Room.Side);
             Assert.GreaterOrEqual(home, 1f, "витрина героиню не уменьшает");
-            Assert.AreEqual(1.15f, home, 1e-3f, "на главной — приближение на пятнадцатую");
+            Assert.AreEqual(1.115f, home, 1e-3f, "на главной — приближение 1.15 минус 0.035");
             Assert.Greater(home, side, "на главной она ближе, чем в гардеробе, — так попросили");
         }
 
