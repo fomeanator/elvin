@@ -301,7 +301,8 @@ namespace Lvn.UI.Screens
             // «герой» вкладки и наборы — широкими карточками. В облике
             // «сцена» — панели одна под другой, прижаты вправо, как на главной.
             var grid = new VisualElement();
-            if (Dressed) grid.style.alignItems = Align.FlexEnd;
+            if (DressedColumn) grid.style.alignItems = Align.FlexEnd;
+            else if (Dressed) LvnFlow.Wrap(grid, Justify.SpaceBetween);
             else LvnFlow.Wrap(grid, Justify.SpaceBetween);
             _list.Add(grid);
             foreach (var p in packs) grid.Add(Card(p));
@@ -333,7 +334,12 @@ namespace Lvn.UI.Screens
             string spineKey = spine == null ? null : Newtonsoft.Json.JsonConvert.SerializeObject(spine);
             bool changed = skin != _skin || spineKey != _spineKey;
             _skin = skin; _spine = spine; _spineKey = spineKey;
-            if (Dressed && !_dressedApplied) { _dressedApplied = true; DressAsStageColumn(); changed = true; }
+            if (Dressed && !_dressedApplied)
+            {
+                _dressedApplied = true;
+                if (_column) DressAsStageColumn(); else DressAsStageSheet();
+                changed = true;
+            }
             if (changed) Rebuild();
         }
 
@@ -344,7 +350,15 @@ namespace Lvn.UI.Screens
         /// <summary>Пакет одет рисованной рамкой: облик назван и магазин
         /// стоит столбиком витрины (в модальном окне поверх игры рамки
         /// главной были бы чужими).</summary>
-        private bool Dressed => _column && !string.IsNullOrEmpty(_skin);
+        /// <summary>Облик «сцена» назначен новеллой. ОБЕ формы магазина носят
+        /// его: столбик на вкладке витрины и лист поверх главы. Раньше условие
+        /// требовало столбика, и магазин из главы оставался в прежней теме —
+        /// два магазина в одной игре выглядели из разных приложений.</summary>
+        private bool Dressed => !string.IsNullOrEmpty(_skin);
+
+        /// <summary>Облик столбиком (вкладка витрины) против облика листом
+        /// (поверх главы): рамка, ширина и раскладка панелей у них разные.</summary>
+        private bool DressedColumn => Dressed && _column;
 
         private void BuildTabs()
         {

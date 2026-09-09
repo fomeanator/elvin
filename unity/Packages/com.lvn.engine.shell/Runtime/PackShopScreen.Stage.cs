@@ -151,6 +151,37 @@ namespace Lvn.UI.Screens
         /// (BrowseHub.Stage): низ столбика считается от неё.</summary>
         private static float HomeBarDp => LvnStageSkin.HomeBar;
 
+        /// <summary>ЛИСТ МАГАЗИНА ПОВЕРХ ГЛАВЫ — В ОБЛИКЕ. Тот же экран, что
+        /// на вкладке витрины, но открытый из главы: там он стоял в прежней
+        /// теме — жёлтые плашки, пилюли вкладок, синяя кнопка цены, — и два
+        /// магазина в одной игре читались как из разных приложений («переделать
+        /// внутриигровой магазин на наш стиль» — Илья 09.09, TR-67).
+        ///
+        /// <para>Разница со столбиком только в раме и раскладке: лист шире,
+        /// панели идут сеткой, задник — рамка облика со своей серединой. Слова
+        /// вкладок, панели пакетов, цена и кнопка рекламы — общие с витриной.</para></summary>
+        private void DressAsStageSheet()
+        {
+            var s = _sheet;
+            if (s == null) return;
+            // Своя заливка и кромка снимаются: их место занимает рамка облика.
+            LvnStageKit.GlassSheet(s, _skin, _assets, LvnTokens.Radius);
+            // Шапка «пополнить кошелёк / Магазин» уходит: слово «Магазин» уже
+            // стоит на ленте вкладок, а вторая надпись спорит с плашками панелей.
+            if (_header != null) _header.style.display = DisplayStyle.None;
+            if (_tabsRow != null)
+            {
+                ScreenUi.Row(_tabsRow);
+                _tabsRow.style.flexWrap = Wrap.NoWrap;
+                _tabsRow.style.justifyContent = Justify.Center;
+                _tabsRow.style.alignSelf = Align.Center;
+                _tabsRow.style.backgroundColor = UiColor.WithAlpha(LvnTokens.PanelBg, 0.35f);
+                LvnChrome.Round(_tabsRow, D(8f));
+                LvnAir.Pad(_tabsRow, D(12f), D(2f));
+                _tabsRow.style.marginBottom = D(10f);
+            }
+        }
+
         /// <summary>Переодеть вкладку в столбик витрины: подложка снимается,
         /// шапка «пополнить кошелёк / Магазин» прячется (слово «Магазин»
         /// уже стоит на ленте), столбик встаёт на место панелей главной.</summary>
