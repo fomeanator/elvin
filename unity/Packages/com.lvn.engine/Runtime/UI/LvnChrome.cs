@@ -331,6 +331,10 @@ namespace Lvn.UI
         ///
         /// <para>Мир под полосой остаётся во всю ширину: полотно, фигуры,
         /// погода и вуали живут своими слоями и вписываются сами.</para>
+        ///
+        /// <para>НЕ для элемента, чьи left/right пишет кто-то ещё: он оставит
+        /// сдвиг без компенсации. <see cref="SafeAreaElement"/> держит полосу
+        /// сам — <see cref="SafeAreaElement.MaxWidth"/>.</para>
         /// </summary>
         public static void PhoneColumn(VisualElement el)
         {

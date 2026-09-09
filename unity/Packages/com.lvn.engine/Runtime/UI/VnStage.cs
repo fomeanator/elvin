@@ -374,17 +374,17 @@ namespace Lvn.UI
             // в той же ширине, что панели витрины: на планшете строка иначе
             // растягивается через весь экран, а кнопки выбора расходятся так,
             // что между ними полметра пустоты. Мир под ними остаётся во всю
-            // ширину — полотно и фигуры вписываются сами.
-            _chromeSafe = new SafeAreaElement();
-            LvnChrome.PhoneColumn(_chromeSafe);
+            // ширину — полотно и фигуры вписываются сами. Полосу держит сам
+            // вырезной контейнер (полями): внешний сдвиг он перетирал при
+            // каждом пересчёте выреза, и реплика уезжала за левый край.
+            _chromeSafe = new SafeAreaElement { MaxWidth = LvnPanel.ReferenceWidth };
             _chromeSafe.Add(_dialogue);
             _chromeSafe.Add(_choices);
             _chromeSafe.Add(_labelLayer); // HUD/stat labels above dialogue/choices
             root.Add(_chromeSafe);
             root.Add(_fx);          // top: fades/dim veil everything below
             _menu = new StageMenu(this, Theme);
-            _menuSafe = new SafeAreaElement();
-            LvnChrome.PhoneColumn(_menuSafe);
+            _menuSafe = new SafeAreaElement { MaxWidth = LvnPanel.ReferenceWidth };
             _menuSafe.Add(_menu);   // quick menu above even the FX veil — always reachable
             root.Add(_menuSafe);
 

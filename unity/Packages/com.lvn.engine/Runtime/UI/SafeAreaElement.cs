@@ -22,6 +22,17 @@ namespace Lvn.UI
     public sealed class SafeAreaElement : VisualElement
     {
         private Rect _applied = Rect.zero;
+        private float _appliedWidth = -1f;
+
+        /// <summary>ПОЛОСА НЕ ШИРЕ ЭТОГО (единицы панели; 0 — во всю ширину).
+        /// На планшете на боку холст матчится по высоте и тянется вширь:
+        /// реплика растягивалась через весь экран, кнопки выбора расходились на
+        /// полметра. Ограничение живёт ЗДЕСЬ, а не сдвигом снаружи: элемент
+        /// сам пишет свои left/right при каждом пересчёте выреза, и внешний
+        /// «left 50 % + translate −50 %» после этого оставался половинным
+        /// сдвигом без компенсации — реплика уезжала за левый край (скрин Ильи
+        /// 09.09). Полоса считается полями от краёв — см. <see cref="BandInset"/>.</summary>
+        public float MaxWidth;
 
         public SafeAreaElement()
         {
@@ -41,8 +52,10 @@ namespace Lvn.UI
             // Через Кромочника: у выреза один источник, и подставленный для
             // снимков вырез обязан доехать и до сцены.
             var safe = LvnEdges.SafeArea;
-            if (safe == _applied) return;
-            _applied = safe;
+            float pw = panel.visualTree?.resolvedStyle.width ?? 0f;
+            if (float.IsNaN(pw)) pw = 0f;
+            if (safe == _applied && Mathf.Approximately(pw, _appliedWidth)) return;
+            _applied = safe; _appliedWidth = pw;
 
             float sw = Screen.width, sh = Screen.height;
             // Insets as screen-pixel distances from each edge, converted to panel
@@ -53,10 +66,17 @@ namespace Lvn.UI
             var rightBottom = RuntimePanelUtils.ScreenToPanel(
                 panel, new Vector2(sw - safe.xMax, safe.yMin));
 
-            style.left = Mathf.Max(0f, leftTop.x);
+            float band = BandInset(pw, MaxWidth);
+            style.left = Mathf.Max(band, leftTop.x);
             style.top = Mathf.Max(0f, leftTop.y);
-            style.right = Mathf.Max(0f, rightBottom.x);
+            style.right = Mathf.Max(band, rightBottom.x);
             style.bottom = Mathf.Max(0f, rightBottom.y);
         }
+
+        /// <summary>Поле с каждого края, чтобы полоса была не шире
+        /// <paramref name="maxWidth"/>: на телефоне ноль, на широком экране —
+        /// половина остатка. Ширина ещё не посчитана (0) — тоже ноль.</summary>
+        public static float BandInset(float panelWidth, float maxWidth)
+            => maxWidth > 0f && panelWidth > maxWidth ? (panelWidth - maxWidth) * 0.5f : 0f;
     }
 }
