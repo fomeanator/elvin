@@ -310,6 +310,7 @@ namespace Lvn.UiLab
 
             // Сценарию загрузчика нужен живой кружок — идём к нему сразу,
             // пока библиотека греется, не дожидаясь тишины сети и арта.
+            if (_tag.StartsWith("dlvideo")) { yield return Video(); if (marked != null) LvnProgress.ClearCurrent(marked); Done(); yield break; }
             if (_tag.StartsWith("dl")) { yield return Downloads(); if (marked != null) LvnProgress.ClearCurrent(marked); Done(); yield break; }
             yield return new WaitForSecondsRealtime(4f);
             yield return WaitArt(20f);
@@ -356,6 +357,81 @@ namespace Lvn.UiLab
             }
             var st = hud.Q<Label>("download-state"); var pc = hud.Q<Label>("download-percent"); var sp = hud.Q<Label>("download-speed");
             Debug.Log($"[shots] загрузчик: состояние «{st?.text}», процент «{pc?.text}», скорость «{sp?.text}», отдача «{hud.Q<Label>("download-up")?.text}»");
+        }
+
+        // ── видео листа загрузок ────────────────────────────────────────────
+        // Кадр за кадром в JPG плюс метки времени: ролик собирает ffmpeg по
+        // настоящим длительностям, поэтому темп записи на ролик не влияет.
+        // Сервер на время съёмки идёт через прокси с узкой полосой (.server),
+        // иначе локальная отдача заканчивается раньше, чем лист раскроется.
+
+        private bool _recording;
+        private int _frames;
+
+        private IEnumerator Record(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            var times = new System.Text.StringBuilder();
+            float t0 = Time.realtimeSinceStartup;
+            while (_recording)
+            {
+                yield return new WaitForEndOfFrame();
+                if (!_recording) break;
+                var tex = ScreenCapture.CaptureScreenshotAsTexture();
+                var jpg = tex.EncodeToJPG(88);
+                Destroy(tex);
+                File.WriteAllBytes(Path.Combine(dir, $"{++_frames:00000}.jpg"), jpg);
+                times.Append((Time.realtimeSinceStartup - t0).ToString("F4", System.Globalization.CultureInfo.InvariantCulture)).Append('\n');
+            }
+            File.WriteAllText(Path.Combine(dir, "times.txt"), times.ToString());
+            Debug.Log($"[shots] видео: {_frames} кадров за {Time.realtimeSinceStartup - t0:F1} с → {dir}");
+        }
+
+        private IEnumerator Video()
+        {
+            var root = _hub.panel?.visualTree;
+            var dir = Path.Combine(OutDir, $"video-{_tag}");
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+            _recording = true;
+            StartCoroutine(Record(dir));
+            yield return new WaitForSecondsRealtime(2f);            // главная, кружок в меню
+
+            DownloadHud hud = null;
+            for (float t = 0f; t < 40f && hud == null; t += 0.25f)
+            {
+                var h = root?.Query<DownloadHud>().First();
+                if (h != null && h.HasWork) hud = h;
+                else yield return new WaitForSecondsRealtime(0.25f);
+            }
+            if (hud == null) { Debug.LogWarning("[shots] видео: кружок так и не появился"); _recording = false; yield break; }
+            Tap(hud.Q(name: "download-capsule"));                  // разворот в лист
+            yield return new WaitForSecondsRealtime(9f);            // график живёт
+
+            var all = hud.Q(name: "download-all");
+            Debug.Log($"[shots] видео: кнопка «всю игру» {(all != null ? "есть" : "нет")}");
+            if (all != null)
+            {
+                Tap(all);
+                yield return new WaitForSecondsRealtime(14f);       // очередь, отказы, докачка
+            }
+            var scroll = hud.Q<ScrollView>();
+            if (scroll != null)
+            {
+                for (int i = 0; i < 40; i++)                         // прокрутка списка вниз
+                {
+                    scroll.scrollOffset = new Vector2(0f, scroll.scrollOffset.y + 9f);
+                    yield return null;
+                }
+                yield return new WaitForSecondsRealtime(1.5f);
+            }
+            Tap(hud.Q(name: "download-close"));                    // свернуть в кружок
+            yield return new WaitForSecondsRealtime(2.5f);
+            Tap(hud.Q(name: "download-capsule"));                  // и снова открыть
+            yield return new WaitForSecondsRealtime(4f);
+            var st = hud.Q<Label>("download-state"); var pc = hud.Q<Label>("download-percent"); var sp = hud.Q<Label>("download-speed");
+            Debug.Log($"[shots] видео: состояние «{st?.text}», процент «{pc?.text}», скорость «{sp?.text}», отдача «{hud.Q<Label>("download-up")?.text}»");
+            _recording = false;
+            yield return null;
         }
 
         // ── тур по нажатиям ─────────────────────────────────────────────────
