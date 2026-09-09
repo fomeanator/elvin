@@ -509,10 +509,25 @@ namespace Lvn.UI.Screens
         /// оболочка обязана уйти с кадра и вернуться теми же шагами, что и при
         /// обычной главе. Отдельного «режима просмотра» не заводим — он
         /// разошёлся бы с этим порядком в первую же правку.</summary>
-        public void BeginCutsceneSession() => BeginChapterSession();
+        public void BeginCutsceneSession()
+        {
+            BeginChapterSession();
+            // Сессия сама интерфейс НЕ прячет: обычную главу открывает створ, и
+            // это он уводит хаб, ленту и попапы. Пересмотр идёт мимо створа —
+            // и сцена играла поверх панелей главной («ui не скрывается» —
+            // Илья 09.09).
+            HideMenuChrome();
+        }
 
-        /// <inheritdoc cref="BeginCutsceneSession"/>
-        public void EndCutsceneSession() => EndChapterSession();
+        /// <summary>Конец пересмотра: хром возвращается, и ВМЕСТЕ С ХАБОМ.
+        /// <see cref="ShowMenuChrome"/> намеренно не впускает его — после
+        /// обычной главы хаб показывает Швейцар на своей итерации цикла. У
+        /// пересмотра такой итерации нет, и вернуть хаб больше некому.</summary>
+        public void EndCutsceneSession()
+        {
+            EndChapterSession();
+            if (Hub != null) Hub.style.display = DisplayStyle.Flex;
+        }
 
         private void BeginChapterSession()
         {

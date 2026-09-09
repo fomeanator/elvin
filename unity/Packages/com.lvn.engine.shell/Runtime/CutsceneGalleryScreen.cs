@@ -40,9 +40,16 @@ namespace Lvn.UI.Screens
         private readonly Label _empty;
         private bool _stageGlass;
 
-        /// <summary>Проиграть выбранную катсцену. Ставит хост: галерея знает
-        /// адрес, но не умеет открывать главы.</summary>
-        public System.Action<Entry> OnPlay;
+        /// <summary>ЧТО ИГРОК ВЫБРАЛ, когда экран закрылся. Не колбэк «играй
+        /// сейчас»: закрытие экрана — анимация, и она возвращает интерфейс
+        /// витрины ПОСЛЕ того, как сцена уже началась — катсцена шла поверх
+        /// панелей главной («ui не скрывается» — Илья 09.09). Хост дожидается
+        /// закрытия и только потом играет.</summary>
+        public Entry Picked { get; private set; }
+
+        /// <summary>Забыть прошлый выбор перед показом: экран живёт долго, и
+        /// вчерашняя плитка не должна играть при следующем открытии.</summary>
+        public void ClearPick() => Picked = null;
 
         private string _skin;
         private bool StageDressed => !string.IsNullOrEmpty(_skin);
@@ -170,7 +177,7 @@ namespace Lvn.UI.Screens
             name.pickingMode = PickingMode.Ignore;
             cap.Add(name);
 
-            cell.AddManipulator(new Clickable(() => { Close(); OnPlay?.Invoke(e); }));
+            cell.AddManipulator(new Clickable(() => { Picked = e; Close(); }));
             LvnMotion.Tappable(cell);
             return cell;
         }
