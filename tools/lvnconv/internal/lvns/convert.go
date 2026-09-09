@@ -50,6 +50,14 @@ var KnownOps = map[string]bool{
 	"portal": true,
 	// Кадр без интерфейса: cutscene on=1 zoom=1.1 dur=3 / cutscene off=1.
 	// Прячет реплику, выборы, метки, меню и деревья `ui` разом.
+	// НАЗВАННАЯ КАТСЦЕНА — та же команда, две человеческие формы:
+	//   cutscene start Показ фаворитов|favorites_ch0
+	//   … сценарий …
+	//   cutscene end
+	// Ни второго слова, ни второго опа: у кадра без интерфейса уже есть
+	// владелец, обработчик в плеере и записи в howto. Имя и id добавляют
+	// катсцене адрес — по нему она попадает в галерею и переигрывается
+	// оттуда, а на сервере по-прежнему лежит ТОЛЬКО сценарий.
 	"cutscene": true,
 	"audio":    true, "wait": true, "input": true, "preload": true, "text_pace": true,
 	"voice": true,               // compile-time prefix: voices the NEXT say line
@@ -857,6 +865,47 @@ func convertWith(src string, outer *nestCtx) (*Doc, error) {
 				pendingChoice = params
 				i++
 				continue
+			} else if firstWord == "cutscene" && len(words) >= 2 && (words[1] == "start" || words[1] == "end") {
+				// НАЗВАННАЯ КАТСЦЕНА. «start Имя|id» — имя видит игрок в
+				// галерее, id остаётся ключом открытия и адресом переигровки:
+				// без него ключом становится имя, и переименование открыло бы
+				// катсцену заново. «end» — тот же выход из кадра без
+				// интерфейса, что и `cutscene off=1`.
+				rest := strings.TrimSpace(line[strings.Index(line, words[1])+len(words[1]):])
+				if words[1] == "end" {
+					// У конца есть свои числа: `cutscene end dur=0.5` — за
+					// сколько камера возвращается. Молча их терять нельзя, это
+					// авторская кинематография, а не служебный хвост.
+					isCommand = true
+					cmd = Cmd{"op": "cutscene", "off": true}
+					if rest != "" {
+						params, perr := parseKeyValue(rest)
+						if perr != nil {
+							return nil, fmt.Errorf("line %d: cutscene end: %w", srcNo[i], perr)
+						}
+						for k, v := range params {
+							cmd[k] = v
+						}
+					}
+				} else {
+					if rest == "" {
+						return nil, fmt.Errorf("line %d: cutscene start: нужно имя катсцены (cutscene start Имя|id)", srcNo[i])
+					}
+					name, id := rest, ""
+					if bar := strings.LastIndex(rest, "|"); bar >= 0 {
+						name = strings.TrimSpace(rest[:bar])
+						id = strings.TrimSpace(rest[bar+1:])
+					}
+					name = stripQuotes(strings.TrimSpace(name))
+					if id == "" {
+						id = cutsceneID(name)
+					}
+					if name == "" || id == "" {
+						return nil, fmt.Errorf("line %d: cutscene start: пустое имя катсцены", srcNo[i])
+					}
+					isCommand = true
+					cmd = Cmd{"op": "cutscene", "on": true, "id": id, "name": name}
+				}
 			} else if firstWord == "return" && len(words) == 1 {
 				isCommand = true
 				cmd = Cmd{"op": "return"}
@@ -2855,4 +2904,24 @@ func buildAnimCmd(op string, p map[string]any) (Cmd, error) {
 		cmd["mode"] = mode
 	}
 	return cmd, nil
+}
+
+// cutsceneID делает адрес катсцены из её названия, когда автор не назвал id
+// сам: строчные буквы, пробелы и знаки — подчёркиванием, кириллица остаётся
+// как есть (id живёт в сохранении игрока и в галерее, а не в имени файла).
+func cutsceneID(name string) string {
+	var b strings.Builder
+	prevUnderscore := false
+	for _, r := range strings.ToLower(strings.TrimSpace(name)) {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			b.WriteRune(r)
+			prevUnderscore = false
+			continue
+		}
+		if !prevUnderscore && b.Len() > 0 {
+			b.WriteRune('_')
+			prevUnderscore = true
+		}
+	}
+	return strings.Trim(b.String(), "_")
 }

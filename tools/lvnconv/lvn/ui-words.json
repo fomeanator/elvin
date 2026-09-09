@@ -200,6 +200,22 @@
   "default": "Sure?"
  },
  {
+  "key": "cutscenes.counter",
+  "default": "{0} seen"
+ },
+ {
+  "key": "cutscenes.hint_count",
+  "default": "Scenes you have lived through: {0}"
+ },
+ {
+  "key": "cutscenes.hint_empty",
+  "default": "Scenes you have lived through appear here"
+ },
+ {
+  "key": "cutscenes.title",
+  "default": "Cutscenes"
+ },
+ {
   "key": "daily.claim",
   "default": "Claim"
  },

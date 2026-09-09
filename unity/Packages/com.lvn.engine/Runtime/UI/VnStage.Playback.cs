@@ -697,6 +697,53 @@ namespace Lvn.UI
         /// <summary>Roll back several beats in one hop (clamped to the recorded
         /// history) — the History panel's tap-to-return. The same recipe as a
         /// single step, but one scene rebuild instead of N.</summary>
+        /// <summary>
+        /// ПЕРЕСМОТР НАЗВАННОЙ КАТСЦЕНЫ. Скрипт ставится как обычно, но игра
+        /// начинается не сначала, а с метки <c>cutscene start</c>: сперва
+        /// молча восстанавливается кадр (фон, фигуры, метки) — иначе сцена
+        /// открылась бы на пустой чёрной доске, — и только потом идут реплики.
+        ///
+        /// <para>Конец отрезка — та же метка <c>cutscene end</c>: дойдя до неё,
+        /// сцена зовёт <paramref name="onEnd"/>, и галерея закрывает просмотр,
+        /// вместо того чтобы уехать в остальную главу.</para>
+        ///
+        /// <para>Пересмотр НИЧЕГО не пишет в прогресс: он не автосохраняется и
+        /// не двигает главу — это чтение уже прожитого.</para>
+        /// </summary>
+        public bool PlayCutscene(string lvnJson, string cutsceneId, System.Action onEnd = null)
+        {
+            if (string.IsNullOrEmpty(lvnJson) || string.IsNullOrEmpty(cutsceneId)) return false;
+            Play(lvnJson, warmIntroSpine: false);
+            int at = _player?.IndexOfCutscene(cutsceneId) ?? -1;
+            if (at < 0)
+            {
+                LvnLog.Trace($"[lvn-cutscene] «{cutsceneId}» нет в этой главе — пересмотр отменён");
+                return false;
+            }
+            _cutsceneWatch = cutsceneId;
+            _cutsceneDone = onEnd;
+            _player.ReplayVisuals(at);
+            _player.ContinueFrom(at);
+            return true;
+        }
+
+        // Пересматриваемая сейчас катсцена и что сделать на её конце. Живут
+        // здесь, а не в команде: конец отрезка — обычный `cutscene off`, и
+        // узнать его «своим» можно только по этому признаку.
+        private string _cutsceneWatch;
+        private System.Action _cutsceneDone;
+
+        /// <summary>Конец отрезка при пересмотре: зовём хозяина просмотра один
+        /// раз и забываем — дальше глава живёт как обычно.</summary>
+        internal void FinishCutsceneWatch()
+        {
+            if (string.IsNullOrEmpty(_cutsceneWatch)) return;
+            var done = _cutsceneDone;
+            _cutsceneWatch = null;
+            _cutsceneDone = null;
+            done?.Invoke();
+        }
+
         public bool RollbackSteps(int steps)
         {
             if (_player == null || _awaitingWait || steps < 1) return false;

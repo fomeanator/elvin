@@ -88,6 +88,13 @@ namespace Lvn.UI.Screens
         /// («звук, язык, загрузка»), это ближайшее место, где их ищут.</summary>
         public System.Action OnOpenSettings;
 
+        /// <summary>Открыть галерею катсцен. Пусто — пункта в профиле нет.</summary>
+        public System.Action OnOpenCutscenes;
+
+        /// <summary>Сколько катсцен игрок уже открыл — подпись пункта. Ставит
+        /// хост: сколько их всего, знает игра, а не экран профиля.</summary>
+        public int CutsceneCount;
+
         /// <summary>НЕ ПОКАЗЫВАЕТСЯ. Балансы живут в шапке; поле оставлено,
         /// чтобы не ломать хосты, которые его заполняют.</summary>
         public List<Stat> Wallet = new List<Stat>();
@@ -170,6 +177,7 @@ namespace Lvn.UI.Screens
             else _body.Add(HintCard(
                 LvnWords.Of("profile.relations_empty", "The first choice already bends the story. Start a chapter and your ties appear here.")));
 
+            if (OnOpenCutscenes != null) _body.Add(CutscenesLink());
             if (OnOpenSettings != null) _body.Add(SettingsLink());
             if (OnSignOut != null) _body.Add(SignOutRow());
             if (OnDeleteAccount != null) _body.Add(DeleteAccountRow());

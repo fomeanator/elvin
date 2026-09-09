@@ -975,3 +975,53 @@ Anna: привет
 		t.Fatalf("реплика с кавычками после имени сломана: %+v", got[3])
 	}
 }
+
+// НАЗВАННАЯ КАТСЦЕНА — та же команда, что и кадр без интерфейса.
+//
+// Просьба заказчика («cut_scene:Имя|Id … cut_scene_end») звучала как новое
+// слово языка, но у кадра без интерфейса уже есть владелец, обработчик в
+// плеере и записи в howto — второй оп с тем же смыслом разошёлся бы с первым.
+// Поэтому формы человеческие, а команда одна; тест держит именно это, а не
+// удобство записи: имя и id доезжают до плеера, конец не теряет авторских
+// чисел, а прежняя запись `cutscene on=1` продолжает работать.
+func TestCutsceneStartEndCarryNameAndId(t *testing.T) {
+	src := `
+scene cs
+cutscene start Показ фаворитов|favorites_ch0
+Агент: Вот они.
+cutscene end dur=0.5
+cutscene start Знакомство с городом
+cutscene on=1 zoom=1.1
+`
+	doc, err := Convert(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []Cmd
+	for _, c := range doc.Script {
+		if op, _ := c["op"].(string); op == "cutscene" {
+			got = append(got, c)
+		}
+	}
+	if len(got) != 4 {
+		t.Fatalf("ожидались четыре команды катсцены, пришло %d: %v", len(got), got)
+	}
+	if got[0]["id"] != "favorites_ch0" || got[0]["name"] != "Показ фаворитов" || got[0]["on"] != true {
+		t.Fatalf("start не донёс имя и адрес: %v", got[0])
+	}
+	if got[1]["off"] != true || fmt.Sprint(got[1]["dur"]) != "0.5" {
+		t.Fatalf("end потерял авторское время возврата камеры: %v", got[1])
+	}
+	if got[2]["id"] != "знакомство_с_городом" {
+		t.Fatalf("без id адрес берётся из имени: %v", got[2])
+	}
+	if got[3]["id"] != nil {
+		t.Fatalf("безымянный кадр остаётся безымянным: %v", got[3])
+	}
+}
+
+func TestCutsceneStartNeedsAName(t *testing.T) {
+	if _, err := Convert("scene cs\ncutscene start\n"); err == nil {
+		t.Fatal("пустое имя катсцены обязано падать громко: адрес открытия взять неоткуда")
+	}
+}
