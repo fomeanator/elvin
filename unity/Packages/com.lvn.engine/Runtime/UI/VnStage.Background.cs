@@ -181,6 +181,7 @@ namespace Lvn.UI
             }
             ReleaseActive3DSet();
             _lastBgCmd = (JObject)cmd.DeepClone();
+            OfferCutscenePoster(url);   // первый кадр внутри катсцены — её карточка
             HasBackdrop = true; // the entry reveal (host) waits for the first one
         }
 

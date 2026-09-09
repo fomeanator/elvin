@@ -53,6 +53,8 @@ namespace Lvn.UI.Screens
         public AuthScreen Auth { get; private set; }
         /// <summary>The app-level settings overlay (open via <see cref="OpenSettingsAsync"/>).</summary>
         public SettingsScreen Settings { get; private set; }
+        /// <summary>Галерея катсцен — сцены, которые игрок прожил; вход из профиля.</summary>
+        public CutsceneGalleryScreen Cutscenes { get; private set; }
         /// <summary>The rich title-detail page (chapters, saves, stats, play).</summary>
         public TitleDetailScreen Detail { get; private set; }
         /// <summary>The CG art gallery.</summary>
@@ -289,6 +291,7 @@ namespace Lvn.UI.Screens
             Add(Settings);
             Detail = new TitleDetailScreen(assets); Add(Detail);
             Gallery = new CgGalleryScreen(assets); Add(Gallery);
+            Cutscenes = new CutsceneGalleryScreen(assets); Add(Cutscenes);
             Profile = new ProfileScreen(assets); Add(Profile);
             // Комната списка: карточки собирает хаб — облик и поведение у
             // списка и главной общие, второй копии этой логики быть не должно.
@@ -343,6 +346,7 @@ namespace Lvn.UI.Screens
             Reparent(Settings, popupLayer);
             Reparent(Detail, popupLayer);
             Reparent(Gallery, popupLayer);
+            Reparent(Cutscenes, popupLayer);
             Reparent(Daily, popupLayer);
             Reparent(PackShopModal, popupLayer);
             _root.Add(tabsLayer);
@@ -422,6 +426,10 @@ namespace Lvn.UI.Screens
         // входит, но фон у неё свой и «назад» она обрабатывает сама.
         public Task OpenGalleryAsync(CancellationToken ct = default)
             => Gallery != null ? Gallery.ShowAsync(ct) : Task.CompletedTask;
+
+        /// <summary>Открыть галерею катсцен (вход — пункт профиля).</summary>
+        public Task OpenCutscenesAsync(CancellationToken ct = default)
+            => Cutscenes != null ? Cutscenes.ShowAsync(ct) : Task.CompletedTask;
         /// <summary>
         /// Показать профиль КАК ЕСТЬ — тем, что уже положено в его поля.
         ///
@@ -496,6 +504,16 @@ namespace Lvn.UI.Screens
         /// событие, порядок «что раньше — хром, лента, режим или хостовое»
         /// нигде не был написан, а он важен (лента возвращается на «Главную»
         /// ДО того, как режим объявлен).</summary>
+        /// <summary>ПЕРЕСМОТР КАТСЦЕНЫ — та же сессия главы, только вход и
+        /// выход зовёт галерея, а не поток чтения: сцена играется отрезком, а
+        /// оболочка обязана уйти с кадра и вернуться теми же шагами, что и при
+        /// обычной главе. Отдельного «режима просмотра» не заводим — он
+        /// разошёлся бы с этим порядком в первую же правку.</summary>
+        public void BeginCutsceneSession() => BeginChapterSession();
+
+        /// <inheritdoc cref="BeginCutsceneSession"/>
+        public void EndCutsceneSession() => EndChapterSession();
+
         private void BeginChapterSession()
         {
             ShowMenuChrome();

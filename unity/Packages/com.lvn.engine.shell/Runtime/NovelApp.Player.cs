@@ -117,6 +117,12 @@ namespace Lvn.UI.Screens
             // с того дня, как вход перестал слетать сам при перезапуске.
             p.OnSignOut = Lvn.Services.LvnBackend.SignOutAsync;
             p.OnOpenSettings = () => LvnAsync.Fire(_shell.OpenSettingsAsync(), "OpenSettings");
+            // Катсцены — дом прожитого. Пункт стоит ВСЕГДА, даже пока пусто:
+            // раздел существует, и игрок должен знать, что сцены сюда придут;
+            // спрятанный до первой сцены, он читается как «такого тут нет».
+            // Пустоту объясняет сам экран.
+            p.CutsceneCount = CutsceneCount();
+            p.OnOpenCutscenes = () => LvnAsync.Fire(OpenCutscenesAsync(), "OpenCutscenes");
             await _shell.TabGoTo(LvnTabs.Profile); // вкладка ленты, не модалка
         }
 

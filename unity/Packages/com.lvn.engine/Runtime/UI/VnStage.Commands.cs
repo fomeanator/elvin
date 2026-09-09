@@ -66,6 +66,13 @@ namespace Lvn.UI
             bool on = !(BoolOr(cmd["off"], false) || !BoolOr(cmd["on"], true));
             if (on) HideChrome(LvnScreenDirector.CutsceneReason);
             else ShowChrome(LvnScreenDirector.CutsceneReason);
+            if (on) RememberCutscene(cmd);
+            else
+            {
+                _openCutsceneId = null;
+                _openCutsceneNeedsPoster = false;
+                FinishCutsceneWatch();   // пересмотр кончается там же, где сцена
+            }
 
             // Наезд — необязательная часть: `cutscene on=1 zoom=1.12 dur=3`.
             var zoom = NumOrNull(cmd["zoom"]);
@@ -84,6 +91,51 @@ namespace Lvn.UI
             {
                 ApplyCamera(new JObject { ["op"] = "camera", ["action"] = "reset", ["duration"] = 0.4f });
             }
+        }
+
+        /// <summary>
+        /// НАЗВАННАЯ КАТСЦЕНА ОТКРЫВАЕТСЯ, КОГДА ИГРОК ДО НЕЁ ДОШЁЛ.
+        ///
+        /// <para>«cutscene start Имя|id» — та же команда кадра без интерфейса,
+        /// но с адресом: id уходит в память игрока, и катсцену можно посмотреть
+        /// снова из галереи. Хранится ТОЛЬКО адрес — id, глава и url превью;
+        /// сам показ переигрывает сценарий, поэтому на сервере не появляется ни
+        /// кадра, ни ролика.</para>
+        ///
+        /// <para>Превью — фон, который стоит в этот миг: катсцена начинается
+        /// уже поставленным кадром, и он же лучшая её карточка. Автор может
+        /// назвать своё: <c>cutscene start Имя|id poster=/content/cg/x.jpg</c>.</para>
+        /// </summary>
+        private void RememberCutscene(JObject cmd)
+        {
+            var id = (string)cmd["id"];
+            if (string.IsNullOrEmpty(id)) return;   // безымянный кадр — просто кадр
+            // ПЕРЕСМОТР НИЧЕГО НЕ ПИШЕТ. Он играет ту же метку, и без этой
+            // проверки открытие переписывалось бы адресом текущего показа —
+            // а он идёт из галереи, где контекста главы уже нет.
+            if (!string.IsNullOrEmpty(_cutsceneWatch)) return;
+            _openCutsceneId = id;
+            _openCutsceneNeedsPoster = string.IsNullOrEmpty((string)cmd["poster"]);
+            LvnCutsceneStore.Mark(_saveTitleId, id, (string)cmd["name"], _saveChapterId,
+                                  (string)cmd["poster"]);
+        }
+
+        // Названная катсцена, которая идёт прямо сейчас, и ждёт ли она кадра
+        // для карточки. Превью — ПЕРВЫЙ фон ВНУТРИ сцены, а не тот, что стоял
+        // до неё: катсцена почти всегда начинается с затемнения и смены кадра,
+        // и карточка показывала бы предыдущую комнату вместо самой сцены.
+        private string _openCutsceneId;
+        private bool _openCutsceneNeedsPoster;
+
+        /// <summary>Кадр внутри названной катсцены — её карточка в галерее.
+        /// Берём первый и больше не трогаем: дальше идёт нарезка, и последний
+        /// кадр сцены объясняет её хуже первого.</summary>
+        internal void OfferCutscenePoster(string url)
+        {
+            if (!_openCutsceneNeedsPoster || string.IsNullOrEmpty(_openCutsceneId)
+                || string.IsNullOrEmpty(url)) return;
+            _openCutsceneNeedsPoster = false;
+            LvnCutsceneStore.Mark(_saveTitleId, _openCutsceneId, null, _saveChapterId, url);
         }
 
         /// <summary>Этаж под окном диалога. Отдельный контейнер, а не позиция

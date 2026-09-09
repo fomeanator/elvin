@@ -430,6 +430,46 @@ namespace Lvn.Editor
                         script.Add(new JObject { ["op"] = "fx", ["off"] = true });
                         i++; continue;
                     }
+                    // НАЗВАННАЯ КАТСЦЕНА: `cutscene start Имя|id` / `cutscene end`
+                    // (зеркально convert.go). Тот же оп, что и кадр без
+                    // интерфейса, — имя и id лишь дают катсцене адрес: по нему
+                    // она открывается в галерее и переигрывается оттуда.
+                    if (firstWord == "cutscene" && words.Length >= 2
+                        && (words[1] == "start" || words[1] == "end"))
+                    {
+                        string tail = line.Substring(line.IndexOf(words[1], System.StringComparison.Ordinal)
+                                                     + words[1].Length).Trim();
+                        if (words[1] == "end")
+                        {
+                            // `cutscene end dur=0.5` — своё время возврата камеры
+                            // (зеркально convert.go): числа автора не теряем.
+                            var endCmd = new JObject { ["op"] = "cutscene", ["off"] = true };
+                            if (tail.Length > 0)
+                                foreach (var kv in ParseKeyValue(tail))
+                                    endCmd[kv.Key] = JToken.FromObject(kv.Value);
+                            script.Add(endCmd);
+                            i++; continue;
+                        }
+                        if (tail.Length == 0)
+                            throw new System.Exception(
+                                $"line {i + 1}: cutscene start: нужно имя катсцены (cutscene start Имя|id)");
+                        string csName = tail, csId = "";
+                        int bar = tail.LastIndexOf('|');
+                        if (bar >= 0)
+                        {
+                            csName = tail.Substring(0, bar).Trim();
+                            csId = tail.Substring(bar + 1).Trim();
+                        }
+                        csName = StripQuotes(csName.Trim());
+                        if (csId.Length == 0) csId = CutsceneId(csName);
+                        if (csName.Length == 0 || csId.Length == 0)
+                            throw new System.Exception($"line {i + 1}: cutscene start: пустое имя катсцены");
+                        script.Add(new JObject
+                        {
+                            ["op"] = "cutscene", ["on"] = true, ["id"] = csId, ["name"] = csName,
+                        });
+                        i++; continue;
+                    }
                     if (firstWord == "sfx" && line.Trim().EndsWith(" off"))
                     {
                         var t = line.Trim(); t = t.Substring(3, t.Length - 3 - 3).Trim();
@@ -445,7 +485,13 @@ namespace Lvn.Editor
                         string[] toks = SplitFields(rest);
                         Dictionary<string, object> p;
                         if (toks.Length > 0 && !toks[0].Contains("="))
-                            p = ParseAnimPositional(firstWord, rest);
+                        {
+                            try { p = ParseAnimPositional(firstWord, rest); }
+                            catch (LvnsCompileException e)
+                            {
+                                throw new LvnsCompileException($"line {i + 1}: {firstWord}: {e.Message}");
+                            }
+                        }
                         else
                             p = ParseKeyValue(rest);
                         cmd = BuildAnimCmd(firstWord, p);
@@ -1215,6 +1261,22 @@ namespace Lvn.Editor
             if (double.TryParse(v, NumberStyles.Float | NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out double n))
                 return n;
             return StripQuotes(v);
+        }
+
+        /// <summary>Адрес катсцены из её названия, когда автор не назвал id
+        /// сам (зеркально cutsceneID в convert.go): буквы и цифры остаются,
+        /// остальное — подчёркиванием. Кириллица не транслитерируется: id
+        /// живёт в сохранении игрока, а не в имени файла.</summary>
+        static string CutsceneId(string name)
+        {
+            var b = new System.Text.StringBuilder();
+            bool prevUnderscore = false;
+            foreach (char ch in (name ?? string.Empty).Trim().ToLowerInvariant())
+            {
+                if (char.IsLetter(ch) || char.IsDigit(ch)) { b.Append(ch); prevUnderscore = false; continue; }
+                if (!prevUnderscore && b.Length > 0) { b.Append('_'); prevUnderscore = true; }
+            }
+            return b.ToString().Trim('_');
         }
 
         static string StripQuotes(string s)

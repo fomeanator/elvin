@@ -334,6 +334,19 @@ namespace Lvn
         /// <summary>Rollback history depth cap. Oldest beats fall off.</summary>
         public const int MaxHistory = 100;
 
+        /// <summary>ГДЕ НАЧИНАЕТСЯ НАЗВАННАЯ КАТСЦЕНА — индекс её команды
+        /// <c>cutscene start</c> или −1. По нему галерея переигрывает отрезок:
+        /// сцена не записана роликом, она каждый раз играется заново.</summary>
+        public int IndexOfCutscene(string cutsceneId)
+        {
+            if (string.IsNullOrEmpty(cutsceneId)) return -1;
+            for (int i = 0; i < _script.Count; i++)
+                if (_script[i] is JObject c && (string)c["op"] == "cutscene"
+                    && string.Equals((string)c["id"], cutsceneId, System.StringComparison.Ordinal))
+                    return i;
+            return -1;
+        }
+
         public IEnumerable<JObject> PeekForward(int maxCommands)
         {
             if (_script == null) yield break;

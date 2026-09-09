@@ -65,10 +65,6 @@ namespace Lvn.UI
 
         /// <summary>Forget every unlock for a title (debug / "reset progress").</summary>
         public static void Clear(string titleId)
-        {
-            var key = Key(titleId);
-            LvnKeep.Drop(key);
-            if (_cachedKey == key) { _cached = null; _cachedKey = null; }
-        }
+            => LvnKeep.DropScoped(Key(titleId), ref _cachedKey, ref _cached);
     }
 }

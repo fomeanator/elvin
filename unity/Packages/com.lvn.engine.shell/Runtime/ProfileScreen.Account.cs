@@ -41,6 +41,39 @@ namespace Lvn.UI.Screens
             return row;
         }
 
+        /// <summary>ПУНКТ «КАТСЦЕНЫ» — вход в галерею пережитых сцен. Стоит
+        /// рядом с настройками и по тем же правилам: строка-карточка, подпись
+        /// со счётом открытых, стрелка. Пункта нет, пока хост не дал, чем его
+        /// открыть, — профиль не обещает того, чего в игре не заведено.</summary>
+        private VisualElement CutscenesLink()
+        {
+            var row = StageCard(LvnStyler.CardRow(ScreenUi.Row(spread: true), LvnTokens.SurfaceSoft));
+            LvnAir.PadX(row, LvnTokens.Space3);
+            LvnAir.MarginY(row, LvnTokens.Space1, LvnTokens.Space2);
+            var col = new VisualElement();
+            col.style.flexGrow = 1;
+            var lbl = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("cutscenes.title", "Cutscenes"));
+            lbl.style.color = LvnTokens.Text;
+            lbl.style.fontSize = LvnTokens.TextSm;
+            col.Add(lbl);
+            var hint = Lvn.UI.LvnRedress.Bind(new Label(),
+                () => CutsceneCount > 0
+                    ? LvnWords.Of("cutscenes.hint_count", "Scenes you have lived through: {0}", CutsceneCount)
+                    : LvnWords.Of("cutscenes.hint_empty", "Scenes you have lived through appear here"));
+            hint.style.color = LvnTokens.TextDim;
+            hint.style.fontSize = LvnTokens.TextXs;
+            hint.style.marginTop = LvnTokens.Hair;
+            col.Add(hint);
+            row.Add(col);
+            var arrow = new Label("›");
+            arrow.style.color = LvnTokens.Accent;
+            arrow.style.fontSize = LvnTokens.TextBase;
+            arrow.style.unityFontStyleAndWeight = FontStyle.Bold;
+            row.Add(arrow);
+            row.RegisterCallback<ClickEvent>(_ => { Close(); OnOpenCutscenes?.Invoke(); });
+            return row;
+        }
+
         // «ВЫЙТИ ИЗ АККАУНТА». До 06.09 выхода не было вовсе, и его роль
         // случайно исполняла регистрация при старте: вход игрока не переживал
         // закрытия игры. Теперь вход держится — значит выход обязан быть

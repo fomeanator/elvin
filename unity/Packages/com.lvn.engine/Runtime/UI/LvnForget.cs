@@ -81,7 +81,11 @@ namespace Lvn.UI
             {
                 Safe("сейвы", () => LvnSaveStore.DeleteAll(titleId));
                 Safe("галерея", () => LvnGalleryStore.Clear(titleId));
+                Safe("катсцены", () => LvnCutsceneStore.Clear(titleId));
                 Safe("прочитанное", () => LvnReadStore.Clear(titleId));
+                // HttpStateStore uses the same scoped local keys. Forget also
+                // invalidates in-flight cloud replies; its sync index holds no
+                // variables and is removed by LvnKeep.ForgetPlayerData on wipe.
                 Safe("переменные", () => Lvn.Content.LocalStateStore.Forget(titleId));
                 foreach (var k in _registered)
                     if (k.Title != null) Safe(k.What, () => k.Title(titleId));

@@ -101,7 +101,14 @@ namespace Lvn
             if (_known == null) LoadKnown();
             using (Batch())
             {
-                foreach (var k in _known) Drop(k);
+                foreach (var k in _known)
+                {
+                    Drop(k);
+                    // Older stores registered the primary scoped key but wrote
+                    // its backup by appending .bak. Forget those copies too:
+                    // recovering a missing primary must not undo account deletion.
+                    Drop(k + ".bak");
+                }
                 Drop(PKeys);
             }
             _known.Clear();
@@ -239,6 +246,18 @@ namespace Lvn
             if (string.IsNullOrEmpty(key)) return;
             PlayerPrefs.DeleteKey(key);
             Settle();
+        }
+
+        /// <summary>ЗАБЫТЬ КЛЮЧ ВМЕСТЕ С ЕГО КЭШЕМ. Хранилища новелл (галерея
+        /// CG, катсцены) держат разобранную книжку в поле, чтобы экран не
+        /// разбирал её на каждый вопрос; удалить запись и не сбросить кэш —
+        /// значит показать забытое до конца сеанса. Пара «удалить + сбросить»
+        /// живёт здесь одним телом: копии этих трёх строк расходились молча.</summary>
+        public static void DropScoped<T>(string key, ref string cachedKey, ref T cached)
+            where T : class
+        {
+            Drop(key);
+            if (cachedKey == key) { cached = null; cachedKey = null; }
         }
 
         // ── запись в карандаше: для горячих путей ────────────────────────────
