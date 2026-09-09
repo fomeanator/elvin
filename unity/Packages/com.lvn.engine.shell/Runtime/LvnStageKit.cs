@@ -218,6 +218,36 @@ namespace Lvn.UI.Screens
         /// как у панели новостей на главной (Илья 09.09).</para></summary>
         public static float SheetPadDp => LvnStageSkin.SheetPad;
 
+        /// <summary>НИЗ НАД ЛЕНТОЙ: <paramref name="dp"/> от низа макета, где
+        /// домашняя полоса телефона уже учтена, — на живом экране её место
+        /// занимает настоящий вырез, если он больше. Одна формула для столбиков
+        /// и листов; раньше её носили в трёх местах.</summary>
+        public static float BottomAboveBar(VisualElement host, float dp)
+            => D(dp - LvnStageSkin.HomeBar) + Mathf.Max(LvnEdges.Bottom(host), D(LvnStageSkin.HomeBar));
+
+        /// <summary>ЛИСТ ВИТРИНЫ ПО ПАСПОРТУ. Поля, верх и низ — из
+        /// <see cref="LvnStageSkin.Sheet"/>: лист-вкладка (<paramref name="tab"/>)
+        /// начинается долей высоты, чтобы героиня оставалась в кадре, и стоит
+        /// над лентой меню; попап (деталь) идёт от шапки до домашней полосы —
+        /// лента ложится на него сверху, а его кнопки поднимаются на
+        /// <see cref="LvnStageSkin.SheetBox.Under"/>. Следит за вырезами сам.</summary>
+        public static void SheetFrame(VisualElement sheet, VisualElement host, bool tab)
+        {
+            if (sheet == null || host == null) return;
+            sheet.style.position = Position.Absolute;
+            SheetEdges(sheet, host, tab);
+            LvnEdges.Follow(host, _ => SheetEdges(sheet, host, tab));
+        }
+
+        public static void SheetEdges(VisualElement sheet, VisualElement host, bool tab)
+        {
+            var box = LvnStageSkin.Sheet;
+            sheet.style.left = D(box.Side); sheet.style.right = D(box.Side);
+            if (tab) sheet.style.top = Length.Percent(box.TabTop01 * 100f);
+            else sheet.style.top = LvnEdges.Top(host) + D(box.Top);
+            sheet.style.bottom = BottomAboveBar(host, tab ? box.Bottom : LvnStageSkin.HomeBar);
+        }
+
         /// <summary>ПРИЁМ ОБЛИКА ИЗ МАНИФЕСТА — один дом для всех экранов.
         /// Применяет паспорт метрик, сверяет имя облика с прежним и, если оно
         /// сменилось, запоминает и зовёт <paramref name="onChanged"/>. Раньше
