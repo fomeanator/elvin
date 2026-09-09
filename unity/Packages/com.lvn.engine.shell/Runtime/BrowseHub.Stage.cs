@@ -64,6 +64,11 @@ namespace Lvn.UI.Screens
         /// вуалей.</summary>
         private VisualElement BuildStageView()
         {
+            // ПАСПОРТ ОБЛИКА — ПЕРЕД СБОРКОЙ. Размеры рамок и столбиков берутся
+            // из манифеста, а не из констант кода: другой арт описывают рядом
+            // с артом. Зов идёт от каждого экрана облика, поэтому порядок их
+            // появления роли не играет.
+            LvnStageSkin.Apply(_cfg?.skin_metrics);
             var view = new VisualElement { pickingMode = PickingMode.Ignore };
             ScreenUi.Stretch(view);
 
@@ -77,9 +82,9 @@ namespace Lvn.UI.Screens
             var stack = new VisualElement { pickingMode = PickingMode.Ignore };
             _stageStack = stack;
             stack.style.position = Position.Absolute;
-            stack.style.right = D(15f);
-            stack.style.bottom = D(117f);
-            stack.style.width = D(257f);
+            stack.style.right = D(LvnStageSkin.Home.Right);
+            stack.style.bottom = D(LvnStageSkin.Home.Bottom);
+            stack.style.width = D(LvnStageSkin.Home.Width);
             stack.style.flexDirection = FlexDirection.Column;
             stack.style.alignItems = Align.FlexEnd;
             stack.style.justifyContent = Justify.FlexEnd;
@@ -118,19 +123,20 @@ namespace Lvn.UI.Screens
         private VisualElement StagePanel()
         {
             var p = new VisualElement { pickingMode = PickingMode.Ignore };
-            p.style.width = D(200f); p.style.height = D(124f);
+            float pw = LvnStageSkin.Panel.Width, ph = LvnStageSkin.Panel.Height;
+            p.style.width = D(pw); p.style.height = D(ph);
             p.style.marginRight = D(2f);
             p.style.flexShrink = 0;
-            p.Add(StageImage("panel.png", 0f, 0f, D(200f), D(124f)));
+            p.Add(StageImage("panel.png", 0f, 0f, D(pw), D(ph)));
 
             var head = LvnStageKit.Plaque(() => LvnWords.Pick("hub.news", _cfg.news_title, "News"));
-            At(head, 0f, 0f, D(200f), D(28f));
+            At(head, 0f, 0f, D(pw), D(28f));
             p.Add(head);
 
             var body = StageLabel(
                 () => LvnWords.Pick("hub.news_empty", _cfg.news_empty_text, "No new messages").ToUpperInvariant(),
                 LvnTokens.TextBase, _dim, medium: true);
-            At(body, 0f, D(43f), D(200f), D(28f));
+            At(body, 0f, D(43f), D(pw), D(28f));
             p.Add(body);
 
             var open = StageButton(() => LvnWords.Pick("hub.open", _cfg.open_text, "Open"), ShowLibrary);
@@ -161,9 +167,11 @@ namespace Lvn.UI.Screens
         private VisualElement StageCard()
         {
             var c = new VisualElement();
-            c.style.width = D(257f); c.style.height = D(255f);
+            float cw = LvnStageSkin.CardFront.Width, chh = LvnStageSkin.CardFront.Height;
+            c.style.width = D(cw); c.style.height = D(chh);
             c.style.flexShrink = 0;
-            c.Add(StageImage("card-back.png", -D(3f), D(7f), D(263f), D(241f)));
+            c.Add(StageImage("card-back.png", -D(3f), D(7f),
+                              D(LvnStageSkin.CardBack.Width), D(LvnStageSkin.CardBack.Height)));
 
             _stageCover = new VisualElement { pickingMode = PickingMode.Ignore };
             At(_stageCover, D(10f), D(19f), D(237f), D(131f));
@@ -173,7 +181,7 @@ namespace Lvn.UI.Screens
             LvnPicture.Fit(_stageCover);
             c.Add(_stageCover);
 
-            c.Add(StageImage("card-front.png", 0f, 0f, D(257f), D(255f)));
+            c.Add(StageImage("card-front.png", 0f, 0f, D(cw), D(chh)));
 
             var head = LvnStageKit.Plaque(() =>
                 _stageFeatured != null && LvnProgress.Current(_stageFeatured) != null
@@ -243,9 +251,10 @@ namespace Lvn.UI.Screens
         private VisualElement StageAdButton()
         {
             var b = new VisualElement();
-            b.style.width = D(106f); b.style.height = D(39f);
+            float aw = LvnStageSkin.Adv.Width, ah = LvnStageSkin.Adv.Height;
+            b.style.width = D(aw); b.style.height = D(ah);
             b.style.flexShrink = 0;
-            b.Add(StageImage("adv.png", 0f, 0f, D(106f), D(39f)));
+            b.Add(StageImage("adv.png", 0f, 0f, D(aw), D(ah)));
             _stageAdAmount = StageLabel(null, LvnTokens.TextLg, LvnTokens.Gold, medium: true);
             At(_stageAdAmount, D(45f), D(9f), D(36f), D(22f));
             // Число прижато к значку видео слева; кристалл нарисован правее.
@@ -316,7 +325,7 @@ namespace Lvn.UI.Screens
         /// <summary>Домашняя полоса телефона в макете: нижние 34 dp кадра
         /// нарисованы внутри меню. Вырез меньше — меню остаётся высотой макета;
         /// больше — растёт на разницу, и столбик поднимается вместе с ним.</summary>
-        private const float StageHomeBarDp = 34f;
+        private static float StageHomeBarDp => LvnStageSkin.HomeBar;
 
         /// <summary>Кромки облика «сцена»: рисованное меню и столбик считают от
         /// нижнего выреза, но не короче, чем нарисовано в макете.</summary>
@@ -329,7 +338,7 @@ namespace Lvn.UI.Screens
                 _bottomNav.style.height = D(146f - StageHomeBarDp) + inset;
             }
             if (_stageStack != null)
-                _stageStack.style.bottom = D(117f - StageHomeBarDp) + inset;
+                _stageStack.style.bottom = D(LvnStageSkin.Home.Bottom - StageHomeBarDp) + inset;
         }
 
         // ── нижнее меню ──────────────────────────────────────────────────────
