@@ -180,6 +180,11 @@ namespace Lvn.UI
         /// then signal the host loop.</summary>
         public void RequestExit()
         {
+            // ПЕРЕСМОТР КОНЧАЕТСЯ ЗДЕСЬ ЖЕ. Игрок жмёт «выйти в меню» — а
+            // главы, из которой выходить, нет: катсцену смотрят из галереи.
+            // Автосохранение тем более не наше дело: пересмотр не двигает
+            // прогресс и записал бы игроку чужое место в главе.
+            if (!string.IsNullOrEmpty(_cutsceneWatch)) { FinishCutsceneWatch(); return; }
             AutosaveNow();
             ExitRequested = true;
         }
@@ -722,6 +727,7 @@ namespace Lvn.UI
             }
             _cutsceneWatch = cutsceneId;
             _cutsceneDone = onEnd;
+            ShowCutsceneExit();
             _player.ReplayVisuals(at);
             _player.ContinueFrom(at);
             return true;
@@ -741,7 +747,46 @@ namespace Lvn.UI
             var done = _cutsceneDone;
             _cutsceneWatch = null;
             _cutsceneDone = null;
+            _cutsceneExit?.RemoveFromHierarchy();
+            _cutsceneExit = null;
             done?.Invoke();
+        }
+
+        private VisualElement _cutsceneExit;
+
+        /// <summary>
+        /// ВЫХОД ИЗ ПЕРЕСМОТРА — единственная кнопка на кадре.
+        ///
+        /// <para>Катсцена играет без интерфейса: реплики, меню и бургер убраны
+        /// нарочно, ради кадра. Из главы игрок вышел бы бургером, а тут его
+        /// нет — и до конца нарезки он заперт («надо обыграть выход в меню» —
+        /// Илья 09.09).</para>
+        ///
+        /// <para>Кнопка живёт на корне СЦЕНЫ, а не в хроме: хром на время
+        /// катсцены спрятан, и кнопка ушла бы вместе с ним. Она крохотная, в
+        /// углу, и НЕ перехватывает тапы по центру — внутри сцены ими листают
+        /// реплики.</para>
+        /// </summary>
+        private void ShowCutsceneExit()
+        {
+            var host = GetComponent<UIDocument>()?.rootVisualElement;
+            if (host == null) return;
+            _cutsceneExit?.RemoveFromHierarchy();
+            var btn = new Label("×") { name = "cutscene-exit" };
+            btn.style.position = Position.Absolute;
+            btn.style.right = 16f;
+            btn.style.top = LvnEdges.Top(host, 16f);
+            btn.style.width = 44f;
+            btn.style.height = 44f;
+            btn.style.unityTextAlign = TextAnchor.MiddleCenter;
+            btn.style.fontSize = LvnTokens.TextLg;
+            btn.style.color = LvnTokens.Text;
+            btn.style.backgroundColor = LvnTokens.Veil(0.45f);
+            LvnChrome.Round(btn, 22f);
+            btn.AddManipulator(new Clickable(() => RequestExit()));
+            LvnMotion.Tappable(btn);
+            host.Add(btn);
+            _cutsceneExit = btn;
         }
 
         public bool RollbackSteps(int steps)
