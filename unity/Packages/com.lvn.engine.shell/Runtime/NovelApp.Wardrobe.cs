@@ -147,6 +147,14 @@ namespace Lvn.UI.Screens
 
             var cfg = _manifest?.ui?.wardrobe;
             if (HasWardrobe(cfg?.entity)) return cfg.entity;
+            // НАЗВАЛИ, НО У НЕГО НЕТ ШКАФА — ГОВОРИМ ВСЛУХ. Молчание здесь
+            // стоило живого бага: ui.wardrobe.entity указывал на переименованный
+            // пак, у которого шкаф не описан, — и лист молча открывал ПЕРВОГО
+            // попавшегося со шкафом во всём манифесте. Игрок жал «гардероб»
+            // посреди главы и получал чужую героиню из другой новеллы (09.09).
+            if (!string.IsNullOrEmpty(cfg?.entity))
+                LvnLog.Warn($"[lvn-wardrobe] ui.wardrobe.entity=«{cfg.entity}» — у него нет шкафа "
+                          + "(sprites.<id>.wardrobe); открываем того, кого найдём сами");
             var onStage = stage != null ? stage.ActorsOnStage() : new List<string>();
             foreach (var id in onStage) if (HasWardrobe(id) && WritesStory(id)) return id;
             foreach (var id in sprites.Keys) if (HasWardrobe(id) && WritesStory(id)) return id;
