@@ -274,6 +274,18 @@ namespace Lvn.UI.Screens
         // Один отсчёт автоухода на все открытия — заводится при первом.
         private IVisualElementScheduledItem _barAutoHide;
 
+        /// <summary>Открыто ли контекстное меню главы — у Режиссёра, не у виджета.</summary>
+        private static bool QuickMenuOpen
+            => Lvn.UI.LvnScreenDirector.Current.IsOpen(Lvn.UI.LvnScreenDirector.QuickMenu);
+
+        /// <summary>ПОРА ЛИ БАРУ УЙТИ ПО ТИШИНЕ: он показан, и над ним нет
+        /// открытого меню. Правило одно на оба места, где живёт отсчёт: бар,
+        /// открытый самим меню (тап по бургеру в бабликах при спрятанном
+        /// баре), взводил отсчёт при показе, а паузу получал только «уже
+        /// показанный» — и через пять секунд уезжал из-под открытого меню
+        /// («навбар скрывается хотя контекстное меню открыто» — Илья 09.09).</summary>
+        public static bool BarRests(bool barShown, bool menuOpen) => barShown && !menuOpen;
+
         private void ToggleGameBar(bool? force = null)
         {
             bool show = force ?? !_gameBarShown;
@@ -307,8 +319,9 @@ namespace Lvn.UI.Screens
                 // бар раньше срока, посреди объяснения. Оба смотрели только на
                 // «бар открыт?», а не на «моё ли это открытие».
                 _barAutoHide ??= schedule.Execute(
-                    () => { if (_gameBarShown) ToggleGameBar(false); });
-                _barAutoHide.ExecuteLater(GameBarQuietMs);
+                    () => { if (BarRests(_gameBarShown, QuickMenuOpen)) ToggleGameBar(false); });
+                if (QuickMenuOpen) _barAutoHide.Pause();   // меню открыто — отсчёт не идёт
+                else _barAutoHide.ExecuteLater(GameBarQuietMs);
             }
             else
             {
@@ -726,8 +739,8 @@ namespace Lvn.UI.Screens
                 Lvn.UI.LvnScreenDirector.QuickMenu);
             if (menuOpen)
             {
-                if (!_gameBarShown) ToggleGameBar(true);
-                else _barAutoHide?.Pause();
+                if (!_gameBarShown) ToggleGameBar(true);   // показ при открытом меню отсчёт не заводит
+                _barAutoHide?.Pause();
             }
             else if (_gameBarShown && _barAutoHide != null)
             {
