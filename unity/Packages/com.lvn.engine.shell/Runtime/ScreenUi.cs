@@ -121,11 +121,15 @@ namespace Lvn.UI.Screens
         public static void PhoneColumn(VisualElement el)
         {
             if (el == null) return;
+            // ЦЕНТР — СДВИГОМ, А НЕ ПОЛЯМИ. Корень растянут абсолютно
+            // (left=right=0), и автоматические поля в такой раскладке остаток
+            // не делят: полоса молча прижалась к левому краю. Держим левый край
+            // на середине и отодвигаем на половину собственной ширины.
+            el.style.width = Length.Percent(100f);
             el.style.maxWidth = PhoneWidth;
-            // Абсолютный корень растянут left=right=0; автоматические поля
-            // делят остаток поровну и ставят полосу по центру.
-            el.style.marginLeft = StyleKeyword.Auto;
-            el.style.marginRight = StyleKeyword.Auto;
+            el.style.left = Length.Percent(50f);
+            el.style.right = StyleKeyword.Auto;
+            el.style.translate = new Translate(Length.Percent(-50f), 0f);
         }
 
         /// <summary>Ширина холста, на котором нарисована оболочка.</summary>

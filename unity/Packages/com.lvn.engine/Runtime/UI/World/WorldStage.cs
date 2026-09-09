@@ -657,6 +657,30 @@ namespace Lvn.UI.World
         private static float LocalDriftSign(Placement p)
             => LvnFade.DriftSign(p.X) * (p.Flip ? -1f : 1f);
 
+        /// <summary>
+        /// ПОЛОСА КОМПОЗИЦИИ: доля ширины экрана, в которой стоят фигуры.
+        ///
+        /// <para>Единица — весь экран. На телефоне холст матчится по ширине, и
+        /// полоса равна экрану; на боку холст матчится по высоте, ширина
+        /// становится втрое больше опорной — и полоса сжимается до опорной,
+        /// оставаясь по центру. Ровно та же ширина, что у полосы оболочки, и
+        /// потому «героиня слева, панели справа» читается одинаково на
+        /// телефоне и на планшете.</para>
+        /// </summary>
+        internal static float BandFraction(float referenceWidth, float logicalWidth)
+            => logicalWidth <= referenceWidth + 0.5f || referenceWidth <= 0f
+               ? 1f : referenceWidth / logicalWidth;
+
+        /// <summary>Долю ширины СЦЕНЫ перевести в долю ширины ЭКРАНА: середина
+        /// остаётся серединой, края сходятся к полосе.</summary>
+        internal static float BandX(float x01, float referenceWidth, float logicalWidth)
+        {
+            float band = BandFraction(referenceWidth, logicalWidth);
+            return 0.5f + (x01 - 0.5f) * band;
+        }
+
+        private float BandX(float x01, float logicalWidth) => BandX(x01, _reference.x, logicalWidth);
+
         private void ApplyPlacement(string id, WorldActor a, Placement p)
         {
 
@@ -691,14 +715,20 @@ namespace Lvn.UI.World
             // the screen). Remap across the REAL logical width with soft edge
             // anchoring: left-half slots keep their inset from the LEFT edge,
             // right-half from the RIGHT (portrait-frame ratios, sqrt-softened).
-            float x01 = p.X;
-            if (lw > _reference.x + 0.5f)
-            {
-                float k = Mathf.Sqrt(_reference.x / lw);
-                x01 = p.X < 0.5f ? p.X * k
-                    : p.X > 0.5f ? 1f - (1f - p.X) * k
-                    : 0.5f;
-            }
+            // СЛОТЫ ЖИВУТ В ПОЛОСЕ ТЕЛЕФОНА, А НЕ ВО ВСЮ ШИРИНУ ЭКРАНА.
+            //
+            // Холст матчится по высоте, когда экран лежит на боку: ширина
+            // становится втрое больше опорной, и «left» уезжает на четверть
+            // ПЛАНШЕТА — героиня оказывается за краем композиции, а панели
+            // оболочки стоят своей полосой по центру («на планшете надо
+            // по-другому героев ставить» — Илья 09.09).
+            //
+            // Прежде здесь стояло мягкое стягивание корнем: оно двигало фигуры
+            // к центру, но не туда, где их ждут подписи и панели. Полоса —
+            // ровно опорная ширина по центру экрана, та же, в которой живёт
+            // оболочка (ScreenUi.PhoneColumn), поэтому композиция на планшете
+            // повторяет телефонную вместо того, чтобы разъезжаться.
+            float x01 = BandX(p.X, lw);
             // Clamp on EVERY aspect, not only landscape. Named left/right slots
             // describe a side of the stage, not permission to crop a wide actor.
             // Use the fitted box and its actual anchor: the outer edge lands
