@@ -329,6 +329,12 @@ namespace Lvn.UI.Screens
             window.Add(frame);
             Lvn.UI.LvnPinch.Attach(window, frame);
 
+            // ТАП ПО КАДРУ ОСТАВЛЯЕТ ОДИН КАДР. Крестик, имя и кнопка нужны,
+            // чтобы прийти и уйти, но мешают тому, ради чего пришли: смотреть
+            // арт. Одно нажатие убирает их, второе возвращает — привычка любой
+            // просмотрелки картинок.
+            window.RegisterCallback<ClickEvent>(_ => BareArt(!_bare));
+
             var name = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of(e.Name, e.Name));
             name.style.color = LvnTokens.Text;
             name.style.fontSize = LvnTokens.TextBase;
@@ -390,6 +396,13 @@ namespace Lvn.UI.Screens
             // НА САМЫЙ ВЕРХ, А НЕ ВНУТРЬ ЭКРАНА. Галерея живёт в слое окон, а
             // шапка витрины — выше него: разворот внутри экрана оставлял над
             // картинкой имя игрока и кошельки, и «во весь экран» им не было.
+            // Что уходит по тапу: всё, кроме кадра.
+            _artParts.Clear();
+            _artParts.Add(name);
+            _artParts.Add(play);
+            _artParts.Add(close);
+            _bare = false;
+
             var top = panel?.visualTree ?? (VisualElement)this;
             top.Add(art);
             OnPeek?.Invoke(true);
@@ -400,11 +413,25 @@ namespace Lvn.UI.Screens
             name.style.marginBottom = LvnTokens.Space3;
         }
 
+        /// <summary>Спрятать или вернуть всё, кроме самой картинки.</summary>
+        private void BareArt(bool bare)
+        {
+            if (_art == null) return;
+            _bare = bare;
+            var vis = bare ? DisplayStyle.None : DisplayStyle.Flex;
+            foreach (var part in _artParts) if (part != null) part.style.display = vis;
+        }
+
+        private bool _bare;
+        private readonly List<VisualElement> _artParts = new List<VisualElement>();
+
         private void CloseArt()
         {
             if (_art == null) return;
             _art.RemoveFromHierarchy();
             _art = null;
+            _artParts.Clear();
+            _bare = false;
             OnPeek?.Invoke(false);
         }
 
