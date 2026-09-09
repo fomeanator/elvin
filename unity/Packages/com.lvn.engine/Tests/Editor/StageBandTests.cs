@@ -1,5 +1,7 @@
+using Lvn.UI;
 using Lvn.UI.World;
 using NUnit.Framework;
+using UnityEngine.UIElements;
 
 namespace Lvn.Tests
 {
@@ -20,6 +22,21 @@ namespace Lvn.Tests
             Assert.AreEqual(1f, WorldStage.BandFraction(Ref, Ref), 1e-4f, "холст равен опорному");
             Assert.AreEqual(1f, WorldStage.BandFraction(Ref, 900f), 1e-4f, "уже опорного — всё равно весь");
             Assert.AreEqual(0.25f, WorldStage.BandX(0.25f, Ref, Ref), 1e-4f, "слот стоит там, где назван");
+        }
+
+        [Test]
+        public void TheChromeBandIsHeldByInsetsNotByATranslate()
+        {
+            // Вырезной контейнер пишет свои left/right сам при каждом пересчёте
+            // выреза; сдвиг снаружи он перетирал наполовину — реплика уезжала за
+            // левый край. Полоса — его собственное поле, translate не трогается.
+            var el = new SafeAreaElement { MaxWidth = Ref };
+            Assert.AreEqual(StyleKeyword.Null, el.style.translate.keyword, "никакого сдвига на контейнере выреза");
+            Assert.AreEqual(0f, SafeAreaElement.BandInset(Ref, Ref), "на телефоне полей нет");
+            Assert.AreEqual(0f, SafeAreaElement.BandInset(900f, Ref), "уже опорного — тоже");
+            Assert.AreEqual(1080f, SafeAreaElement.BandInset(3240f, Ref), "планшет: половина остатка с края");
+            Assert.AreEqual(0f, SafeAreaElement.BandInset(0f, Ref), "до раскладки — без полей");
+            Assert.AreEqual(0f, SafeAreaElement.BandInset(3240f, 0f), "ноль — во всю ширину");
         }
 
         [Test]
