@@ -85,6 +85,10 @@ namespace Lvn.UiLab
             var go = new GameObject("NovelApp");
             var app = go.AddComponent<NovelApp>();
             app.ServerUrl = ServerOverride() ?? ServerUrl;
+            // Та же тема, что у продукта и песочницы: без стилей Unity по
+            // умолчанию у кнопок нет выравнивания, а прокрутка не режется
+            // окном — стенд показывал не то, что видит устройство.
+            app.ThemeResourcePath = "UI/AppLoading/UnityDefaultRuntimeTheme";
             Object.DontDestroyOnLoad(go);
         }
     }
