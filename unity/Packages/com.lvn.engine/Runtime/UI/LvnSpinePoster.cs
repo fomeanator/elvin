@@ -197,6 +197,14 @@ namespace Lvn.UI
             cam.backgroundColor = new Color(0f, 0f, 0f, 0f);
             cam.targetTexture = rt;
             cam.allowHDR = false; cam.allowMSAA = false;
+            // СНИМАЕМ РЕЖЕ, ЧЕМ ИДУТ КАДРЫ. Камера с целевой текстурой рисует
+            // КАЖДЫЙ кадр, и на экране их несколько сразу (лента, витрина,
+            // столбик магазина): фигура в интерфейсе — не игровая сцена, её
+            // движение читается и вполовину реже, а кадры игре нужнее
+            // («что-то сжирает кадры, давай спайн ограничим» — Илья 09.09).
+            cam.enabled = false;
+            var driver = camGo.AddComponent<Ticker>();
+            driver.Camera = cam;
 
             var go = LvnSpineBridge.Create(crt, kit.Json, kit.Atlas, kit.Textures, spine.scale, kit.Bg);
             if (go == null) { Cleanup(root, rt, ledger, kit.Sprites); onFallback?.Invoke(); return; }
@@ -225,6 +233,38 @@ namespace Lvn.UI
             EventCallback<DetachFromPanelEvent> onDetach = null;
             onDetach = _ => { host.UnregisterCallback(onDetach); Cleanup(root, rt, ledger, pinned); };
             host.RegisterCallback(onDetach);
+        }
+
+        /// <summary>Сколько раз в секунду постер переснимает фигуру. Экран
+        /// обновляется чаще, но фигура в интерфейсе не игровая сцена: движение
+        /// на 30 кадрах читается тем же, а половина работы уходит. Число одно
+        /// на все постеры — их на экране бывает пять.</summary>
+        public const float Hz = 30f;
+
+        /// <summary>Пора ли снимать заново. Чистая функция, чтобы правило было
+        /// проверяемо без камеры и кадров (и чтобы «раз в 1/30» не разъехалось
+        /// с тем, что делает <see cref="Ticker"/>).</summary>
+        public static bool ShouldRender(float lastRender, float now)
+            => lastRender < 0f || now - lastRender >= 1f / Hz;
+
+        /// <summary>Часовой постера: держит камеру выключенной и сам зовёт
+        /// съёмку с частотой <see cref="Hz"/>. Живёт на объекте камеры и умирает
+        /// вместе с установкой, поэтому гасить его отдельно нечем и незачем.</summary>
+        internal sealed class Ticker : MonoBehaviour
+        {
+            public Camera Camera;
+            private float _last = -1f;
+
+            private void LateUpdate()
+            {
+                // ПОСЛЕ анимации: скелет считает позу в Update, снимать раньше
+                // значило бы показывать кадр отставшим на один.
+                if (Camera == null) { Destroy(this); return; }
+                float now = Time.unscaledTime;
+                if (!ShouldRender(_last, now)) return;
+                _last = now;
+                Camera.Render();
+            }
         }
 
         private static void Cleanup(GameObject root, RenderTexture rt,
