@@ -98,6 +98,10 @@ namespace Lvn.UI.Screens
             _stageAd = StageAdButton();
             stack.Add(_stageAd);
 
+            // Высота экрана известна только после раскладки — и меняется на
+            // повороте; столбик подгоняется при каждой смене геометрии.
+            view.RegisterCallback<GeometryChangedEvent>(_ => ApplyStageSafeArea());
+
             // Награда за рекламу: число приходит с сервера (каталог площадок)
             // и меняется по мере просмотров — слушаем, пока хаб на экране.
             Lvn.LvnLeash.WhileOnScreen(this,
@@ -326,9 +330,28 @@ namespace Lvn.UI.Screens
         /// нарисованы внутри меню. Вырез меньше — меню остаётся высотой макета;
         /// больше — растёт на разницу, и столбик поднимается вместе с ним.</summary>
         private static float StageHomeBarDp => LvnStageSkin.HomeBar;
+        /// <summary>Шапка макета: ряд 32 dp плюс логотип, свисающий под него
+        /// (блок 58 dp), плюс воздух до столбика.</summary>
+        private const float StageTopBlockDp = 58f + 12f;
+        /// <summary>Столбик без воздуха: панель, карточка, кнопка награды и
+        /// два минимальных зазора — ниже он не ужмётся, дальше только масштаб.</summary>
+        private const float StageStackMinDp = 124f + 255f + 39f + 2f * 8f;
+        /// <summary>Ниже этого столбик не масштабируем: подписи перестают читаться.</summary>
+        private const float StageMinScale = 0.55f;
 
-        /// <summary>Кромки облика «сцена»: рисованное меню и столбик считают от
-        /// нижнего выреза, но не короче, чем нарисовано в макете.</summary>
+        /// <summary>
+        /// АДАПТИВ ОБЛИКА «СЦЕНА»: макет нарисован под один телефон (390×844),
+        /// а экраны разные — 16:9, 20:9, планшет 4:3.
+        ///
+        /// <para>Ширина у панели всегда 1080 единиц (match width), поэтому по
+        /// горизонтали макет ложится как есть. Меняется высота, и вот как её
+        /// принимает столбик справа: он стоит от нижнего меню до шапки, и на
+        /// короткой высоте сначала ужимаются зазоры (33 → 8 dp), а если и так
+        /// не влезает — столбик масштабируется от своего нижнего правого угла,
+        /// чтобы верхняя панель не заехала под логотип. Рисованное меню и
+        /// шапка считают от вырезов, но не короче, чем нарисовано в макете.
+        /// Кукла — у сцены (<see cref="LvnMenuStage.DollHeightOnScreen"/>).</para>
+        /// </summary>
         private void ApplyStageSafeArea()
         {
             float inset = Mathf.Max(LvnEdges.Bottom(this), D(StageHomeBarDp));
@@ -337,8 +360,18 @@ namespace Lvn.UI.Screens
                 _bottomNav.style.paddingBottom = 0;
                 _bottomNav.style.height = D(146f - StageHomeBarDp) + inset;
             }
-            if (_stageStack != null)
-                _stageStack.style.bottom = D(LvnStageSkin.Home.Bottom - StageHomeBarDp) + inset;
+            if (_stageStack == null) return;
+            float bottom = D(LvnStageSkin.Home.Bottom - StageHomeBarDp) + inset;
+            float top = LvnEdges.Top(this) + D(StageTopBlockDp);
+            _stageStack.style.bottom = bottom;
+            _stageStack.style.top = top;
+            float viewH = resolvedStyle.height;
+            if (float.IsNaN(viewH) || viewH <= 1f) return;   // до первой раскладки
+            float avail = viewH - top - bottom;
+            float need = D(StageStackMinDp);
+            float scale = avail >= need ? 1f : Mathf.Max(StageMinScale, avail / need);
+            _stageStack.style.scale = new Scale(new Vector2(scale, scale));
+            _stageStack.style.transformOrigin = new TransformOrigin(Length.Percent(100f), Length.Percent(100f));
         }
 
         // ── нижнее меню ──────────────────────────────────────────────────────
