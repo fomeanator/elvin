@@ -548,13 +548,21 @@ namespace Lvn.UI.Screens
         /// отдельный слой в корне хаба и никуда не едет).</summary>
         public VisualElement ContentRoot => _hubView;
 
-        /// <summary>ПОКАЗАТЬ ВСЕ НОВЕЛЛЫ — содержимое комнаты «список». Комната
-        /// живёт над главной и приезжает полотном, а внутри показывает тот же
-        /// список, что раньше открывался кнопкой панели.</summary>
-        public void ShowAllTitles() => ShowLibrary();
+        /// <summary>КАРТОЧКА НОВЕЛЛЫ ДЛЯ КОМНАТЫ СПИСКА. Собирает её хаб: здесь
+        /// живут прогресс, замки и открытие детали, и вторая копия этой логики
+        /// разошлась бы с первой. Комната отвечает только за прокрутку.</summary>
+        public VisualElement TitleCardFor(LvnTitle t) => t == null ? null : TitleCard(t);
 
-        /// <summary>Вернуть витрину к главной — комната сменилась.</summary>
-        public void ShowHubView() => ShowHub();
+        /// <summary>Все новеллы витрины по порядку каталога.</summary>
+        public IReadOnlyList<LvnTitle> AllTitles
+        {
+            get
+            {
+                var list = new List<LvnTitle>();
+                foreach (var kv in _titles) list.Add(kv.Value);
+                return list;
+            }
+        }
 
         /// <summary>Заголовок раздела ленты: слово проходит через тему —
         /// она вправе написать его прописными или добавить разрядку.</summary>

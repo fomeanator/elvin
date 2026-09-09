@@ -63,6 +63,92 @@ namespace Lvn.UI.Screens
 
         private bool _detailPopupArmed;
 
+        /// <summary>
+        /// КАРТОЧКА НОВЕЛЛЫ В ОБЛИКЕ — та же рамка, что у карточки главной.
+        ///
+        /// <para>Список показывал новеллы строками прежней темы: цветная
+        /// плашка, обложка слева, текст справа. Рядом на главной стоит рисованная
+        /// карточка с рамкой, плашкой и нарисованной кнопкой — и один и тот же
+        /// «Агентство» выглядел в двух местах по-разному.</para>
+        ///
+        /// <para>Обложка ставится картинкой, а не живым спайном: в списке
+        /// карточек много, и каждый постер держал бы свою камеру с текстурой.
+        /// Спайн остаётся приметой ГЛАВНОЙ — там он один.</para>
+        /// </summary>
+        private VisualElement StageTitleCard(LvnTitle t)
+        {
+            float cw = LvnStageSkin.CardFront.Width, ch = LvnStageSkin.CardFront.Height;
+            var c = new VisualElement();
+            c.style.width = D(cw); c.style.height = D(ch);
+            c.style.flexShrink = 0;
+            c.style.marginBottom = D(10f);
+            c.style.alignSelf = Align.Center;
+
+            c.Add(StageImage("card-back.png", -D(3f), D(7f),
+                             D(LvnStageSkin.CardBack.Width), D(LvnStageSkin.CardBack.Height)));
+
+            var cover = new VisualElement { pickingMode = PickingMode.Ignore };
+            At(cover, D(10f), D(19f), D(237f), D(131f));
+            cover.style.backgroundColor = _card;
+            LvnChrome.Round(cover, D(5f));
+            cover.style.overflow = Overflow.Hidden;
+            LvnPicture.Fit(cover);
+            var art = t.CardArt();
+            if (!string.IsNullOrEmpty(art)) LvnPicture.Photo(cover, art, _assets);
+            c.Add(cover);
+
+            c.Add(StageImage("card-front.png", 0f, 0f, D(cw), D(ch)));
+
+            bool locked = IsLocked(t);
+            var head = LvnStageKit.Plaque(() => locked
+                ? LvnWords.Pick("hub.locked", _cfg.locked_text, "Locked")
+                : LvnProgress.Current(t) != null
+                    ? LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue")
+                    : LvnWords.Pick("hub.open", _cfg.open_text, "Open"));
+            At(head, D(23f), 0f, D(211f), D(28f));
+            c.Add(head);
+
+            var row = ScreenUi.Row(new VisualElement { pickingMode = PickingMode.Ignore });
+            At(row, D(17f), D(124f), D(224f), D(14f));
+            var bar = LvnStageKit.Progress(out var fill);
+            bar.style.flexGrow = 1;
+            row.Add(bar);
+            var counter = StageLabel(() => ChapterCounter(t), LvnTokens.TextSm, _text);
+            counter.style.marginLeft = D(14f);
+            counter.style.flexShrink = 0;
+            row.Add(counter);
+            c.Add(row);
+            int total = t.ChaptersOf().Count;
+            LvnStageKit.Fill(fill, total > 0
+                ? Mathf.Clamp01((float)Mathf.Clamp(LvnProgress.Reached(t), 0, total) / total) : 0f);
+
+            var caption = new VisualElement { pickingMode = PickingMode.Ignore };
+            caption.style.position = Position.Absolute;
+            caption.style.left = D(12f); caption.style.top = D(162f); caption.style.width = D(234f);
+            var name = StageLabel(() => LvnWords.Name("title", t.id, t.name), LvnTokens.TextXl, LvnTokens.Gold);
+            name.style.whiteSpace = WhiteSpace.Normal;
+            caption.Add(name);
+            var sub = StageLabel(() => LvnWords.Name("subtitle", t.id, t.subtitle ?? ""),
+                                 LvnTokens.TextXs, LvnTokens.TextDim);
+            sub.style.marginTop = D(6f);
+            caption.Add(sub);
+            c.Add(caption);
+
+            void Open()
+            {
+                if (locked) { FireLockedHint(LvnWords.Name("title", t.id, t.name), t.locked_hint ?? ""); return; }
+                OpenDetail(t, CurrentCollectionOf(t));
+            }
+            var open = StageButton(() => locked
+                ? LvnWords.Pick("hub.locked", _cfg.locked_text, "Locked")
+                : LvnWords.Pick("hub.open", _cfg.open_text, "Open"), Open);
+            At(open, D(54f), D(213f), D(150f), D(42f));
+            c.Add(open);
+
+            c.AddManipulator(new Clickable(Open));
+            return c;
+        }
+
         /// <summary>Вид облика: своя заливка снимается, задник — рамка со своей
         /// серединой, полоса не шире телефона.</summary>
         private void DressView(VisualElement view)

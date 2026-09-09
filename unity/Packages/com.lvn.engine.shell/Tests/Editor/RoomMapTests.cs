@@ -19,7 +19,7 @@ namespace Lvn.Shell.Tests
             Assert.AreEqual(new Vector2(0.5f, 0.5f), LvnTabs.Room(LvnTabs.Home),     "главная — центр");
             Assert.AreEqual(new Vector2(0f, 1f),     LvnTabs.Room(LvnTabs.Wardrobe), "гардероб — слева снизу");
             Assert.AreEqual(new Vector2(1f, 1f),     LvnTabs.Room(LvnTabs.Store),    "магазин — справа снизу");
-            Assert.AreEqual(new Vector2(0.5f, 0f),   LvnTabs.Room(LvnTabs.Titles),   "список новелл — сверху по центру");
+            Assert.AreEqual(new Vector2(1f,   0f),   LvnTabs.Room(LvnTabs.Titles),   "список новелл — дальний угол, справа сверху");
             Assert.AreEqual(new Vector2(0.5f, 0.5f), LvnTabs.Room(99),               "незнакомая вкладка — центр, а не край");
         }
 
@@ -31,9 +31,9 @@ namespace Lvn.Shell.Tests
             Assert.Greater(LvnTabs.Room(LvnTabs.Wardrobe).y, LvnTabs.Room(LvnTabs.Home).y);
             Assert.Less(LvnTabs.Room(LvnTabs.Profile).y, LvnTabs.Room(LvnTabs.Home).y);
             Assert.Less(LvnTabs.Room(LvnTabs.Titles).y, LvnTabs.Room(LvnTabs.Home).y,
-                "список новелл — НАД главной: туда едут вверх");
-            Assert.AreEqual(LvnTabs.Room(LvnTabs.Home).x, LvnTabs.Room(LvnTabs.Titles).x, 1e-4f,
-                "и ровно над ней, а не по диагонали");
+                "список новелл — выше главной: туда едут вверх");
+            Assert.Greater(LvnTabs.Room(LvnTabs.Titles).x, LvnTabs.Room(LvnTabs.Home).x,
+                "и в дальний угол, а не по прямой — переезд должен читаться");
         }
 
         [Test]

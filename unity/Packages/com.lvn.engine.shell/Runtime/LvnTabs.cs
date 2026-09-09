@@ -76,7 +76,9 @@ namespace Lvn.UI.Screens
                 case Wardrobe: return new Vector2(0f,   1f);   // слева снизу
                 case Store:    return new Vector2(1f,   1f);   // справа снизу
                 case Gallery:  return new Vector2(1f,   0f);   // справа сверху (зеркало профиля)
-                case Titles:   return new Vector2(0.5f, 0f);   // сверху по центру — над главной
+                // Галерея и список делят угол: у одной новеллы включена
+                // галерея, у другой — список; вместе они не показываются.
+                case Titles:   return new Vector2(1f,   0f);   // дальний угол: справа сверху
                 default:       return new Vector2(0.5f, 0.5f);
             }
         }

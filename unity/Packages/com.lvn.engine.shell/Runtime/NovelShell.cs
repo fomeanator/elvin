@@ -59,6 +59,9 @@ namespace Lvn.UI.Screens
         public CgGalleryScreen Gallery { get; private set; }
         /// <summary>The player profile page.</summary>
         public ProfileScreen Profile { get; private set; }
+
+        /// <summary>Комната «Новеллы» — список отдельной страницей витрины.</summary>
+        public TitlesScreen Titles { get; private set; }
         /// <summary>The daily-rewards calendar.</summary>
         public DailyRewardsScreen Daily { get; private set; }
         /// <summary>Таблица лидеров. Экран был написан и переведён (подписи
@@ -287,6 +290,11 @@ namespace Lvn.UI.Screens
             Detail = new TitleDetailScreen(assets); Add(Detail);
             Gallery = new CgGalleryScreen(assets); Add(Gallery);
             Profile = new ProfileScreen(assets); Add(Profile);
+            // Комната списка: карточки собирает хаб — облик и поведение у
+            // списка и главной общие, второй копии этой логики быть не должно.
+            Titles = new TitlesScreen(); Add(Titles);
+            Titles.Card = t => Hub?.TitleCardFor(t);
+            Titles.Titles = () => Hub?.AllTitles;
             Daily = new DailyRewardsScreen(assets); Add(Daily);
             Leaderboard = new LeaderboardScreen(assets); Add(Leaderboard);
             PackShop = new PackShopScreen(assets); Add(PackShop);
@@ -370,6 +378,7 @@ namespace Lvn.UI.Screens
                 DownloadHud = new Lvn.UI.Screens.DownloadHud();
                 // Кружок садится на циферблат логотипа, когда логотип на
                 // экране: шапка знает, где он, — кружок только спрашивает.
+                DownloadHud.MiniAnchor = () => TopBar?.LogoDialRect();
                 AddChrome(DownloadHud);
                 _root.schedule.Execute(() =>
                 {

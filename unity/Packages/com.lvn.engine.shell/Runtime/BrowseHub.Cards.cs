@@ -224,6 +224,7 @@ namespace Lvn.UI.Screens
         // name + a mini-description + a progress bar, and a cost/lock chip.
         private VisualElement TitleCard(LvnTitle t)
         {
+            if (Staged) return StageTitleCard(t);   // список носит тот же облик, что главная
             bool locked = IsLocked(t);
             var card = new VisualElement();
             card.style.flexDirection = FlexDirection.Row;
