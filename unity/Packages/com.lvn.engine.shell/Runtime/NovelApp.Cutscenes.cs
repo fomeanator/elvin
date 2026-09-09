@@ -73,6 +73,9 @@ namespace Lvn.UI.Screens
             // катсцен был открыт» — Илья 09.09).
             screen.OnForget = ForgetCutscenes;
             screen.OnDrop = DropCutscene;
+            // Картинка во весь экран просит убрать витрину — тем же приёмом,
+            // каким её убирает разглядывание фигуры в гардеробе.
+            screen.OnPeek = peek => _shell?.PeekChrome(peek);
             while (true)
             {
                 screen.ClearPick();
