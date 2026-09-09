@@ -734,6 +734,7 @@ namespace Lvn.UI
             // не реагирует на клики» — Илья 09.09). В просмотре убираются
             // только вопросы игроку: ввод и выборы.
             ShowCutsceneExit();
+            ShowCutsceneVeil();
             _player.ReplayVisuals(at);
             _player.Seek(at);   // предзагрузка смотрит вперёд ОТ ОТРЕЗКА, а не от начала главы
             // СПАЙН ПРОГРЕВАЕМ, как на входе в главу. Пересмотр шёл коротким
@@ -778,6 +779,10 @@ namespace Lvn.UI
             _cutsceneDone = null;
             _cutsceneExit?.RemoveFromHierarchy();
             _cutsceneExit = null;
+            // Занавес уходит вместе с просмотром: закрыли отрезок раньше, чем
+            // он собрался, — экран обязан вернуться, а не остаться чёрным.
+            _cutsceneVeil?.RemoveFromHierarchy();
+            _cutsceneVeil = null;
             done?.Invoke();
         }
 
@@ -794,7 +799,58 @@ namespace Lvn.UI
             // Пока грелись, просмотр могли закрыть — тогда пускать нечего.
             if (_player == null || _cutsceneWatch != watching) return;
             _player.ContinueFrom(at);
+            HideCutsceneVeil();
         }
+
+        /// <summary>
+        /// ЧЁРНЫЙ ЗАНАВЕС НА ВРЕМЯ СБОРКИ ОТРЕЗКА.
+        ///
+        /// <para>Сцена рисуется ПОВЕРХ витрины, а свой кадр она ставит не
+        /// мгновенно: восстановление вида и прогрев занимают доли секунды, и
+        /// всё это время сквозь пустую сцену видно то, что осталось на
+        /// витрине, — чужую новеллу с её фоном («при открытии катсцены на
+        /// секунду кухня открывается» — Илья 09.09).</para>
+        ///
+        /// <para>Занавес не «эффект»: он не даёт показать зрителю то, чего в
+        /// сцене нет. Уходит он плавно — так же, как проявляется кадр главы.</para>
+        /// </summary>
+        private void ShowCutsceneVeil()
+        {
+            var host = GetComponent<UIDocument>()?.rootVisualElement;
+            if (host == null) return;
+            _cutsceneVeil?.RemoveFromHierarchy();
+            var veil = new VisualElement { name = "cutscene-veil" };
+            veil.style.position = Position.Absolute;
+            veil.style.left = 0; veil.style.right = 0; veil.style.top = 0; veil.style.bottom = 0;
+            veil.style.backgroundColor = Color.black;
+            // Тапы сквозь занавес не проходят: отрезок ещё не начался, и
+            // нажатие пролистало бы первую же реплику вслепую.
+            veil.pickingMode = PickingMode.Position;
+            host.Add(veil);
+            _cutsceneVeil = veil;
+        }
+
+        private void HideCutsceneVeil()
+        {
+            var veil = _cutsceneVeil;
+            if (veil == null) return;
+            _cutsceneVeil = null;
+            veil.pickingMode = PickingMode.Ignore;
+            StartCoroutine(FadeVeilOut(veil));
+        }
+
+        private System.Collections.IEnumerator FadeVeilOut(VisualElement veil)
+        {
+            const float dur = 0.25f;
+            for (float t = 0f; t < dur; t += Time.unscaledDeltaTime)
+            {
+                veil.style.opacity = 1f - t / dur;
+                yield return null;
+            }
+            veil.RemoveFromHierarchy();
+        }
+
+        private VisualElement _cutsceneVeil;
 
         /// <summary>
         /// ВЫХОД ИЗ ПЕРЕСМОТРА — единственная кнопка на кадре.

@@ -193,6 +193,12 @@ namespace Lvn.UI
         /// <summary>«Во весь рост»: примерка продолжается, панель убрана.</summary>
         public const string PeekReason = "peek";
 
+        /// <summary>Снимок карточки катсцены: интерфейс убран на один кадр,
+        /// чтобы на превью остался чистый арт, а не реплика с кнопками
+        /// («скрин с элементами интерфейса делаем, надо без них» — Илья
+        /// 09.09).</summary>
+        public const string PosterReason = "poster";
+
         /// <summary>Долгое нажатие: игрок разглядывает арт, пока держит палец.</summary>
         public const string ArtViewReason = "art-view";
 
