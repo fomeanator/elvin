@@ -47,6 +47,10 @@ namespace Lvn.UI.Screens
         public const int Profile = 3;
         /// <summary>Галерея — вкладка БЕЗ страницы: открывает модаль.</summary>
         public const int Gallery = 4;
+        /// <summary>Список новелл — своя комната витрины НАД главной, а не вид
+        /// внутри хаба (схема Ильи 09.09: список сверху, главная в центре,
+        /// гардероб и магазин снизу по краям).</summary>
+        public const int Titles = 5;
 
         /// <summary>
         /// КАРТА КОМНАТ — где какая вкладка стоит в пространстве витрины.
@@ -72,6 +76,7 @@ namespace Lvn.UI.Screens
                 case Wardrobe: return new Vector2(0f,   1f);   // слева снизу
                 case Store:    return new Vector2(1f,   1f);   // справа снизу
                 case Gallery:  return new Vector2(1f,   0f);   // справа сверху (зеркало профиля)
+                case Titles:   return new Vector2(0.5f, 0f);   // сверху по центру — над главной
                 default:       return new Vector2(0.5f, 0.5f);
             }
         }
@@ -93,6 +98,7 @@ namespace Lvn.UI.Screens
         public static readonly IReadOnlyList<LvnTab> Shown = new[]
         {
             new LvnTab(Home,     LvnIcon.Home,     "nav.home",     "Home",     hasPage: true),
+            new LvnTab(Titles,   LvnIcon.Book,     "nav.titles",   "Novels",   hasPage: true),
             new LvnTab(Store,    LvnIcon.Store,    "nav.store",    "Store",    hasPage: true),
             new LvnTab(Wardrobe, LvnIcon.Wardrobe, "nav.wardrobe", "Wardrobe", hasPage: true),
             new LvnTab(Gallery,  LvnIcon.Gallery,  "nav.gallery",  "Gallery",  hasPage: false),

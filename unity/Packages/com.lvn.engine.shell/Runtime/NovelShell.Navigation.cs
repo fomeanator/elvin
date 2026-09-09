@@ -22,6 +22,10 @@ namespace Lvn.UI.Screens
         private (VisualElement el, LvnOverlayScreen scr) TabPage(int i) => i switch
         {
             LvnTabs.Home => (Hub?.ContentRoot, null),
+            // Список новелл — та же страница хаба, но своя КОМНАТА витрины:
+            // полотно едет к ней вверх, а внутри показывается список
+            // (BrowseHub сам переключает содержимое, см. TabGoTo ниже).
+            LvnTabs.Titles => (Hub?.ContentRoot, null),
             LvnTabs.Store => (PackShop, PackShop),
             LvnTabs.Wardrobe => (WardrobeTab, WardrobeTab),
             LvnTabs.Profile => (Profile, Profile),
@@ -87,6 +91,11 @@ namespace Lvn.UI.Screens
             var to = TabPage(target);
             if (to.el == null) return;
             _tabBusy = true;
+            // Содержимое хаба зависит от комнаты: главная показывает витрину,
+            // комната списка — все новеллы. Переключаем ДО переезда, чтобы
+            // полотно и содержимое ехали вместе, а не по очереди.
+            if (target == LvnTabs.Titles) Hub?.ShowAllTitles();
+            else if (_tab == LvnTabs.Titles) Hub?.ShowHubView();
             OnTabTravel?.Invoke(_tab, target);
             try
             {
