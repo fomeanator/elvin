@@ -689,13 +689,20 @@ namespace Lvn.UI.Screens
         /// </summary>
         private void ApplyBarVisibility()
         {
-            bool bar = _gameBarShown && !_silent;      // игровой бар развёрнут
-            bool mini = InChapter && !_silent && !bar;   // баблики — дубль бара, вместе не живут
-            Vis(_row, !_silent && (bar || !InChapter));
+            // ТИШИНА — НЕ ТОЛЬКО ВОРОНКИ. Кадр без интерфейса (катсцена,
+            // разглядывание арта) прячет реплики и меню сцены, а игровой бар
+            // оставался поверх кино: баблики, полоса главы, ловец тапа
+            // («надо навбар скрыть полностью в катсцене, игровой» — Илья
+            // 09.09). Причину держит Режиссёр — у бара она общая с хромом
+            // сцены, и своя отмена не снимает чужую.
+            bool hush = _silent || Lvn.UI.LvnScreenDirector.Current.ChromeHidden;
+            bool bar = _gameBarShown && !hush;      // игровой бар развёрнут
+            bool mini = InChapter && !hush && !bar;   // баблики — дубль бара, вместе не живут
+            Vis(_row, !hush && (bar || !InChapter));
             Vis(_gameRow, bar);
             Vis(_miniPills, mini);
             Vis(_miniProgress, mini);
-            Vis(_tapCatcher, InChapter && !_silent);
+            Vis(_tapCatcher, InChapter && !hush);
             // БУРГЕР — ДВЕРЬ ИЗ ГЛАВЫ, а не украшение шапки. Он открывает
             // игровое меню (сохранения, история, настройки сцены), и в
             // витрине ему открывать нечего: там те же вещи лежат по вкладкам

@@ -204,6 +204,10 @@
   "default": "{0} seen"
  },
  {
+  "key": "cutscenes.empty",
+  "default": "Scenes you have lived through appear here"
+ },
+ {
   "key": "cutscenes.hint_count",
   "default": "Scenes you have lived through: {0}"
  },

@@ -776,13 +776,14 @@ namespace Lvn.UI
             btn.style.position = Position.Absolute;
             btn.style.right = 16f;
             btn.style.top = LvnEdges.Top(host, 16f);
-            btn.style.width = 44f;
-            btn.style.height = 44f;
+            const float size = 44f;   // палец: минимальная зона нажатия
+            btn.style.width = size;
+            btn.style.height = size;
             btn.style.unityTextAlign = TextAnchor.MiddleCenter;
             btn.style.fontSize = LvnTokens.TextLg;
             btn.style.color = LvnTokens.Text;
             btn.style.backgroundColor = LvnTokens.Veil(0.45f);
-            LvnChrome.Round(btn, 22f);
+            LvnChrome.Round(btn, size / 2f);   // круг — половина стороны, а не своё число
             btn.AddManipulator(new Clickable(() => RequestExit()));
             LvnMotion.Tappable(btn);
             host.Add(btn);
