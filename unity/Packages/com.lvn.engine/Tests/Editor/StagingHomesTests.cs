@@ -183,6 +183,26 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void MenuCanvas_StandsStillUnlessTheManifestAsksItToDrift()
+        {
+            // ПОЛОТНО ВИТРИНЫ СТОИТ. «Съёмка с рук» задумывалась дыханием —
+            // 1.5 % ширины за 18 секунд, — а на телефоне во весь экран читается
+            // как качка каюты, и медленнее не мягче, а хуже («убрать
+            // покачивание фона в главном меню, а то людей тошнить будет» —
+            // Илья 09.09). Механика осталась, но включает её манифест.
+            LvnMenuStage.Apply(new Lvn.Content.BrowseConfig());
+            Assert.AreEqual(0f, LvnMenuStage.Drift, 1e-6f, "без просьбы полотно неподвижно");
+
+            LvnMenuStage.Apply(new Lvn.Content.BrowseConfig { menu_drift = 0.02f, menu_drift_seconds = 30f });
+            Assert.AreEqual(0.02f, LvnMenuStage.Drift, 1e-6f, "назвали — гуляет");
+            Assert.AreEqual(30f, LvnMenuStage.DriftSeconds, 1e-4f);
+
+            LvnMenuStage.Apply(new Lvn.Content.BrowseConfig());
+            Assert.AreEqual(0f, LvnMenuStage.Drift, 1e-6f, "убрали из манифеста — снова стоит");
+            Assert.AreEqual(18f, LvnMenuStage.DriftSeconds, 1e-4f, "круг вернулся к движковому");
+        }
+
+        [Test]
         public void MenuHeroine_OnHome_StandsATouchRightOfHerSlot()
         {
             // Слот остаётся словом сцены, а композиция главной просит чуть

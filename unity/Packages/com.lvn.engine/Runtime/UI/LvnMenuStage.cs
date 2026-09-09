@@ -88,10 +88,18 @@ namespace Lvn.UI
         public static float PanZoom = 1.5f;
 
         /// <summary>БЛУЖДАНИЕ ПОЛОТНА: насколько кадр гуляет вокруг своей
-        /// точки (доли картины) и за сколько секунд обходит круг. Мало и
-        /// медленно — иначе не «съёмка с рук», а дёрганье: 1.5% ширины за 18
-        /// секунд глаз читает как дыхание, а не как движение.</summary>
-        public static float Drift = 0.015f;
+        /// точки (доли картины) и за сколько секунд обходит круг.
+        ///
+        /// <para>ПО УМОЛЧАНИЮ ПОЛОТНО СТОИТ. Задумано было «дыхание, а не
+        /// движение» — 1.5 % ширины за 18 секунд; на телефоне с фоном во весь
+        /// экран это читается как качка каюты, и медленнее не помогает, а
+        /// мешает больше: глазу не за что зацепиться («убрать покачивание
+        /// фона в главном меню, а то людей тошнить будет» — Илья 09.09).</para>
+        ///
+        /// <para>Механику не выпиливаем — она объявляется манифестом
+        /// (<c>ui.browse.menu_drift</c>): игра, которой качка идёт, включает её
+        /// числом, а не правкой движка.</para></summary>
+        public static float Drift;
         public static float DriftSeconds = 18f;
 
         /// <summary>Автор задал свой переезд — тогда его числа и работают, а
@@ -293,6 +301,11 @@ namespace Lvn.UI
             HomeDollNudge = b.doll_nudge.HasValue ? Mathf.Clamp01(b.doll_nudge.Value) : 0.12f;
             StoreCastGain = b.store_zoom.HasValue ? Mathf.Clamp(b.store_zoom.Value, 0.2f, 3f) : 1.05f;
             TravelMs = b.menu_travel_ms.HasValue ? Mathf.Clamp(b.menu_travel_ms.Value, 0, 5000) : 680;
+            // Полотно стоит, пока автор не назвал блуждание: пустое поле — ноль,
+            // а не «прежние 1.5 %», иначе выключить качку манифестом нельзя.
+            Drift = b.menu_drift.HasValue ? Mathf.Clamp(b.menu_drift.Value, 0f, 0.5f) : 0f;
+            DriftSeconds = b.menu_drift_seconds.HasValue
+                ? Mathf.Clamp(b.menu_drift_seconds.Value, 0.1f, 600f) : 18f;
             // Магазин по умолчанию повторяет главную: героиня не должна
             // перепрыгивать через экран из-за того, что поле не назвали.
             StoreDollSlot = HomeDollSlot;
