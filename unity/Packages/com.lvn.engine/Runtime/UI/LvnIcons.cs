@@ -11,7 +11,7 @@ namespace Lvn.UI
         None = 0,
         Home, Store, Wardrobe, Gallery, Archive, Profile, Settings, Gift,
         Energy, Gem, Coin, Lock, Play, Check, Close, Alert, Chevron, Plus, Star, Heart, Clock,
-        Crown, Trophy, Key, Book, Mask, Flame, Chart, Refresh,
+        Crown, Trophy, Key, Book, Mask, Flame, Chart, Refresh, Trash,
     }
 
     /// <summary>
@@ -262,6 +262,16 @@ namespace Lvn.UI
                     p.LineTo(V(16.5f, 11.5f)); p.LineTo(V(20f, 15f));
                     p.MoveTo(V(9.6f, 9f));
                     p.Arc(V(8.2f, 9f), 1.4f * s, Angle.Degrees(0f), Angle.Degrees(360f));
+                    break;
+
+                case LvnIcon.Trash:   // ведро с крышкой и ручкой
+                    p.MoveTo(V(4f, 6.5f)); p.LineTo(V(20f, 6.5f));
+                    p.MoveTo(V(9.5f, 6.5f)); p.LineTo(V(9.5f, 4.5f)); p.LineTo(V(14.5f, 4.5f));
+                    p.LineTo(V(14.5f, 6.5f));
+                    p.MoveTo(V(6f, 6.5f)); p.LineTo(V(7.2f, 20.5f)); p.LineTo(V(16.8f, 20.5f));
+                    p.LineTo(V(18f, 6.5f));
+                    p.MoveTo(V(10.3f, 10f)); p.LineTo(V(10.7f, 17.5f));
+                    p.MoveTo(V(13.7f, 10f)); p.LineTo(V(13.3f, 17.5f));
                     break;
 
                 case LvnIcon.Archive:

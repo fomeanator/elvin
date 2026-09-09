@@ -208,6 +208,14 @@
   "default": "Scenes you have lived through appear here"
  },
  {
+  "key": "cutscenes.forget",
+  "default": "Clear"
+ },
+ {
+  "key": "cutscenes.forget_sure",
+  "default": "Erase all?"
+ },
+ {
   "key": "cutscenes.hint_count",
   "default": "Scenes you have lived through: {0}"
  },

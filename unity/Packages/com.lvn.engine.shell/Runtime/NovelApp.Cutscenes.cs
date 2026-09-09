@@ -40,16 +40,18 @@ namespace Lvn.UI.Screens
                     // Ключ карточки — «новелла:сцена»: два разных романа вправе
                     // назвать свою сцену одинаково, и без новеллы в ключе
                     // пересмотр открыл бы чужую главу.
-                    var key = t.id + ":" + seen.Id;
+                    var key = t.id + ":" + (seen.Key ?? seen.Id);
                     _cutsceneTitles[key] = t.id;
                     list.Add(new CutsceneGalleryScreen.Entry
                     {
                         Id = key,
                         TitleId = t.id,
+                        Key = seen.Key ?? seen.Id,
                         SceneId = seen.Id,
                         Name = seen.Name,
                         Chapter = seen.Chapter,
                         Poster = seen.Poster,
+                        At = seen.At,
                     });
                 }
             }
@@ -69,6 +71,8 @@ namespace Lvn.UI.Screens
             // на витрине, и за второй сценой он шёл через профиль заново
             // («после показа катсцены в меню перебрасывает, а надо чтобы экран
             // катсцен был открыт» — Илья 09.09).
+            screen.OnForget = ForgetCutscenes;
+            screen.OnDrop = DropCutscene;
             while (true)
             {
                 screen.ClearPick();
@@ -81,14 +85,46 @@ namespace Lvn.UI.Screens
             }
         }
 
+        /// <summary>ВЫБРОСИТЬ ОДНУ КАРТОЧКУ — по нажатию корзины на ней самой.
+        /// Уходит именно это прохождение: другие показы той же сцены остаются
+        /// на месте.</summary>
+        private void DropCutscene(CutsceneGalleryScreen.Entry entry)
+        {
+            if (entry == null || string.IsNullOrEmpty(entry.Key)) return;
+            if (!_cutsceneTitles.TryGetValue(entry.Id, out var titleId)) return;
+            LvnCutsceneStore.Drop(titleId, entry.Key);
+            _shell?.Cutscenes?.SetEntries(CollectCutscenes());
+        }
+
+        /// <summary>ЗАБЫТЬ ВСЕ СЦЕНЫ — галерея пустеет, снимки удаляются,
+        /// прогресс глав остаётся нетронутым. Нужно, чтобы собрать коллекцию
+        /// заново: сцену пишет первый живой проход, и без сброса её карточка
+        /// осталась бы прежней («удали текущие катсцены, я заново хочу их
+        /// набрать» — Илья 09.09). Чистим по ВСЕМ новеллам каталога — галерея
+        /// показывает их вместе, значит и забывать должна вместе.</summary>
+        private void ForgetCutscenes()
+        {
+            var titles = _manifest?.titles;
+            if (titles != null)
+                foreach (var t in titles)
+                    if (t != null && !string.IsNullOrEmpty(t.id))
+                        LvnCutsceneStore.Clear(t.id);
+            _cutsceneTitles.Clear();
+            // Экран перерисовываем сразу: он открыт и ждёт, пока игрок его
+            // закроет, — иначе стёртые карточки остались бы на виду.
+            _shell?.Cutscenes?.SetEntries(CollectCutscenes());
+        }
+
         /// <summary>Пересмотреть сцену: открыть её главу и проиграть отрезок с
         /// метки. Адрес разбирается обратно на новеллу и id.</summary>
         private Task PlayCutsceneAsync(CutsceneGalleryScreen.Entry entry)
         {
             if (entry == null || string.IsNullOrEmpty(entry.Id)) return Task.CompletedTask;
             if (!_cutsceneTitles.TryGetValue(entry.Id, out var titleId)) return Task.CompletedTask;
-            int sep = entry.Id.IndexOf(':');
-            var cutsceneId = sep >= 0 ? entry.Id.Substring(sep + 1) : entry.Id;
+            // Играем по МЕТКЕ сценария, а не по адресу карточки: адрес — это
+            // прохождение («метка#когда»), а в сценарии такой строки нет.
+            var cutsceneId = entry.SceneId;
+            if (string.IsNullOrEmpty(cutsceneId)) return Task.CompletedTask;
             return ReplayCutsceneAsync(titleId, entry.Chapter, cutsceneId);
         }
 
