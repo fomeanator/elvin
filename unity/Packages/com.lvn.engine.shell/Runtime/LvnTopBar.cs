@@ -505,11 +505,17 @@ namespace Lvn.UI.Screens
         {
             var b = new VisualElement();
             b.name = "burger";   // имя нужно стражу и разбору дерева
-            b.style.width = 52; b.style.height = 52;
+            const float size = 52f;   // палец: минимальная зона нажатия с запасом
+            b.style.width = size; b.style.height = size;
             b.style.marginLeft = LvnTokens.Space2;
             b.style.alignItems = Align.Center;
             b.style.justifyContent = Justify.Center;
-            LvnChrome.Round(b, LvnTokens.RadiusSm);
+            // КРУГ, а не скруглённый квадрат: рядом с ним стоят круглые пилюли
+            // валют и круглый кружок загрузок, и один квадрат в этом ряду
+            // читался чужим («кнопку меню надо сделать круговой» — Илья 09.09).
+            // Радиус — половина стороны, а не своё число: иначе он разъезжается
+            // с размером при первой же правке.
+            LvnChrome.Round(b, size / 2f);
             b.style.backgroundColor = LvnTokens.Faint;
             for (int i = 0; i < 3; i++)
             {
