@@ -316,6 +316,15 @@ namespace Lvn
         /// <c>0..upto</c> without showing any dialogue — used after
         /// <see cref="Restore(LvnSnapshot)"/> to rebuild the scene a save was taken
         /// in before resuming.</summary>
+        /// <summary>ВСТАТЬ НА КОМАНДУ, НЕ ИГРАЯ ЕЁ. Нужно, чтобы предзагрузка
+        /// смотрела вперёд ОТ НУЖНОГО МЕСТА: пересмотр катсцены греет спайн и
+        /// арт её отрезка, а не начала главы, где стоял указатель.</summary>
+        public void Seek(int index)
+        {
+            _ip = index;
+            Finished = false;
+        }
+
         public void ContinueFrom(int index)
         {
             _ip = index;

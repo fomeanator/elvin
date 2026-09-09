@@ -122,8 +122,14 @@ namespace Lvn.UI
                     known = prev.ToString();
                 }
                 if (string.IsNullOrEmpty(known)) known = (string)cmd["default"];
-                _awaitingInput = true;
-                ConfirmInput(known ?? string.Empty);
+                _player.Vars[_inputVar] = known ?? string.Empty;
+                _awaitingInput = false;
+                // ШАГ — СЛЕДУЮЩИМ КАДРОМ, а не отсюда. Мы сейчас ВНУТРИ разбора
+                // команды: плеер ещё не сдвинул указатель и остановится сразу
+                // после нас. Продвинув его здесь, мы снова попадали бы на ту же
+                // команду ввода — и так до переполнения стека («падает на показе
+                // имени» — Илья 09.09).
+                StartCoroutine(AdvanceNextFrame());
                 return;
             }
             _awaitingInput = true;
@@ -251,6 +257,13 @@ namespace Lvn.UI
 
         /// <summary>Commit the typed text into the story variable and continue.
         /// Internal so the PlayMode smoke can drive the production path.</summary>
+        /// <summary>Шаг плеера, отложенный на кадр: см. просмотр в ApplyInput.</summary>
+        private System.Collections.IEnumerator AdvanceNextFrame()
+        {
+            yield return null;
+            _player?.Advance();
+        }
+
         internal void ConfirmInput(string value)
         {
             if (!_awaitingInput) return;
