@@ -548,6 +548,14 @@ namespace Lvn.UI.Screens
         /// отдельный слой в корне хаба и никуда не едет).</summary>
         public VisualElement ContentRoot => _hubView;
 
+        /// <summary>ПОКАЗАТЬ ВСЕ НОВЕЛЛЫ — содержимое комнаты «список». Комната
+        /// живёт над главной и приезжает полотном, а внутри показывает тот же
+        /// список, что раньше открывался кнопкой панели.</summary>
+        public void ShowAllTitles() => ShowLibrary();
+
+        /// <summary>Вернуть витрину к главной — комната сменилась.</summary>
+        public void ShowHubView() => ShowHub();
+
         /// <summary>Заголовок раздела ленты: слово проходит через тему —
         /// она вправе написать его прописными или добавить разрядку.</summary>
         private Label Heading(string text, int size)
