@@ -79,9 +79,10 @@ namespace Lvn.UI.Screens
             b.style.backgroundColor = Color.clear;
             b.style.backgroundImage = new StyleBackground(StyleKeyword.None);
             LvnChrome.ClearBorder(b);
-            if (label == null) return;
-            label.style.color = active ? LvnTokens.Gold : LvnTokens.TextDim;
-            if (_tabFit == 0) label.style.fontSize = LvnTokens.TextLg;   // ужатый ряд держит свой кегль (ApplyTabFit)
+            // Кегль НЕ трогаем: он приходит из ApplyTabFit, общий с обычным
+            // обликом. Поднимали на две ступени — вышло слишком крупно, вернули
+            // («шрифт на 2 порядка уменьшить» — Илья 09.09).
+            if (label != null) label.style.color = active ? LvnTokens.Gold : LvnTokens.TextDim;
         }
 
         /// <summary>Общее переодевание листа после сборки под героя: ряд

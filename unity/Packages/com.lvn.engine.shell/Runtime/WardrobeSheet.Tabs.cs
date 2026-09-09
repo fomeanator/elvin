@@ -178,11 +178,7 @@ namespace Lvn.UI.Screens
         {
             float side = step >= 1 ? (step >= 2 ? 8f : 12f) : 18f;
             float gap = step >= 1 ? (step >= 2 ? 3f : 4f) : 6f;
-            // В облике «сцена» подписи разделов на две ступени крупнее (TextSm →
-            // TextLg: «шрифт в категориях поднять на 2 порядка» — Илья 08.09);
-            // ступени ужатия держат ту же пропорцию от базы.
-            float baseFont = StageDressed ? LvnTokens.TextLg : 22f;
-            float font = baseFont * (step >= 3 ? 18f / 22f : (step >= 2 ? 20f / 22f : 1f));
+            float font = step >= 3 ? 18f : (step >= 2 ? 20f : 22f);
             bool icons = step < 2;
             foreach (var c in _tabs.Children())
             {

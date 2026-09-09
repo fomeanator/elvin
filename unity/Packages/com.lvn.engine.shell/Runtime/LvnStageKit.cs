@@ -86,19 +86,25 @@ namespace Lvn.UI.Screens
 
         /// <summary>Плашка-заголовок: слово прописными на нарисованной плашке.
         /// Место задаёт вызывающий — плашка нарисована в рамке.</summary>
-        /// <summary>РАМКА БЕЗ СЕРЕДИНЫ. Арт рамки (card-back.png) нарисован с
-        /// глухой штрихованной серединой, а под листом гардероба и профиля
-        /// лежит стекло сцены («прозрачное моднее, надо просто рамку добавить,
-        /// как у блоков на главной» — Илья 08.09). Девятидольная нарезка
-        /// середину не вынимает, поэтому рамка собирается из восьми кусков:
-        /// четыре угла показывают углы арта, четыре кромки — его тонкие
-        /// стороны между угловыми скобами, растянутые по своей оси; середины
-        /// нет. Кромки меряются по раскладке контейнера. Кладётся в
-        /// <paramref name="host"/> на место <paramref name="index"/>, поверх
-        /// стекла и под содержимым; глоу выходит за край на <see cref="Bleed"/>.</summary>
+        /// <summary>РАМКА ИЗ КУСКОВ АРТА. Девятидольная нарезка UITK тянет
+        /// середину вместе с углами, и на широком низком коробе угловые скобы
+        /// расплывались; поэтому рамка собирается вручную: четыре угла
+        /// показывают углы арта как нарисованы, четыре кромки — его тонкие
+        /// стороны между скобами, растянутые по своей оси.
+        ///
+        /// <para><paramref name="solid"/> добавляет девятый кусок — СЕРЕДИНУ
+        /// арта, растянутую на всё нутро. Она и есть «полный задний фон, как на
+        /// главной у блока текущих экспедиций» (Илья 09.09): та же штриховка
+        /// того же тона, что внутри панели новостей. Пустая середина оставалась
+        /// от опыта со стеклом сцены — оно оказалось дорогим (каждый кадр
+        /// перерисовывает подложку мира) и лагало на устройстве.</para>
+        ///
+        /// <para>Кромки и середина меряются по раскладке контейнера. Кладётся в
+        /// <paramref name="host"/> на место <paramref name="index"/>, под
+        /// содержимым; глоу выходит за край на <see cref="Bleed"/>.</para></summary>
         public static VisualElement HollowFrame(VisualElement host, string url, ILvnAssets assets,
                                                 float imgW, float imgH, float cornerPx, float pxPerDp,
-                                                int index = 0)
+                                                int index = 0, bool solid = false)
         {
             var f = new VisualElement { name = "stage-frame", pickingMode = PickingMode.Ignore };
             f.style.position = Position.Absolute;
@@ -107,8 +113,10 @@ namespace Lvn.UI.Screens
             float s = D(1f) / pxPerDp;               // экранных px на px арта
             float c = cornerPx * s;                  // угол на экране
             float wi = imgW * s, hi = imgH * s;      // арт целиком на экране
-            var pieces = new VisualElement[8];
-            for (int i = 0; i < 8; i++)
+            // девятый кусок — середина; рисуется ПЕРВЫМ, чтобы кромки легли поверх её края
+            int count = solid ? 9 : 8;
+            var pieces = new VisualElement[count];
+            for (int i = 0; i < count; i++)
             {
                 var p = new VisualElement { pickingMode = PickingMode.Ignore };
                 p.style.position = Position.Absolute;
@@ -148,6 +156,15 @@ namespace Lvn.UI.Screens
             }
             Edge(pieces[4], true, false); Edge(pieces[5], true, true);
             Edge(pieces[6], false, false); Edge(pieces[7], false, true);
+            if (solid)
+            {
+                var mid = pieces[8];
+                mid.style.left = c * 0.5f; mid.style.right = c * 0.5f;
+                mid.style.top = c * 0.5f; mid.style.bottom = c * 0.5f;
+                mid.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
+                mid.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
+                mid.SendToBack();
+            }
             f.RegisterCallback<GeometryChangedEvent>(_ =>
             {
                 float w = f.resolvedStyle.width, h = f.resolvedStyle.height;
@@ -159,6 +176,9 @@ namespace Lvn.UI.Screens
                 pieces[5].style.backgroundSize = new BackgroundSize(stretchX, hi);
                 pieces[6].style.backgroundSize = new BackgroundSize(wi, stretchY);
                 pieces[7].style.backgroundSize = new BackgroundSize(wi, stretchY);
+                // СЕРЕДИНА: обе оси растянуты так, что углы арта уходят за края
+                // куска, и внутри видна только его штрихованная середина.
+                if (solid) pieces[8].style.backgroundSize = new BackgroundSize(stretchX, stretchY);
             });
             host.Insert(Mathf.Clamp(index, 0, host.childCount), f);
             return f;
@@ -167,11 +187,13 @@ namespace Lvn.UI.Screens
         /// <summary>card-back.png: 861×795 px под карточку 263 dp, скобы по углам ~84 px.</summary>
         public const float CardBackW = 861f, CardBackH = 795f, CardBackCornerPx = 84f, CardBackPxPerDp = 861f / 263f;
 
-        /// <summary>СТЕКЛО + РАМКА — задник листа в облике: своя заливка снимается,
-        /// первым ребёнком встаёт стекло сцены (обрезка стекла живёт на нём, а не
-        /// на листе — столбики, стоящие выше листа, остаются видны), вторым —
-        /// рамка без середины. Содержимое отступает от рамки на 20 dp со всех
-        /// сторон («паддинг 20 20, и в профиль тоже» — Илья 08.09).</summary>
+        /// <summary>ЗАДНИК ЛИСТА В ОБЛИКЕ: своя заливка снимается, вместо неё —
+        /// рамка арта со своей серединой. Содержимое отступает от рамки на
+        /// 20 dp со всех сторон («паддинг 20 20, и в профиль тоже» — Илья 08.09).
+        ///
+        /// <para>Стояло стекло сцены (<c>UiGlass</c>) — оно снимает подложку
+        /// мира каждый кадр и на устройстве лагало; вместо него полный фон,
+        /// как у панели новостей на главной (Илья 09.09).</para></summary>
         public const float SheetPadDp = 20f;
 
         public static void GlassSheet(VisualElement host, string skin, ILvnAssets assets, float radius)
@@ -179,13 +201,8 @@ namespace Lvn.UI.Screens
             host.style.backgroundColor = Color.clear;
             LvnChrome.ClearBorder(host);
             LvnAir.Pad(host, D(SheetPadDp));
-            var glass = new VisualElement { name = "stage-glass", pickingMode = PickingMode.Ignore };
-            LvnChrome.Stretch(glass);
-            LvnChrome.Round(glass, radius);
-            UiGlass.Apply(glass, 1f, UiColor.WithAlpha(LvnTokens.PanelBg, 0.55f));
-            host.Insert(0, glass);
             HollowFrame(host, SkinUrl(skin, "card-back.png"), assets,
-                        CardBackW, CardBackH, CardBackCornerPx, CardBackPxPerDp, index: 1);
+                        CardBackW, CardBackH, CardBackCornerPx, CardBackPxPerDp, index: 0, solid: true);
         }
 
         public static Label Plaque(Func<string> text)
