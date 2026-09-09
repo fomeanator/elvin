@@ -87,6 +87,23 @@ namespace Lvn.UI.Screens
             MarkDirtyRepaint();
         }
 
+        /// <summary>
+        /// СРЕДНЯЯ СКОРОСТЬ ПРИЁМА за последние <paramref name="window"/> секунд —
+        /// для оценки «осталось». Мгновенная скорость проваливается на мелких
+        /// файлах (текст глав идёт по 60 КБ/с между мегабайтами арта), и
+        /// «≈1 мин» на секунду превращалось в «≈13 мин» (ролик 09.09). Считает
+        /// по целым секундам плюс прожитую часть текущей.
+        /// </summary>
+        public float AvgDown(float window)
+        {
+            if (double.IsNaN(_bucketStart)) return 0f;
+            float lived = Mathf.Clamp((float)(Lvn.LvnClock.Wall() - _bucketStart), 0f, 1f);
+            float sum = _bucketDown, time = lived;
+            int whole = Mathf.Clamp(Mathf.CeilToInt(window - lived), 0, Seconds);
+            for (int i = 0; i < whole; i++) { sum += _down[(_newest - i + Seconds) % Seconds]; time += 1f; }
+            return time > 0.5f ? sum / time : 0f;
+        }
+
         private const float FloorScale = 64f * 1024f;   // ниже пика не опускаемся: шум не гора
         private const float Inset = 6f;
 

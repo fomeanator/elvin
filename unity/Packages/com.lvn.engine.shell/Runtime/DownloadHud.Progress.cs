@@ -19,6 +19,10 @@ namespace Lvn.UI.Screens
 
         /// <summary>Обновляет также открытый ИДЛ: конец работы — новое
         /// состояние, а не повод оставить на экране последние мегабайты.</summary>
+        // Пакеты не из очереди, доехавшие рядом с ней: байты и оценки.
+        private long _sideDone, _sidePlan, _lastSideBytes, _lastSidePlan;
+        private bool _lastWasSide;
+
         public void Tick(TransferSnapshot t)
         {
             float now = Lvn.LvnClock.Wall();
@@ -35,7 +39,8 @@ namespace Lvn.UI.Screens
 
             // Эпоха ловит новый пакет даже без промежуточного пустого тика.
             // Уменьшение байтов ловит повтор/перезапуск одиночного запроса.
-            bool reset = _lastAt < 0f || t.Epoch != _lastEpoch || t.Received < _lastBytes
+            bool newEpoch = t.Epoch != _lastEpoch;
+            bool reset = _lastAt < 0f || newEpoch || t.Received < _lastBytes
                 || t.BatchDone < _lastDone || (work && !_wasWorking);
             // ПАКЕТ СМЕНИЛСЯ, А РАБОТА НЕТ. «Скачать всю игру» ставит главу за
             // главой, прогрев библиотеки идёт ступенями — каждый пакет новая
@@ -96,14 +101,36 @@ namespace Lvn.UI.Screens
             var queue = Center != null ? Center.Progress : (0L, 0L);
             bool wholeQueue = work && Center != null && Center.Queue.Count > 0 && queue.Item2 > 0;
             long received = t.Received, planned = plan;
+            // ЧУЖАЯ РАБОТА РЯДОМ С ОЧЕРЕДЬЮ ТОЖЕ СЧИТАЕТСЯ. Прогрев библиотеки
+            // («Персонажи и наряды», «Фоны сцен») идёт тем же загрузчиком и
+            // держит очередь в ожидании: десять секунд лист показывал «0 % ·
+            // 0 МБ» при живых 2,4 МБ/с в подписи (ролик 09.09). Байты таких
+            // пакетов идут И В СЧЁТ, И В ПЛАН: оценки у прогрева нет, а без
+            // плана доля перевалила бы за сто раньше конца очереди. Так доля
+            // не падает на границе пакетов и доходит до ста ровно с очередью;
+            // с концом очереди накопленное забывается.
+            bool side = wholeQueue && entry == null && t.Working;
             if (wholeQueue)
             {
-                long inFlight = entry != null ? System.Math.Min(t.Received, entry.Bytes) : 0L;
-                received = queue.Item1 + inFlight;
-                planned = System.Math.Max(queue.Item2, received);
+                if (_lastWasSide && (newEpoch || !side))
+                {
+                    _sideDone += _lastSideBytes;
+                    _sidePlan += System.Math.Max(_lastSideBytes, _lastSidePlan);
+                }
+                long inFlight = side ? t.Received : entry != null ? System.Math.Min(t.Received, entry.Bytes) : 0L;
+                received = queue.Item1 + _sideDone + inFlight;
+                long sidePlanNow = side ? System.Math.Max(t.PlannedBytes, t.Received) : 0L;
+                planned = System.Math.Max(queue.Item2 + _sidePlan + sidePlanNow, received);
             }
+            else { _sideDone = _sidePlan = 0L; }
+            _lastWasSide = side;
+            _lastSideBytes = side ? t.Received : 0L;
+            _lastSidePlan = side ? t.PlannedBytes : 0L;
+            // «Осталось» — по средней за окно, а не по мгновенной: мелкие файлы
+            // роняют мгновенную в десять раз, и оценка прыгала минутами.
+            float etaSpeed = _chart.AvgDown(Mathf.Clamp(now - _sampleStarted, 2f, 15f));
             var tally = new DownloadTally(received, planned,
-                t.BatchDone, t.BatchTotal, _speed, phase);
+                t.BatchDone, t.BatchTotal, etaSpeed > 0f ? etaSpeed : _speed, phase);
             bool moving = phase == DownloadTally.Phase.Running;
             _miniRing.Glyph = off || failed ? RingGlyph.Alert
                 : work ? RingGlyph.Down : RingGlyph.Up;

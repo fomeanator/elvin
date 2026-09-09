@@ -82,6 +82,7 @@ namespace Lvn.UI
             var sv = new ScrollView(ScrollViewMode.Vertical);
             sv.verticalScrollerVisibility = showScroller ? ScrollerVisibility.Auto : ScrollerVisibility.Hidden;
             sv.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
+            Clip(sv);
             DragToScroll(sv);
             return sv;
         }
@@ -93,8 +94,23 @@ namespace Lvn.UI
             sv.verticalScrollerVisibility = ScrollerVisibility.Hidden;
             sv.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
             sv.contentContainer.style.flexDirection = FlexDirection.Row;
+            Clip(sv);
             DragToScroll(sv);
             return sv;
+        }
+
+        /// <summary>
+        /// ОКНО РЕЖЕТ СОДЕРЖИМОЕ. Обрезку прокрутке даёт таблица стилей темы
+        /// (unity-theme://default), а панель без темы — как стенд ui-lab или
+        /// приложение, где тему не подключили, — оставляет окно открытым:
+        /// прокрученный список выезжал ПОВЕРХ графика и кнопок листа загрузок,
+        /// и подписи ложились друг на друга (ролик 09.09). Правило движка не
+        /// должно зависеть от того, подключил ли продукт стили Unity.
+        /// </summary>
+        public static void Clip(ScrollView sv)
+        {
+            if (sv == null) return;
+            sv.contentViewport.style.overflow = Overflow.Hidden;
         }
 
         /// <summary>Научить готовый список тянуться указателем. Повторный вызов
