@@ -86,6 +86,19 @@ namespace Lvn.UI.Screens
 
         /// <summary>Плашка-заголовок: слово прописными на нарисованной плашке.
         /// Место задаёт вызывающий — плашка нарисована в рамке.</summary>
+        /// <summary>Прижать кусок к левому или правому краю (одна ось —
+        /// одно решение; вместе четыре стороны читались бы как растяжка).</summary>
+        private static void PinX(VisualElement p, bool far)
+        {
+            if (far) p.style.right = 0; else p.style.left = 0;
+        }
+
+        /// <summary>Прижать кусок к верхнему или нижнему краю.</summary>
+        private static void PinY(VisualElement p, bool far)
+        {
+            if (far) p.style.bottom = 0; else p.style.top = 0;
+        }
+
         /// <summary>РАМКА ИЗ КУСКОВ АРТА. Девятидольная нарезка UITK тянет
         /// середину вместе с углами, и на широком низком коробе угловые скобы
         /// расплывались; поэтому рамка собирается вручную: четыре угла
@@ -128,8 +141,7 @@ namespace Lvn.UI.Screens
             void Corner(VisualElement p, bool right, bool bottom)
             {
                 p.style.width = c; p.style.height = c;
-                if (right) p.style.right = 0; else p.style.left = 0;
-                if (bottom) p.style.bottom = 0; else p.style.top = 0;
+                PinX(p, right); PinY(p, bottom);
                 p.style.backgroundSize = new BackgroundSize(wi, hi);
                 p.style.backgroundPositionX = new BackgroundPosition(right ? BackgroundPositionKeyword.Right : BackgroundPositionKeyword.Left);
                 p.style.backgroundPositionY = new BackgroundPosition(bottom ? BackgroundPositionKeyword.Bottom : BackgroundPositionKeyword.Top);
@@ -142,14 +154,14 @@ namespace Lvn.UI.Screens
                 if (horizontal)
                 {
                     p.style.left = c; p.style.right = c; p.style.height = c;
-                    if (far) p.style.bottom = 0; else p.style.top = 0;
+                    PinY(p, far);
                     p.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Center);
                     p.style.backgroundPositionY = new BackgroundPosition(far ? BackgroundPositionKeyword.Bottom : BackgroundPositionKeyword.Top);
                 }
                 else
                 {
                     p.style.top = c; p.style.bottom = c; p.style.width = c;
-                    if (far) p.style.right = 0; else p.style.left = 0;
+                    PinX(p, far);
                     p.style.backgroundPositionX = new BackgroundPosition(far ? BackgroundPositionKeyword.Right : BackgroundPositionKeyword.Left);
                     p.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Center);
                 }

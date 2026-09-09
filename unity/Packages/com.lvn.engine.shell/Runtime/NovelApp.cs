@@ -45,6 +45,10 @@ namespace Lvn.UI.Screens
                  "under StreamingAssets/<BundleSubdir>, mirroring the server's URL paths.")]
         public bool OfflineBundled = false;
 
+        /// <summary>Authoring only: apply remote edits to the running scene.
+        /// Shipping games defer them until the player returns to the menu.</summary>
+        public bool LiveChapterUpdates = false;
+
         [Tooltip("Subfolder under StreamingAssets that holds the bundled content (offline builds).")]
         public string BundleSubdir = "lvn";
 
@@ -204,6 +208,7 @@ namespace Lvn.UI.Screens
             _state = OfflineBundled
                 ? (ILvnStateStore)new LocalStateStore()
                 : new HttpStateStore(contentBase, ResolveUserId(), StateKey);
+            if (_state is HttpStateStore remote) remote.Synchronized += OnStateSynchronized;
             return contentBase;
         }
 
@@ -498,13 +503,13 @@ namespace Lvn.UI.Screens
             if (_stringsCache.TryGetValue(url, out var cached)) return cached;
             try
             {
-                var json = await _assets.Loader.DownloadScriptText(url, default, singleAttempt: true);
+                var json = await _assets.Loader.DownloadScriptCached(url);
                 var cat = string.IsNullOrEmpty(json) ? null : Newtonsoft.Json.JsonConvert
                     .DeserializeObject<System.Collections.Generic.Dictionary<string, string>>(json);
-                _stringsCache[url] = cat;   // второе переключение туда-обратно уже мгновенное
+                if (cat != null) _stringsCache[url] = cat; // absence is not a permanent cached result
                 return cat;
             }
-            catch { _stringsCache[url] = null; return null; }
+            catch { return null; } // retry a missing catalog after connectivity returns
         }
 
 
@@ -590,12 +595,37 @@ namespace Lvn.UI.Screens
         private void OnDestroy()
         {
             _sync?.Stop();
+            if (_state is HttpStateStore remote)
+            {
+                remote.Synchronized -= OnStateSynchronized;
+                remote.Dispose();
+            }
             _leash.Release();
             _shell?.ReleaseSubscriptions();
             // The veil is a root GameObject (it outlives this component by
             // design during boot) — a host tearing NovelApp down mid-boot must
             // not be left with an opaque, input-eating veil over its own UI.
             BootVeil.Hide();
+        }
+
+        private string _deferredProgressOwner;
+
+        private void OnStateSynchronized(string scope, JObject vars)
+        {
+            // Cloud catch-up may refresh an idle hub, never the active player.
+            if (scope != ProgressVault.Scope || _manifest == null) return;
+            if (InChapter) { _deferredProgressOwner = LvnKeep.Owner; return; }
+            ProgressVault.Absorb(vars, _manifest);
+            _shell?.ApplyLiveUpdate(_manifest);
+        }
+
+        private async Task ApplyDeferredProgressAsync()
+        {
+            var owner = _deferredProgressOwner;
+            _deferredProgressOwner = null;
+            if (owner == null || owner != LvnKeep.Owner || _state == null) return;
+            var vars = await _state.LoadVarsAsync(ProgressVault.Scope, default);
+            if (owner == LvnKeep.Owner) OnStateSynchronized(ProgressVault.Scope, vars);
         }
 
 
