@@ -43,6 +43,10 @@ namespace Lvn.UI.Screens
         /// кладёт хост; пусто — кнопки награды нет.</summary>
         public string AdPlacement;
 
+        /// <summary>Игрок нажал значок награды за ролик. Пусто — витрина
+        /// показывает ролик сама (так было до экрана награды).</summary>
+        public System.Action OnAdTap;
+
         private VisualElement _stageStack, _stageCard, _stageAd, _stageCover, _stageFill;
         private Label _stageChapter, _stageTitle, _stageSubtitle, _stageAdAmount;
         private LvnTitle _stageFeatured;
@@ -268,9 +272,16 @@ namespace Lvn.UI.Screens
             // Число прижато к значку видео слева; кристалл нарисован правее.
             _stageAdAmount.style.unityTextAlign = TextAnchor.MiddleLeft;
             b.Add(_stageAdAmount);
+            // НАЖАТИЕ ВЕДЁТ НА ЭКРАН, А НЕ СРАЗУ В РОЛИК. Прямой показ не
+            // говорил игроку ни что он получит, ни сколько показов осталось,
+            // ни почему ничего не случилось, когда ролика не оказалось: значок
+            // просто молчал («в главном меню по нажатию переход», «щас вообще
+            // не срабатывает» — Илья 09.09). Разговор ведёт хозяин, витрина
+            // только сообщает о нажатии.
             b.AddManipulator(new Clickable(() =>
             {
                 if (string.IsNullOrEmpty(AdPlacement)) return;
+                if (OnAdTap != null) { OnAdTap(); return; }
                 LvnAsync.Fire(Lvn.Services.LvnAds.WatchAndRewardAsync(AdPlacement), "StageAd");
             }));
             LvnMotion.Tappable(b);

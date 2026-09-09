@@ -200,6 +200,42 @@
   "default": "Sure?"
  },
  {
+  "key": "ads.done",
+  "default": "Done"
+ },
+ {
+  "key": "ads.got",
+  "default": "Crystals are in your wallet"
+ },
+ {
+  "key": "ads.later",
+  "default": "Not now"
+ },
+ {
+  "key": "ads.left",
+  "default": "{0} of {1} left today"
+ },
+ {
+  "key": "ads.loading",
+  "default": "Loading the ad…"
+ },
+ {
+  "key": "ads.none",
+  "default": "No ad right now. Try again in a minute."
+ },
+ {
+  "key": "ads.title",
+  "default": "Free crystals"
+ },
+ {
+  "key": "ads.wait",
+  "default": "Available in {0}"
+ },
+ {
+  "key": "ads.watch",
+  "default": "Watch"
+ },
+ {
   "key": "cutscenes.counter",
   "default": "{0} seen"
  },

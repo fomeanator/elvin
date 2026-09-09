@@ -392,6 +392,7 @@ namespace Lvn.UI.Screens
                 // Кнопка награды за рекламу в облике «сцена» — та же площадка,
                 // что у бесплатной карточки магазина.
                 _shell.Hub.AdPlacement = manifest.ui?.store?.ad_placement;
+                _shell.Hub.OnAdTap = () => LvnAsync.Fire(OpenAdRewardAsync(), "AdReward");
             }
         }
 
