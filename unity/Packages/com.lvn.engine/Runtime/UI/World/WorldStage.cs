@@ -107,10 +107,6 @@ namespace Lvn.UI.World
         /// не сбрасывает уборка эффектов.</summary>
         public LvnPortalLayer Portal { get; private set; }
 
-        /// <summary>Размытая копия кадра для «матового стекла» интерфейса; null
-        /// там же, где null Blur.</summary>
-        public LvnGlass Glass { get; }
-
         /// <param name="parent">Where to park the canvas GameObject (e.g. the VnStage's transform).</param>
         /// <param name="sortingOrder">Canvas sort order — keep below the UITK panel's so chrome draws on top.</param>
         /// <param name="reference">Reference resolution (canvas units); default 1080×1920 portrait.</param>
@@ -180,11 +176,10 @@ namespace Lvn.UI.World
                 // Fx lives on the camera and can therefore survive an older
                 // WorldStage. A fresh stage must always begin with a clean frame.
                 Fx.ResetImmediate();
-                // Стекло — ПОСЛЕДНИМ: OnRenderImage идёт в порядке компонентов,
-                // и подложка должна видеть кадр уже с эффектами. Иначе окно в
-                // задымлённой сцене осталось бы прозрачным по чистому миру —
-                // как окно из другой игры.
-                Glass = LvnGlass.Ensure(cam);
+                // МАТОВОГО СТЕКЛА ЗДЕСЬ БОЛЬШЕ НЕТ. Камера снимала себя в
+                // отдельную текстуру и размывала её для окон интерфейса; на
+                // слабом телефоне это стоило кадров в диалоге и на выборе, а
+                // окно и без размытия читается — под ним тон (UiGlass).
             }
 
             var scaler = _canvasGo.GetComponent<CanvasScaler>();
