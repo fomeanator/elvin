@@ -492,6 +492,10 @@
   "default": "Continue"
  },
  {
+  "key": "hub.open",
+  "default": "Open"
+ },
+ {
   "key": "hub.play",
   "default": "Play"
  },
