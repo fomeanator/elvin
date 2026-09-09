@@ -370,7 +370,6 @@ namespace Lvn.UI.Screens
             if (_detailView != null) _detailView.style.paddingTop = top;
             if (_stageStack == null) return;
             float bottom = D(LvnStageSkin.Home.Bottom - StageHomeBarDp) + inset;
-            float top = LvnEdges.Top(this) + D(StageTopBlockDp);
             _stageStack.style.bottom = bottom;
             _stageStack.style.top = top;
             float viewH = resolvedStyle.height;
