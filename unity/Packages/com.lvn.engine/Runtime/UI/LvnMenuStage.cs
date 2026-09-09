@@ -251,6 +251,28 @@ namespace Lvn.UI
         /// <summary>Применить настройки новеллы (<c>ui.browse</c>). Пустые поля
         /// оставляют движковый дефолт: манифест не обязан знать про эту
         /// механику, чтобы игра выглядела правильно.</summary>
+        /// <summary>Принять композицию витрины из манифеста целиком: рост и
+        /// ширина куклы, ход полотна, слоты и сдвиг героини, план магазина,
+        /// время перелёта. Пусто — движковые числа; каждое поле объявляется в
+        /// <c>ui.browse</c>, а не правится в коде.</summary>
+        public static void Apply(Lvn.Content.BrowseConfig b)
+        {
+            if (b == null) return;
+            Apply(b.doll_height, b.doll_width, b.canvas_pan, b.canvas_pan_step, b.doll_place);
+            HomeDollNudge = b.doll_nudge.HasValue ? Mathf.Clamp01(b.doll_nudge.Value) : 0.12f;
+            StoreCastGain = b.store_zoom.HasValue ? Mathf.Clamp(b.store_zoom.Value, 0.2f, 3f) : 1.05f;
+            TravelMs = b.menu_travel_ms.HasValue ? Mathf.Clamp(b.menu_travel_ms.Value, 0, 5000) : 680;
+            // Магазин по умолчанию повторяет главную: героиня не должна
+            // перепрыгивать через экран из-за того, что поле не назвали.
+            StoreDollSlot = HomeDollSlot;
+            if (!string.IsNullOrEmpty(b.store_doll_place))
+            {
+                if (Placement.IsStandingSlot(b.store_doll_place)) StoreDollSlot = b.store_doll_place;
+                else LvnLog.Trace($"[lvn-doll] ui.browse.store_doll_place=«{b.store_doll_place}» — "
+                                + $"не слот сцены; в магазине она стоит в «{StoreDollSlot}»");
+            }
+        }
+
         public static void Apply(float? dollHeight, float? dollWidth,
                                  float? panStart, float? panStep, string dollPlace = null)
         {
