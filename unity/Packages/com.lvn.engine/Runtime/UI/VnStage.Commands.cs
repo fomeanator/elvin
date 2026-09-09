@@ -99,7 +99,7 @@ namespace Lvn.UI
         {
             if (BoolOr(cmd["end"], false))
             {
-                _openCutsceneId = null;
+                _openCutsceneKey = null;
                 _openCutsceneNeedsPoster = false;
                 FinishCutsceneWatch();   // пересмотр кончается там же, где сцена
                 return;
@@ -128,20 +128,22 @@ namespace Lvn.UI
             // проверки открытие переписывалось бы адресом текущего показа —
             // а он идёт из галереи, где контекста главы уже нет.
             if (!string.IsNullOrEmpty(_cutsceneWatch)) return;
-            _openCutsceneId = id;
+            // КАЖДЫЙ ПРОХОД — СВОЯ КАРТОЧКА. Хранилище возвращает адрес именно
+            // этого прохождения; кадр и превью дописываются по нему, иначе
+            // сегодняшний снимок лёг бы поверх вчерашнего показа той же сцены.
+            _openCutsceneKey = LvnCutsceneStore.Lived(_saveTitleId, id, (string)cmd["name"],
+                                                     _saveChapterId, (string)cmd["poster"]);
             _openCutsceneNeedsPoster = string.IsNullOrEmpty((string)cmd["poster"]);
-            LvnCutsceneStore.Mark(_saveTitleId, id, (string)cmd["name"], _saveChapterId,
-                                  (string)cmd["poster"]);
             // Нечем показаться — снимем кадр сцены сами (см. CaptureCutscenePoster).
-            if (!LvnCutsceneStore.HasPoster(_saveTitleId, id))
-                CaptureCutscenePoster(_saveTitleId, id);
+            if (!LvnCutsceneStore.HasPoster(_saveTitleId, _openCutsceneKey))
+                CaptureCutscenePoster(_saveTitleId, _openCutsceneKey);
         }
 
         // Названная катсцена, которая идёт прямо сейчас, и ждёт ли она кадра
         // для карточки. Превью — ПЕРВЫЙ фон ВНУТРИ сцены, а не тот, что стоял
         // до неё: катсцена почти всегда начинается с затемнения и смены кадра,
         // и карточка показывала бы предыдущую комнату вместо самой сцены.
-        private string _openCutsceneId;
+        private string _openCutsceneKey;
         private bool _openCutsceneNeedsPoster;
 
         /// <summary>Кадр внутри названной катсцены — её карточка в галерее.
@@ -149,10 +151,10 @@ namespace Lvn.UI
         /// кадр сцены объясняет её хуже первого.</summary>
         internal void OfferCutscenePoster(string url)
         {
-            if (!_openCutsceneNeedsPoster || string.IsNullOrEmpty(_openCutsceneId)
+            if (!_openCutsceneNeedsPoster || string.IsNullOrEmpty(_openCutsceneKey)
                 || string.IsNullOrEmpty(url)) return;
             _openCutsceneNeedsPoster = false;
-            LvnCutsceneStore.Mark(_saveTitleId, _openCutsceneId, null, _saveChapterId, url);
+            LvnCutsceneStore.Dress(_saveTitleId, _openCutsceneKey, url);
         }
 
         /// <summary>Этаж под окном диалога. Отдельный контейнер, а не позиция

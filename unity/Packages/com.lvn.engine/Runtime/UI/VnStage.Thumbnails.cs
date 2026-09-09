@@ -54,13 +54,15 @@ namespace Lvn.UI
         /// снимок поймал бы пустую сцену. Ждём пару мгновений — сцена уже идёт,
         /// игрок этого не замечает.</para>
         /// </summary>
-        internal void CaptureCutscenePoster(string titleId, string cutsceneId)
+        internal void CaptureCutscenePoster(string titleId, string key)
         {
-            if (Application.isBatchMode || string.IsNullOrEmpty(cutsceneId)) return;
-            StartCoroutine(CaptureCutscenePosterCo(titleId, cutsceneId));
+            if (Application.isBatchMode || string.IsNullOrEmpty(key)) return;
+            StartCoroutine(CaptureCutscenePosterCo(titleId, key));
         }
 
-        private System.Collections.IEnumerator CaptureCutscenePosterCo(string titleId, string id)
+        // key — адрес ПРОХОЖДЕНИЯ, а не метки сцены: у каждого показа свой
+        // снимок, иначе новый кадр лёг бы поверх прежней карточки.
+        private System.Collections.IEnumerator CaptureCutscenePosterCo(string titleId, string key)
         {
             yield return new WaitForSeconds(0.8f);
             yield return new WaitForEndOfFrame();
@@ -70,7 +72,7 @@ namespace Lvn.UI
                 if (shot != null)
                 {
                     var small = ScaleToWidth(shot, ThumbWidth);
-                    LvnCutsceneStore.WritePoster(titleId, id, small);
+                    LvnCutsceneStore.WritePoster(titleId, key, small);
                     if (!ReferenceEquals(shot, small)) Destroy(small);
                     Destroy(shot);
                 }
