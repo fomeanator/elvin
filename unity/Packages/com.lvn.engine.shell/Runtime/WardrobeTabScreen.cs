@@ -252,8 +252,12 @@ namespace Lvn.UI.Screens
         /// добавляем прежний зазор — число остаётся только зазором.</summary>
         private void LiftAboveNav()
         {
-            float nav = NavHeight?.Invoke() ?? 0f;
-            _panel.style.bottom = PanelGap + nav;
+            // Низ и поля — по паспорту листа витрины, как у профиля и детали:
+            // раньше гардероб мерил ленту сам и стоял на своей высоте.
+            var box = LvnStageSkin.Sheet;
+            _panel.style.left = LvnStageKit.D(box.Side);
+            _panel.style.right = LvnStageKit.D(box.Side);
+            _panel.style.bottom = LvnStageKit.BottomAboveBar(this, box.Bottom);
         }
 
         /// <summary>Зазор между панелью и нижней лентой.</summary>

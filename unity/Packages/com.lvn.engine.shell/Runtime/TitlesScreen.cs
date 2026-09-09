@@ -63,9 +63,9 @@ namespace Lvn.UI.Screens
         {
             if (_list == null) return;
             _list.Clear();
-            var top = LvnEdges.Top(this);
-            _list.style.paddingTop = top + LvnStageKit.D(70f);   // под шапку с логотипом
-            _list.style.paddingBottom = LvnStageKit.D(LvnStageSkin.Home.Bottom);
+            // Верх и низ — по паспорту листа: под шапкой, над лентой.
+            _list.style.paddingTop = LvnEdges.Top(this) + LvnStageKit.D(LvnStageSkin.Sheet.Top);
+            _list.style.paddingBottom = LvnStageKit.BottomAboveBar(this, LvnStageSkin.Sheet.Bottom);
             foreach (var t in Source())
             {
                 var card = Card?.Invoke(t);

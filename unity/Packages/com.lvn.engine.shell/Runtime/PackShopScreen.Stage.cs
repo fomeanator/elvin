@@ -193,10 +193,10 @@ namespace Lvn.UI.Screens
             var s = _sheet;
             s.style.position = Position.Absolute;
             s.style.left = StyleKeyword.Auto;
-            s.style.right = D(15f);
+            s.style.right = D(LvnStageSkin.Shop.Right);
             s.style.width = D(ColumnDp);
-            s.style.top = D(70f);
-            s.style.bottom = D(117f);
+            s.style.top = D(LvnStageSkin.Shop.Top);
+            s.style.bottom = D(LvnStageSkin.Shop.Bottom);
             LvnAir.Pad(s, 0f);
             s.style.backgroundColor = Color.clear;
             LvnChrome.ClearBorder(s);
@@ -205,8 +205,8 @@ namespace Lvn.UI.Screens
             // домашнюю полосу — столбик идёт за ними, как столбик главной.
             s.RegisterCallback<AttachToPanelEvent>(_ =>
             {
-                s.style.top = D(70f) + ScreenUi.SafeTop(s);
-                s.style.bottom = D(117f - HomeBarDp) + Mathf.Max(LvnEdges.Bottom(s), D(HomeBarDp));
+                s.style.top = D(LvnStageSkin.Shop.Top) + ScreenUi.SafeTop(s);
+                s.style.bottom = LvnStageKit.BottomAboveBar(s, LvnStageSkin.Shop.Bottom);
             });
             if (_header != null) _header.style.display = DisplayStyle.None;
             ScreenUi.Row(_tabsRow);
@@ -245,6 +245,37 @@ namespace Lvn.UI.Screens
                 LvnMotion.Tappable(word);
                 _tabsRow.Add(word);
             }
+        }
+
+        /// <summary>ДВЕ КАРТОЧКИ В РЯД на листе. Панель нарисована в dp макета
+        /// (см. паспорт «pack») и на лист шириной около 320 dp ложится одна.
+        /// Слот берёт половину ряда, а панель внутри ужимается масштабом под
+        /// его ширину — рамка, фигура и кегль вместе, как одна картинка
+        /// («в магазине карточки надо 2 в ряд» — Илья 09.09). Столбик витрины
+        /// уже карточки — там по-прежнему одна.</summary>
+        private VisualElement HalfSlot(VisualElement pack)
+        {
+            var slot = new VisualElement();
+            slot.style.width = Length.Percent(48.5f);
+            slot.style.marginBottom = D(10f);
+            slot.style.flexShrink = 0;
+            pack.style.position = Position.Absolute;
+            pack.style.left = 0; pack.style.top = 0;
+            pack.style.marginRight = 0; pack.style.marginBottom = 0;
+            pack.style.transformOrigin = new TransformOrigin(0f, 0f);
+            slot.Add(pack);
+            float w = D(PackW), h = D(PackH), lastK = 0f;
+            slot.RegisterCallback<GeometryChangedEvent>(e =>
+            {
+                float sw = e.newRect.width;
+                if (sw <= 0f || w <= 0f) return;
+                float k = sw / w;
+                if (Mathf.Approximately(k, lastK)) return;
+                lastK = k;
+                pack.style.scale = new Scale(new Vector3(k, k, 1f));
+                slot.style.height = h * k;
+            });
+            return slot;
         }
 
         /// <summary>Пакет — панель облика: плашка (лента «ПОПУЛЯРНЫЙ» или имя

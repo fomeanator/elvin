@@ -154,6 +154,10 @@ namespace Lvn.UI.Screens
         /// сообщений нет своего экрана.</summary>
         private void ShowLibrary()
         {
+            // КОМНАТА ВМЕСТО ВИДА. Если оболочка дала дверь в комнату списка —
+            // идём туда: полотно едет, возврат работает. Старый вид внутри
+            // хаба остаётся только там, где комнаты нет (обычная тема).
+            if (OpenTitles != null) { OpenTitles(); return; }
             var all = new List<string>();
             foreach (var kv in _titles) all.Add(kv.Key);
             var lib = new LvnCollection
@@ -369,7 +373,7 @@ namespace Lvn.UI.Screens
             if (_collectionView != null) _collectionView.style.paddingTop = top;
             if (_detailView != null) _detailView.style.paddingTop = top;
             if (_stageStack == null) return;
-            float bottom = D(LvnStageSkin.Home.Bottom - StageHomeBarDp) + inset;
+            float bottom = LvnStageKit.BottomAboveBar(this, LvnStageSkin.Home.Bottom);
             _stageStack.style.bottom = bottom;
             _stageStack.style.top = top;
             float viewH = resolvedStyle.height;
