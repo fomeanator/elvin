@@ -65,6 +65,14 @@ namespace Lvn.UI
         private System.Collections.IEnumerator CaptureCutscenePosterCo(string titleId, string key)
         {
             yield return new WaitForSeconds(0.8f);
+            // КАДР СНИМАЕМ БЕЗ ИНТЕРФЕЙСА. Карточка — это арт, а снимок экрана
+            // приносил на неё реплику, кнопки и полосы: «скрин с элементами
+            // интерфейса делаем, надо без них» (Илья 09.09). Прячем хром той
+            // же дорогой, какой его прячет сама сцена, — режиссёром и по
+            // причине, поэтому чужое скрытие мы не снимем. Видимость наносится
+            // сразу, без движения, и кадр уходит нарисованным начисто.
+            bool hid = !LvnScreenDirector.Current.ChromeHidden;
+            if (hid) HideChrome(LvnScreenDirector.PosterReason);
             yield return new WaitForEndOfFrame();
             try
             {
@@ -78,6 +86,9 @@ namespace Lvn.UI
                 }
             }
             catch (Exception e) { LvnPlayer.Log?.Invoke("cutscene poster failed: " + e.Message); }
+            // Возвращаем интерфейс тем же ключом: снимок кончился, а сцена
+            // могла спрятать хром и по своей причине — её мы не трогаем.
+            if (hid) ShowChrome(LvnScreenDirector.PosterReason);
         }
 
         // GPU-resample to the thumbnail width (readable — it gets PNG-encoded).

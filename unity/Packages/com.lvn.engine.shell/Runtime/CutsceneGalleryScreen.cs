@@ -265,11 +265,84 @@ namespace Lvn.UI.Screens
                 cap.Add(when);
             }
 
-            cell.AddManipulator(new Clickable(() => { Picked = e; Close(); }));
+            cell.AddManipulator(new Clickable(() => OpenArt(e)));
             LvnMotion.Tappable(cell);
             if (OnDrop != null) cell.Add(DropButton(e));
             return cell;
         }
+
+        /// <summary>
+        /// АРТ ВО ВЕСЬ ЭКРАН — то, зачем галерею открывают чаще всего.
+        ///
+        /// <para>Катсцена у нас переигрывается сценарием, и первое нажатие
+        /// сразу уводило в сцену. Но в новеллах галерея — это прежде всего
+        /// КАРТИНКА: «многим людям просто на картинку посмотреть хочется»
+        /// (Илья 09.09, со слов партнёра). Поэтому тап раскрывает кадр, а
+        /// пересмотр остаётся отдельной кнопкой под ним.</para>
+        ///
+        /// <para>Разворот живёт внутри экрана, а не отдельной ширмой: он ничего
+        /// не грузит заново — тот же снимок и тот же адрес фона, что на
+        /// плитке.</para>
+        /// </summary>
+        private void OpenArt(Entry e)
+        {
+            if (e == null || _art != null) return;
+
+            var art = _art = new VisualElement();
+            art.style.position = Position.Absolute;
+            art.style.left = 0; art.style.right = 0; art.style.top = 0; art.style.bottom = 0;
+            art.style.backgroundColor = new Color(0f, 0f, 0f, 0.96f);
+            art.style.justifyContent = Justify.Center;
+
+            var frame = new VisualElement();
+            frame.style.flexGrow = 1;
+            frame.style.marginBottom = LvnTokens.Space5;
+            // contain, а не cover: кадр разглядывают целиком, и подрезать его
+            // ради заполнения экрана значило бы прятать то самое, ради чего
+            // разворот и открыли.
+            LvnPicture.Fit(frame);
+            var shot = !string.IsNullOrEmpty(e.TitleId) && !string.IsNullOrEmpty(e.Key)
+                ? LvnCutsceneStore.LoadPoster(e.TitleId, e.Key) : null;
+            if (shot != null) frame.style.backgroundImage = new StyleBackground(shot);
+            else if (!string.IsNullOrEmpty(e.Poster)) LvnPicture.Photo(frame, e.Poster, _assets);
+            art.Add(frame);
+
+            var name = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of(e.Name, e.Name));
+            name.style.color = LvnTokens.Text;
+            name.style.fontSize = LvnTokens.TextBase;
+            name.style.unityTextAlign = TextAnchor.MiddleCenter;
+            name.style.marginBottom = LvnTokens.Space2;
+            art.Add(name);
+
+            var play = new Button(() => { Picked = e; CloseArt(); Close(); });
+            Lvn.UI.LvnRedress.Bind(play, () => LvnWords.Of("cutscenes.play", "Play the moment"));
+            play.style.fontSize = LvnTokens.TextSm;
+            LvnAir.Pad(play, LvnTokens.Space4, LvnTokens.Space3);
+            LvnAir.MarginX(play, LvnTokens.Space5);
+            play.style.marginBottom = LvnTokens.Space5;
+            LvnStyler.Plate(play, LvnTokens.Accent, Color.white, LvnTokens.Radius);
+            art.Add(play);
+
+            var back = ScreenUi.BackButton(CloseArt, 52f, 36f);
+            back.style.position = Position.Absolute;
+            back.style.top = LvnTokens.Space3;
+            back.style.left = LvnTokens.Space2;
+            art.Add(back);
+
+            // Разворот вешаем на сам экран, а не на лист: лист — стекло в
+            // рамке витрины, и кадр внутри него смотрелся бы открыткой в раме,
+            // а не картинкой во весь экран.
+            Add(art);
+        }
+
+        private void CloseArt()
+        {
+            if (_art == null) return;
+            _art.RemoveFromHierarchy();
+            _art = null;
+        }
+
+        private VisualElement _art;
 
         /// <summary>КОРЗИНА В УГЛУ КАРТОЧКИ. Первое нажатие взводит и краснеет,
         /// второе выбрасывает; тап мимо корзины по-прежнему открывает сцену —

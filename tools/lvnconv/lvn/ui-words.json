@@ -224,6 +224,10 @@
   "default": "Scenes you have lived through appear here"
  },
  {
+  "key": "cutscenes.play",
+  "default": "Play the moment"
+ },
+ {
   "key": "cutscenes.title",
   "default": "Cutscenes"
  },
