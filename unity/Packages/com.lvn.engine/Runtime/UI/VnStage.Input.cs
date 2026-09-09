@@ -105,6 +105,27 @@ namespace Lvn.UI
                 _player?.Advance();
                 return;
             }
+            // ПРОСМОТР НЕ СПРАШИВАЕТ ИМЕНИ. Сцена знакомства просит назваться;
+            // в галерее её смотрят снова — и форма ввода была бы предложением
+            // переименоваться. Подставляем то, чем игрок назвался тогда, чтобы
+            // реплики показали его имя, а не авторское «Виктория».
+            if (Watching)
+            {
+                var known = Lvn.UI.LvnPlayerName.IsNameVar(_inputVar)
+                    ? Lvn.UI.LvnPlayerName.Current
+                    : null;
+                if (string.IsNullOrEmpty(known)
+                    && _player.Vars.TryGetValue(_inputVar, out var prev) && prev != null)
+                {
+                    // Переменная истории хранится токеном: имя могло приехать и
+                    // строкой, и числом — берём её человеческую запись.
+                    known = prev.ToString();
+                }
+                if (string.IsNullOrEmpty(known)) known = (string)cmd["default"];
+                _awaitingInput = true;
+                ConfirmInput(known ?? string.Empty);
+                return;
+            }
             _awaitingInput = true;
 
             _inputScrim = new VisualElement();
@@ -234,6 +255,12 @@ namespace Lvn.UI
         {
             if (!_awaitingInput) return;
             _awaitingInput = false;
+            // ПЕРЕСМОТР НЕ ПЕРЕИМЕНОВЫВАЕТ ИГРОКА. Катсцена «знакомство» просит
+            // назваться, и в галерее её смотрят снова — но это чтение уже
+            // прожитого: ответ живёт до конца просмотра и никуда не уезжает.
+            // Иначе имя в профиле, гардеробе и репликах менялось бы от того,
+            // что игрок пересмотрел сцену (а пустой ввод — обнулял бы его).
+            bool replay = InCutsceneReplay;
             if (_player != null && !string.IsNullOrEmpty(_inputVar))
             {
                 _player.Vars[_inputVar] = value ?? string.Empty;
@@ -241,12 +268,12 @@ namespace Lvn.UI
                 // оставалось внутри истории: в прологе игрок вводил своё, а хаб,
                 // профиль и гардероб продолжали звать его каталожным именем
                 // героини, потому что смотрели в настройки устройства (TR-59).
-                if (Lvn.UI.LvnPlayerName.IsNameVar(_inputVar) && !string.IsNullOrEmpty(value))
+                if (!replay && Lvn.UI.LvnPlayerName.IsNameVar(_inputVar) && !string.IsNullOrEmpty(value))
                     Lvn.UI.LvnPlayerName.Set(value);
             }
             CloseInput();
             _player?.Advance();
-            AutosaveNow(); // the entered value is exactly what a crash must not lose
+            if (!replay) AutosaveNow(); // the entered value is exactly what a crash must not lose
         }
 
         private void CloseInput()
