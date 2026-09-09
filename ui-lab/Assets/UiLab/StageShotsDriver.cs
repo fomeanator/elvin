@@ -270,9 +270,7 @@ namespace Lvn.UiLab
                 if (h != null && h.panel != null)
                 {
                     var hv = h.GetType().GetField("_hubView", bf)?.GetValue(h) as VisualElement;
-                    var wb = hv?.worldBound ?? default;
-                    bool onScreen = hv != null && wb.width > 1f && wb.x > -1f && wb.x < 1f;
-                    if (onScreen) { _hub = h; break; }
+                    if (OnScreen(hv)) { _hub = h; break; }
                 }
                 if (i > 0 && i % 20 == 0) Debug.Log($"[shots] жду хаб на экране… {i / 4} с");
                 yield return new WaitForSecondsRealtime(0.25f);
@@ -454,11 +452,16 @@ namespace Lvn.UiLab
             using (var up = PointerUpEvent.GetPooled(sysUp)) { up.target = el; el.SendEvent(up); }
         }
 
+        // «НА ЭКРАНЕ» — целиком внутри панели, а не у левого края: на планшете
+        // оболочка стоит полосой по центру (ScreenUi.PhoneColumn), и витрина
+        // с x=996 — на месте, а не «не въехала». Переезд между комнатами
+        // уводит экран за край панели — это и ловим.
         private static bool OnScreen(VisualElement e)
         {
             if (e == null || e.panel == null || e.resolvedStyle.display == DisplayStyle.None) return false;
             var wb = e.worldBound;
-            return wb.width > 1f && wb.x > -1f && wb.x < 1f && e.resolvedStyle.opacity > 0.5f;
+            float panelW = e.panel.visualTree.worldBound.width;
+            return wb.width > 1f && wb.xMin > -1f && wb.xMax < panelW + 1f && e.resolvedStyle.opacity > 0.5f;
         }
 
         private void Verdict(string what, bool ok) => Debug.Log($"[shots] тур: {what} — {(ok ? "ДА" : "НЕТ")}");
