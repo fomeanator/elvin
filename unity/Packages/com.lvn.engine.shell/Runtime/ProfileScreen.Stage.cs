@@ -22,6 +22,7 @@ namespace Lvn.UI.Screens
 
         public void SetContent(LvnManifest manifest)
         {
+            LvnStageSkin.Apply(manifest?.ui?.browse?.skin_metrics);
             var skin = manifest?.ui?.browse?.skin;
             if (skin == _skin) return;
             _skin = skin;

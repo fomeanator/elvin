@@ -35,6 +35,7 @@ namespace Lvn.UI.Screens
             if (manifest == null) return;
             _manifest = manifest;
             _sheet?.SetContent(manifest);
+            LvnStageSkin.Apply(manifest.ui?.browse?.skin_metrics);
             StageBackdrop(manifest.ui?.browse?.skin);
         }
 

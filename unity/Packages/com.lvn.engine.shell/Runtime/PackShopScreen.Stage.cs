@@ -61,7 +61,8 @@ namespace Lvn.UI.Screens
         /// <summary>Фигура НЕ во всю ширину панели: поле по 8 dp с боков («спайны
         /// вернулись, надо их поуже чуть» — Илья 08.09). Мастер той же ширины —
         /// постер меряет аспект по хосту, а фигура берёт его текстуру в ровень.</summary>
-        private const float FigureInset = 8f, FigureW = PackW - FigureInset * 2f;
+        private const float FigureInset = 8f;
+        private static float FigureW => PackW - FigureInset * 2f;
 
         private void EnsureSpineMaster()
         {
@@ -131,23 +132,24 @@ namespace Lvn.UI.Screens
 
         /// <summary>Столбик уже панелей главной: 232 dp против 257 («сделай
         /// чуть уже всю колонку» — Илья 08.09); панель 200 dp в него входит.</summary>
-        private const float ColumnDp = 232f;
+        private static float ColumnDp => LvnStageSkin.Shop.Width;
 
         /// <summary>Панель пакета ВЫШЕ панели новостей (124 dp): в неё встаёт
         /// спайн-фигура, и в низкой рамке её резало бы по грудь, как на
         /// карточке главной («по высоте больше, чтобы спайн не обрезался» —
         /// Илья 08.09). Рамка растёт девятидольной нарезкой: верх с плашкой и
         /// низ с нарисованной кнопкой остаются как нарисованы, тянется середина.</summary>
-        private const float PackW = 200f, PackH = 230f;
+        private static float PackW => LvnStageSkin.Pack.Width;
+        private static float PackH => LvnStageSkin.Pack.Height;
 
         /// <summary>panel.png экспортирован 672 px на 224 dp (200 + запас
         /// свечения по 12): три пикселя на dp. Нарезка задаётся в пикселях
         /// картинки, а рисуется в единицах панели — отсюда множитель.</summary>
-        private const float PanelPxPerDp = 672f / 224f;
+        private static float PanelPxPerDp => LvnStageSkin.Panel.PxPerDp(LvnStageSkin.Bleed);
 
         /// <summary>Домашняя полоса телефона в макете — как у главной
         /// (BrowseHub.Stage): низ столбика считается от неё.</summary>
-        private const float HomeBarDp = 34f;
+        private static float HomeBarDp => LvnStageSkin.HomeBar;
 
         /// <summary>Переодеть вкладку в столбик витрины: подложка снимается,
         /// шапка «пополнить кошелёк / Магазин» прячется (слово «Магазин»

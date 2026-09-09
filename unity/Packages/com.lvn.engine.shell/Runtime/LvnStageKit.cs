@@ -20,15 +20,18 @@ namespace Lvn.UI.Screens
     /// </summary>
     internal static class LvnStageKit
     {
-        /// <summary>Ширина холста макета, dp.</summary>
-        public const float DesignWidth = 390f;
-        /// <summary>Холст макета против панели 1080: один множитель на все размеры.</summary>
-        public const float K = 1080f / DesignWidth;
+        /// <summary>Панель UITK, на которую разложен макет.</summary>
+        public const float PanelWidth = 1080f;
+
+        /// <summary>Холст макета против панели: один множитель на все размеры.
+        /// Ширину макета держит паспорт облика (<see cref="LvnStageSkin"/>), а
+        /// не константа здесь: другой арт рисуют на другом холсте.</summary>
+        public static float K => PanelWidth / LvnStageSkin.DesignWidth;
         public static float D(float dp) => Mathf.Round(dp * K);
 
         /// <summary>Запас, с которым экспортированы рамки: свечение выходит за
-        /// край элемента на 12 dp с каждой стороны.</summary>
-        public const float Bleed = 12f;
+        /// край элемента. Число — из паспорта облика.</summary>
+        public static float Bleed => LvnStageSkin.Bleed;
 
         /// <summary>Имя картинки рамки — по нему фотограф ждёт, пока весь арт
         /// облика доедет.</summary>
@@ -60,8 +63,11 @@ namespace Lvn.UI.Screens
         /// <summary>Картинка рамки на своём месте: больше места на запас
         /// свечения с каждой стороны — так нарисована.</summary>
         public static VisualElement Art(string url, ILvnAssets assets,
-                                        float x, float y, float w, float h, float bleed = Bleed)
+                                        float x, float y, float w, float h, float bleed = -1f)
         {
+            // Запас по умолчанию берётся из паспорта облика, а он не константа
+            // времени компиляции — отсюда отрицательное «не названо».
+            if (bleed < 0f) bleed = Bleed;
             var img = new VisualElement { name = ArtName, pickingMode = PickingMode.Ignore };
             At(img, x - D(bleed), y - D(bleed), w + D(bleed * 2f), h + D(bleed * 2f));
             LvnPicture.Skin(img, url, assets, what: "StageSkin");
@@ -196,8 +202,12 @@ namespace Lvn.UI.Screens
             return f;
         }
 
-        /// <summary>card-back.png: 861×795 px под карточку 263 dp, скобы по углам ~84 px.</summary>
-        public const float CardBackW = 861f, CardBackH = 795f, CardBackCornerPx = 84f, CardBackPxPerDp = 861f / 263f;
+        /// <summary>Задник карточки — по паспорту облика: размеры картинки,
+        /// угловые скобы и во сколько пикселей картинки ложится dp макета.</summary>
+        public static float CardBackW => LvnStageSkin.CardBack.ImageW;
+        public static float CardBackH => LvnStageSkin.CardBack.ImageH;
+        public static float CardBackCornerPx => LvnStageSkin.CardBack.CornerPx;
+        public static float CardBackPxPerDp => LvnStageSkin.CardBack.PxPerDp(0f);
 
         /// <summary>ЗАДНИК ЛИСТА В ОБЛИКЕ: своя заливка снимается, вместо неё —
         /// рамка арта со своей серединой. Содержимое отступает от рамки на
@@ -206,7 +216,7 @@ namespace Lvn.UI.Screens
         /// <para>Стояло стекло сцены (<c>UiGlass</c>) — оно снимает подложку
         /// мира каждый кадр и на устройстве лагало; вместо него полный фон,
         /// как у панели новостей на главной (Илья 09.09).</para></summary>
-        public const float SheetPadDp = 20f;
+        public static float SheetPadDp => LvnStageSkin.SheetPad;
 
         public static void GlassSheet(VisualElement host, string skin, ILvnAssets assets, float radius)
         {

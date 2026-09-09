@@ -604,6 +604,63 @@ namespace Lvn.Content
     /// оформляемых экрана — хаб (заголовок игры и плитки подборок), подборка
     /// (карточки новелл) и деталь (картинка, описание, «Играть»). Любой цвет и
     /// любая подпись необязательны.</summary>
+    /// <summary>
+    /// ПАСПОРТ ОБЛИКА «СЦЕНА» — числа, которыми нарисован арт витрины.
+    ///
+    /// <para>Раньше они жили константами в коде: ширина макета, запас свечения,
+    /// размеры каждой рамки и её нарезка, ширина столбиков, домашняя полоса.
+    /// Пока арт один, это незаметно; на втором облике (другой макет, другой
+    /// экспорт) пришлось бы править движок ради картинок — чего в
+    /// data-driven оболочке быть не должно.</para>
+    ///
+    /// <para>Всё необязательно: пустое поле = движковый умолчание. Числа — в dp
+    /// макета, кроме <c>*_px</c>, которые в пикселях самой картинки.</para>
+    /// </summary>
+    public sealed class StageSkinMetrics
+    {
+        /// <summary>Ширина холста макета в dp; дефолт 390.</summary>
+        public float? design_width;
+        /// <summary>Сколько пикселей картинки приходится на dp макета при
+        /// экспорте; дефолт 3.</summary>
+        public float? px_per_dp;
+        /// <summary>Насколько свечение выходит за край элемента, dp; дефолт 12.</summary>
+        public float? bleed;
+        /// <summary>Домашняя полоса телефона в макете, dp; дефолт 34.</summary>
+        public float? home_bar;
+        /// <summary>Отступ содержимого от рамки листа (гардероб, профиль), dp;
+        /// дефолт 20.</summary>
+        public float? sheet_pad;
+        /// <summary>Рамки облика: имя файла без расширения → его размеры и
+        /// нарезка. Что не названо — движковый умолчание.</summary>
+        public Dictionary<string, StageFrame> frames;
+        /// <summary>Столбик панелей на главной.</summary>
+        public StageColumn column;
+        /// <summary>Столбик магазина.</summary>
+        public StageColumn shop;
+    }
+
+    /// <summary>Рамка облика: сколько места занимает на экране и как её резать,
+    /// чтобы тянулась середина, а не углы.</summary>
+    public sealed class StageFrame
+    {
+        public float? width;      // место на экране, dp
+        public float? height;     // место на экране, dp
+        public float? image_w;    // размер картинки, px
+        public float? image_h;
+        public float? corner_px;  // угол картинки, px (для рамок с угловыми скобами)
+        public float? top_px;     // нарезка сверху/снизу, px (плашка и кнопка панели)
+        public float? bottom_px;
+    }
+
+    /// <summary>Столбик панелей: где стоит и какой ширины, dp макета.</summary>
+    public sealed class StageColumn
+    {
+        public float? right;      // отступ от правого края
+        public float? width;
+        public float? top;
+        public float? bottom;
+    }
+
     public sealed class BrowseConfig
     {
         public string layout;            // "carousel" (default) | "hub"
@@ -660,6 +717,12 @@ namespace Lvn.Content
         /// Задан — главная собирается сценой (BrowseHub.Stage.cs); пусто —
         /// прежние полки подборок.</summary>
         public string skin;
+        /// <summary>ПАСПОРТ ОБЛИКА: размеры макета и рамок, по которым нарисован
+        /// арт. Пусто — движковые числа того макета, с которого облик начинали
+        /// (390 dp, экспорт 3 px/dp); задан — художник поменял арт и сказал об
+        /// этом здесь, а не правкой кода.</summary>
+        public StageSkinMetrics skin_metrics;
+
         /// <summary>Логотип в шапке (url картинки на всю ширину шапки). Пусто —
         /// буква <c>app.logo</c> в кружке.</summary>
         public string logo;

@@ -327,6 +327,7 @@ namespace Lvn.UI.Screens
             // каждого синка состояния, и пересборка на каждое мигала всем
             // столбиком («спайны мелькают» — Илья 08.09). Облик и спайн те же
             // — карточки стоят как стояли.
+            LvnStageSkin.Apply(manifest?.ui?.browse?.skin_metrics);
             var skin = manifest?.ui?.browse?.skin;
             var spine = FirstSpine(manifest);
             string spineKey = spine == null ? null : Newtonsoft.Json.JsonConvert.SerializeObject(spine);
