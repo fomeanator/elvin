@@ -153,6 +153,10 @@ namespace Lvn.UI.Screens
         /// сообщений нет своего экрана.</summary>
         private void ShowLibrary()
         {
+            // КОМНАТА ВМЕСТО ВИДА. Если оболочка дала дверь в комнату списка —
+            // идём туда: полотно едет, возврат работает. Старый вид внутри
+            // хаба остаётся только там, где комнаты нет (обычная тема).
+            if (OpenTitles != null) { OpenTitles(); return; }
             var all = new List<string>();
             foreach (var kv in _titles) all.Add(kv.Key);
             var lib = new LvnCollection
