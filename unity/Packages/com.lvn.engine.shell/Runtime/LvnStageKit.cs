@@ -218,6 +218,19 @@ namespace Lvn.UI.Screens
         /// как у панели новостей на главной (Илья 09.09).</para></summary>
         public static float SheetPadDp => LvnStageSkin.SheetPad;
 
+        /// <summary>ПРИЁМ ОБЛИКА ИЗ МАНИФЕСТА — один дом для всех экранов.
+        /// Применяет паспорт метрик, сверяет имя облика с прежним и, если оно
+        /// сменилось, запоминает и зовёт <paramref name="onChanged"/>. Раньше
+        /// каждый экран носил свою копию этих четырёх строк.</summary>
+        public static void TakeSkin(Lvn.Content.LvnManifest manifest, ref string skin, Action onChanged)
+        {
+            LvnStageSkin.Apply(manifest?.ui?.browse?.skin_metrics);
+            var next = manifest?.ui?.browse?.skin;
+            if (next == skin) return;
+            skin = next;
+            onChanged?.Invoke();
+        }
+
         public static void GlassSheet(VisualElement host, string skin, ILvnAssets assets, float radius)
         {
             host.style.backgroundColor = Color.clear;
