@@ -703,11 +703,9 @@ namespace Lvn.UI.Screens
         // очереди, а работы по ним идут наперегонки — номер, взятый на входе,
         // и есть настоящий возраст правки.
         private long _liveEditSeq;
-        private bool _deferredContentUpdate;
 
         private async Task OnContentChangedAsync()
         {
-            if (InChapter && !LiveChapterUpdates) { _deferredContentUpdate = true; return; }
             long правка = ++_liveEditSeq;
             // СПРОСИТЬ, ЧТО ИМЕННО ИЗМЕНИЛОСЬ, ПРЕЖДЕ ЧЕМ КАЧАТЬ.
             //
@@ -719,12 +717,7 @@ namespace Lvn.UI.Screens
             //
             // Не смогли спросить (старый сервер, сеть) — идём прежним путём:
             // новый тракт обязан быть ускорением, а не единственной дорогой.
-            // Several notifications may have been deferred; a delta from only
-            // the last one would silently skip earlier changes.
-            var delta = _sync != null && !_deferredContentUpdate
-                ? await _sync.FetchDeltaAsync(_sync.PreviousVersion) : null;
-            if (InChapter && !LiveChapterUpdates) { _deferredContentUpdate = true; return; }
-            _deferredContentUpdate = false;
+            var delta = _sync != null ? await _sync.FetchDeltaAsync(_sync.PreviousVersion) : null;
             bool precise = delta != null && !delta.Full;
 
             if (precise)
@@ -766,7 +759,6 @@ namespace Lvn.UI.Screens
         /// </summary>
         private async Task<bool> AdoptManifestAsync(LvnManifest manifest)
         {
-            if (InChapter && !LiveChapterUpdates) { _deferredContentUpdate = true; return false; }
             if (manifest == null) return false;
             // ПУСТОЙ КАТАЛОГ ПОВЕРХ НЕПУСТОГО НЕ ПРИНИМАЕТСЯ — ни на экраны,
             // ни в офлайновую копию. Почему именно так, с числами и замером, —
@@ -801,7 +793,6 @@ namespace Lvn.UI.Screens
                 LvnLog.Info("[lvn-app] приёмку каталога обогнали — этот экраны не трогает");
                 return false;
             }
-            if (InChapter && !LiveChapterUpdates) { _deferredContentUpdate = true; return false; }
             _shell?.ApplyLiveUpdate(manifest);
             // Содержимое манифеста применяет тот же дом, что и на старте
             // (NovelApp.Manifest): два списка одного факта расходились при
@@ -828,7 +819,6 @@ namespace Lvn.UI.Screens
         /// делать.</summary>
         private async Task HotReloadOpenChapterAsync(long правка = 0)
         {
-            if (!LiveChapterUpdates) return;
             if (_currentChapter == null || Stage == null || Stage.Player == null || Stage.Player.Finished)
                 return;
 
