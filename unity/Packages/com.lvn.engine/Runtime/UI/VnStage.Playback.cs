@@ -727,13 +727,19 @@ namespace Lvn.UI
             }
             _cutsceneWatch = cutsceneId;
             _cutsceneDone = onEnd;
-            // Пересмотр — кино: интерфейс уходит на всё время просмотра, даже
-            // если сама сцена его не прятала (в главе она шла с репликами и
-            // выборами, а здесь их не спрашивают).
-            HideChrome(LvnScreenDirector.CutsceneReason);
+            // ИНТЕРФЕЙС НЕ ПРЯЧЕМ. Кадром без интерфейса сцена просит стать
+            // сама (`cutscene on=1`) — там, где текста нет. Пересмотр прятал
+            // его всегда, и «Знакомство с Агентом» — сцена из одних реплик —
+            // вставала немой картинкой без реакции на тап («не запускается и
+            // не реагирует на клики» — Илья 09.09). В просмотре убираются
+            // только вопросы игроку: ввод и выборы.
             ShowCutsceneExit();
             _player.ReplayVisuals(at);
-            _player.ContinueFrom(at);
+            // СПАЙН ПРОГРЕВАЕМ, как на входе в главу. Пересмотр шёл коротким
+            // путём восстановления сейва (там прогрев не нужен — снимок уже
+            // держит сцену), и живая фигура оставалась статичной картинкой
+            // («спайн не запускается» — Илья 09.09).
+            LvnAsync.Fire(WarmThenContinueAsync(at), "CutsceneWarm");
             return true;
         }
 
@@ -771,11 +777,23 @@ namespace Lvn.UI
             _cutsceneDone = null;
             _cutsceneExit?.RemoveFromHierarchy();
             _cutsceneExit = null;
-            ShowChrome(LvnScreenDirector.CutsceneReason);
             done?.Invoke();
         }
 
         private VisualElement _cutsceneExit;
+
+        /// <summary>Дать сцене собрать спайн и первый арт, и только потом
+        /// пускать отрезок: иначе первые её секунды идут по недостроенной
+        /// сцене.</summary>
+        private async System.Threading.Tasks.Task WarmThenContinueAsync(int at)
+        {
+            var watching = _cutsceneWatch;
+            try { await WarmUpcomingSpineAsync(12); }
+            catch (System.Exception e) { LvnPlayer.Log?.Invoke("cutscene warm failed: " + e.Message); }
+            // Пока грелись, просмотр могли закрыть — тогда пускать нечего.
+            if (_player == null || _cutsceneWatch != watching) return;
+            _player.ContinueFrom(at);
+        }
 
         /// <summary>
         /// ВЫХОД ИЗ ПЕРЕСМОТРА — единственная кнопка на кадре.

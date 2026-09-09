@@ -42,6 +42,42 @@ namespace Lvn.UI
             onDone?.Invoke();
         }
 
+        /// <summary>
+        /// КАДР ДЛЯ КАРТОЧКИ КАТСЦЕНЫ, когда сцена не сменила фон.
+        ///
+        /// <para>Сцена вроде «Знакомства с Агентом» идёт на кадре, поставленном
+        /// раньше: адреса фона у неё нет, и плитка в галерее осталась пустой
+        /// («нет заставки нормальной» — Илья 09.09). Снимаем экран — тем же
+        /// способом, каким снимается эскиз сохранения.</para>
+        ///
+        /// <para>Не сразу: реплика и фигура встают не в тот же кадр, и мгновенный
+        /// снимок поймал бы пустую сцену. Ждём пару мгновений — сцена уже идёт,
+        /// игрок этого не замечает.</para>
+        /// </summary>
+        internal void CaptureCutscenePoster(string titleId, string cutsceneId)
+        {
+            if (Application.isBatchMode || string.IsNullOrEmpty(cutsceneId)) return;
+            StartCoroutine(CaptureCutscenePosterCo(titleId, cutsceneId));
+        }
+
+        private System.Collections.IEnumerator CaptureCutscenePosterCo(string titleId, string id)
+        {
+            yield return new WaitForSeconds(0.8f);
+            yield return new WaitForEndOfFrame();
+            try
+            {
+                var shot = ScreenCapture.CaptureScreenshotAsTexture();
+                if (shot != null)
+                {
+                    var small = ScaleToWidth(shot, ThumbWidth);
+                    LvnCutsceneStore.WritePoster(titleId, id, small);
+                    if (!ReferenceEquals(shot, small)) Destroy(small);
+                    Destroy(shot);
+                }
+            }
+            catch (Exception e) { LvnPlayer.Log?.Invoke("cutscene poster failed: " + e.Message); }
+        }
+
         // GPU-resample to the thumbnail width (readable — it gets PNG-encoded).
         private static Texture2D ScaleToWidth(Texture2D tex, int width)
         {
