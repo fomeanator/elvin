@@ -633,6 +633,9 @@ namespace Lvn.UI.Screens
         /// <summary>Облик «сцена»: страница и рисованное меню из BrowseHub.Stage.cs.</summary>
         private void BuildStageShell()
         {
+            // Кукла сцены знает, сколько над ней занимает шапка облика, —
+            // иначе на коротком экране голова упирается в логотип.
+            LvnMenuStage.DollHeadroom = D(StageTopBlockDp);
             _hubView = BuildStageView();
             var navRoot = StageNav();
             LvnChrome.BottomStrip(navRoot);

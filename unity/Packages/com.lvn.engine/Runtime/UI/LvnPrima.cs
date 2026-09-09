@@ -83,7 +83,11 @@ namespace Lvn.UI
         {
             if (_stage == null || !Exists) return false;
             if (string.IsNullOrEmpty(place)) place = LvnMenuStage.HomeDollSlot;
-            var pose = Pose(Id, place, LvnMenuStage.DollWidth, LvnMenuStage.DollHeight, z ?? 0, nudge);
+            // РОСТ — КАКИМ КУКЛА ВСТАНЕТ НА ЭТОМ ЭКРАНЕ. Доля кадра сцены на
+            // длинном телефоне умещается, а на 16:9 и планшете кадр равен
+            // экрану — та же единица срезала бы голову; зажим живёт в витрине
+            // (DollHeightOnScreen) и знает про вырез и шапку.
+            var pose = Pose(Id, place, LvnMenuStage.DollWidth, LvnMenuStage.DollHeightOnScreen, z ?? 0, nudge);
             if (seconds > 0f) pose["transition_duration"] = VnStage.DeclareMovement(seconds);
             LvnLog.Trace($"[lvn-doll] {Id}: в слот «{place}» ({Placement.SlotX(place):0.000}"
                        + (nudge != 0f ? $" {(nudge > 0 ? "+" : "−")} {Mathf.Abs(nudge):0.000} = {(float)pose["x"]:0.000}" : "")
