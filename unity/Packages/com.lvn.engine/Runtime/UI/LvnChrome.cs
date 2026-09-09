@@ -316,6 +316,32 @@ namespace Lvn.UI
         }
 
         /// <summary>Снять рамку со всех четырёх сторон.</summary>
+        /// <summary>
+        /// ПОЛОСА ИНТЕРФЕЙСА — НЕ ШИРЕ ТЕЛЕФОНА, ПО ЦЕНТРУ.
+        ///
+        /// <para>Интерфейс нарисован на холсте <see cref="LvnPanel.ReferenceWidth"/>.
+        /// Когда экран лежит на боку, холст матчится по высоте и тянется на всю
+        /// ширину: реплика растягивается на планшет, кнопки выбора разъезжаются
+        /// на полметра друг от друга, надписи расплываются. Читать такое нельзя
+        /// — глаз не держит строку такой длины.</para>
+        ///
+        /// <para>Центрируем СДВИГОМ, а не полями: элемент обычно растянут
+        /// абсолютно (left=right=0), и автоматические поля в такой раскладке
+        /// остаток не делят — полоса молча прижимается к левому краю.</para>
+        ///
+        /// <para>Мир под полосой остаётся во всю ширину: полотно, фигуры,
+        /// погода и вуали живут своими слоями и вписываются сами.</para>
+        /// </summary>
+        public static void PhoneColumn(VisualElement el)
+        {
+            if (el == null) return;
+            el.style.width = Length.Percent(100f);
+            el.style.maxWidth = LvnPanel.ReferenceWidth;
+            el.style.left = Length.Percent(50f);
+            el.style.right = StyleKeyword.Auto;
+            el.style.translate = new Translate(Length.Percent(-50f), 0f);
+        }
+
         public static void ClearBorder(VisualElement el)
         {
             if (el == null) return;

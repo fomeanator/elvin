@@ -370,7 +370,13 @@ namespace Lvn.UI
             // Chrome lives inside the device SAFE AREA (never under a notch /
             // home indicator); the scene, weather and the FX veil stay full-bleed
             // so art and fades cover the physical screen edge to edge.
+            // ХРОМ СЦЕНЫ — ПОЛОСОЙ С ТЕЛЕФОН. Реплика, выборы и подписи живут
+            // в той же ширине, что панели витрины: на планшете строка иначе
+            // растягивается через весь экран, а кнопки выбора расходятся так,
+            // что между ними полметра пустоты. Мир под ними остаётся во всю
+            // ширину — полотно и фигуры вписываются сами.
             _chromeSafe = new SafeAreaElement();
+            LvnChrome.PhoneColumn(_chromeSafe);
             _chromeSafe.Add(_dialogue);
             _chromeSafe.Add(_choices);
             _chromeSafe.Add(_labelLayer); // HUD/stat labels above dialogue/choices
@@ -378,6 +384,7 @@ namespace Lvn.UI
             root.Add(_fx);          // top: fades/dim veil everything below
             _menu = new StageMenu(this, Theme);
             _menuSafe = new SafeAreaElement();
+            LvnChrome.PhoneColumn(_menuSafe);
             _menuSafe.Add(_menu);   // quick menu above even the FX veil — always reachable
             root.Add(_menuSafe);
 

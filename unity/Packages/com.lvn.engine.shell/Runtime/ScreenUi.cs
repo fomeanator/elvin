@@ -121,19 +121,13 @@ namespace Lvn.UI.Screens
         public static void PhoneColumn(VisualElement el)
         {
             if (el == null) return;
-            // ЦЕНТР — СДВИГОМ, А НЕ ПОЛЯМИ. Корень растянут абсолютно
-            // (left=right=0), и автоматические поля в такой раскладке остаток
-            // не делят: полоса молча прижалась к левому краю. Держим левый край
-            // на середине и отодвигаем на половину собственной ширины.
-            el.style.width = Length.Percent(100f);
-            el.style.maxWidth = PhoneWidth;
-            el.style.left = Length.Percent(50f);
-            el.style.right = StyleKeyword.Auto;
-            el.style.translate = new Translate(Length.Percent(-50f), 0f);
+            // Само правило живёт в движке: им пользуется и сцена новеллы —
+            // реплика с выборами тоже не должна растягиваться на планшет.
+            LvnChrome.PhoneColumn(el);
         }
 
         /// <summary>Ширина холста, на котором нарисована оболочка.</summary>
-        public const float PhoneWidth = 1080f;
+        public const float PhoneWidth = Lvn.UI.LvnPanel.ReferenceWidth;
 
         public static void HubTabSheet(VisualElement root, VisualElement sheet)
         {
