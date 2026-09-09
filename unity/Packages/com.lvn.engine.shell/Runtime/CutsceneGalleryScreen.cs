@@ -124,6 +124,9 @@ namespace Lvn.UI.Screens
             _empty.style.marginTop = LvnTokens.Space5;
             sheet.Add(_empty);
 
+            // Экран сняли с панели — картинке над ним висеть не на чем.
+            RegisterCallback<DetachFromPanelEvent>(_ => CloseArt());
+
             _grid = Lvn.UI.LvnScroll.Vertical();
             _grid.style.flexGrow = 1;
             LvnFlow.Wrap(_grid.contentContainer, Justify.FlexStart);
@@ -149,6 +152,9 @@ namespace Lvn.UI.Screens
         /// сцены в том порядке, в каком их прожил.</summary>
         public void SetEntries(IReadOnlyList<Entry> entries)
         {
+            // Разворот живёт НЕ внутри экрана (он выше слоя окон), поэтому сам
+            // с закрытием галереи не уходит — снимаем его на каждом наполнении.
+            CloseArt();
             _entries.Clear();
             if (entries != null)
                 foreach (var e in entries)
@@ -291,7 +297,9 @@ namespace Lvn.UI.Screens
             var art = _art = new VisualElement();
             art.style.position = Position.Absolute;
             art.style.left = 0; art.style.right = 0; art.style.top = 0; art.style.bottom = 0;
-            art.style.backgroundColor = new Color(0f, 0f, 0f, 0.96f);
+            // ЧЁРНОЕ НАСКВОЗЬ. Полупрозрачная подложка оставляла под собой
+            // витрину, и кадр смотрелся окном в приложении, а не картинкой.
+            art.style.backgroundColor = Color.black;
             art.style.justifyContent = Justify.Center;
 
             var frame = new VisualElement();
@@ -314,25 +322,48 @@ namespace Lvn.UI.Screens
             name.style.marginBottom = LvnTokens.Space2;
             art.Add(name);
 
-            var play = new Button(() => { Picked = e; CloseArt(); Close(); });
-            Lvn.UI.LvnRedress.Bind(play, () => LvnWords.Of("cutscenes.play", "Play the moment"));
-            play.style.fontSize = LvnTokens.TextSm;
-            LvnAir.Pad(play, LvnTokens.Space4, LvnTokens.Space3);
-            LvnAir.MarginX(play, LvnTokens.Space5);
-            play.style.marginBottom = LvnTokens.Space5;
-            LvnStyler.Plate(play, LvnTokens.Accent, Color.white, LvnTokens.Radius);
+            // Кнопка — ГЛАВНОЕ ДЕЙСТВИЕ ВИТРИНЫ, той же рукой, что «Играть» на
+            // детали новеллы: своя заливка здесь читалась чужой кнопкой из
+            // другого приложения.
+            var play = Lvn.UI.LvnRedress.Bind(
+                new Button(() => { Picked = e; CloseArt(); Close(); }),
+                () => LvnWords.Of("cutscenes.play", "Play the moment"));
+            play.style.fontSize = LvnTokens.TextBase;
+            play.style.unityFontStyleAndWeight = FontStyle.Bold;
+            LvnAir.PadY(play, LvnTokens.Space3);
+            LvnAir.MarginX(play, LvnEdges.PageSide);
+            LvnStyler.Primary(play, LvnTokens.RadiusSm);
             art.Add(play);
 
-            var back = ScreenUi.BackButton(CloseArt, 52f, 36f);
-            back.style.position = Position.Absolute;
-            back.style.top = LvnTokens.Space3;
-            back.style.left = LvnTokens.Space2;
-            art.Add(back);
+            // ЗАКРЫВАЕТ КРЕСТИК, А НЕ СТРЕЛКА. Стрелка стояла в углу под
+            // шапкой витрины и не нажималась вовсе («кнопку назад не нажать,
+            // нужен крестик» — Илья 09.09); крестик — свой, на самом кадре, и
+            // отвечает за один смысл: закрыть картинку.
+            var close = new Label("×") { name = "art-close" };
+            close.style.position = Position.Absolute;
+            close.style.right = 16f;
+            const float size = 44f;   // палец: минимальная зона нажатия
+            close.style.width = size;
+            close.style.height = size;
+            close.style.unityTextAlign = TextAnchor.MiddleCenter;
+            close.style.fontSize = LvnTokens.TextLg;
+            close.style.color = LvnTokens.Text;
+            close.style.backgroundColor = LvnTokens.Veil(0.45f);
+            LvnChrome.Round(close, size / 2f);
+            close.AddManipulator(new Clickable(CloseArt));
+            LvnMotion.Tappable(close);
+            art.Add(close);
 
-            // Разворот вешаем на сам экран, а не на лист: лист — стекло в
-            // рамке витрины, и кадр внутри него смотрелся бы открыткой в раме,
-            // а не картинкой во весь экран.
-            Add(art);
+            // НА САМЫЙ ВЕРХ, А НЕ ВНУТРЬ ЭКРАНА. Галерея живёт в слое окон, а
+            // шапка витрины — выше него: разворот внутри экрана оставлял над
+            // картинкой имя игрока и кошельки, и «во весь экран» им не было.
+            var top = panel?.visualTree ?? (VisualElement)this;
+            top.Add(art);
+            // Вырез телефона знает только корень — крестик прижимаем под него.
+            close.style.top = LvnEdges.Top(top, 16f);
+            // Кнопка не должна упираться в полосу жеста снизу.
+            play.style.marginBottom = LvnEdges.Bottom(top, LvnTokens.Space5);
+            name.style.marginBottom = LvnTokens.Space3;
         }
 
         private void CloseArt()
