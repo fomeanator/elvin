@@ -155,7 +155,10 @@ namespace Lvn.UI.Screens
         {
             if (view == null) return;
             view.style.backgroundColor = Color.clear;
-            LvnChrome.PhoneColumn(view);
+            // Не translate: FadeIn при показе вида обнуляет его, и вид
+            // застывал съехавшим вправо на пол-экрана.
+            view.style.maxWidth = LvnPanel.ReferenceWidth;
+            view.style.alignSelf = Align.Center;
             LvnStageKit.GlassSheet(view, _cfg?.skin, _assets, LvnTokens.Radius);
         }
 
