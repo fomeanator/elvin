@@ -16,6 +16,10 @@ namespace Lvn.UI
         private Texture2D _pendingThumb;
         private const int ThumbWidth = 320;
 
+        /// <summary>Ширина кадра катсцены: столько, сколько на экране, но не
+        /// больше этого — дальше растёт вес, а не видимая точность.</summary>
+        private const int PosterWidth = 1440;
+
         /// <summary>Capture the current clean frame as the pending save
         /// thumbnail, then continue (the menu defers its scrim by one frame).
         /// Headless/batch runs skip the capture — there are no frames.</summary>
@@ -79,7 +83,14 @@ namespace Lvn.UI
                 var shot = ScreenCapture.CaptureScreenshotAsTexture();
                 if (shot != null)
                 {
-                    var small = ScaleToWidth(shot, ThumbWidth);
+                    // КАДР КАТСЦЕНЫ ХРАНИМ КРУПНО. Эскиз сохранения живёт в
+                    // ленте слотов, и 320 точек ему хватает; карточку же
+                    // разглядывают во весь экран и щипком — тот же размер
+                    // превращал арт в кашу («а почему качество говно?» — Илья
+                    // 09.09). Берём кадр как есть, ограничивая только сверху:
+                    // экран больше полутора тысяч точек ни один телефон не
+                    // покажет, а место карточка занимает настоящее.
+                    var small = ScaleToWidth(shot, PosterWidth);
                     LvnCutsceneStore.WritePoster(titleId, key, small);
                     if (!ReferenceEquals(shot, small)) Destroy(small);
                     Destroy(shot);

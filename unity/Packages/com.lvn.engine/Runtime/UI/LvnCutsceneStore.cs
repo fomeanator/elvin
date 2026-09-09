@@ -154,12 +154,7 @@ namespace Lvn.UI
                 var key = old?.Key;
                 if (string.IsNullOrEmpty(key)) continue;
                 map.Remove(key);
-                try
-                {
-                    var path = PosterPath(titleId, key);
-                    if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
-                }
-                catch { /* снимок — украшение: не убрался, и ладно */ }
+                DropPoster(titleId, key);
             }
         }
 
@@ -169,10 +164,14 @@ namespace Lvn.UI
         // с Агентом», где кадр стоит с прошлой сцены, — снимаем экран, как для
         // сохранения: у него уже есть свой снимок, и второй заводить незачем.
 
-        /// <summary>Файл снимка ПРОХОЖДЕНИЯ (может не существовать).</summary>
+        /// <summary>Файл снимка ПРОХОЖДЕНИЯ (может не существовать).
+        ///
+        /// <para>JPEG, а не PNG: кадр держим в размере экрана — его
+        /// разглядывают во весь экран и щипком, — и без сжатия каждая карточка
+        /// весила бы мегабайты. Фотографии кадра точность PNG не нужна.</para></summary>
         public static string PosterPath(string titleId, string cutsceneId) =>
             System.IO.Path.Combine(Application.persistentDataPath, "lvn", "cutscenes",
-                string.IsNullOrEmpty(titleId) ? "default" : titleId, cutsceneId + ".png");
+                string.IsNullOrEmpty(titleId) ? "default" : titleId, cutsceneId + ".jpg");
 
         /// <summary>Записать снимок катсцены. Никогда не бросает: карточка —
         /// украшение, и сцена не должна падать из-за неё.</summary>
@@ -182,7 +181,7 @@ namespace Lvn.UI
             try
             {
                 Lvn.Content.ContentLoader.AtomicWriteAllBytes(
-                    PosterPath(titleId, cutsceneId), shot.EncodeToPNG());
+                    PosterPath(titleId, cutsceneId), shot.EncodeToJPG(92));
             }
             catch (System.Exception e)
             {
@@ -195,8 +194,8 @@ namespace Lvn.UI
         {
             try
             {
-                var path = PosterPath(titleId, cutsceneId);
-                if (!System.IO.File.Exists(path)) return null;
+                var path = Poster(titleId, cutsceneId);
+                if (path == null) return null;
                 var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
                 return tex.LoadImage(System.IO.File.ReadAllBytes(path)) ? tex : null;
             }
@@ -210,7 +209,17 @@ namespace Lvn.UI
             if (string.IsNullOrEmpty(key)) return false;
             if (Live(titleId).TryGetValue(key, out var seen)
                 && seen != null && !string.IsNullOrEmpty(seen.Poster)) return true;
-            return System.IO.File.Exists(PosterPath(titleId, key));
+            return Poster(titleId, key) != null;
+        }
+
+        /// <summary>Файл снимка, какой есть, или null. Карточки прежних
+        /// сборок лежат в PNG — терять их из-за смены формата незачем.</summary>
+        private static string Poster(string titleId, string key)
+        {
+            var jpg = PosterPath(titleId, key);
+            if (System.IO.File.Exists(jpg)) return jpg;
+            var png = System.IO.Path.ChangeExtension(jpg, ".png");
+            return System.IO.File.Exists(png) ? png : null;
         }
 
         /// <summary>ВЫБРОСИТЬ ОДНО ПРОХОЖДЕНИЕ вместе с его снимком. Игрок
@@ -223,13 +232,19 @@ namespace Lvn.UI
             var map = Live(titleId);
             if (!map.Remove(key)) return false;
             LvnKeep.Put(Key(titleId), JsonConvert.SerializeObject(map));
+            DropPoster(titleId, key);
+            return true;
+        }
+
+        /// <summary>Убрать снимок прохождения — в любом из форматов.</summary>
+        private static void DropPoster(string titleId, string key)
+        {
             try
             {
-                var path = PosterPath(titleId, key);
-                if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
+                var path = Poster(titleId, key);
+                if (path != null) System.IO.File.Delete(path);
             }
-            catch { /* снимок — украшение: не убрался, карточки всё равно нет */ }
-            return true;
+            catch { /* снимок — украшение: не убрался, и ладно */ }
         }
 
         /// <summary>Забыть всё открытое у новеллы (сброс прогресса, отладка).</summary>
