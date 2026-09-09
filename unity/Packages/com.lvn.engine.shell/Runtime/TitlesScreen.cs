@@ -35,11 +35,18 @@ namespace Lvn.UI.Screens
         {
             style.backgroundColor = Color.clear;
             pickingMode = PickingMode.Ignore;
-            LvnChrome.PhoneColumn(this);
 
+            // ПОЛОСУ ЦЕНТРИРУЕМ ВНУТРИ, А НЕ КОРНЕМ. Переезд между комнатами
+            // анимирует translate САМОГО экрана; если центрировать корень тем
+            // же свойством, переезд затирает сдвиг и комната застывает съехавшей
+            // на пол-экрана вправо (Илья 09.09). Корень остаётся растянутым —
+            // им распоряжается оболочка, полосой — содержимое.
             _list = LvnScroll.Vertical();
             _list.style.flexGrow = 1;
             _list.contentContainer.style.alignItems = Align.Center;
+            _list.style.width = Length.Percent(100f);
+            _list.style.maxWidth = LvnPanel.ReferenceWidth;
+            _list.style.alignSelf = Align.Center;
             Add(_list);
         }
 
