@@ -67,6 +67,13 @@ namespace Lvn.UI.Screens
         public static Column Shop { get; private set; } =
             new Column(right: 15f, width: 232f, top: 70f, bottom: 117f);
 
+        /// <summary>ЛИСТ ВИТРИНЫ — один стандарт для детали, профиля, гардероба
+        /// и списка. Раньше у каждого экрана низ и поля были свои числа: деталь
+        /// кончалась в 58 dp и лента наезжала, профиль поднимали «на 50»,
+        /// гардероб мерил ленту сам (Илья 09.09: «каша, нет стандарта»).</summary>
+        public static SheetBox Sheet { get; private set; } =
+            new SheetBox(side: 15f, top: 70f, tabTop01: 0.39f, bottom: 150f, under: 40f);
+
         /// <summary>Принять паспорт из манифеста. Зовётся перед сборкой каждого
         /// экрана облика, поэтому начинает с движковых чисел: убранное из
         /// манифеста поле обязано вернуться к умолчанию, а не донашиваться от
@@ -87,6 +94,7 @@ namespace Lvn.UI.Screens
             Adv = Merge(Adv, Named(m, "adv"));
             Home = Merge(Home, m.column);
             Shop = Merge(Shop, m.shop);
+            Sheet = Merge(Sheet, m.sheet);
         }
 
         /// <summary>Вернуть числа макета к движковым — нужно тестам и смене
@@ -94,6 +102,7 @@ namespace Lvn.UI.Screens
         public static void Reset()
         {
             DesignWidth = 390f; PxPerDp = 3f; Bleed = 12f; HomeBar = 34f; SheetPad = 20f;
+            Sheet = new SheetBox(side: 15f, top: 70f, tabTop01: 0.39f, bottom: 150f, under: 40f);
             Panel = new Frame(200f, 124f, 672f, 444f, topPx: 30f, bottomPx: 46f);
             Pack = new Frame(200f, 230f);
             CardBack = new Frame(263f, 241f, 861f, 795f, cornerPx: 84f);
@@ -142,6 +151,27 @@ namespace Lvn.UI.Screens
         }
 
         /// <summary>Столбик панелей: где стоит и какой ширины, dp макета.</summary>
+        private static SheetBox Merge(SheetBox now, StageSheet s)
+        {
+            if (s == null) return now;
+            float tab = Pick(s.tab_top, now.TabTop01, 0f);
+            if (tab > 1f) tab = 1f;
+            return new SheetBox(Pick(s.side, now.Side, 0f), Pick(s.top, now.Top, 0f), tab,
+                                Pick(s.bottom, now.Bottom, 0f), Pick(s.under, now.Under, 0f));
+        }
+
+        /// <summary>Геометрия листа витрины: поля и верх в dp макета, верх
+        /// вкладки — долей высоты, низ вкладки — dp над низом экрана. Попап
+        /// (деталь новеллы) идёт до домашней полосы, под ленту: <see cref="Under"/>
+        /// — на сколько dp лента ложится на него, настолько же поднимаются
+        /// его кнопки («чтобы нижнее меню закрывало на 50–70» — Илья 09.09).</summary>
+        internal readonly struct SheetBox
+        {
+            public readonly float Side, Top, TabTop01, Bottom, Under;
+            public SheetBox(float side, float top, float tabTop01, float bottom, float under)
+            { Side = side; Top = top; TabTop01 = tabTop01; Bottom = bottom; Under = under; }
+        }
+
         internal readonly struct Column
         {
             public readonly float Right, Width, Top, Bottom;

@@ -637,6 +637,10 @@ namespace Lvn.Content
         public StageColumn column;
         /// <summary>Столбик магазина.</summary>
         public StageColumn shop;
+        /// <summary>Лист витрины: поля, верх под шапкой, верх вкладок с
+        /// героиней в кадре и низ над лентой меню — один стандарт для детали,
+        /// профиля, гардероба и списка.</summary>
+        public StageSheet sheet;
     }
 
     /// <summary>Рамка облика: сколько места занимает на экране и как её резать,
@@ -653,6 +657,20 @@ namespace Lvn.Content
     }
 
     /// <summary>Столбик панелей: где стоит и какой ширины, dp макета.</summary>
+    /// <summary>Геометрия листа витрины в dp макета; доли — от 0 до 1.</summary>
+    public sealed class StageSheet
+    {
+        /// <summary>Поле от края экрана, dp; дефолт 15.</summary>
+        public float? side;
+        /// <summary>Верх листа под шапкой (логотип, валюты), dp от выреза; дефолт 70.</summary>
+        public float? top;
+        /// <summary>Верх листа-вкладки, доля высоты экрана: выше — героиня в кадре; дефолт 0.39.</summary>
+        public float? tab_top;
+        /// <summary>Низ листа над лентой меню, dp от низа экрана; дефолт 150.</summary>
+        public float? bottom;
+        public float? under;    // дефолт 40 — на сколько лента ложится на попап
+    }
+
     public sealed class StageColumn
     {
         public float? right;      // отступ от правого края

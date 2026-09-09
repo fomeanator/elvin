@@ -61,6 +61,25 @@ namespace Lvn.Shell.Tests
         }
 
         [Test]
+        public void TheSheetIsOneStandardForEveryScreen()
+        {
+            // Один паспорт листа — деталь, профиль, гардероб и список читают его,
+            // а не держат по своему числу; низ выше ленты меню у всех одинаков.
+            LvnStageSkin.Apply(null);
+            Assert.AreEqual(15f, LvnStageSkin.Sheet.Side, "поля листа");
+            Assert.AreEqual(70f, LvnStageSkin.Sheet.Top, "под шапкой витрины");
+            Assert.AreEqual(0.39f, LvnStageSkin.Sheet.TabTop01, 1e-4f, "вкладка держит героиню в кадре");
+            Assert.AreEqual(150f, LvnStageSkin.Sheet.Bottom, "вкладка стоит над лентой меню");
+            Assert.AreEqual(40f, LvnStageSkin.Sheet.Under, "попап уходит под ленту на столько");
+
+            LvnStageSkin.Apply(new StageSkinMetrics { sheet = new StageSheet { bottom = 170f, tab_top = 1.5f, under = 55f } });
+            Assert.AreEqual(170f, LvnStageSkin.Sheet.Bottom, "низ листа приходит из манифеста");
+            Assert.AreEqual(55f, LvnStageSkin.Sheet.Under, "и глубина под лентой тоже");
+            Assert.AreEqual(1f, LvnStageSkin.Sheet.TabTop01, "доля высоты не выходит за единицу");
+            Assert.AreEqual(15f, LvnStageSkin.Sheet.Side, "неназванное поле остаётся движковым");
+        }
+
+        [Test]
         public void PixelsPerDpCountTheGlowBeyondTheEdge()
         {
             // panel.png экспортирован на 200 dp места плюс по 12 dp свечения с

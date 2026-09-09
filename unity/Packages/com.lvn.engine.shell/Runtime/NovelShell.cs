@@ -295,6 +295,7 @@ namespace Lvn.UI.Screens
             Titles = new TitlesScreen(); Add(Titles);
             Titles.Card = t => Hub?.TitleCardFor(t);
             Titles.Titles = () => Hub?.AllTitles;
+            if (Hub != null) Hub.OpenTitles = () => LvnAsync.Fire(TabGoTo(LvnTabs.Titles), "OpenTitles");
             Daily = new DailyRewardsScreen(assets); Add(Daily);
             Leaderboard = new LeaderboardScreen(assets); Add(Leaderboard);
             PackShop = new PackShopScreen(assets); Add(PackShop);

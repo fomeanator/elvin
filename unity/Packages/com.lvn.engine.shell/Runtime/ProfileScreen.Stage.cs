@@ -21,14 +21,7 @@ namespace Lvn.UI.Screens
         private bool StageDressed => !string.IsNullOrEmpty(_skin);
 
         public void SetContent(LvnManifest manifest)
-        {
-            LvnStageSkin.Apply(manifest?.ui?.browse?.skin_metrics);
-            var skin = manifest?.ui?.browse?.skin;
-            if (skin == _skin) return;
-            _skin = skin;
-            StageSheet();
-            Rebuild();
-        }
+            => LvnStageKit.TakeSkin(manifest, ref _skin, () => { StageSheet(); Rebuild(); });
 
         /// <summary>Лист профиля — стекло сцены вместо глухой заливки.</summary>
         private void StageSheet()
@@ -36,10 +29,8 @@ namespace Lvn.UI.Screens
             if (!StageDressed || _sheet == null || _stageGlass) return;
             _stageGlass = true;
             LvnStageKit.GlassSheet(_sheet, _skin, _assets, LvnTokens.Radius);
-            // лист выше на 50 px: лента облика выше дырки, заложенной в HubTabSheet,
-            // и наезжала на низ листа («профиль подними на 50 пикселей, как в
-            // гардеробе, а то меню наезжает» — Илья 08.09)
-            _sheet.style.bottom = _sheet.style.bottom.value.value + 50f;
+            // низ над лентой и поля — по паспорту листа, как у детали и гардероба
+            LvnStageKit.SheetFrame(_sheet, this, tab: true);
             if (_title != null) StageHeader(_title);
         }
 
