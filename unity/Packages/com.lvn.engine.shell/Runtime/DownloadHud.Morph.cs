@@ -40,6 +40,9 @@ namespace Lvn.UI.Screens
                 float availW = resolvedStyle.width;
                 _fullW = availW > 100f ? availW - SheetSide * 2f : 520f;
                 _sheetTop = avail > 100f ? avail - _fullH - bottomInset - 12f : _safeTop + 5f;
+                // Новый разворот — с начала списка: место прокрутки хранится
+                // между пересборками (LvnScroll.Keeping), но не между визитами.
+                if (_sections != null) _sections.scrollOffset = Vector2.zero;
                 _capsule.schedule.Execute(() => { if (_expanded) RebuildSections(); }).ExecuteLater(70);
             }
             float from = _morph, to = on ? 1f : 0f;
