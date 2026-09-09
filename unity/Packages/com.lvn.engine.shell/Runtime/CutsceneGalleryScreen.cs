@@ -67,6 +67,12 @@ namespace Lvn.UI.Screens
         /// Хранилище опять же не наше: экран показывает, хост помнит.</summary>
         public System.Action<Entry> OnDrop;
 
+        /// <summary>ЗАКРЫТЬ ВИТРИНУ НА ВРЕМЯ КАРТИНКИ. Шапка с именем и
+        /// кошельками живёт в своём слое и разворотом не накрывается — просим
+        /// хозяина убрать её, как это делает разглядывание фигуры в гардеробе
+        /// («клик на превью не скрывает элементы» — Илья 09.09).</summary>
+        public System.Action<bool> OnPeek;
+
         private string _skin;
         private bool StageDressed => !string.IsNullOrEmpty(_skin);
 
@@ -302,9 +308,16 @@ namespace Lvn.UI.Screens
             art.style.backgroundColor = Color.black;
             art.style.justifyContent = Justify.Center;
 
-            var frame = new VisualElement();
-            frame.style.flexGrow = 1;
-            frame.style.marginBottom = LvnTokens.Space5;
+            // ОКНО И КАДР — РАЗНЫЕ ЭЛЕМЕНТЫ. Приближение живёт на кадре, а
+            // подрезает его окно: иначе увеличенная картинка вылезла бы на
+            // подпись и кнопку.
+            var window = new VisualElement();
+            window.style.flexGrow = 1;
+            window.style.overflow = Overflow.Hidden;
+            window.style.marginBottom = LvnTokens.Space5;
+            art.Add(window);
+
+            var frame = ScreenUi.Stretch(new VisualElement());
             // contain, а не cover: кадр разглядывают целиком, и подрезать его
             // ради заполнения экрана значило бы прятать то самое, ради чего
             // разворот и открыли.
@@ -313,7 +326,8 @@ namespace Lvn.UI.Screens
                 ? LvnCutsceneStore.LoadPoster(e.TitleId, e.Key) : null;
             if (shot != null) frame.style.backgroundImage = new StyleBackground(shot);
             else if (!string.IsNullOrEmpty(e.Poster)) LvnPicture.Photo(frame, e.Poster, _assets);
-            art.Add(frame);
+            window.Add(frame);
+            Lvn.UI.LvnPinch.Attach(window, frame);
 
             var name = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of(e.Name, e.Name));
             name.style.color = LvnTokens.Text;
@@ -325,14 +339,33 @@ namespace Lvn.UI.Screens
             // Кнопка — ГЛАВНОЕ ДЕЙСТВИЕ ВИТРИНЫ, той же рукой, что «Играть» на
             // детали новеллы: своя заливка здесь читалась чужой кнопкой из
             // другого приложения.
-            var play = Lvn.UI.LvnRedress.Bind(
-                new Button(() => { Picked = e; CloseArt(); Close(); }),
-                () => LvnWords.Of("cutscenes.play", "Play the moment"));
-            play.style.fontSize = LvnTokens.TextBase;
-            play.style.unityFontStyleAndWeight = FontStyle.Bold;
-            LvnAir.PadY(play, LvnTokens.Space3);
+            VisualElement play;
+            if (StageDressed)
+            {
+                // Подложка — та же рисованная плашка, что у карточек витрины:
+                // ровная заливка читалась кнопкой из чужого приложения.
+                var plate = LvnStageKit.Button(
+                    () => LvnWords.Of("cutscenes.play", "Play the moment"),
+                    () => { Picked = e; CloseArt(); Close(); });
+                plate.style.height = LvnStageKit.D(52f);
+                LvnStageKit.HollowFrame(plate, LvnStageKit.SkinUrl(_skin, "card-back.png"), _assets,
+                                        LvnStageKit.CardBackW, LvnStageKit.CardBackH,
+                                        LvnStageKit.CardBackCornerPx, LvnStageKit.CardBackPxPerDp,
+                                        index: 0, solid: true);
+                play = plate;
+            }
+            else
+            {
+                var btn = Lvn.UI.LvnRedress.Bind(
+                    new Button(() => { Picked = e; CloseArt(); Close(); }),
+                    () => LvnWords.Of("cutscenes.play", "Play the moment"));
+                btn.style.fontSize = LvnTokens.TextBase;
+                btn.style.unityFontStyleAndWeight = FontStyle.Bold;
+                LvnAir.PadY(btn, LvnTokens.Space3);
+                LvnStyler.Primary(btn, LvnTokens.RadiusSm);
+                play = btn;
+            }
             LvnAir.MarginX(play, LvnEdges.PageSide);
-            LvnStyler.Primary(play, LvnTokens.RadiusSm);
             art.Add(play);
 
             // ЗАКРЫВАЕТ КРЕСТИК, А НЕ СТРЕЛКА. Стрелка стояла в углу под
@@ -359,6 +392,7 @@ namespace Lvn.UI.Screens
             // картинкой имя игрока и кошельки, и «во весь экран» им не было.
             var top = panel?.visualTree ?? (VisualElement)this;
             top.Add(art);
+            OnPeek?.Invoke(true);
             // Вырез телефона знает только корень — крестик прижимаем под него.
             close.style.top = LvnEdges.Top(top, 16f);
             // Кнопка не должна упираться в полосу жеста снизу.
@@ -371,6 +405,7 @@ namespace Lvn.UI.Screens
             if (_art == null) return;
             _art.RemoveFromHierarchy();
             _art = null;
+            OnPeek?.Invoke(false);
         }
 
         private VisualElement _art;
