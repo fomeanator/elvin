@@ -716,6 +716,23 @@ namespace Lvn.UI.Screens
         private void ApplyChapterMode()
         {
             bool inGame = InChapter;
+            // НАВБАР ДЕРЖИТСЯ, ПОКА ОТКРЫТО КОНТЕКСТНОЕ МЕНЮ. У бара свой отсчёт
+            // тишины, у меню — своя жизнь, и совпадали они случайно: игрок
+            // открывал меню, а шапка под ним уже уезжала, и меню висело само по
+            // себе на голой сцене («они раздельно живут» — Илья 09.09,
+            // ELVIN-97). Меню открыто — отсчёт стоит; закрылось — пошёл заново,
+            // и бар уйдёт своим чередом.
+            bool menuOpen = inGame && Lvn.UI.LvnScreenDirector.Current.IsOpen(
+                Lvn.UI.LvnScreenDirector.QuickMenu);
+            if (menuOpen)
+            {
+                if (!_gameBarShown) ToggleGameBar(true);
+                else _barAutoHide?.Pause();
+            }
+            else if (_gameBarShown && _barAutoHide != null)
+            {
+                _barAutoHide.ExecuteLater(GameBarQuietMs);
+            }
             if (_silent)
             {
                 if (!inGame) _silent = false; // выход в меню снимает тишину
