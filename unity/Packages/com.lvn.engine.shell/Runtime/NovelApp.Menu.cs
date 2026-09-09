@@ -140,8 +140,7 @@ namespace Lvn.UI.Screens
         private static void ApplyMenuStaging(LvnManifest manifest)
         {
             var b = manifest?.ui?.browse;
-            if (b != null)
-                LvnMenuStage.Apply(b.doll_height, b.doll_width, b.canvas_pan, b.canvas_pan_step, b.doll_place);
+            LvnMenuStage.Apply(b);
             LvnWardrobeStage.Apply(manifest?.ui?.wardrobe);
         }
 

@@ -152,6 +152,37 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void MenuComposition_ComesFromTheManifest_AndFallsBackToTheEngine()
+        {
+            // КОМПОЗИЦИЯ ВИТРИНЫ — НАЗЫВАЕМАЯ, А НЕ ЗАШИТАЯ. Слоты, сдвиг,
+            // план магазина и время перелёта правились в коде под каждую
+            // просьбу; теперь их называет ui.browse, а движковые числа
+            // остаются там, где не назвали.
+            LvnMenuStage.Apply(new Lvn.Content.BrowseConfig
+            {
+                doll_place = "center",
+                doll_nudge = 0.2f,
+                store_doll_place = "right",
+                store_zoom = 1.5f,
+                menu_travel_ms = 200,
+            });
+            Assert.AreEqual("center", LvnMenuStage.HomeDollSlot, "слот главной назван");
+            Assert.AreEqual("right", LvnMenuStage.StoreDollSlot, "слот магазина назван отдельно");
+            Assert.AreEqual(0.2f, LvnMenuStage.HomeDollNudge, 1e-4f);
+            Assert.AreEqual(200, LvnMenuStage.TravelMs);
+            Assert.AreEqual(1.5f,
+                LvnMenuStage.CastZoomFor(LvnMenuStage.Room.Store)
+                / LvnMenuStage.CastZoomFor(LvnMenuStage.Room.Home), 1e-3f,
+                "план магазина считается ОТ главной, а не сам по себе");
+
+            LvnMenuStage.Apply(new Lvn.Content.BrowseConfig { doll_place = "left" });
+            Assert.AreEqual("left", LvnMenuStage.StoreDollSlot,
+                "магазин без своего слова повторяет главную, а не донашивает прошлое");
+            Assert.AreEqual(0.12f, LvnMenuStage.HomeDollNudge, 1e-4f, "сдвиг вернулся к движковому");
+            Assert.AreEqual(680, LvnMenuStage.TravelMs, "перелёт вернулся к движковому");
+        }
+
+        [Test]
         public void MenuHeroine_OnHome_StandsATouchRightOfHerSlot()
         {
             // Слот остаётся словом сцены, а композиция главной просит чуть
