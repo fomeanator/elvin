@@ -47,10 +47,7 @@ namespace Lvn.UI.Screens
             RegisterCallback<ClickEvent>(e => { if (e.target == this) Cancel(); });
 
             var sheet = _sheet = new VisualElement();
-            sheet.style.position = Position.Absolute;
-            sheet.style.left = D(16f); sheet.style.right = D(16f);
-            sheet.style.top = D(96f);   // уточнит ApplySafeArea
-            sheet.style.bottom = D(LvnStageSkin.HomeBar) + D(24f);
+            LvnStageKit.SheetFrame(sheet, this, tab: false);   // поля, верх и низ — по паспорту
             sheet.style.overflow = Overflow.Hidden;
             sheet.pickingMode = PickingMode.Position;
             LvnStageKit.GlassSheet(sheet, _skin, _assets, LvnTokens.Radius);
@@ -62,11 +59,10 @@ namespace Lvn.UI.Screens
             Add(sheet);
         }
 
-        /// <summary>Лист начинается под шапкой витрины (логотип и валюты) — с
-        /// учётом выреза экрана.</summary>
+        /// <summary>Края листа — по паспорту, с учётом вырезов экрана.</summary>
         private void StageSafeArea()
         {
-            if (_sheet != null) _sheet.style.top = LvnEdges.Top(this) + D(84f);
+            if (_sheet != null) LvnStageKit.SheetEdges(_sheet, this, tab: false);
         }
 
         /// <summary>Обложка — той же карточкой, что на главной. Кнопка «назад»
@@ -212,7 +208,8 @@ namespace Lvn.UI.Screens
             bar.style.flexDirection = FlexDirection.Column;
             LvnAir.PadX(bar, 0f);
             bar.style.paddingTop = D(8f);
-            bar.style.paddingBottom = D(2f);
+            // Лист уходит под ленту меню — кнопки стоят над её плотной частью.
+            bar.style.paddingBottom = D(2f) + D(LvnStageSkin.Sheet.Under);
             bar.style.backgroundColor = Color.clear;
             LvnChrome.ClearBorder(bar);
 

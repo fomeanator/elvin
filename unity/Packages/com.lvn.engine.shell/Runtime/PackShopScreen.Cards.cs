@@ -106,7 +106,7 @@ namespace Lvn.UI.Screens
         // ── One pack card ─────────────────────────────────────────────────────
         private VisualElement Card(Pack pack)
         {
-            if (Dressed) return StagePack(pack);
+            if (Dressed) return _column ? StagePack(pack) : HalfSlot(StagePack(pack));
             bool wide = _column || pack.Best || pack.Grants != null; // герой, наборы и весь столбик — во всю ширину
             var card = new VisualElement();
             card.style.width = Length.Percent(wide ? 100f : 48.5f);

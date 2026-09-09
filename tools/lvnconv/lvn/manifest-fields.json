@@ -56,6 +56,7 @@
     "back_text": "string",
     "bg_color": "string",
     "canvas": "string",
+    "canvas_options": "CanvasOption",
     "canvas_pan": "float",
     "canvas_pan_step": "float",
     "card_color": "string",
@@ -68,6 +69,7 @@
     "detail_saves": "bool",
     "dim_text_color": "string",
     "doll_height": "float",
+    "doll_nudge": "float",
     "doll_place": "string",
     "doll_width": "float",
     "featured_text": "string",
@@ -75,6 +77,7 @@
     "library_text": "string",
     "locked_text": "string",
     "logo": "string",
+    "menu_travel_ms": "int",
     "music": "string",
     "music_options": "MusicOption",
     "nav_gallery": "string",
@@ -92,11 +95,23 @@
     "show_gallery": "bool",
     "show_level": "bool",
     "skin": "string",
+    "skin_metrics": "StageSkinMetrics",
+    "store_doll_place": "string",
+    "store_zoom": "float",
     "subtitle": "string",
     "text_color": "string",
     "theme": "string",
     "title": "string",
     "title_color": "string"
+  },
+  "CanvasOption": {
+    "currency": "string",
+    "id": "string",
+    "preview": "string",
+    "price": "long",
+    "rarity": "string",
+    "title": "string",
+    "url": "string"
   },
   "CarouselConfig": {
     "bg_color": "string",
@@ -560,6 +575,12 @@
   "SpriteCatalog": {
     "Parent": "string"
   },
+  "StageColumn": {
+    "bottom": "float",
+    "right": "float",
+    "top": "float",
+    "width": "float"
+  },
   "StageConfig": {
     "actor_enter": "string",
     "actor_exit": "string",
@@ -579,6 +600,33 @@
     "speaker_focus": "string",
     "tap_burst": "string",
     "wardrobe_swap": "float"
+  },
+  "StageFrame": {
+    "bottom_px": "float",
+    "corner_px": "float",
+    "height": "float",
+    "image_h": "float",
+    "image_w": "float",
+    "top_px": "float",
+    "width": "float"
+  },
+  "StageSheet": {
+    "bottom": "float",
+    "side": "float",
+    "tab_top": "float",
+    "top": "float",
+    "under": "float"
+  },
+  "StageSkinMetrics": {
+    "bleed": "float",
+    "column": "StageColumn",
+    "design_width": "float",
+    "frames": "map:StageFrame",
+    "home_bar": "float",
+    "px_per_dp": "float",
+    "sheet": "StageSheet",
+    "sheet_pad": "float",
+    "shop": "StageColumn"
   },
   "StoreConfig": {
     "ad_placement": "string",
@@ -619,6 +667,7 @@
   "WardrobeConfig": {
     "accent_color": "string",
     "accent_text_color": "string",
+    "backdrop_text": "string",
     "buy_text": "string",
     "cancel_text": "string",
     "card_color": "string",

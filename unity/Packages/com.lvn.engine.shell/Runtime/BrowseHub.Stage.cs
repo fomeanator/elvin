@@ -365,7 +365,7 @@ namespace Lvn.UI.Screens
                 _bottomNav.style.height = D(146f - StageHomeBarDp) + inset;
             }
             if (_stageStack == null) return;
-            float bottom = D(LvnStageSkin.Home.Bottom - StageHomeBarDp) + inset;
+            float bottom = LvnStageKit.BottomAboveBar(this, LvnStageSkin.Home.Bottom);
             float top = LvnEdges.Top(this) + D(StageTopBlockDp);
             _stageStack.style.bottom = bottom;
             _stageStack.style.top = top;
