@@ -87,8 +87,69 @@ namespace Lvn.UI
             return fresh;
         }
 
+        // ── КАДР КАРТОЧКИ ────────────────────────────────────────────────────
+        // Превью берётся из сцены двумя путями: если внутри неё менялся фон —
+        // это его адрес (лежит строкой в записи). Если нет — как у «Знакомства
+        // с Агентом», где кадр стоит с прошлой сцены, — снимаем экран, как для
+        // сохранения: у него уже есть свой снимок, и второй заводить незачем.
+
+        /// <summary>Файл снимка катсцены (может не существовать).</summary>
+        public static string PosterPath(string titleId, string cutsceneId) =>
+            System.IO.Path.Combine(Application.persistentDataPath, "lvn", "cutscenes",
+                string.IsNullOrEmpty(titleId) ? "default" : titleId, cutsceneId + ".png");
+
+        /// <summary>Записать снимок катсцены. Никогда не бросает: карточка —
+        /// украшение, и сцена не должна падать из-за неё.</summary>
+        public static void WritePoster(string titleId, string cutsceneId, Texture2D shot)
+        {
+            if (string.IsNullOrEmpty(cutsceneId) || shot == null) return;
+            try
+            {
+                Lvn.Content.ContentLoader.AtomicWriteAllBytes(
+                    PosterPath(titleId, cutsceneId), shot.EncodeToPNG());
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("[lvn-cutscene] снимок не записан: " + e.Message);
+            }
+        }
+
+        /// <summary>Снимок катсцены или null. Текстура принадлежит вызвавшему.</summary>
+        public static Texture2D LoadPoster(string titleId, string cutsceneId)
+        {
+            try
+            {
+                var path = PosterPath(titleId, cutsceneId);
+                if (!System.IO.File.Exists(path)) return null;
+                var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                return tex.LoadImage(System.IO.File.ReadAllBytes(path)) ? tex : null;
+            }
+            catch { return null; }
+        }
+
+        /// <summary>Есть ли у катсцены чем показаться — адресом фона или
+        /// снимком кадра.</summary>
+        public static bool HasPoster(string titleId, string cutsceneId)
+        {
+            if (string.IsNullOrEmpty(cutsceneId)) return false;
+            if (Live(titleId).TryGetValue(cutsceneId, out var seen)
+                && seen != null && !string.IsNullOrEmpty(seen.Poster)) return true;
+            return System.IO.File.Exists(PosterPath(titleId, cutsceneId));
+        }
+
         /// <summary>Забыть всё открытое у новеллы (сброс прогресса, отладка).</summary>
         public static void Clear(string titleId)
-            => LvnKeep.DropScoped(Key(titleId), ref _cachedKey, ref _cached);
+        {
+            LvnKeep.DropScoped(Key(titleId), ref _cachedKey, ref _cached);
+            // Снимки — те же личные данные: забвение новеллы уносит и их,
+            // иначе прожитое возвращалось бы картинками после сброса.
+            try
+            {
+                var dir = System.IO.Path.GetDirectoryName(PosterPath(titleId, "x"));
+                if (!string.IsNullOrEmpty(dir) && System.IO.Directory.Exists(dir))
+                    System.IO.Directory.Delete(dir, recursive: true);
+            }
+            catch { /* карточки — украшение: не смогли убрать, не мешаем сбросу */ }
+        }
     }
 }

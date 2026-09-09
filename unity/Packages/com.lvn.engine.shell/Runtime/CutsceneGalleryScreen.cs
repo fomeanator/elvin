@@ -25,10 +25,12 @@ namespace Lvn.UI.Screens
         /// <summary>Карточка галереи: адрес сцены и чем её показать.</summary>
         public sealed class Entry
         {
-            public string Id;
+            public string Id;        // адрес карточки: «новелла:сцена»
+            public string TitleId;   // новелла — по ней ищется снимок кадра
+            public string SceneId;   // id сцены внутри новеллы
             public string Name;      // авторское имя; на экране проходит через каталог перевода
             public string Chapter;
-            public string Poster;
+            public string Poster;    // адрес фона, если сцена его меняла
         }
 
         private readonly ILvnAssets _assets;
@@ -177,7 +179,19 @@ namespace Lvn.UI.Screens
             LvnPicture.Fit(art);
             // cover: кадр главы горизонтальный, а плитка стоячая — картинку
             // заполняем и подрезаем, иначе в карточке останутся чёрные поля.
-            if (!string.IsNullOrEmpty(e.Poster)) LvnPicture.Photo(art, e.Poster, _assets, cover: true);
+            // Сперва снимок сцены (его снял сам движок, когда фон внутри не
+            // менялся), потом — адрес фона: снимок точнее, это её собственный кадр.
+            var shot = !string.IsNullOrEmpty(e.TitleId)
+                ? LvnCutsceneStore.LoadPoster(e.TitleId, e.SceneId) : null;
+            if (shot != null)
+            {
+                LvnPicture.Fit(art, cover: true);
+                art.style.backgroundImage = new StyleBackground(shot);
+            }
+            else if (!string.IsNullOrEmpty(e.Poster))
+            {
+                LvnPicture.Photo(art, e.Poster, _assets, cover: true);
+            }
             cell.Add(art);
 
             var cap = new VisualElement();

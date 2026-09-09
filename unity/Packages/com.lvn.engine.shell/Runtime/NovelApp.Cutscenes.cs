@@ -45,6 +45,8 @@ namespace Lvn.UI.Screens
                     list.Add(new CutsceneGalleryScreen.Entry
                     {
                         Id = key,
+                        TitleId = t.id,
+                        SceneId = seen.Id,
                         Name = seen.Name,
                         Chapter = seen.Chapter,
                         Poster = seen.Poster,
@@ -62,23 +64,32 @@ namespace Lvn.UI.Screens
         {
             var screen = _shell?.Cutscenes;
             if (screen == null) return;
-            screen.ClearPick();
-            screen.SetEntries(CollectCutscenes());
-            await _shell.OpenCutscenesAsync();
-            var picked = screen.Picked;
-            screen.ClearPick();
-            if (picked != null) PlayCutscene(picked);
+            // КРУГ, А НЕ ДОРОГА В ОДИН КОНЕЦ: посмотрел сцену — вернулся в
+            // галерею и смотришь следующую. Раньше пересмотр высаживал игрока
+            // на витрине, и за второй сценой он шёл через профиль заново
+            // («после показа катсцены в меню перебрасывает, а надо чтобы экран
+            // катсцен был открыт» — Илья 09.09).
+            while (true)
+            {
+                screen.ClearPick();
+                screen.SetEntries(CollectCutscenes());
+                await _shell.OpenCutscenesAsync();
+                var picked = screen.Picked;
+                screen.ClearPick();
+                if (picked == null) return;   // закрыл галерею — вышли из круга
+                await PlayCutsceneAsync(picked);
+            }
         }
 
         /// <summary>Пересмотреть сцену: открыть её главу и проиграть отрезок с
         /// метки. Адрес разбирается обратно на новеллу и id.</summary>
-        private void PlayCutscene(CutsceneGalleryScreen.Entry entry)
+        private Task PlayCutsceneAsync(CutsceneGalleryScreen.Entry entry)
         {
-            if (entry == null || string.IsNullOrEmpty(entry.Id)) return;
-            if (!_cutsceneTitles.TryGetValue(entry.Id, out var titleId)) return;
+            if (entry == null || string.IsNullOrEmpty(entry.Id)) return Task.CompletedTask;
+            if (!_cutsceneTitles.TryGetValue(entry.Id, out var titleId)) return Task.CompletedTask;
             int sep = entry.Id.IndexOf(':');
             var cutsceneId = sep >= 0 ? entry.Id.Substring(sep + 1) : entry.Id;
-            LvnAsync.Fire(ReplayCutsceneAsync(titleId, entry.Chapter, cutsceneId), "PlayCutscene");
+            return ReplayCutsceneAsync(titleId, entry.Chapter, cutsceneId);
         }
 
         /// <summary>

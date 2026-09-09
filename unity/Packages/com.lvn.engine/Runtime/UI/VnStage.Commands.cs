@@ -132,6 +132,9 @@ namespace Lvn.UI
             _openCutsceneNeedsPoster = string.IsNullOrEmpty((string)cmd["poster"]);
             LvnCutsceneStore.Mark(_saveTitleId, id, (string)cmd["name"], _saveChapterId,
                                   (string)cmd["poster"]);
+            // Нечем показаться — снимем кадр сцены сами (см. CaptureCutscenePoster).
+            if (!LvnCutsceneStore.HasPoster(_saveTitleId, id))
+                CaptureCutscenePoster(_saveTitleId, id);
         }
 
         // Названная катсцена, которая идёт прямо сейчас, и ждёт ли она кадра
