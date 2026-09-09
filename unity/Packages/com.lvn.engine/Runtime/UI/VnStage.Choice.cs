@@ -189,6 +189,15 @@ namespace Lvn.UI
         }
         public void ShowChoice(IReadOnlyList<LvnOption> options)
         {
+            // ПРОСМОТР НЕ СПРАШИВАЕТ. Пересматривая сцену из галереи, игрок
+            // читает уже прожитое: показать ему выбор значило бы предложить
+            // переиграть главу из галереи. Идём первой веткой — той, что
+            // ведёт дальше по сцене, — и не показываем карточек.
+            if (Watching && options != null && options.Count > 0)
+            {
+                _player?.Choose(0);
+                return;
+            }
             _awaitingTap = false;
             _curChoices = options;
             _dialogue?.SuppressAdvanceHint(true); // a choice is up — don't invite a tap
