@@ -443,7 +443,7 @@ namespace Lvn.Editor
                         {
                             // `cutscene end dur=0.5` — своё время возврата камеры
                             // (зеркально convert.go): числа автора не теряем.
-                            var endCmd = new JObject { ["op"] = "cutscene", ["off"] = true };
+                            var endCmd = new JObject { ["op"] = "cutscene_mark", ["end"] = true };
                             if (tail.Length > 0)
                                 foreach (var kv in ParseKeyValue(tail))
                                     endCmd[kv.Key] = JToken.FromObject(kv.Value);
@@ -466,7 +466,7 @@ namespace Lvn.Editor
                             throw new System.Exception($"line {i + 1}: cutscene start: пустое имя катсцены");
                         script.Add(new JObject
                         {
-                            ["op"] = "cutscene", ["on"] = true, ["id"] = csId, ["name"] = csName,
+                            ["op"] = "cutscene_mark", ["id"] = csId, ["name"] = csName,
                         });
                         i++; continue;
                     }
