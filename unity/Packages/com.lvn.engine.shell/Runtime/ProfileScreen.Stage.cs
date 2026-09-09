@@ -21,14 +21,7 @@ namespace Lvn.UI.Screens
         private bool StageDressed => !string.IsNullOrEmpty(_skin);
 
         public void SetContent(LvnManifest manifest)
-        {
-            LvnStageSkin.Apply(manifest?.ui?.browse?.skin_metrics);
-            var skin = manifest?.ui?.browse?.skin;
-            if (skin == _skin) return;
-            _skin = skin;
-            StageSheet();
-            Rebuild();
-        }
+            => LvnStageKit.TakeSkin(manifest, ref _skin, () => { StageSheet(); Rebuild(); });
 
         /// <summary>Лист профиля — стекло сцены вместо глухой заливки.</summary>
         private void StageSheet()

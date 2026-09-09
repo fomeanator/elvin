@@ -163,11 +163,11 @@ namespace Lvn.UI.Screens
         {
             _scroll.Clear();
 
-            _scroll.Add(BuildHero()); // the back button lives on the hero
+            _scroll.Add(StageDressed ? BuildStageHero() : BuildHero()); // the back button lives on the hero
 
             var body = new VisualElement();
             body.style.flexShrink = 0;
-            LvnAir.PadX(body, LvnEdges.PageSide);
+            LvnAir.PadX(body, StageDressed ? D(4f) : LvnEdges.PageSide); // в облике поля даёт лист
             body.style.paddingBottom = LvnEdges.PageSide;
             body.style.paddingTop = LvnTokens.Space3;
             _scroll.Add(body);
@@ -186,6 +186,7 @@ namespace Lvn.UI.Screens
 
         private void ApplySafeArea()
         {
+            if (StageDressed) { StageSafeArea(); return; }
             if (_backBtn != null) _backBtn.style.top = Lvn.UI.LvnEdges.Top(this, air: BackAir);
             _actionBar.style.paddingBottom = Lvn.UI.LvnEdges.Bottom(this, BarBottomAir);
         }
@@ -270,6 +271,7 @@ namespace Lvn.UI.Screens
                                       padY: LvnTokens.Space1);
             chip.style.marginBottom = LvnTokens.Space2;
             chip.style.marginRight = LvnTokens.Space2;
+            if (StageDressed) LvnStyler.Plate(chip, UiColor.WithAlpha(LvnTokens.PanelBg, 0.82f), LvnTokens.TextDim, D(6f));
 
             var lbl = new Label(text);
             lbl.style.color = LvnTokens.TextDim;
@@ -297,6 +299,7 @@ namespace Lvn.UI.Screens
             if (Title?.stats == null || Title.stats.Count == 0) return null;
 
             var section = ScreenUi.Section(() => LvnWords.Of("stats.title", "Your stats"));
+            StageHeader(section);
 
             foreach (var s in Title.stats)
                 if (s != null)
@@ -312,6 +315,7 @@ namespace Lvn.UI.Screens
             if (chapterList.Count == 0) return null;
 
             var section = ScreenUi.Section(() => LvnWords.Of("chapters.title", "Chapters"));
+            StageHeader(section);
 
             // «Что с этой главой» спрашиваем у дома: правило одно на все три
             // списка глав в приложении, а жило оно здесь одним выражением, и
@@ -325,6 +329,7 @@ namespace Lvn.UI.Screens
 
         private VisualElement ChapterRow(int no, string name, LvnChapterMark state)
         {
+            if (StageDressed) return StageChapterRow(no, name, state);
             bool locked = state == LvnChapterMark.Locked;
 
             var row = LvnStyler.ListRow(new VisualElement());
@@ -395,6 +400,7 @@ namespace Lvn.UI.Screens
         private void BuildActionBar(VisualElement bar)
         {
             bar.Clear();
+            if (StageDressed) { StageActionBar(bar); return; }
             bar.style.flexDirection = FlexDirection.Column; // restart row stacks over the play row
             LvnAir.PadX(bar, LvnEdges.PageSide);
             bar.style.paddingTop = LvnTokens.Space3;
