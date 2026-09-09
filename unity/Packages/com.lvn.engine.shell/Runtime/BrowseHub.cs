@@ -448,6 +448,7 @@ namespace Lvn.UI.Screens
 
         private void ShowCollection(LvnCollection c)
         {
+            DressStageViews();
             // Имя подборки — через словарь, как и всё, что видит игрок:
             // авторское «Экспедиции» посреди английского хаба читается как
             // недоделанный перевод, а не как выбор.
@@ -464,6 +465,7 @@ namespace Lvn.UI.Screens
         // built-in inline detail view when no host is wired.
         private void OpenDetail(LvnTitle t, LvnCollection from)
         {
+            DressStageViews();
             if (OnOpenDetail != null) { var target = t; Lvn.LvnAsync.Fire(OpenDetailFlow(target), "OpenDetail"); }
             else ShowDetail(t, from);
         }
@@ -611,7 +613,14 @@ namespace Lvn.UI.Screens
         /// </summary>
         private void ShowView(VisualElement target)
         {
-            foreach (var v in new[] { _hubView, _collectionView, _detailView })
+            // ДЕТАЛЬ — ПОПАП, А НЕ ТРЕТИЙ ВИД. Она открывается ПОВЕРХ того, из
+            // чего её позвали (главная или список), и закрывается на месте:
+            // так видно, откуда пришёл, и возврат не перерисовывает витрину
+            // («экран с информацией о новелле должен попапом стать» — Илья
+            // 09.09). Поэтому переключение видов её не касается.
+            if (ReferenceEquals(target, _detailView)) { ShowDetailPopup(); return; }
+            if (_detailView != null) _detailView.style.display = DisplayStyle.None;
+            foreach (var v in new[] { _hubView, _collectionView })
                 if (v != null) v.style.display = ReferenceEquals(v, target)
                     ? DisplayStyle.Flex : DisplayStyle.None;
             // ЗАРЯЖЕННЫЙ ВХОД СИЛЬНЕЕ ОБЫЧНОГО ПОКАЗА. FadeIn проявляет вид за
