@@ -134,16 +134,33 @@ namespace Lvn.UI.Screens
             foreach (var e in _entries) _grid.Add(Tile(e));
         }
 
+        /// <summary>Во сколько раз карточка выше своей ширины. Кадр вертикальный,
+        /// как короткое видео: сцену смотрят с телефона в руке, и горизонтальная
+        /// плитка показывала полоску вместо кадра («покрупнее надо и как бы
+        /// вертикальные, как шортсы» — Илья 09.09).</summary>
+        private const float TileAspect = 16f / 9f;
+
         /// <summary>Карточка сцены: превью во всю плитку, имя полосой снизу.
         /// Превью может не быть (сцена началась раньше, чем доехал фон) — тогда
-        /// плитка остаётся тонированной, но открывается так же.</summary>
+        /// плитка остаётся тонированной, но открывается так же.
+        ///
+        /// <para>Высоту считаем от живой ширины, а не числом: в UITK нет
+        /// «сохранять пропорции», а колонок две — на узком экране и на широком
+        /// плитка обязана остаться тем же кадром.</para></summary>
         private VisualElement Tile(Entry e)
         {
             var cell = new VisualElement();
             cell.style.width = Length.Percent(48.5f);
-            cell.style.height = 150;
             cell.style.marginRight = Length.Percent(1.5f);
             cell.style.marginBottom = LvnTokens.Space2;
+            float lastW = 0f;
+            cell.RegisterCallback<GeometryChangedEvent>(evt =>
+            {
+                float w = evt.newRect.width;
+                if (w <= 0f || Mathf.Approximately(w, lastW)) return;
+                lastW = w;
+                cell.style.height = w * TileAspect;
+            });
             cell.style.backgroundColor = LvnTokens.Surface;
             cell.style.overflow = Overflow.Hidden;
             // Плитка — карточка облика: та же рисованная рамка, что у карточек
@@ -158,7 +175,9 @@ namespace Lvn.UI.Screens
             var art = ScreenUi.Stretch(new VisualElement());
             art.pickingMode = PickingMode.Ignore;
             LvnPicture.Fit(art);
-            if (!string.IsNullOrEmpty(e.Poster)) LvnPicture.Photo(art, e.Poster, _assets);
+            // cover: кадр главы горизонтальный, а плитка стоячая — картинку
+            // заполняем и подрезаем, иначе в карточке останутся чёрные поля.
+            if (!string.IsNullOrEmpty(e.Poster)) LvnPicture.Photo(art, e.Poster, _assets, cover: true);
             cell.Add(art);
 
             var cap = new VisualElement();
