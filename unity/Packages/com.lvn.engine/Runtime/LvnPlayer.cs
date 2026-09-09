@@ -341,7 +341,7 @@ namespace Lvn
         {
             if (string.IsNullOrEmpty(cutsceneId)) return -1;
             for (int i = 0; i < _script.Count; i++)
-                if (_script[i] is JObject c && (string)c["op"] == "cutscene"
+                if (_script[i] is JObject c && (string)c["op"] == "cutscene_mark"
                     && string.Equals((string)c["id"], cutsceneId, System.StringComparison.Ordinal))
                     return i;
             return -1;

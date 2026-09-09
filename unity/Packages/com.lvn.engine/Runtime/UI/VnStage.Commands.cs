@@ -66,13 +66,6 @@ namespace Lvn.UI
             bool on = !(BoolOr(cmd["off"], false) || !BoolOr(cmd["on"], true));
             if (on) HideChrome(LvnScreenDirector.CutsceneReason);
             else ShowChrome(LvnScreenDirector.CutsceneReason);
-            if (on) RememberCutscene(cmd);
-            else
-            {
-                _openCutsceneId = null;
-                _openCutsceneNeedsPoster = false;
-                FinishCutsceneWatch();   // пересмотр кончается там же, где сцена
-            }
 
             // Наезд — необязательная часть: `cutscene on=1 zoom=1.12 dur=3`.
             var zoom = NumOrNull(cmd["zoom"]);
@@ -91,6 +84,27 @@ namespace Lvn.UI
             {
                 ApplyCamera(new JObject { ["op"] = "camera", ["action"] = "reset", ["duration"] = 0.4f });
             }
+        }
+
+        /// <summary>
+        /// ПОМЕТКА НАЗВАННОЙ СЦЕНЫ — начало и конец отрезка для галереи.
+        ///
+        /// <para>Отдельно от кадра без интерфейса намеренно: пометка ничего не
+        /// прячет. Сперва это была одна команда — и «Знакомство с Агентом», где
+        /// игрок называется и выбирает ответ, шло со спрятанным интерфейсом:
+        /// глава вставала на невидимой форме. Скрывать кадр по-прежнему просят
+        /// словом `cutscene on=1`, рядом, если сцене это нужно.</para>
+        /// </summary>
+        private void ApplyCutsceneMark(JObject cmd)
+        {
+            if (BoolOr(cmd["end"], false))
+            {
+                _openCutsceneId = null;
+                _openCutsceneNeedsPoster = false;
+                FinishCutsceneWatch();   // пересмотр кончается там же, где сцена
+                return;
+            }
+            RememberCutscene(cmd);
         }
 
         /// <summary>
@@ -294,7 +308,8 @@ namespace Lvn.UI
                 case "obj": LvnAsync.Fire(ApplyActorAsync(command, sender: sender), "ApplyActor"); break; // any placeable sprite
                 case "clear": ApplyClear(sender); break; // everyone off stage, scenery untouched
                 case "ui": ApplyUi(command); break;  // дерево интерфейса из сценария
-                case "cutscene": ApplyCutscene(command); break;  // кадр без интерфейса
+                case "cutscene": ApplyCutscene(command); break;
+                case "cutscene_mark": ApplyCutsceneMark(command); break;  // кадр без интерфейса
                 case "anim": ApplyAnim(command); break; // script-driven tween / path
                 case "fade": ApplyFade(command); break;
                 case "dim": ApplyDim(command); break;

@@ -727,6 +727,10 @@ namespace Lvn.UI
             }
             _cutsceneWatch = cutsceneId;
             _cutsceneDone = onEnd;
+            // Пересмотр — кино: интерфейс уходит на всё время просмотра, даже
+            // если сама сцена его не прятала (в главе она шла с репликами и
+            // выборами, а здесь их не спрашивают).
+            HideChrome(LvnScreenDirector.CutsceneReason);
             ShowCutsceneExit();
             _player.ReplayVisuals(at);
             _player.ContinueFrom(at);
@@ -767,6 +771,7 @@ namespace Lvn.UI
             _cutsceneDone = null;
             _cutsceneExit?.RemoveFromHierarchy();
             _cutsceneExit = null;
+            ShowChrome(LvnScreenDirector.CutsceneReason);
             done?.Invoke();
         }
 

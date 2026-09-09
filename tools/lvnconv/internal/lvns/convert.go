@@ -50,7 +50,17 @@ var KnownOps = map[string]bool{
 	"portal": true,
 	// Кадр без интерфейса: cutscene on=1 zoom=1.1 dur=3 / cutscene off=1.
 	// Прячет реплику, выборы, метки, меню и деревья `ui` разом.
-	// НАЗВАННАЯ КАТСЦЕНА — та же команда, две человеческие формы:
+	// НАЗВАННАЯ КАТСЦЕНА: `cutscene start Имя|id` … `cutscene end`.
+	//
+	// Это ПОМЕТКА для галереи, а не режим показа, и компилируется она в свой
+	// оп (cutscene_mark) — не в кадр без интерфейса. Сперва пометка и кадр
+	// были одной командой: внутри «Знакомства с Агентом» идёт разговор с
+	// вводом имени и выборами, интерфейс оказался спрятан, и глава вставала
+	// на невидимой форме («зависает на знакомстве с агентом» — Илья 09.09).
+	// Прятать интерфейс по-прежнему просят словом `cutscene on=1` — рядом,
+	// если сцене это нужно. Старые сборки незнакомый оп пропускают, поэтому
+	// размеченная глава играется и на них.
+	//
 	//   cutscene start Показ фаворитов|favorites_ch0
 	//   … сценарий …
 	//   cutscene end
@@ -877,7 +887,7 @@ func convertWith(src string, outer *nestCtx) (*Doc, error) {
 					// сколько камера возвращается. Молча их терять нельзя, это
 					// авторская кинематография, а не служебный хвост.
 					isCommand = true
-					cmd = Cmd{"op": "cutscene", "off": true}
+					cmd = Cmd{"op": "cutscene_mark", "end": true}
 					if rest != "" {
 						params, perr := parseKeyValue(rest)
 						if perr != nil {
@@ -904,7 +914,7 @@ func convertWith(src string, outer *nestCtx) (*Doc, error) {
 						return nil, fmt.Errorf("line %d: cutscene start: пустое имя катсцены", srcNo[i])
 					}
 					isCommand = true
-					cmd = Cmd{"op": "cutscene", "on": true, "id": id, "name": name}
+					cmd = Cmd{"op": "cutscene_mark", "id": id, "name": name}
 				}
 			} else if firstWord == "return" && len(words) == 1 {
 				isCommand = true
