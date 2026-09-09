@@ -352,7 +352,12 @@ namespace Lvn.UI.Screens
                     // но не дольше секунды с небольшим, иначе сорванная
                     // загрузка держала бы игрока в заставке.
                     var wait = System.Diagnostics.Stopwatch.StartNew();
-                    while (Stage != null && !Stage.HasBackdrop && wait.ElapsedMilliseconds < LvnMenuStage.VeilWaitMs)
+                    // …И ПОКА НЕ ПРОГРЕЛСЯ АРТ ВИТРИНЫ. Рамки, нав и значки
+                    // приезжали через 0,3–0,45 с ПОСЛЕ снятия вуали и всплывали
+                    // по одной («картинки мелькают» — Илья 08.09). Бюджет
+                    // ожидания тот же: полотно и рамки греются одной пачкой.
+                    while (Stage != null && (!Stage.HasBackdrop || !MenuArtReady)
+                           && wait.ElapsedMilliseconds < LvnMenuStage.VeilWaitMs)
                         await System.Threading.Tasks.Task.Yield();
                     // ЗАСТАВКА ДОСТАИВАЕТ СВОЁ. Успели за полсекунды — тем
                     // лучше, но мелькнувшее и тут же исчезнувшее имя читается
@@ -370,6 +375,8 @@ namespace Lvn.UI.Screens
                     if (ct.IsCancellationRequested) return;
                     if (Stage != null && !Stage.HasBackdrop)
                         Debug.LogWarning($"[lvn-boot] полотно не встало за {wait.ElapsedMilliseconds}ms — снимаем вуаль без него");
+                    else if (!MenuArtReady)
+                        Debug.LogWarning($"[lvn-boot] арт витрины не прогрелся за {wait.ElapsedMilliseconds}ms — снимаем вуаль без него, рамки доедут на глазах");
                     await BootVeil.FadeOutAsync(LvnMenuStage.VeilFadeSeconds);
                 }
                 LvnLog.Trace($"[lvn-boot] +{bootClock.ElapsedMilliseconds}ms veil handed off — app boot done");
