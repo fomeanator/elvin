@@ -54,13 +54,20 @@ namespace Lvn.UI.Screens
             return list;
         }
 
-        /// <summary>Наполнить галерею живыми записями и показать её.</summary>
-        private Task OpenCutscenesAsync()
+        /// <summary>Наполнить галерею живыми записями, показать её и — если
+        /// игрок выбрал сцену — проиграть ПОСЛЕ закрытия экрана. Порядок тут
+        /// важнее краткости: закрытие возвращает интерфейс витрины, и сцена,
+        /// начатая раньше, играла бы под панелями главной.</summary>
+        private async Task OpenCutscenesAsync()
         {
-            if (_shell?.Cutscenes == null) return Task.CompletedTask;
-            _shell.Cutscenes.SetEntries(CollectCutscenes());
-            _shell.Cutscenes.OnPlay = PlayCutscene;
-            return _shell.OpenCutscenesAsync();
+            var screen = _shell?.Cutscenes;
+            if (screen == null) return;
+            screen.ClearPick();
+            screen.SetEntries(CollectCutscenes());
+            await _shell.OpenCutscenesAsync();
+            var picked = screen.Picked;
+            screen.ClearPick();
+            if (picked != null) PlayCutscene(picked);
         }
 
         /// <summary>Пересмотреть сцену: открыть её главу и проиграть отрезок с
