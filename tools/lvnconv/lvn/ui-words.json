@@ -328,12 +328,12 @@
   "default": "The whole game is on this device ({0}) — it plays without the internet."
  },
  {
-  "key": "dl.all_hint",
-  "default": "Download once and play with no network: chapters, art and music stay on the device."
+  "key": "dl.all_done",
+  "default": "The whole game is on this device."
  },
  {
-  "key": "dl.all_title",
-  "default": "The whole game with you"
+  "key": "dl.all_hint",
+  "default": "Download once and play with no network: chapters, art and music stay on the device."
  },
  {
   "key": "dl.bytes_left",
@@ -342,6 +342,10 @@
  {
   "key": "dl.chapter_entry",
   "default": "{title} — chapter {n}"
+ },
+ {
+  "key": "dl.chapters_of",
+  "default": "{0} of {1} chapters"
  },
  {
   "key": "dl.class_actor",
@@ -397,15 +401,27 @@
  },
  {
   "key": "dl.get_all",
-  "default": "Download all"
+  "default": "Download the whole game"
  },
  {
   "key": "dl.idle",
   "default": "No active downloads"
  },
  {
+  "key": "dl.in_queue",
+  "default": "queued"
+ },
+ {
+  "key": "dl.minute_ago",
+  "default": "a minute ago"
+ },
+ {
   "key": "dl.next",
   "default": "Next in queue"
+ },
+ {
+  "key": "dl.now",
+  "default": "now"
  },
  {
   "key": "dl.offline_available",
@@ -418,6 +434,14 @@
  {
   "key": "dl.offline_wait",
   "default": "No connection. Downloads that fail can be retried below."
+ },
+ {
+  "key": "dl.on_device",
+  "default": "On this device"
+ },
+ {
+  "key": "dl.peak",
+  "default": "peak"
  },
  {
   "key": "dl.pending_title",
@@ -454,6 +478,38 @@
  {
   "key": "dl.speed",
   "default": "Speed"
+ },
+ {
+  "key": "dl.state_done",
+  "default": "Done"
+ },
+ {
+  "key": "dl.state_failed",
+  "default": "Incomplete"
+ },
+ {
+  "key": "dl.state_idle",
+  "default": "Idle"
+ },
+ {
+  "key": "dl.state_offline",
+  "default": "Offline"
+ },
+ {
+  "key": "dl.state_running",
+  "default": "Downloading"
+ },
+ {
+  "key": "dl.state_syncing",
+  "default": "Syncing"
+ },
+ {
+  "key": "dl.state_waiting",
+  "default": "Waiting"
+ },
+ {
+  "key": "dl.stop",
+  "default": "Stop downloading"
  },
  {
   "key": "dl.sync_offline",
@@ -522,6 +578,10 @@
  {
   "key": "hub.continue",
   "default": "Continue"
+ },
+ {
+  "key": "hub.open",
+  "default": "Open"
  },
  {
   "key": "hub.play",

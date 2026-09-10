@@ -58,7 +58,24 @@ namespace Lvn.UiLab
                     + $"экран {Screen.width}×{Screen.height}, safeArea устройства={Screen.safeArea}, подставлен вырез {top}/{bottom}");
         }
 
-        private void Start() => StartCoroutine(Roll());
+        private static string LogPath => Path.Combine(Root, ".shots-log");
+
+        private void Start()
+        {
+            // Свои строки — в файл рядом с флагами: терминалу нужны только они,
+            // а лог редактора может оказаться недоступен.
+            try { File.WriteAllText(LogPath, ""); } catch (Exception) { }
+            Application.logMessageReceived += Mirror;
+            StartCoroutine(Roll());
+        }
+
+        private void OnDestroy() => Application.logMessageReceived -= Mirror;
+
+        private static void Mirror(string condition, string stack, LogType type)
+        {
+            if (!condition.StartsWith("[shots]") && !condition.Contains("СТОРОЖ") && type != LogType.Exception) return;
+            try { File.AppendAllText(LogPath, condition + "\n"); } catch (Exception) { }
+        }
 
         private IEnumerator Shoot(string name)
         {
@@ -246,21 +263,30 @@ namespace Lvn.UiLab
             }
 
             _hub = null;
-            for (var i = 0; i < 120; i++)
+            for (var i = 0; i < 240; i++)
             {
                 if (_app == null) _app = FindAnyObjectByType<NovelApp>();
                 var h = _app?.Shell?.Hub;
                 if (h != null && h.panel != null)
                 {
                     var hv = h.GetType().GetField("_hubView", bf)?.GetValue(h) as VisualElement;
-                    var wb = hv?.worldBound ?? default;
-                    bool onScreen = hv != null && wb.width > 1f && wb.x > -1f && wb.x < 1f;
-                    if (onScreen) { _hub = h; break; }
+                    if (OnScreen(hv)) { _hub = h; break; }
                 }
                 if (i > 0 && i % 20 == 0) Debug.Log($"[shots] жду хаб на экране… {i / 4} с");
                 yield return new WaitForSecondsRealtime(0.25f);
             }
-            if (_hub == null) { Debug.LogError("[shots] витрина так и не въехала"); Done(); yield break; }
+            if (_hub == null)
+            {
+                // Что стоит на экране вместо витрины — в лог и в кадр.
+                var h = _app?.Shell?.Hub;
+                var hv = h?.GetType().GetField("_hubView", bf)?.GetValue(h) as VisualElement;
+                Debug.LogError($"[shots] витрина так и не въехала: hub={(h != null)} panel={(h?.panel != null)} "
+                             + $"view={(hv != null ? hv.worldBound.ToString() + " display=" + hv.resolvedStyle.display + " tr=" + hv.resolvedStyle.translate : "нет")} "
+                             + $"auth={(_app?.Shell?.Auth != null && _app.Shell.Auth.resolvedStyle.display != DisplayStyle.None)}");
+                _hub = h;
+                if (_hub != null) yield return Shoot("stuck");
+                Done(); yield break;
+            }
             Debug.Log("[shots] хаб на месте");
 
             LvnTitle marked = null;
@@ -280,6 +306,10 @@ namespace Lvn.UiLab
                 else Debug.LogWarning($"[shots] новелла/глава не найдены: {_titleId}/{_chapter}");
             }
 
+            // Сценарию загрузчика нужен живой кружок — идём к нему сразу,
+            // пока библиотека греется, не дожидаясь тишины сети и арта.
+            if (_tag.StartsWith("dlvideo")) { yield return Video(); if (marked != null) LvnProgress.ClearCurrent(marked); Done(); yield break; }
+            if (_tag.StartsWith("dl")) { yield return Downloads(); if (marked != null) LvnProgress.ClearCurrent(marked); Done(); yield break; }
             yield return new WaitForSecondsRealtime(4f);
             yield return WaitArt(20f);
             yield return WaitDownloads(60f);
@@ -287,8 +317,232 @@ namespace Lvn.UiLab
             yield return new WaitForSecondsRealtime(1.5f);
             Diagnose();
             yield return Shoot("main");
+            if (_tag.StartsWith("tour")) yield return Tour();
             if (marked != null) LvnProgress.ClearCurrent(marked);
             Done();
+        }
+
+        // ── загрузчик ───────────────────────────────────────────────────────
+        // Кэш перед запуском стёрт снаружи, так что библиотека греется заново и
+        // кружок живой. Разворачиваем его, жмём «Скачать всю игру», даём очереди
+        // разогнаться и снимаем лист с графиком.
+        private IEnumerator Downloads()
+        {
+            var root = _hub.panel?.visualTree;
+            DownloadHud hud = null;
+            for (float t = 0f; t < 40f && hud == null; t += 0.5f)
+            {
+                var h = root?.Query<DownloadHud>().First();
+                if (h != null && h.HasWork) hud = h;
+                else yield return new WaitForSecondsRealtime(0.5f);
+            }
+            if (hud == null) { Debug.LogWarning("[shots] загрузчик: кружок так и не появился"); yield break; }
+            Debug.Log("[shots] загрузчик: кружок на месте, разворачиваю");
+            Tap(hud.Q(name: "download-capsule"));
+            yield return new WaitForSecondsRealtime(3f);
+            yield return Shoot("dl-open");
+            yield return new WaitForSecondsRealtime(6f);
+            yield return Shoot("dl-warm");
+            var all = hud.Q(name: "download-all");
+            Debug.Log($"[shots] загрузчик: кнопка «всю игру» {(all != null ? "есть" : "нет")}");
+            if (all != null)
+            {
+                Tap(all);
+                yield return new WaitForSecondsRealtime(12f);
+                yield return Shoot("dl-queue");
+                yield return new WaitForSecondsRealtime(25f);
+                yield return Shoot("dl-later");
+            }
+            var st = hud.Q<Label>("download-state"); var pc = hud.Q<Label>("download-percent"); var sp = hud.Q<Label>("download-speed");
+            Debug.Log($"[shots] загрузчик: состояние «{st?.text}», процент «{pc?.text}», скорость «{sp?.text}», отдача «{hud.Q<Label>("download-up")?.text}»");
+        }
+
+        // ── видео листа загрузок ────────────────────────────────────────────
+        // Кадр за кадром в JPG плюс метки времени: ролик собирает ffmpeg по
+        // настоящим длительностям, поэтому темп записи на ролик не влияет.
+        // Сервер на время съёмки идёт через прокси с узкой полосой (.server),
+        // иначе локальная отдача заканчивается раньше, чем лист раскроется.
+
+        private bool _recording;
+        private int _frames;
+
+        private IEnumerator Record(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            var times = new System.Text.StringBuilder();
+            float t0 = Time.realtimeSinceStartup;
+            while (_recording)
+            {
+                yield return new WaitForEndOfFrame();
+                if (!_recording) break;
+                var tex = ScreenCapture.CaptureScreenshotAsTexture();
+                var jpg = tex.EncodeToJPG(88);
+                Destroy(tex);
+                File.WriteAllBytes(Path.Combine(dir, $"{++_frames:00000}.jpg"), jpg);
+                times.Append((Time.realtimeSinceStartup - t0).ToString("F4", System.Globalization.CultureInfo.InvariantCulture)).Append('\n');
+            }
+            File.WriteAllText(Path.Combine(dir, "times.txt"), times.ToString());
+            Debug.Log($"[shots] видео: {_frames} кадров за {Time.realtimeSinceStartup - t0:F1} с → {dir}");
+        }
+
+        private IEnumerator Video()
+        {
+            var root = _hub.panel?.visualTree;
+            var dir = Path.Combine(OutDir, $"video-{_tag}");
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+            _recording = true;
+            StartCoroutine(Record(dir));
+            yield return new WaitForSecondsRealtime(2f);            // главная, кружок в меню
+
+            DownloadHud hud = null;
+            for (float t = 0f; t < 40f && hud == null; t += 0.25f)
+            {
+                var h = root?.Query<DownloadHud>().First();
+                if (h != null && h.HasWork) hud = h;
+                else yield return new WaitForSecondsRealtime(0.25f);
+            }
+            if (hud == null) { Debug.LogWarning("[shots] видео: кружок так и не появился"); _recording = false; yield break; }
+            Tap(hud.Q(name: "download-capsule"));                  // разворот в лист
+            yield return new WaitForSecondsRealtime(9f);            // график живёт
+
+            var all = hud.Q(name: "download-all");
+            Debug.Log($"[shots] видео: кнопка «всю игру» {(all != null ? "есть" : "нет")}");
+            if (all != null)
+            {
+                Tap(all);
+                yield return new WaitForSecondsRealtime(14f);       // очередь, отказы, докачка
+            }
+            var scroll = hud.Q<ScrollView>();
+            if (scroll != null)
+            {
+                for (int i = 0; i < 40; i++)                         // прокрутка списка вниз
+                {
+                    scroll.scrollOffset = new Vector2(0f, scroll.scrollOffset.y + 9f);
+                    yield return null;
+                }
+                yield return new WaitForSecondsRealtime(1.5f);
+            }
+            Tap(hud.Q(name: "download-close"));                    // свернуть в кружок
+            yield return new WaitForSecondsRealtime(2.5f);
+            Tap(hud.Q(name: "download-capsule"));                  // и снова открыть
+            yield return new WaitForSecondsRealtime(4f);
+            var st = hud.Q<Label>("download-state"); var pc = hud.Q<Label>("download-percent"); var sp = hud.Q<Label>("download-speed");
+            Debug.Log($"[shots] видео: состояние «{st?.text}», процент «{pc?.text}», скорость «{sp?.text}», отдача «{hud.Q<Label>("download-up")?.text}»");
+            _recording = false;
+            yield return null;
+        }
+
+        // ── тур по нажатиям ─────────────────────────────────────────────────
+        // Кадр главной ничего не говорит о проводке: жмём каждую живую деталь
+        // облика и смотрим, куда она ведёт. Итог каждого шага — строкой в лог,
+        // «ДА/НЕТ», плюс кадр.
+
+        // ПАЛЬЦЕМ, А НЕ ГОЛЫМ СОБЫТИЕМ: Clickable слушает pointer down/up и
+        // требует левую кнопку и позицию внутри элемента; пустое pooled-событие
+        // (кнопка −1, позиция 0,0) он молча отбрасывает, а ClickEvent от мыши
+        // игнорирует. Собираем события из системного Event с кнопкой 0 и
+        // точкой в центре элемента — в координатах панели.
+        private static void Tap(VisualElement el)
+        {
+            if (el == null) { Debug.LogWarning("[shots] тур: элемента для нажатия нет"); return; }
+            var pos = el.worldBound.center;
+            var sysDown = new Event { type = EventType.MouseDown, button = 0, mousePosition = pos, clickCount = 1 };
+            using (var down = PointerDownEvent.GetPooled(sysDown)) { down.target = el; el.SendEvent(down); }
+            var sysUp = new Event { type = EventType.MouseUp, button = 0, mousePosition = pos, clickCount = 1 };
+            using (var up = PointerUpEvent.GetPooled(sysUp)) { up.target = el; el.SendEvent(up); }
+        }
+
+        // «НА ЭКРАНЕ» — целиком внутри панели, а не у левого края: на планшете
+        // оболочка стоит полосой по центру (ScreenUi.PhoneColumn), и витрина
+        // с x=996 — на месте, а не «не въехала». Переезд между комнатами
+        // уводит экран за край панели — это и ловим.
+        private static bool OnScreen(VisualElement e)
+        {
+            if (e == null || e.panel == null || e.resolvedStyle.display == DisplayStyle.None) return false;
+            var wb = e.worldBound;
+            float panelW = e.panel.visualTree.worldBound.width;
+            return wb.width > 1f && wb.xMin > -1f && wb.xMax < panelW + 1f && e.resolvedStyle.opacity > 0.5f;
+        }
+
+        private void Verdict(string what, bool ok) => Debug.Log($"[shots] тур: {what} — {(ok ? "ДА" : "НЕТ")}");
+
+        private IEnumerator Tour()
+        {
+            var bf = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+            VisualElement Field(string n) => _hub.GetType().GetField(n, bf)?.GetValue(_hub) as VisualElement;
+            var shell = _app.Shell;
+
+            // 0. Награда за рекламу — первой, пока экран чист: заглушка показа
+            // отвечает «да», сервер начисляет, кошелёк растёт.
+            var placement = _hub.AdPlacement;
+            var adState = string.IsNullOrEmpty(placement) ? null : Lvn.Services.LvnAds.StateOf(placement);
+            Debug.Log($"[shots] тур: реклама — площадка «{placement ?? "-"}», показ доступен={Lvn.Services.LvnAds.Available}, "
+                    + $"состояние={(adState != null ? adState.Amount.ToString() : "нет")}, кнопка={(_hub.Q(name: "stage-ad")?.resolvedStyle.display == DisplayStyle.Flex ? "показана" : "скрыта")}");
+            int changed = 0; System.Action onAds = () => changed++;
+            Lvn.Services.LvnAds.Changed += onAds;
+            long before = Lvn.Services.LvnWallet.Balance("crystals");
+            var adBtn = _hub.Q(name: "stage-ad");
+            int downs = 0, ups = 0;
+            adBtn?.RegisterCallback<PointerDownEvent>(e => downs++);
+            adBtn?.RegisterCallback<PointerUpEvent>(e => ups++);
+            Tap(adBtn);
+            yield return new WaitForSecondsRealtime(1f);
+            Debug.Log($"[shots] тур: реклама — до кнопки дошло down={downs} up={ups}, bound={adBtn?.worldBound}, "
+                    + $"pick={adBtn?.pickingMode}, enabled={adBtn?.enabledInHierarchy}, под центром={adBtn?.panel?.Pick(adBtn.worldBound.center)?.name}");
+            yield return new WaitForSecondsRealtime(3f);
+            Lvn.Services.LvnAds.Changed -= onAds;
+            long after = Lvn.Services.LvnWallet.Balance("crystals");
+            Verdict($"реклама начислила кристаллы по нажатию ({before} → {after}, ответов сервера {changed})", after > before);
+            if (after <= before)
+            {
+                // Разделяем «нажатие не дошло» и «тракт награды не работает»:
+                // зовём тракт напрямую, минуя кнопку.
+                var direct = Lvn.Services.LvnAds.WatchAndRewardAsync(placement);
+                for (float t = 0f; t < 6f && !direct.IsCompleted; t += 0.25f) yield return new WaitForSecondsRealtime(0.25f);
+                long after2 = Lvn.Services.LvnWallet.Balance("crystals");
+                Verdict($"реклама напрямую, минуя кнопку: тракт ответил {(direct.IsCompleted ? direct.Result.ToString() : "не завершился")} ({after} → {after2})", after2 > after);
+            }
+
+            // 1. Панель сообщений → библиотека (список всех новелл).
+            Tap(_hub.Q(name: "stage-open-panel"));
+            yield return new WaitForSecondsRealtime(2.5f);
+            Verdict("панель «Открыть» открыла библиотеку", OnScreen(Field("_collectionView")));
+            yield return Shoot("library");
+            _hub.GetType().GetMethod("ShowHub", bf)?.Invoke(_hub, null);
+            yield return new WaitForSecondsRealtime(1f);
+
+            // 2. Карточка «Открыть» → деталь новеллы (экран хоста).
+            Tap(_hub.Q(name: "stage-open-card"));
+            yield return new WaitForSecondsRealtime(3f);
+            bool detail = shell.Detail != null && OnScreen(shell.Detail);
+            Verdict("карточка «Открыть» открыла деталь новеллы", detail);
+            yield return Shoot("detail");
+            if (detail)
+            {
+                var hide = shell.Detail.GetType().GetMethod("Hide", bf, null, System.Type.EmptyTypes, null);
+                if (hide != null) hide.Invoke(shell.Detail, null);
+                else Tap(shell.Detail.Query<Button>().First());
+                yield return new WaitForSecondsRealtime(1.5f);
+            }
+
+            // 4. Вкладка «Магазин» → лента уезжает на магазин; центр → домой.
+            Tap(_hub.Q(name: "stage-tab-" + LvnTabs.Store));
+            yield return new WaitForSecondsRealtime(2.5f);
+            Verdict("вкладка «Магазин» показала магазин", shell.PackShop != null && OnScreen(shell.PackShop));
+            yield return Shoot("store");
+            Tap(_hub.Q(name: "stage-tab-home"));
+            yield return new WaitForSecondsRealtime(2.5f);
+            Verdict("центральная кнопка вернула главную", OnScreen(Field("_hubView")));
+
+            // 5. Вкладка «Гардероб» → гардероб; домой.
+            Tap(_hub.Q(name: "stage-tab-" + LvnTabs.Wardrobe));
+            yield return new WaitForSecondsRealtime(3f);
+            Verdict("вкладка «Гардероб» показала гардероб", shell.WardrobeTab != null && OnScreen(shell.WardrobeTab));
+            yield return Shoot("wardrobe");
+            Tap(_hub.Q(name: "stage-tab-home"));
+            yield return new WaitForSecondsRealtime(2.5f);
+            Verdict("возврат домой из гардероба", OnScreen(Field("_hubView")));
+            yield return Shoot("home-again");
         }
     }
 }

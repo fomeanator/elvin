@@ -384,6 +384,9 @@ namespace Lvn.UI.Screens
                 // Кружок садится на циферблат логотипа, когда логотип на
                 // экране: шапка знает, где он, — кружок только спрашивает.
                 AddChrome(DownloadHud);
+                // Лист кружка носит облик витрины (рамка-арт, золото), а в
+                // набор экранов кружок не входит — манифест ему здесь.
+                DownloadHud.SetContent(_manifest, assets);
                 _root.schedule.Execute(() =>
                 {
                     DownloadHud.Tick(ca.Loader.Transfers());
@@ -490,6 +493,11 @@ namespace Lvn.UI.Screens
             // перечень по именам держался на памяти пишущего и уже подводил —
             // забытый экран не падает, он просто показывает вчерашнее.
             _screens.SetContent(manifest);
+            // ХРОМ, ЖИВУЩИЙ МАНИФЕСТОМ (кружок загрузок с его листом), в набор
+            // экранов не входит: набор прячет всех разом, а кружок обязан
+            // остаться. Тот же признак и тот же обход — по пометке, не по имени.
+            foreach (var el in _root.Children())
+                if (!_screens.Has(el) && el is ILvnContentAware aware) aware.SetContent(manifest);
         }
 
 

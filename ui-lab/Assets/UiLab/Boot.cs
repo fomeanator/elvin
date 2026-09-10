@@ -41,6 +41,24 @@ namespace Lvn.UiLab
         /// поставь сюда адрес готового — увидишь живой продукт.</summary>
         public const string ServerUrl = "http://127.0.0.1:8077";
 
+        /// <summary>Подмена адреса на один запуск: файл <c>ui-lab/.server</c>
+        /// с адресом внутри. Нужен фотографу, когда контент идёт через
+        /// прокси с узкой полосой — иначе локальный сервер отдаёт пачку за
+        /// секунду, и графику скорости нечего рисовать.</summary>
+        private static string ServerOverride()
+        {
+            try
+            {
+                var p = System.IO.Path.Combine(Application.dataPath, "..", ".server");
+                if (!System.IO.File.Exists(p)) return null;
+                var url = System.IO.File.ReadAllText(p).Trim();
+                if (string.IsNullOrEmpty(url)) return null;
+                Debug.Log("[ui-lab] сервер подменён файлом .server: " + url);
+                return url;
+            }
+            catch (System.Exception) { return null; }
+        }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Run()
         {
@@ -66,7 +84,11 @@ namespace Lvn.UiLab
 
             var go = new GameObject("NovelApp");
             var app = go.AddComponent<NovelApp>();
-            app.ServerUrl = ServerUrl;
+            app.ServerUrl = ServerOverride() ?? ServerUrl;
+            // Та же тема, что у продукта и песочницы: без стилей Unity по
+            // умолчанию у кнопок нет выравнивания, а прокрутка не режется
+            // окном — стенд показывал не то, что видит устройство.
+            app.ThemeResourcePath = "UI/AppLoading/UnityDefaultRuntimeTheme";
             Object.DontDestroyOnLoad(go);
         }
     }
