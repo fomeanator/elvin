@@ -107,7 +107,12 @@ namespace Lvn.UI.Screens
             return time > 0.5f ? sum / time : 0f;
         }
 
-        private const float FloorScale = 64f * 1024f;   // ниже пика не опускаемся: шум не гора
+        private const float DefaultFloor = 64f * 1024f;   // ниже пика не опускаемся: шум не гора
+
+        /// <summary>ПОЛ ШКАЛЫ — чем меряем. У скорости это 64 КБ/с, у кадров —
+        /// 60, у памяти — сотни мегабайт: без своего пола кривая кадров легла
+        /// бы по нулю, потому что шестьдесят против килобайт неразличимо.</summary>
+        public float Floor = DefaultFloor;
         private const float Inset = 6f;
         private float _live;          // скорость «сейчас» — сглаженная, от хоста
         private float _scaleShown;    // шкала, к которой график подходит плавно
@@ -131,7 +136,7 @@ namespace Lvn.UI.Screens
             // ШКАЛА ПОДХОДИТ К ЦЕЛИ ПЛАВНО. Пик ушёл за минуту — цель упала, и
             // кривая перескакивала вдвое вверх одним кадром. Теперь шкала идёт
             // к цели долей за перерисовку: гора растёт и оседает, а не прыгает.
-            float target = Mathf.Max(FloorScale, PeakDown, PeakUp, _live);
+            float target = Mathf.Max(Floor, PeakDown, PeakUp, _live);
             _scaleShown = _scaleShown <= 0f ? target : Mathf.Lerp(_scaleShown, target, 0.12f);
             float scale = Mathf.Max(_scaleShown, _live * 0.98f);
 

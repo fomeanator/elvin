@@ -39,7 +39,11 @@ namespace Lvn.UI.Screens
             _sectionCards.Add(ViewSwitch());
             if (_deviceView)
             {
-                var card = Section(() => LvnWords.Of("dl.device_title", "This device"));
+                // ПРОИЗВОДИТЕЛЬНОСТЬ ОДНИМ ЛИСТОМ: числа сверху, графики под
+                // ними — скорость, кадры и память рядом, чтобы просадку можно
+                // было сопоставить с загрузкой глазом, а не памятью («график
+                // обоих на одном месте» — Илья 10.09).
+                var card = Section(() => LvnWords.Of("dl.view_perf", "Performance"));
                 card.Add(DeviceMetrics());
                 return;
             }
@@ -135,50 +139,17 @@ namespace Lvn.UI.Screens
                 _actions.Add(stop);
                 return;
             }
+            // КНОПОК БОЛЬШЕ НЕТ. Игра качает себя целиком и сразу, без
+            // нажатий (см. docs/loading-ladder.md), поэтому «Скачать всю игру»
+            // предлагала то, что и так идёт, а «Докачать» — то, чего игрок не
+            // отменял: «зачем кнопка завершить загрузку, я не понимаю? удали
+            // мусор весь ненужный» (Илья 10.09). Остаётся ОДНА строка правды:
+            // сколько ещё качать, или что всё уже здесь.
             var missing = MissingInfo?.Invoke() ?? (0, 0);
-            // ПРЯЧЕТ ТОЛЬКО ЖИВАЯ ОЧЕРЕДЬ. Отказавшиеся файлы её не прячут:
-            // один 404 убирал предложение «вся игра с собой» целиком, а связи
-            // между исчезнувшей кнопкой и красной строкой ниже игрок не видит.
-            // Именно тогда оно и нужно — докачать то, что не доехало.
-            if (missing.Item2 <= 0 || DownloadAll == null)
-            {
-                _actions.Add(Hint(() => LvnWords.Of("dl.all_done", "The whole game is on this device.")));
-                return;
-            }
-            var hint = Hint(() => LvnWords.Of("dl.all_hint", "Download once and play with no network: chapters, art and music stay on the device."));
-            hint.style.marginBottom = LvnTokens.Space1;
-            _actions.Add(hint);
-            var row = ScreenUi.Row();
-            bool partial = HasSomeDownloaded?.Invoke() ?? false;
-            var btn = new Button { name = "download-all", text = Up(
-                (partial ? LvnWords.Of("dl.resume", "Finish downloading") : LvnWords.Of("dl.get_all", "Download the whole game"))
-                + " · " + Lvn.Content.LvnBytes.Approx(missing.Item1)) };
-            btn.style.height = LvnTokens.TouchLg;
-            btn.style.fontSize = LvnTokens.TextSm;
-            btn.style.unityFontStyleAndWeight = FontStyle.Bold;
-            // Без темы-USS у кнопки нет умолчаний: текст лип к левому краю.
-            btn.style.unityTextAlign = TextAnchor.MiddleCenter;
-            btn.style.flexGrow = 1;
-            DressButton(btn, primary: true);
-            btn.SetEnabled(!off);
-            btn.clicked += () => { btn.SetEnabled(false); Lvn.LvnAsync.Fire(DownloadAll(), "DownloadAll"); };
-            row.Add(btn);
-            var offer = CurrentChapterOffer?.Invoke();
-            if (offer != null)
-            {
-                var chBtn = new Button { text = Up(offer.Value.label), name = "download-chapter" };
-                chBtn.style.height = LvnTokens.TouchLg;
-                chBtn.style.fontSize = LvnTokens.TextXs;
-                chBtn.style.unityTextAlign = TextAnchor.MiddleCenter;
-                LvnAir.PadX(chBtn, LvnTokens.Space2);
-                chBtn.style.marginLeft = LvnTokens.Space1;
-                chBtn.SetEnabled(!off);
-                DressButton(chBtn, primary: false);
-                var startCh = offer.Value.start;
-                chBtn.clicked += () => { chBtn.SetEnabled(false); startCh(); };
-                row.Add(chBtn);
-            }
-            _actions.Add(row);
+            _actions.Add(Hint(() => missing.Item2 <= 0
+                ? LvnWords.Of("dl.all_done", "The whole game is on this device.")
+                : LvnWords.Of("dl.bytes_left", "Left to download") + " · "
+                  + Lvn.Content.LvnBytes.Approx(missing.Item1)));
         }
 
         // ── ряды ──────────────────────────────────────────────────────────────
@@ -338,9 +309,9 @@ namespace Lvn.UI.Screens
                 LvnStyler.Tab(b, on, LvnTokens.RadiusSm);
                 return b;
             }
-            row.Add(Tab(() => LvnWords.Of("dl.view_downloads", "Downloads"), !_deviceView,
+            row.Add(Tab(() => LvnWords.Of("dl.view_downloads", "Download"), !_deviceView,
                         () => { _deviceView = false; RebuildSections(); }));
-            row.Add(Tab(() => LvnWords.Of("dl.device_title", "This device"), _deviceView,
+            row.Add(Tab(() => LvnWords.Of("dl.view_perf", "Performance"), _deviceView,
                         () => { _deviceView = true; RebuildSections(); }));
             return row;
         }
@@ -358,18 +329,34 @@ namespace Lvn.UI.Screens
             _mDisk = InfoCell(row, () => LvnWords.Of("dl.disk", "Free space"));
             box.Add(row);
 
-            // ГРАФИК КАДРОВ — тем же домом, что и график скорости: одна
-            // картинка минуты жизни, только по другой оси. Просадка видна
-            // глазом, а не вычитается из двух чисел.
-            _fpsChart = new TrafficChart { pickingMode = PickingMode.Ignore };
+            // ДВА ГРАФИКА тем же домом, что и график скорости: минута жизни
+            // кадрами и памятью. У каждого СВОЙ пол шкалы — иначе кривая
+            // кадров легла бы по нулю рядом с килобайтами.
+            box.Add(ChartLabel(() => LvnWords.Of("dl.fps", "Frames")));
+            _fpsChart = new TrafficChart { pickingMode = PickingMode.Ignore, Floor = 60f, Live = true };
             _fpsChart.style.height = 56f;
-            _fpsChart.style.marginTop = LvnTokens.Space2;
             box.Add(_fpsChart);
+
+            box.Add(ChartLabel(() => LvnWords.Of("dl.ram", "Memory")));
+            _ramChart = new TrafficChart { pickingMode = PickingMode.Ignore, Floor = 256f * 1024f * 1024f, Live = true };
+            _ramChart.style.height = 56f;
+            box.Add(_ramChart);
             return box;
         }
 
         private Label _mFps, _mRam, _mCpu, _mDisk;
-        private TrafficChart _fpsChart;
+        private TrafficChart _fpsChart, _ramChart;
+
+        /// <summary>Подпись над графиком: что именно нарисовано.</summary>
+        private static Label ChartLabel(Func<string> text)
+        {
+            var l = Lvn.UI.LvnRedress.Bind(new Label(), text);
+            l.style.color = LvnTokens.TextDim;
+            l.style.fontSize = LvnTokens.TextXs;
+            l.style.marginTop = LvnTokens.Space2;
+            l.pickingMode = PickingMode.Ignore;
+            return l;
+        }
 
         /// <summary>Обновить показатели устройства. Кадры — сглаженные, иначе
         /// число прыгает и читать его нечем; память — то, что заняла игра;
@@ -389,8 +376,42 @@ namespace Lvn.UI.Screens
             ScreenUi.SetText(_mDisk, FreeDiskBytes() is long free && free > 0 ? Mb(free) : "—");
             // График кадров живёт своей шкалой: дом рисует «байты в секунду»,
             // а мы кормим его кадрами — картинка та же, подпись своя.
-            _fpsChart?.Add(Lvn.LvnClock.Wall(), fps, 0f);
+            double when = Lvn.LvnClock.Wall();
+            _fpsChart?.Add(when, fps, 0f);
+            _fpsChart?.SetLive(fps);
+            _ramChart?.Add(when, ram, 0f);
+            _ramChart?.SetLive(ram);
         }
+
+        /// <summary>
+        /// СВОДКА УСТРОЙСТВА — В ЖУРНАЛ, РАЗ В МИНУТУ.
+        ///
+        /// <para>Те же числа, что показывает вид «Это устройство», но снятые
+        /// независимо от того, открыт ли он: строка с тегом уезжает на сервер
+        /// обычным трактом клиентских логов, и «у меня лагает» перестаёт быть
+        /// словом — становится записью с кадрами, памятью и местом («логи эти
+        /// можно будет собирать на сервак» — Илья 10.09).</para>
+        ///
+        /// <para>Раз в минуту: чаще — это шум, который заполнит хвост журнала
+        /// вместо ошибок, ради которых журнал и заведён.</para>
+        /// </summary>
+        private void ReportDeviceIfDue()
+        {
+            float now = Lvn.LvnClock.Wall();
+            if (_reportedAt > 0f && now - _reportedAt < 60f) return;
+            _reportedAt = now;
+            float dt = Time.smoothDeltaTime;
+            if (dt <= 0f) return;
+            long ram = UnityEngine.Profiling.Profiler.GetTotalAllocatedMemoryLong();
+            long free = FreeDiskBytes() ?? 0;
+            Lvn.LvnLog.Trace($"[lvn-device] кадры={Mathf.RoundToInt(1f / dt)} "
+                           + $"кадр={Mathf.RoundToInt(dt * 1000f)}ms "
+                           + $"память={ram / (1024 * 1024)}MB "
+                           + $"свободно={free / (1024 * 1024)}MB "
+                           + $"скорость={Mathf.RoundToInt(_speed / 1024f)}KB/s");
+        }
+
+        private float _reportedAt;
 
         /// <summary>Сколько места осталось на устройстве. Спрашиваем РЕДКО:
         /// обращение к файловой системе стоит миллисекунды, а число меняется
