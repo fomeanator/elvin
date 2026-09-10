@@ -244,168 +244,246 @@ namespace Lvn.UI.Screens
             catch { return false; }
         }
 
-        // Background full-library warm: чей-то экран загрузки всегда важнее —
-        // the loop parks while a chapter scheduler is actively gating.
+        // Живая лестница и её отмена: смена качества и приход обновлений
+        // начинают её заново, а прежний проход обязан остановиться — иначе две
+        // очереди делят полосу и обе едут вдвое медленнее.
+        private System.Threading.CancellationTokenSource _ladder;
+        private LvnManifest _ladderManifest;
+        private bool _ladderWired;
+        private string _ladderQuality;
+
+        /// <summary>Настройки менялись — если это была ступень качества,
+        /// лестница начинается заново. Прочие настройки её не касаются:
+        /// перезапуск на каждый ползунок громкости стоил бы полосы.</summary>
+        private void OnQualityMaybeChanged()
+        {
+            var now = EffectiveArtQuality();
+            if (now == _ladderQuality) return;
+            LvnLog.Info($"[lvn-warm] ступень качества сменилась ({_ladderQuality} → {now}) — лестница заново");
+            StartLadder(null);
+        }
+
+        /// <summary>
+        /// ПУСТИТЬ ЛЕСТНИЦУ ЗАНОВО. Зовётся на старте, при смене ступени
+        /// качества и когда сервер объявил новые версии файлов.
+        ///
+        /// <para>СКАЧАННОЕ НЕ УДАЛЯЕТСЯ. При смене качества прежние файлы
+        /// остаются на диске: ими рисуют, пока новые не доехали, и они же
+        /// пригодятся, если игрок вернёт прежнюю ступень. Отменяется только
+        /// то, что в полёте, — оно уже не нужно. Место разбирает квота кэша,
+        /// а не смена настройки («что будет при смене качества?» — Илья
+        /// 10.09).</para>
+        /// </summary>
+        private void StartLadder(LvnManifest manifest)
+        {
+            if (manifest != null) _ladderManifest = manifest;
+            if (_ladderManifest == null) return;
+            if (!_ladderWired)
+            {
+                _ladderWired = true;
+                // Сменили ступень качества — лестница идёт заново: прежние
+                // файлы остаются на диске, а новых у неё ещё нет. Подписка
+                // живёт столько же, сколько приложение, и снимается вместе с
+                // ним: хозяин один, пересоздания у него нет.
+                LvnPrefs.Changed += OnQualityMaybeChanged;
+                Application.quitting += () => LvnPrefs.Changed -= OnQualityMaybeChanged;
+            }
+            _ladderQuality = EffectiveArtQuality();
+            var prev = _ladder;
+            _ladder = System.Threading.CancellationTokenSource.CreateLinkedTokenSource(_quitting);
+            Lvn.LvnCancel.Retire(prev);   // гасит и отпускает: один Cancel оставил бы регистрации жить
+            LvnAsync.Fire(WarmLibraryAsync(_ladderManifest, _ladder.Token), "WarmLibrary");
+        }
+
+        // ЛЕСТНИЦА ЗАГРУЗКИ — ОДИН ПОРЯДОК НА ВСЮ ИГРУ.
+        //
+        // Правило поверх всех ступеней: очередь определяется МОМЕНТОМ
+        // ПОЯВЛЕНИЯ НА ЭКРАНЕ, а не сущностью. Отсюда и порядок: фаворит из
+        // первой сцены не ждёт нарядов героини, потому что наряды нужны в
+        // гардеробе, а его открывают позже первой сцены (согласовано с Ильёй
+        // 10.09; описание ступеней — docs/loading-ladder.md).
+        //
+        // Лестница не останавливается никогда: она уступает живому кадру доли
+        // секунды и едет дальше. Прежняя политика парковала её на всё время
+        // главы, и на медленном телефоне библиотека не качалась почти никогда.
         private async Task WarmLibraryAsync(LvnManifest manifest, System.Threading.CancellationToken ct)
         {
             try
             {
-                await Task.Delay(3000, ct); // let the boot/menu settle first
+                // Один кадр на то, чтобы бут отдал вуаль, — и поехали.
+                await Task.Delay(300, ct);
+                // Веса каталога — чтобы загрузчик говорил мегабайтами, а не
+                // числом файлов. Не доехали — считаем файлами, лестница едет.
+                await Lvn.Content.LvnCatalogSize.LoadAsync(_assets?.Loader, ct);
                 int warmed = 0, skipped = 0;
 
-                // СОГРЕТЬ ОДИН ФАЙЛ — правила общие для всего, что греется в
-                // фоне: уступить активной главе, уступить живой поверхности,
-                // переждать офлайн, не качать лежащее. Тело было вписано в
-                // цикл глав, и второму месту (арт каста) пришлось бы его
-                // скопировать — а разойдись копии, одна очередь начала бы
-                // отбирать полосу у кадра, который игрок видит прямо сейчас.
                 async Task<bool> WaitForQuietAsync()
                 {
-                    while (_chapterSched != null && !_chapterSched.AllDone && !ct.IsCancellationRequested)
-                        await Task.Delay(500, ct);
+                    // Уступаем ЖИВОЙ ПОВЕРХНОСТИ — кадру, который игрок видит
+                    // прямо сейчас. Это доли секунды, а не остановка.
                     while (_assets.LivePressure > 0 && !ct.IsCancellationRequested)
                         await Task.Delay(150, ct);
                     if (Lvn.LvnNetworkStatus.IsOffline) { await Task.Delay(3000, ct); return false; }
                     return !ct.IsCancellationRequested;
                 }
 
-                // СОГРЕТЬ ПАЧКУ — ОБОЗОМ, А НЕ ПО ОДНОМУ.
-                //
-                // Раньше здесь стоял `await` на КАЖДЫЙ файл: две с половиной
-                // тысячи файлов ехали строго друг за другом, и полоса сети
-                // шириной двенадцать всё это время держала одиннадцать мест
-                // пустыми. На мобильной сети цена файла — не байты, а круговой
-                // рейс; последовательный обход платит его две с половиной
-                // тысячи раз подряд.
-                //
-                // Обоз умеет то же самое в несколько полос и — что не менее
-                // важно — ВЕДЁТ СЧЁТ: сколько в пачке, сколько закрыто, сколько
-                // байт. Без него индикатор видел единственный файл в полёте и
-                // говорил игроку «в очереди: файлов 1» при сотне оставшихся,
-                // «Скачано 0 МБ» при работающей загрузке и ронял скорость в
-                // ноль на каждой границе файлов (живой скрин 04.09).
-                async Task WarmBatch(System.Collections.Generic.List<Lvn.Content.PreloadItem> pack)
+                // ОБОЗОМ, А НЕ ПО ОДНОМУ: на мобильной сети цена файла — не
+                // байты, а круговой рейс, и последовательный обход платит его
+                // за каждый файл. Обоз к тому же ведёт счёт, иначе индикатор
+                // видит один файл в полёте и врёт игроку об очереди.
+                async Task Ступень(Lvn.Content.LvnRung rung,
+                                   System.Collections.Generic.List<Lvn.Content.PreloadItem> pack)
                 {
-                    if (pack.Count == 0) return;
+                    if (pack == null || pack.Count == 0) return;
                     if (!await WaitForQuietAsync()) return;
                     int missing = 0;
                     foreach (var it in pack)
                         if (_assets.Loader.IsAssetCached(it.Url)) skipped++; else missing++;
                     if (missing == 0) return;
-                    try { await _assets.Loader.StartPreloadBatch(pack, ct); warmed += missing; }
-                    catch (System.OperationCanceledException) { throw; }
-                    catch { /* самолечение закроет отдельные файлы */ }
+                    using (Lvn.Content.LvnRungScope.At(rung))
+                        try { await _assets.Loader.StartPreloadBatch(pack, ct); warmed += missing; }
+                        catch (System.OperationCanceledException) { throw; }
+                        catch { /* самолечение закроет отдельные файлы */ }
                 }
 
-                // ПОРЯДОК — ЧАСТЬ РАБОТЫ. Очередь без порядка забивается, и
-                // первым не доезжает как раз то, чего игрок ждёт: вводная
-                // (глава ноль) с агентом и фаворитами стояла бы за спиной у
-                // всей библиотеки просто потому, что в манифесте она не первая.
-                // Лестницу называет дом приоритетов; здесь — её верхняя
-                // ступень: сперва вводная, потом остальные.
-                var order = new System.Collections.Generic.List<LvnTitle>();
-                if (manifest?.titles != null)
+                // Запись обоза идёт ЧЕРЕЗ ДОМ (PreloadItem.Of): он подставляет
+                // ступень качества. Сырой адрес тянул бы исходники крупного
+                // арта — почти десять мегабайт на слой облика вместо
+                // полумегабайта.
+                System.Collections.Generic.List<Lvn.Content.PreloadItem> Пачка(
+                    System.Collections.Generic.IEnumerable<Lvn.Content.LvnPart> parts)
                 {
-                    foreach (var t in manifest.titles)
-                        if (t != null && LvnIntro.Is(t)) order.Add(t);
-                    foreach (var t in manifest.titles)
-                        if (t != null && !LvnIntro.Is(t)) order.Add(t);
+                    var list = new System.Collections.Generic.List<Lvn.Content.PreloadItem>();
+                    foreach (var part in parts)
+                        if (!string.IsNullOrEmpty(part.Url)) list.Add(Lvn.Content.PreloadItem.Of(part));
+                    return list;
                 }
-                // СТУПЕНЬ ОБЪЯВЛЕНА ВСЛУХ, И ЭТО ВТОРОЙ ЭТАЖ ЗАЩИТЫ. Гейт
-                // выше («ждать, пока живое не отпустит») — политика: библиотека
-                // вообще не качается под игрой. Ступень — пол под политикой:
-                // даже проскочив гейт, эти файлы не займут места, оставленные
-                // в полосе живому. Политику можно смягчить, пол останется.
-                // ГЕРОИНЯ ИДЁТ СРАЗУ ЗА ВВОДНОЙ, А НЕ ЗА ВСЕЙ БИБЛИОТЕКОЙ.
-                //
-                // Гардероб открывают из меню в любую минуту, и первый раз —
-                // обычно в первые же минуты: посмотреть, кого дали. Пока её
-                // облик стоял на последней ступени, игрок в этот момент видел
-                // пустые карточки: ни скинов, ни базы с эмоциями (репорт
-                // владельца 06.09). Причин было две, и обе здесь закрыты:
-                // порядок (последняя ступень) и полнота (слои — шаблоны,
-                // прогрев их пропускал; теперь они разворачиваются по осям).
-                //
-                // Вводная качается первой — она в начале `order`; героиня
-                // становится в очередь СРАЗУ ПОСЛЕ неё, до остальных новелл.
-                // ЗАПИСЬ ОБОЗА — ЧЕРЕЗ ДОМ (PreloadItem.Of): он подставляет
-                // ступень качества. Здесь адрес клали как есть, и все три
-                // очереди прогрева тянули исходники крупного арта — 9,95 МБ
-                // на слой облика против 470 КБ у «@1k», при любой настройке.
-                var героиня = new System.Collections.Generic.List<Lvn.Content.PreloadItem>();
-                foreach (var part in Lvn.Content.LvnParts.OfHero(manifest))
-                    if (!string.IsNullOrEmpty(part.Url))
-                        героиня.Add(Lvn.Content.PreloadItem.Of(part));
 
-                bool героиняЖдёт = героиня.Count > 0;
-                async Task ГероиняЕсли(bool пора)
+                System.Collections.Generic.IEnumerable<Lvn.Content.LvnPart> КадрГлавы(LvnChapter ch, bool первый)
                 {
-                    if (!пора || !героиняЖдёт) return;
-                    героиняЖдёт = false;
-                    using (Lvn.Content.LvnRungScope.At(Lvn.Content.LvnRung.Hero))
-                        await WarmBatch(героиня);
-                }
-
-                using (Lvn.Content.LvnRungScope.At(Lvn.Content.LvnRung.Library))
-                if (order.Count > 0)
-                    foreach (var t in order)
+                    foreach (var part in Lvn.Content.LvnParts.OfChapter(ch))
                     {
-                        // Вводная прогрета — очередь героини открывается.
-                        if (!LvnIntro.Is(t)) await ГероиняЕсли(true);
-                        if (t?.seasons == null) continue;
-                        foreach (var se in t.seasons)
-                        {
-                            if (se?.chapters == null) continue;
-                            foreach (var ch in se.chapters)
-                            {
-                                if (ch == null) continue;
-                                if (!string.IsNullOrEmpty(ch.script_url) && !_assets.Loader.IsScriptCached(ch.script_url))
-                                    try { await _assets.Loader.DownloadScriptCached(ch.script_url); } catch { /* прогрев — оптимизация: не доехало сейчас — доедет самолечением */ }
-                                if (ch.assets == null) continue;
-                                // Внутри главы — по ступеням: критичное (то,
-                                // что рисует первый кадр) раньше прочего.
-                                // «Критичность» ставит автор: движок не знает,
-                                // какая поза откроет сцену.
-                                // Порядок внутри главы сохранён: пачка едет в
-                                // том же порядке ступеней, просто не по одному.
-                                var pack = new System.Collections.Generic.List<Lvn.Content.PreloadItem>();
-                                foreach (var part in Lvn.Content.LvnPriority.ByRung(
-                                             Lvn.Content.LvnParts.OfChapter(ch),
-                                             pt => Lvn.Content.LvnPriority.OfChapterPart(pt, current: true)))
-                                    if (!string.IsNullOrEmpty(part.Url))
-                                        pack.Add(Lvn.Content.PreloadItem.Of(part));
-                                if (ct.IsCancellationRequested) return;
-                                await WarmBatch(pack);
-                            }
-                        }
+                        bool критично = Lvn.Content.LvnPriority.OfChapterPart(part, current: true)
+                                        == Lvn.Content.LvnRung.FirstFrame;
+                        if (критично == первый) yield return part;
                     }
-                // Библиотеки могло и не быть (одна вводная новелла) — тогда
-                // очередь героини не открылась в цикле; открываем здесь.
-                await ГероиняЕсли(true);
-
-                // ОБЛИК ПРО ЗАПАС — последняя ступень лестницы: позы и наряды
-                // ОСТАЛЬНОГО каста, которых сюжет пока не просил. Гардероб открывают из меню, то
-                // есть в любую минуту, и ждать там сети нечему.
-                //
-                // Стоит это ПОСЛЕ библиотеки и только теперь: 01.09 тот же
-                // список, поставленный в общую очередь, задавил первый запуск —
-                // не потому, что был лишним, а потому, что гейт «живого» считал
-                // две двери из семи и не видел, как вводная ждёт свой СКРИПТ.
-                // Гейт починен; порядок назван лестницей; полоса у каста своя —
-                // последняя.
-                using (Lvn.Content.LvnRungScope.At(Lvn.Content.LvnRung.Spare))
-                {
-                    var spare = new System.Collections.Generic.List<Lvn.Content.PreloadItem>();
-                    foreach (var part in Lvn.Content.LvnParts.OfCast(manifest))
-                        if (!string.IsNullOrEmpty(part.Url))
-                            spare.Add(Lvn.Content.PreloadItem.Of(part));
-                    if (ct.IsCancellationRequested) return;
-                    await WarmBatch(spare);
                 }
 
-                LvnLog.Trace($"[lvn-warm] library fully cached ({warmed} fetched, {skipped} already local)");
+                async Task СкриптГлавы(LvnChapter ch)
+                {
+                    if (ch == null || string.IsNullOrEmpty(ch.script_url)) return;
+                    if (_assets.Loader.IsScriptCached(ch.script_url)) return;
+                    try { await _assets.Loader.DownloadScriptCached(ch.script_url); }
+                    catch { /* прогрев — оптимизация: попросят при входе */ }
+                }
+
+                // Вводная — та, с которой начинают все; остальные идут за ней.
+                var вводная = (LvnTitle)null;
+                var прочие = new System.Collections.Generic.List<LvnTitle>();
+                if (manifest?.titles != null)
+                    foreach (var t in manifest.titles)
+                    {
+                        if (t == null) continue;
+                        if (вводная == null && LvnIntro.Is(t)) вводная = t;
+                        else прочие.Add(t);
+                    }
+                var главы = ГлавыПоПорядку(вводная);
+
+                // ── 2. ПЕРВЫЙ КАДР ГЛАВЫ НОЛЬ ────────────────────────────────
+                // Скрипт, первый фон, первая поза агента и героиня в ОДНОМ
+                // облике: «фон, агент, героиня с одной эмоцией, фавориты —
+                // чтобы картинка всегда успевала к загрузке» (Илья 10.09).
+                var перваяГлава = главы.Count > 0 ? главы[0] : null;
+                await СкриптГлавы(перваяГлава);
+                var первый = Пачка(КадрГлавы(перваяГлава, первый: true));
+                первый.AddRange(Пачка(Lvn.Content.LvnParts.OfHeroBase(manifest)));
+                await Ступень(Lvn.Content.LvnRung.FirstFrame, первый);
+                if (ct.IsCancellationRequested) return;
+
+                // ── 3. ОСТАТОК ГЛАВЫ НОЛЬ ────────────────────────────────────
+                // Фавориты, прочие фоны и позы, музыка сцены.
+                await Ступень(Lvn.Content.LvnRung.CurrentChapter, Пачка(КадрГлавы(перваяГлава, первый: false)));
+                if (ct.IsCancellationRequested) return;
+
+                // ── 4. ГЕРОИНЯ ЦЕЛИКОМ ───────────────────────────────────────
+                // Все эмоции и весь гардероб: его открывают из меню в первые же
+                // минуты, и пустые карточки читаются как «здесь ничего нет».
+                await Ступень(Lvn.Content.LvnRung.Hero, Пачка(Lvn.Content.LvnParts.OfHero(manifest)));
+                if (ct.IsCancellationRequested) return;
+
+                // ── 5. ВИТРИНА ───────────────────────────────────────────────
+                // Обложки всех новелл и первый кадр первой главы каждой: любая
+                // новелла обязана открываться сразу, даже если целиком не
+                // докачана.
+                var витрина = new System.Collections.Generic.List<Lvn.Content.PreloadItem>();
+                foreach (var t in прочие)
+                {
+                    витрина.AddRange(Пачка(Lvn.Content.LvnParts.OfTitleArt(t)));
+                    var ch0 = FirstChapterOf(t);
+                    if (ch0 != null) витрина.AddRange(Пачка(КадрГлавы(ch0, первый: true)));
+                }
+                await Ступень(Lvn.Content.LvnRung.Shelf, витрина);
+                if (ct.IsCancellationRequested) return;
+
+                // ── 6. ДРУГИЕ ГЕРОИ ──────────────────────────────────────────
+                // Базовый облик каста: их встречают в ближайших сценах. Полный
+                // разворот по осям остаётся на последнюю ступень.
+                await Ступень(Lvn.Content.LvnRung.Spare, Пачка(Lvn.Content.LvnParts.OfCast(manifest)));
+                if (ct.IsCancellationRequested) return;
+
+                // ── 7-8. СЛЕДУЮЩАЯ ГЛАВА, ЗАТЕМ ОСТАЛЬНЫЕ ────────────────────
+                // Порядок глав — авторский: игрок идёт по ним подряд, и очередь
+                // идёт за ним. Внутри главы сперва её первый кадр.
+                for (int i = 1; i < главы.Count; i++)
+                {
+                    var ch = главы[i];
+                    await СкриптГлавы(ch);
+                    var rung = i == 1 ? Lvn.Content.LvnRung.NextChapter : Lvn.Content.LvnRung.Library;
+                    await Ступень(rung, Пачка(КадрГлавы(ch, первый: true)));
+                    await Ступень(rung, Пачка(КадрГлавы(ch, первый: false)));
+                    if (ct.IsCancellationRequested) return;
+                }
+
+                // ── 9. ОСТАЛЬНЫЕ НОВЕЛЛЫ ЦЕЛИКОМ ─────────────────────────────
+                foreach (var t in прочие)
+                    foreach (var ch in ГлавыПоПорядку(t))
+                    {
+                        await СкриптГлавы(ch);
+                        await Ступень(Lvn.Content.LvnRung.Library, Пачка(КадрГлавы(ch, первый: true)));
+                        await Ступень(Lvn.Content.LvnRung.Library, Пачка(КадрГлавы(ch, первый: false)));
+                        if (ct.IsCancellationRequested) return;
+                    }
+
+                // ── 10. ЗАПАС ────────────────────────────────────────────────
+                // Звучание оболочки и всё, чего лестница не назвала поимённо:
+                // добавленное в манифест завтра доедет здесь, даже если про
+                // него забыли, — но последним, ничего не задерживая.
+                await Ступень(Lvn.Content.LvnRung.Spare, Пачка(Lvn.Content.LvnParts.OfAll(manifest)));
+
+                LvnLog.Trace($"[lvn-warm] лестница пройдена ({warmed} скачано, {skipped} уже на диске)");
             }
             catch (System.OperationCanceledException) { /* teardown */ }
+        }
+
+        /// <summary>Главы новеллы подряд, как их читает игрок.</summary>
+        private static System.Collections.Generic.List<LvnChapter> ГлавыПоПорядку(LvnTitle t)
+        {
+            var list = new System.Collections.Generic.List<LvnChapter>();
+            if (t?.seasons == null) return list;
+            foreach (var se in t.seasons)
+            {
+                if (se?.chapters == null) continue;
+                foreach (var ch in se.chapters)
+                    if (ch != null) list.Add(ch);
+            }
+            return list;
+        }
+
+        /// <summary>Первая глава новеллы — та, с которой начинают все.</summary>
+        private static LvnChapter FirstChapterOf(LvnTitle t)
+        {
+            var all = ГлавыПоПорядку(t);
+            return all.Count > 0 ? all[0] : null;
         }
     }
 }

@@ -286,7 +286,7 @@ namespace Lvn.UI.Screens
             // reads — the next chapter's loading screen is then near-instant,
             // and nothing EVER trickles in on camera. Yields to an active
             // chapter gate so it never steals that bandwidth.
-            LvnAsync.Fire(WarmLibraryAsync(manifest, _quitting), "WarmLibrary");
+            StartLadder(manifest);
             // The veil OWNS the whole app boot — one continuous surface from
             // the first frame to the first interactive screen. The shell's own
             // boot splash is suppressed (bootSplash: false): a second loading
@@ -591,6 +591,14 @@ namespace Lvn.UI.Screens
                     .Replace("{mb}", Lvn.Content.LvnBytes.Short(bytes));
                         return (label, () => EnqueueChapterDownload(t, ch));
                     };
+                    // Цену ступени качества считает окно, а адреса каталога
+                    // знает хозяин: у него манифест.
+                    hud.CatalogUrls = () =>
+                    {
+                        var urls = new List<string>();
+                        foreach (var (url, _, _) in CollectContentItems()) urls.Add(url);
+                        return urls;
+                    };
                     hud.HasSomeDownloaded = () =>
                     {
                         foreach (var (url, _, _) in CollectContentItems())
@@ -747,6 +755,14 @@ namespace Lvn.UI.Screens
                 LvnLog.Info("[lvn-app] content changed — reloading");
                 try { await _assets.WarmVersionsAsync(); } catch { /* offline */ }
             }
+
+            // ОБНОВЛЕНИЕ ДОГРУЖАЕТСЯ САМО, ПАЧКОЙ. Прежде изменённые файлы
+            // ждали своего показа: игрок открывал сцену и смотрел, как она
+            // качается заново. Лестница проходит каталог сверху вниз и
+            // забирает всё, что устарело, — обозом, а не по одному файлу
+            // («когда обновы выходят, загрузчик сам догружает пачкой» — Илья
+            // 10.09).
+            StartLadder(null);
 
             // КАТАЛОГ НЕ МЕНЯЛСЯ — ЗА НИМ И НЕ ХОДИМ. Это и есть вся экономия:
             // открытая глава перечитается по уже исправленной карте версий.

@@ -120,6 +120,8 @@ func main() {
 	// works the moment a file changes. Registered before the static prefix so
 	// the exact path wins.
 	mux.HandleFunc("/content/asset-versions.json", srv.handleAssetVersions)
+	// Объём игры: сколько всего качать и почём каждая ступень качества.
+	mux.HandleFunc("/content/asset-sizes.json", srv.handleAssetSizes)
 	mux.HandleFunc("/v1/content/version", srv.handleVersion)
 	mux.HandleFunc("/v1/content/changes", srv.handleContentChanges)
 	ds := newDownscaler() // shared: withDownscale + withKTX2 (@2k source materialization)
