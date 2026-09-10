@@ -238,14 +238,42 @@ namespace Lvn.UI.Screens
             _dlCenter.Enqueue(ChapterEntryLabel(t, ch), bytes, items);
         }
 
-        // Офлайн-доступность глав для попапа индикатора: глава «с галочкой»,
-        // когда ВСЕ её файлы уже на диске. Зовётся при развороте попапа.
+        // Офлайн-доступность глав для листа кружка: глава «с галочкой»,
+        // когда ВСЕ её файлы уже на диске. Зовётся при развороте листа.
         private List<(string label, bool cached)> ChapterAvailability()
         {
             var res = new List<(string, bool)>();
+            foreach (var (t, ch, ok) in CachedChapters()) res.Add((ChapterEntryLabel(t, ch), ok));
+            return res;
+        }
+
+        // То же по новеллам: сколько глав на устройстве из скольких. Лист
+        // показывает новеллу одной строкой с полосой, а не главу за главой.
+        private List<(string title, int cached, int total)> TitleAvailability()
+        {
+            var res = new List<(string, int, int)>();
+            LvnTitle last = null; int cached = 0, total = 0;
+            void Flush()
+            {
+                if (last != null) res.Add((LvnWords.Name("title", last.id, last.name), cached, total));
+            }
+            foreach (var (t, _, ok) in CachedChapters())
+            {
+                if (!ReferenceEquals(t, last)) { Flush(); last = t; cached = 0; total = 0; }
+                total++;
+                if (ok) cached++;
+            }
+            Flush();
+            return res;
+        }
+
+        // Главы манифеста с ответом «все файлы на диске?» — один обход для
+        // списка глав и для сводки по новеллам.
+        private IEnumerable<(LvnTitle t, LvnChapter ch, bool ok)> CachedChapters()
+        {
             var loader = _assets?.Loader;
             var m = _manifest;
-            if (loader == null || m?.titles == null) return res;
+            if (loader == null || m?.titles == null) yield break;
             foreach (var t in m.titles)
             {
                 if (t == null) continue;
@@ -253,18 +281,15 @@ namespace Lvn.UI.Screens
                 {
                     if (ch == null) continue;
                     bool ok = true;
-                    void Check(string url, string kind)
-                    {
-                        if (!ok || string.IsNullOrEmpty(url)) return;
-                        var eff = DownloadPolicy.Effective(kind, url);
-                        if (!loader.IsAssetCached(eff)) ok = false;
-                    }
                     foreach (var part in LvnParts.OfChapter(ch))
-                    { Check(part.Url, part.Kind); if (!ok) break; }
-                    res.Add((ChapterEntryLabel(t, ch), ok));
+                    {
+                        if (string.IsNullOrEmpty(part.Url)) continue;
+                        if (loader.IsAssetCached(DownloadPolicy.Effective(part.Kind, part.Url))) continue;
+                        ok = false; break;
+                    }
+                    yield return (t, ch, ok);
                 }
             }
-            return res;
         }
 
         private async Task SweepDiskCacheAsync()
