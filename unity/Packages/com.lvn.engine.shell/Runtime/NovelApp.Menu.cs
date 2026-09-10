@@ -184,6 +184,37 @@ namespace Lvn.UI.Screens
             }
         }
 
+        /// <summary>
+        /// ДОЖДАТЬСЯ, ПОКА ВИТРИНА НАРИСУЕТСЯ, и додержать затемнение.
+        ///
+        /// <para>До первой раскладки у хаба нулевая ширина: снятая в этот миг
+        /// вуаль открывает пустоту, куда через кадр-другой въезжают панели.
+        /// Ждём НЕНУЛЕВОЙ размер — это факт, а не таймер, — и добираем ещё
+        /// пару кадров: на первой раскладке элементы рождаются, на следующей
+        /// рисуются.</para>
+        ///
+        /// <para>Затем выдержка <see cref="LvnMenuStage.VeilHoldMs"/> от начала
+        /// ожидания: секунда чёрного между заставкой и витриной — вход, а не
+        /// задержка, и она же прячет остаток сборки на медленном телефоне.</para>
+        /// </summary>
+        private async Task MenuPaintedAsync(System.Threading.CancellationToken ct,
+                                            System.Diagnostics.Stopwatch wait)
+        {
+            var hub = _shell?.Hub;
+            if (hub != null)
+            {
+                while (!ct.IsCancellationRequested
+                       && hub.resolvedStyle.width <= 1f
+                       && wait.ElapsedMilliseconds < LvnMenuStage.VeilWaitMs)
+                    await Task.Yield();
+                for (int i = 0; i < 2 && !ct.IsCancellationRequested; i++)
+                    await Task.Yield();
+            }
+            while (!ct.IsCancellationRequested
+                   && wait.ElapsedMilliseconds < LvnMenuStage.VeilHoldMs)
+                await Task.Yield();
+        }
+
         /// <summary>Прогрев арта витрины — задача, которую бут-вуаль ждёт
         /// вместе с полотном, в тот же бюджет времени.</summary>
         private Task _menuArtWarm;

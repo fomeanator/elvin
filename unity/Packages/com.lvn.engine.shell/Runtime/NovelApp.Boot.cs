@@ -373,6 +373,14 @@ namespace Lvn.UI.Screens
                     while (BootVeil.BrandHolding && !ct.IsCancellationRequested)
                         await System.Threading.Tasks.Task.Yield();
                     if (ct.IsCancellationRequested) return;
+                    // …И ПОКА ВИТРИНА НЕ ОТРИСОВАЛАСЬ. Картинки, доехавшие в
+                    // память, — ещё не готовый экран: панели рождаются на
+                    // первой раскладке, а рисуются на следующей. Ждём факт —
+                    // ненулевую ширину хаба — и добираем выдержку, чтобы вход
+                    // не выглядел собирающимся на глазах («первый раз не
+                    // всегда успевает меню отрисоваться» — Илья 10.09).
+                    await MenuPaintedAsync(ct, wait);
+                    if (ct.IsCancellationRequested) return;
                     if (Stage != null && !Stage.HasBackdrop)
                         Debug.LogWarning($"[lvn-boot] полотно не встало за {wait.ElapsedMilliseconds}ms — снимаем вуаль без него");
                     else if (!MenuArtReady)
