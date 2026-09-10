@@ -40,6 +40,17 @@ namespace Lvn.UI.Screens
         }
 
         private bool _stageGlass;
+        private string _pendingSkin;
+
+        private void OnPanelLaidOut(GeometryChangedEvent _)
+        {
+            if (_panel == null || _stageGlass || string.IsNullOrEmpty(_pendingSkin)) return;
+            if (_panel.resolvedStyle.width <= 1f) return;
+            _panel.UnregisterCallback<GeometryChangedEvent>(OnPanelLaidOut);
+            var skin = _pendingSkin;
+            _pendingSkin = null;
+            StageBackdrop(skin);
+        }
 
         /// <summary>ЗАДНИК В ОБЛИКЕ «СЦЕНА» — СТЕКЛО. Пробовали рамку-арт
         /// card-back.png девятидольно: тёмная штрихованная середина, растянутая
@@ -51,6 +62,18 @@ namespace Lvn.UI.Screens
         private void StageBackdrop(string skin)
         {
             if (string.IsNullOrEmpty(skin) || _stageGlass) return;
+            if (_panel == null) return;   // манифест обогнал постройку — оденемся при раскладке
+            // РАМКА ВСТАЁТ ПОСЛЕ ПЕРВОЙ РАСКЛАДКИ. Куски рамки — это восемь
+            // абсолютных элементов, посчитанных от размера панели; поставленные
+            // до раскладки, они считают нули и не появляются вовсе («у
+            // гардероба рамки нету» — Илья 10.09). Ширина известна — одеваемся
+            // сразу, нет — ждём геометрию.
+            if (_panel.resolvedStyle.width <= 1f)
+            {
+                _panel.RegisterCallback<GeometryChangedEvent>(OnPanelLaidOut);
+                _pendingSkin = skin;
+                return;
+            }
             _stageGlass = true;
             // СТЕКЛО НЕ НА САМОЙ ПАНЕЛИ: оно включает обрезку по границам хоста, а
             // столбики героев и эмоций стоят ВЫШЕ панели — так они и пропали
