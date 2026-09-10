@@ -197,6 +197,15 @@ cutscene on=1 zoom=1.12 dur=2
 wait ms=300
 cutscene off=1
 
+// ─── `cutscene start` / `cutscene end` NAME a stretch for the gallery ───
+// A different job from the frame above: this one hides nothing. It stores an
+// ADDRESS — the name the player sees, an optional id after a vertical bar —
+// so the scene can be watched again later. Replay re-plays this very script,
+// so no recording is ever made or uploaded.
+cutscene start The empty booth|empty_booth
+The projector clicks through a reel nobody threads any more.
+cutscene end dur=0.5
+
 The booth is empty. Only the projector is still warm.
 -> __end
 

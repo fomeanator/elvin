@@ -358,13 +358,11 @@ namespace Lvn.UI.Screens
             close.style.position = Position.Absolute;
             close.style.right = 16f;
             const float size = 44f;   // палец: минимальная зона нажатия
-            close.style.width = size;
-            close.style.height = size;
             close.style.unityTextAlign = TextAnchor.MiddleCenter;
             close.style.fontSize = LvnTokens.TextLg;
             close.style.color = LvnTokens.Text;
             close.style.backgroundColor = LvnTokens.Veil(0.45f);
-            LvnChrome.Round(close, size / 2f);
+            LvnChrome.Circle(close, size);
             close.AddManipulator(new Clickable(CloseArt));
             LvnMotion.Tappable(close);
             art.Add(close);
@@ -424,14 +422,12 @@ namespace Lvn.UI.Screens
             bin.style.top = LvnTokens.Space1;
             bin.style.right = LvnTokens.Space1;
             const float size = 28f;
-            bin.style.width = size;
-            bin.style.height = size;
             LvnAir.Pad(bin, 0f);
             LvnAir.Margin(bin, 0f);
             bin.style.alignItems = Align.Center;
             bin.style.justifyContent = Justify.Center;
             bin.style.backgroundColor = LvnTokens.Veil(0.55f);
-            LvnChrome.Round(bin, size / 2f);   // круг — половина стороны, а не своё число
+            LvnChrome.Circle(bin, size);
 
             var glyph = Lvn.UI.LvnIcons.Make(Lvn.UI.LvnIcon.Trash, 16f, LvnTokens.Text);
             glyph.pickingMode = PickingMode.Ignore;

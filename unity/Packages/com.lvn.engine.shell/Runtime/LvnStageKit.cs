@@ -90,8 +90,6 @@ namespace Lvn.UI.Screens
             return l;
         }
 
-        /// <summary>Плашка-заголовок: слово прописными на нарисованной плашке.
-        /// Место задаёт вызывающий — плашка нарисована в рамке.</summary>
         /// <summary>Прижать кусок к левому или правому краю (одна ось —
         /// одно решение; вместе четыре стороны читались бы как растяжка).</summary>
         private static void PinX(VisualElement p, bool far)
@@ -291,6 +289,8 @@ namespace Lvn.UI.Screens
                         CardBackW, CardBackH, CardBackCornerPx, CardBackPxPerDp, index: 0, solid: true);
         }
 
+        /// <summary>Плашка-заголовок: слово прописными на нарисованной плашке.
+        /// Место задаёт вызывающий — плашка нарисована в рамке.</summary>
         public static Label Plaque(Func<string> text)
             => Text(() => (text() ?? string.Empty).ToUpperInvariant(), LvnTokens.TextSm, LvnTokens.Text);
 
