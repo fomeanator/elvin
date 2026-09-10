@@ -188,6 +188,17 @@ namespace Lvn.UI.Screens
                 ? LvnWords.Of("dl.eta", "≈{0} left", Lvn.UI.LvnTimeWords.Coarse((long)tally.EtaSeconds)) : "";
             ScreenUi.SetText(_vSpeed, moving && _speed >= 1024f ? Speed(_speed) : "—");
             ScreenUi.SetText(_vUp, _chart.LastUp >= 256f ? Speed(_chart.LastUp) : "—");
+            ScreenUi.SetText(_peak, _chart.PeakDown >= 1024f
+                ? LvnWords.Of("dl.peak", "peak") + " ↓ " + Speed(_chart.PeakDown) : "");
+            // Ряд очереди, что качается сейчас: ход по своему пакету и скорость.
+            if (_activeFill != null && entry != null)
+            {
+                long inFlight = System.Math.Min(t.Received, entry.Bytes);
+                _activeFill.style.width = Length.Percent(entry.Bytes > 0
+                    ? Mathf.Clamp01((float)inFlight / entry.Bytes) * 100f : 0f);
+                ScreenUi.SetText(_activeMeta, Mb(inFlight) + " " + LvnWords.Of("common.of", "of") + " "
+                    + LvnBytes.Approx(entry.Bytes) + (moving && _speed >= 1024f ? " · " + Speed(_speed) : ""));
+            }
             // Процент — только когда план известен: доля без плана это догадка.
             bool showPercent = work && tally.PlanKnown;
             _percent.style.display = showPercent ? DisplayStyle.Flex : DisplayStyle.None;

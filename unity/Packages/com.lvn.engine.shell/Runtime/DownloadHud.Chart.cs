@@ -135,33 +135,38 @@ namespace Lvn.UI.Screens
             float liveUp = lived > 0.0 ? _bucketUp / (float)lived : 0f;
             scale = Mathf.Max(scale, liveDown, liveUp);
 
-            float step = w / Seconds;
-            Vector2 At(int i, float[] series, float live)
+            // СТОЛБИКИ, А НЕ ПЛОЩАДЬ: секунда — столбик, как сетевой график
+            // Steam («как в стиме» — Илья 10.09). Столбик читается на телефоне
+            // лучше кривой: провал до нуля — пустое место, а не наклон.
+            float step = w / (Seconds + 1);
+            float barW = Mathf.Max(1f, step * 0.72f);
+            float Raw(float[] series, float live, int i) => i == Seconds ? live : series[(_newest + 1 + i) % Seconds];
+            var accent = LvnTokens.Accent;
+            for (int i = 0; i <= Seconds; i++)
             {
-                float raw = i == Seconds ? live : series[(_newest + 1 + i) % Seconds]; // слева старое, справа свежее
-                float v = Mathf.Clamp01(raw / scale);
-                return new Vector2(i * step, bottom - v * span);
+                float hh = Mathf.Clamp01(Raw(_down, liveDown, i) / scale) * span;
+                if (hh < 1f) continue;
+                float x = i * step + (step - barW) / 2f;
+                float y = bottom - hh;
+                // Живая секунда — ярче: она и есть «сейчас».
+                p.fillColor = UiColor.WithAlpha(accent, i == Seconds ? 0.95f : 0.5f);
+                p.BeginPath();
+                p.MoveTo(new Vector2(x, bottom)); p.LineTo(new Vector2(x, y));
+                p.LineTo(new Vector2(x + barW, y)); p.LineTo(new Vector2(x + barW, bottom));
+                p.ClosePath(); p.Fill();
+                // Светлая шапка столбика — вершина читается и у низких.
+                p.fillColor = accent;
+                p.BeginPath();
+                p.MoveTo(new Vector2(x, y)); p.LineTo(new Vector2(x, y + 2f));
+                p.LineTo(new Vector2(x + barW, y + 2f)); p.LineTo(new Vector2(x + barW, y));
+                p.ClosePath(); p.Fill();
             }
 
-            // Приём: площадь под кривой.
-            var accent = LvnTokens.Accent;
-            p.fillColor = UiColor.WithAlpha(accent, 0.22f);
-            p.BeginPath();
-            p.MoveTo(new Vector2(0f, bottom));
-            for (int i = 0; i <= Seconds; i++) p.LineTo(At(i, _down, liveDown));
-            p.LineTo(new Vector2(w, bottom));
-            p.ClosePath();
-            p.Fill();
-            p.lineWidth = 2.5f;
-            p.lineJoin = LineJoin.Round;
-            p.strokeColor = accent;
-            p.BeginPath();
-            p.MoveTo(At(0, _down, liveDown));
-            for (int i = 1; i <= Seconds; i++) p.LineTo(At(i, _down, liveDown));
-            p.Stroke();
-
-            // Отдача: линия золотом.
+            // Отдача: линия золотом, как в торрент-клиентах, — по центрам столбиков.
+            Vector2 At(int i, float[] series, float live)
+                => new Vector2(i * step + step / 2f, bottom - Mathf.Clamp01(Raw(series, live, i) / scale) * span);
             p.lineWidth = 2f;
+            p.lineJoin = LineJoin.Round;
             p.strokeColor = LvnTokens.Gold;
             p.BeginPath();
             p.MoveTo(At(0, _up, liveUp));
@@ -171,7 +176,7 @@ namespace Lvn.UI.Screens
             // Точка «сейчас» на приёме.
             var last = At(Seconds, _down, liveDown);
             p.fillColor = accent;
-            p.BeginPath(); p.Arc(last, 4f, 0f, 360f); p.Fill();
+            p.BeginPath(); p.Arc(last, 3.5f, 0f, 360f); p.Fill();
         }
     }
 }
