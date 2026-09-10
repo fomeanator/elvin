@@ -232,15 +232,24 @@ namespace Lvn.Content
 
         private static Dictionary<string, string> _base, _translated;
 
+        /// <summary>
+        /// ПЕРЕВОД НЕ СМЕШИВАЕТСЯ С БАЗОЙ.
+        ///
+        /// <para>База — подписи манифеста, то есть язык, на котором новелла
+        /// написана (у нас русский). Каталог перевода накладывался поверх неё,
+        /// и ключи, которых в каталоге нет, оставались русскими: игрок,
+        /// выбравший English, получал заголовок «Загрузки» над английским
+        /// списком и «Осталось скачать» под ним («переключение языка какое-то
+        /// странное» — Илья 10.09).</para>
+        ///
+        /// <para>Поэтому при живом переводе база отключается целиком: чего нет
+        /// в каталоге, берётся из авторского умолчания кода — оно английское, и
+        /// англоязычному игроку читается как язык, а не как каша. База
+        /// возвращается, когда игрок выбрал оригинал.</para>
+        /// </summary>
         private static Dictionary<string, string> Merge(
             Dictionary<string, string> baseWords, Dictionary<string, string> over)
-        {
-            if (over == null || over.Count == 0) return baseWords;
-            var merged = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
-            if (baseWords != null) foreach (var kv in baseWords) merged[kv.Key] = kv.Value;
-            foreach (var kv in over) merged[kv.Key] = kv.Value;
-            return merged;
-        }
+            => over == null || over.Count == 0 ? baseWords : over;
 
         /// <summary>
         /// Слово по ключу. <paramref name="fallback"/> — что показать, если

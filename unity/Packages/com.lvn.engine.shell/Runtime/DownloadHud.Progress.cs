@@ -213,8 +213,17 @@ namespace Lvn.UI.Screens
             int next = Center == null ? 0 : Center.Queue.Count - (entry != null ? 1 : 0);
             ScreenUi.SetText(_vQueue, next > 0 ? next.ToString() : "—");
 
-            if (_expanded && (_centerDirty || changed))
+            // ПЕРЕСОБИРАЕМ ПО СОСТАВУ, А НЕ ПО ЦИФРАМ. Центр загрузок шлёт
+            // «изменилось» на каждый принятый файл, и лист пересобирался по
+            // нескольку раз в секунду: строки прыгали, прокрутка дёргалась,
+            // читать было нечего («очень всё дёргается» — Илья 10.09). Цифры
+            // и полосы обновляются на месте строкой выше; заново собирать лист
+            // нужно, только когда изменился ЕГО СОСТАВ — очередь, отказы,
+            // сеть, ожидающие отправки.
+            var shape = Shape(off, pend);
+            if (_expanded && shape != _sectionsShape)
             {
+                _sectionsShape = shape;
                 Lvn.UI.LvnScroll.Keeping(_sections, () => RebuildSections());
             }
             _centerDirty = false;
@@ -283,5 +292,17 @@ namespace Lvn.UI.Screens
         }
 
         private void MarkCenterDirty() => _centerDirty = true;
+
+        // Отпечаток СОСТАВА листа: пока он тот же, пересобирать нечего.
+        private string _sectionsShape;
+
+        private string Shape(bool offline, int pending)
+        {
+            int queue = Center?.Queue.Count ?? 0;
+            int failed = Center?.Failed.Count ?? 0;
+            return (offline ? "1" : "0") + ":" + (pending > 0 ? "1" : "0")
+                 + ":" + queue + ":" + failed
+                 + ":" + (Lvn.Content.LvnCatalogSize.Known ? LvnPrefs.ArtQuality : "-");
+        }
     }
 }
