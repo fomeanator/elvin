@@ -45,7 +45,8 @@ export const OPS = [
   "bg3d",
   "track",
   "ui",
-  "cutscene"
+  "cutscene",
+  "cutscene_mark"
 ];
 
 // Compile-time-only keywords (voice/ext/defanim/move/play): lowered away by
@@ -365,6 +366,13 @@ export const OP_FIELDS = {
     "radius",
     "color",
     "dur"
+  ],
+  "cutscene_mark": [
+    "id",
+    "name",
+    "end",
+    "dur",
+    "poster"
   ]
 };
 

@@ -261,6 +261,27 @@ namespace Lvn.UI.Screens
             onChanged?.Invoke();
         }
 
+        /// <summary>
+        /// ОДЕТЬ ЛИСТ ЭКРАНА В ОБЛИК ВИТРИНЫ — стекло в рисованной рамке и
+        /// заголовок золотом, ровно один раз.
+        ///
+        /// <para>Приём стоял копией в каждом экране облика: рамка рисуется
+        /// КАРТИНКОЙ, и второй слой лёг бы поверх первого, поэтому у всех был
+        /// свой флажок «уже одет». Копии не падают, они расходятся: одному
+        /// экрану поправят радиус, другому забудут.</para>
+        ///
+        /// <para>Возвращает новое значение флажка — вызывающий держит его у
+        /// себя, потому что одевается ЕГО лист.</para>
+        /// </summary>
+        public static bool DressSheet(VisualElement sheet, string skin, ILvnAssets assets,
+                                      bool alreadyDressed, Label heading = null)
+        {
+            if (alreadyDressed || sheet == null || string.IsNullOrEmpty(skin)) return alreadyDressed;
+            GlassSheet(sheet, skin, assets, LvnTokens.Radius);
+            if (heading != null) heading.style.color = LvnTokens.Gold;   // заголовки витрины — золотом
+            return true;
+        }
+
         public static void GlassSheet(VisualElement host, string skin, ILvnAssets assets, float radius)
         {
             host.style.backgroundColor = Color.clear;

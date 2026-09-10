@@ -78,28 +78,9 @@ namespace Lvn.UI.Screens
             sheet.style.paddingTop = LvnTokens.Space4;
 
             // ── Header: ‹ back · "Галерея" · counter ────────────────────────────
-            var header = ScreenUi.Row();
-            header.style.marginBottom = LvnTokens.Space3;
-            sheet.Add(header);
-
-            var back = ScreenUi.BackButton(Close, 52f, 36f);
-            back.style.marginRight = LvnTokens.Space2;
-            header.Add(back);
-
+            // Ряд общий с галереей прожитых сцен — см. ScreenUi.GalleryHeader.
             var title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("nav.gallery", "Gallery"));
-            LvnChrome.Heading(title);
-            title.style.color = LvnTokens.Text;
-            title.style.fontSize = LvnTokens.TextLg;
-            title.style.unityFontStyleAndWeight = FontStyle.Bold;
-            title.style.flexGrow = 1;
-            header.Add(title);
-
-            _counter = new Label();
-            _counter.style.color = LvnTokens.Gold;
-            _counter.style.fontSize = LvnTokens.TextXs;
-            LvnStyler.Chip(_counter, LvnTokens.Veil(0.35f), LvnTokens.Radius,
-                           padY: LvnTokens.Space1);
-            header.Add(_counter);
+            sheet.Add(ScreenUi.GalleryHeader(Close, title, out _counter));
 
             // ── Grid of tiles ──────────────────────────────────────────────────
             _grid = Lvn.UI.LvnScroll.Vertical();

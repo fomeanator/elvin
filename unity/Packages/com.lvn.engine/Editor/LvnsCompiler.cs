@@ -50,6 +50,7 @@ namespace Lvn.Editor
             // cutscene on=1 zoom=1.1 dur=3 — плоские поля, разбираются общим
             // хвостом key=value. Без объявления строка стала бы РЕПЛИКОЙ.
             "cutscene",
+            "cutscene_mark",
             // A bare `clear` — no fields — compiles through the generic
             // key=value tail below. Listed here for the same reason as
             // everything else in this set, and for no other.

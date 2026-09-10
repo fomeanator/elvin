@@ -40,7 +40,7 @@ namespace Lvn.UI.Screens
         private readonly VisualElement _sheet;
         private readonly Label _title;
         private readonly ScrollView _grid;
-        private readonly Label _counter;
+        private readonly Label _counter;   // наполняет экран: только он знает, что считает
         private readonly Button _forget;
         private readonly Label _empty;
         private bool _stageGlass;
@@ -83,28 +83,10 @@ namespace Lvn.UI.Screens
             var sheet = _sheet = Sheet();
             AdoptSheet(sheet);
 
-            var header = ScreenUi.Row();
-            header.style.marginBottom = LvnTokens.Space3;
-            sheet.Add(header);
-
-            var back = ScreenUi.BackButton(Close, 52f, 36f);
-            back.style.marginRight = LvnTokens.Space2;
-            header.Add(back);
-
-            var title = _title = Lvn.UI.LvnRedress.Bind(new Label(),
+            _title = Lvn.UI.LvnRedress.Bind(new Label(),
                 () => LvnWords.Of("cutscenes.title", "Cutscenes"));
-            LvnChrome.Heading(title);
-            title.style.color = LvnTokens.Text;
-            title.style.fontSize = LvnTokens.TextLg;
-            title.style.unityFontStyleAndWeight = FontStyle.Bold;
-            title.style.flexGrow = 1;
-            header.Add(title);
-
-            _counter = new Label();
-            _counter.style.color = LvnTokens.Gold;
-            _counter.style.fontSize = LvnTokens.TextXs;
-            LvnStyler.Chip(_counter, LvnTokens.Veil(0.35f), LvnTokens.Radius, padY: LvnTokens.Space1);
-            header.Add(_counter);
+            var header = ScreenUi.GalleryHeader(Close, _title, out _counter);
+            sheet.Add(header);
 
             // ОЧИСТИТЬ — рядом со счётом, тихой плашкой: снос коллекции не
             // должен выглядеть привлекательнее самих сцен. Через тот же обряд
@@ -147,12 +129,7 @@ namespace Lvn.UI.Screens
         /// у профиля и детали новеллы, заголовок — золотом. Одеваемся один раз:
         /// рамка рисуется картинкой, и второй слой лёг бы поверх первого.</summary>
         private void StageDress()
-        {
-            if (!StageDressed || _sheet == null || _stageGlass) return;
-            _stageGlass = true;
-            LvnStageKit.GlassSheet(_sheet, _skin, _assets, LvnTokens.Radius);
-            _title.style.color = LvnTokens.Gold;   // заголовки витрины — золотом
-        }
+            => _stageGlass = LvnStageKit.DressSheet(_sheet, _skin, _assets, _stageGlass, _title);
 
         /// <summary>Чем наполнить галерею. Порядок — как пришёл: игрок видит
         /// сцены в том порядке, в каком их прожил.</summary>
@@ -301,8 +278,7 @@ namespace Lvn.UI.Screens
             if (e == null || _art != null) return;
 
             var art = _art = new VisualElement();
-            art.style.position = Position.Absolute;
-            art.style.left = 0; art.style.right = 0; art.style.top = 0; art.style.bottom = 0;
+            LvnChrome.Stretch(art);
             // ЧЁРНОЕ НАСКВОЗЬ. Полупрозрачная подложка оставляла под собой
             // витрину, и кадр смотрелся окном в приложении, а не картинкой.
             art.style.backgroundColor = Color.black;
@@ -447,17 +423,15 @@ namespace Lvn.UI.Screens
             bin.style.position = Position.Absolute;
             bin.style.top = LvnTokens.Space1;
             bin.style.right = LvnTokens.Space1;
-            bin.style.width = 28f;
-            bin.style.height = 28f;
-            bin.style.paddingLeft = 0f; bin.style.paddingRight = 0f;
-            bin.style.paddingTop = 0f; bin.style.paddingBottom = 0f;
-            bin.style.marginLeft = 0f; bin.style.marginRight = 0f;
-            bin.style.marginTop = 0f; bin.style.marginBottom = 0f;
+            const float size = 28f;
+            bin.style.width = size;
+            bin.style.height = size;
+            LvnAir.Pad(bin, 0f);
+            LvnAir.Margin(bin, 0f);
             bin.style.alignItems = Align.Center;
             bin.style.justifyContent = Justify.Center;
             bin.style.backgroundColor = LvnTokens.Veil(0.55f);
-            bin.style.borderTopLeftRadius = 14f; bin.style.borderTopRightRadius = 14f;
-            bin.style.borderBottomLeftRadius = 14f; bin.style.borderBottomRightRadius = 14f;
+            LvnChrome.Round(bin, size / 2f);   // круг — половина стороны, а не своё число
 
             var glyph = Lvn.UI.LvnIcons.Make(Lvn.UI.LvnIcon.Trash, 16f, LvnTokens.Text);
             glyph.pickingMode = PickingMode.Ignore;
