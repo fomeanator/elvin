@@ -74,8 +74,31 @@ namespace Lvn.UI.Screens
 
             if (Center != null && Center.Queue.Count > 0)
             {
+                // ОЧЕРЕДЬ СВОДИТСЯ ПО НОВЕЛЛАМ. Двадцать пять глав «Cold»
+                // подряд — это не список, а стена: игрок листал её, чтобы
+                // увидеть, что дальше «Агентство» («давай группировать
+                // новеллы» — Илья 10.09). Новелла — строка с числом глав и
+                // общим весом; качающаяся глава показана отдельно, потому что
+                // она одна и сейчас.
                 var card = Section(() => LvnWords.Of("dl.queue_title", "Download queue"));
-                foreach (var e in Center.Queue) card.Add(QueueRow(e, failed: false));
+                var order = new List<string>();
+                var byTitle = new Dictionary<string, (int count, long bytes, DownloadCenter.Entry active)>();
+                foreach (var e in Center.Queue)
+                {
+                    var key = string.IsNullOrEmpty(e.Group) ? e.Label : e.Group;
+                    if (!byTitle.TryGetValue(key, out var acc)) { order.Add(key); acc = (0, 0L, null); }
+                    acc.count++;
+                    acc.bytes += e.Bytes;
+                    if (e.Active) acc.active = e;
+                    byTitle[key] = acc;
+                }
+                foreach (var key in order)
+                {
+                    var acc = byTitle[key];
+                    if (acc.active != null) card.Add(QueueRow(acc.active, failed: false));
+                    if (acc.count > (acc.active != null ? 1 : 0))
+                        card.Add(GroupRow(key, acc.count - (acc.active != null ? 1 : 0), acc.bytes));
+                }
             }
 
             // СОСТОЯНИЕ УСТРОЙСТВА — рядом с загрузкой, как в клиенте Steam:
@@ -347,6 +370,26 @@ namespace Lvn.UI.Screens
         private Label _mFps, _mRam, _mCpu, _mDisk;
         private TrafficChart _fpsChart, _ramChart;
 
+        /// <summary>Завести графики, если их ещё нет. Живут столько же, сколько
+        /// окно, и копят историю независимо от того, открыта ли вкладка;
+        /// рисуются только когда видны — перерисовка невидимого просто жжёт
+        /// кадры.</summary>
+        private void EnsureCharts()
+        {
+            if (_fpsChart == null)
+            {
+                _fpsChart = new TrafficChart { pickingMode = PickingMode.Ignore, Floor = 60f, Averaging = true };
+                _fpsChart.style.height = 56f;
+            }
+            if (_ramChart == null)
+            {
+                _ramChart = new TrafficChart { pickingMode = PickingMode.Ignore, Floor = 256f * 1024f * 1024f, Averaging = true };
+                _ramChart.style.height = 56f;
+            }
+            _fpsChart.Live = _deviceView;
+            _ramChart.Live = _deviceView;
+        }
+
         /// <summary>Подпись над графиком: что именно нарисовано.</summary>
         private static Label ChartLabel(Func<string> text)
         {
@@ -363,24 +406,26 @@ namespace Lvn.UI.Screens
         /// место — сколько свободно под остальную игру.</summary>
         private void TickDeviceMetrics()
         {
-            if (_mFps == null) return;
+            // ЗАМЕР ИДЁТ ВСЕГДА, даже когда вкладка закрыта: просадка случается
+            // тогда, когда её никто не смотрит, и открыв вкладку после лага,
+            // игрок обязан увидеть этот лаг.
+            EnsureCharts();
             float dt = Time.smoothDeltaTime;
-            int fps = dt > 0f ? Mathf.RoundToInt(1f / dt) : 0;
-            ScreenUi.SetText(_mFps, fps > 0 ? fps.ToString() : "—");
+            if (dt <= 0f) return;
+            int fps = Mathf.RoundToInt(1f / dt);
+            long ram = UnityEngine.Profiling.Profiler.GetTotalAllocatedMemoryLong();
+            double when = Lvn.LvnClock.Wall();
+            _fpsChart.Add(when, fps, 0f);
+            _ramChart.Add(when, ram, 0f);
+
+            if (_mFps == null) return;   // вкладка закрыта — числа рисовать некому
+            ScreenUi.SetText(_mFps, fps.ToString());
             // «Проц» на телефоне честнее считать ВРЕМЕНЕМ КАДРА: доля ядер
             // недоступна приложению, а миллисекунды на кадр — та же нагрузка,
             // только измеримая.
-            ScreenUi.SetText(_mCpu, dt > 0f ? Mathf.RoundToInt(dt * 1000f) + " ms" : "—");
-            long ram = UnityEngine.Profiling.Profiler.GetTotalAllocatedMemoryLong();
+            ScreenUi.SetText(_mCpu, Mathf.RoundToInt(dt * 1000f) + " ms");
             ScreenUi.SetText(_mRam, ram > 0 ? Mb(ram) : "—");
             ScreenUi.SetText(_mDisk, FreeDiskBytes() is long free && free > 0 ? Mb(free) : "—");
-            // График кадров живёт своей шкалой: дом рисует «байты в секунду»,
-            // а мы кормим его кадрами — картинка та же, подпись своя.
-            double when = Lvn.LvnClock.Wall();
-            _fpsChart?.Add(when, fps, 0f);
-            _fpsChart?.SetLive(fps);
-            _ramChart?.Add(when, ram, 0f);
-            _ramChart?.SetLive(ram);
         }
 
         /// <summary>
@@ -468,6 +513,25 @@ namespace Lvn.UI.Screens
                 RebuildSections();
             }));
             LvnMotion.Tappable(row);
+            return row;
+        }
+
+        /// <summary>Строка новеллы в очереди: сколько глав ждёт и сколько это
+        /// весит. Без прогресса — у группы его нет, он у той главы, что
+        /// качается сейчас.</summary>
+        private VisualElement GroupRow(string title, int chapters, long bytes)
+        {
+            var row = RowPlate(false);
+            var name = new Label(title);
+            name.style.color = LvnTokens.Text;
+            name.style.fontSize = LvnTokens.TextSm;
+            name.style.flexGrow = 1;
+            row.Add(name);
+            var meta = new Label(LvnWords.Of("dl.chapters_queued", "{0} chapters", chapters.ToString())
+                                 + " · " + Lvn.Content.LvnBytes.Approx(bytes));
+            meta.style.color = LvnTokens.TextDim;
+            meta.style.fontSize = LvnTokens.TextXs;
+            row.Add(meta);
             return row;
         }
 

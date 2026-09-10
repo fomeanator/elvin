@@ -235,7 +235,7 @@ namespace Lvn.UI.Screens
                 bytes += size > 0 ? size : DownloadPolicy.UnknownSizeBytes;
             }
             foreach (var part in LvnParts.OfChapter(ch)) Add(part.Url, part.Kind, part.Size);
-            _dlCenter.Enqueue(ChapterEntryLabel(t, ch), bytes, items);
+            _dlCenter.Enqueue(ChapterEntryLabel(t, ch), bytes, items, LvnWords.Name("title", t?.id, t?.name));
         }
 
         // Офлайн-доступность глав для листа кружка: глава «с галочкой»,
