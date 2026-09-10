@@ -247,6 +247,7 @@ namespace Lvn.UI.Screens
                 Lvn.UI.LvnScroll.Keeping(_sections, () => RebuildSections());
             }
             TickDeviceMetrics();   // кадры, память, место — цифрами, без пересборки листа
+            ReportDeviceIfDue();   // и раз в минуту — тем же числом в журнал на сервер
             _centerDirty = false;
             _wasWorking = work;
             _wasQueued = queued;
