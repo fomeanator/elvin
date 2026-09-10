@@ -423,9 +423,22 @@ namespace Lvn.UI.Screens
             _diskAskedAt = now;
             try
             {
+#if UNITY_ANDROID && !UNITY_EDITOR
+                // НА ТЕЛЕФОНЕ СПРАШИВАЕМ СИСТЕМУ. DriveInfo на Android
+                // отвечает нулём (корень — не раздел приложения), и место
+                // показывалось прочерком при живом диске. StatFs считает по
+                // ТОЙ ЖЕ папке, куда игра пишет, — это и есть её место.
+                using (var statFs = new AndroidJavaObject("android.os.StatFs", Application.persistentDataPath))
+                {
+                    long blocks = statFs.Call<long>("getAvailableBlocksLong");
+                    long size = statFs.Call<long>("getBlockSizeLong");
+                    _diskFree = blocks * size;
+                }
+#else
                 var root = System.IO.Path.GetPathRoot(Application.persistentDataPath);
                 if (!string.IsNullOrEmpty(root))
                     _diskFree = new System.IO.DriveInfo(root).AvailableFreeSpace;
+#endif
             }
             catch { _diskFree = null; }   // платформа не отвечает — покажем прочерк
             return _diskFree;
