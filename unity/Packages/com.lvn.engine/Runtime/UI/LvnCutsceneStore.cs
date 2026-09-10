@@ -196,8 +196,10 @@ namespace Lvn.UI
             {
                 var path = Poster(titleId, cutsceneId);
                 if (path == null) return null;
-                var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-                return tex.LoadImage(System.IO.File.ReadAllBytes(path)) ? tex : null;
+                // Разбор картинки — у дома памяти: он убирает за собой, когда
+                // файл побит, а расписанный здесь обряд оставлял бы пустую
+                // текстуру при каждой попытке открыть галерею.
+                return Lvn.Content.AssetMemory.Decode(System.IO.File.ReadAllBytes(path));
             }
             catch { return null; }
         }

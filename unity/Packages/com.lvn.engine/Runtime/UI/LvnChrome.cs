@@ -116,6 +116,7 @@ namespace Lvn.UI
         /// <summary>Скругление из темы: `Round(el)` вместо числа на глаз.</summary>
         public static void Round(VisualElement el) => Round(el, LvnTokens.Radius);
 
+
         /// <summary>
         /// КРУГ — ОДНО РЕШЕНИЕ, А НЕ ТРИ ЧИСЛА.
         ///
@@ -315,7 +316,6 @@ namespace Lvn.UI
             el.style.borderRightColor = color;
         }
 
-        /// <summary>Снять рамку со всех четырёх сторон.</summary>
         /// <summary>
         /// ПОЛОСА ИНТЕРФЕЙСА — НЕ ШИРЕ ТЕЛЕФОНА, ПО ЦЕНТРУ.
         ///
@@ -346,6 +346,7 @@ namespace Lvn.UI
             el.style.translate = new Translate(Length.Percent(-50f), 0f);
         }
 
+        /// <summary>Снять рамку со всех четырёх сторон.</summary>
         public static void ClearBorder(VisualElement el)
         {
             if (el == null) return;

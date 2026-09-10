@@ -699,9 +699,6 @@ namespace Lvn.UI
         /// Returns false when already at the first beat.</summary>
         public bool RollbackStep() => RollbackSteps(1);
 
-        /// <summary>Roll back several beats in one hop (clamped to the recorded
-        /// history) — the History panel's tap-to-return. The same recipe as a
-        /// single step, but one scene rebuild instead of N.</summary>
         /// <summary>
         /// ПЕРЕСМОТР НАЗВАННОЙ КАТСЦЕНЫ. Скрипт ставится как обычно, но игра
         /// начинается не сначала, а с метки <c>cutscene start</c>: сперва
@@ -874,19 +871,20 @@ namespace Lvn.UI
             btn.style.right = 16f;
             btn.style.top = LvnEdges.Top(host, 16f);
             const float size = 44f;   // палец: минимальная зона нажатия
-            btn.style.width = size;
-            btn.style.height = size;
             btn.style.unityTextAlign = TextAnchor.MiddleCenter;
             btn.style.fontSize = LvnTokens.TextLg;
             btn.style.color = LvnTokens.Text;
             btn.style.backgroundColor = LvnTokens.Veil(0.45f);
-            LvnChrome.Round(btn, size / 2f);   // круг — половина стороны, а не своё число
+            LvnChrome.Circle(btn, size);
             btn.AddManipulator(new Clickable(() => RequestExit()));
             LvnMotion.Tappable(btn);
             host.Add(btn);
             _cutsceneExit = btn;
         }
 
+        /// <summary>Roll back several beats in one hop (clamped to the recorded
+        /// history) — the History panel's tap-to-return. The same recipe as a
+        /// single step, but one scene rebuild instead of N.</summary>
         public bool RollbackSteps(int steps)
         {
             if (_player == null || _awaitingWait || steps < 1) return false;

@@ -114,7 +114,9 @@ namespace Lvn.UI.Screens
                                    wait.Minutes.ToString("0") + ":" + wait.Seconds.ToString("00"));
             }
             if (st.Left < 0) return "";
-            return LvnWords.Of("ads.left", "{0} of {1} left today",
+            // Слово ТО ЖЕ, что на карточке магазина: один ключ с двумя
+            // формулировками — это две правды об одном остатке.
+            return LvnWords.Of("ads.left", "{0} of {1} left",
                                st.Left.ToString(CultureInfo.InvariantCulture),
                                Math.Max(st.Left, st.Charges).ToString(CultureInfo.InvariantCulture));
         }
