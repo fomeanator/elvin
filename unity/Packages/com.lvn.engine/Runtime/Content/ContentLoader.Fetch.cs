@@ -767,6 +767,16 @@ namespace Lvn.Content
 
         // Single attempt — downloads url into memory, no disk writes. Used for
         // text (scripts, version index) and on-demand bytes not worth persisting.
+        /// <summary>Разовый запрос текстового файла с контент-сервера, без
+        /// повторов и без кэша на диске. Заведён для служебных таблиц вроде
+        /// весов каталога: их спрашивают раз за сессию, и ждать на них
+        /// отступы повторов незачем — не доехало, значит просто нет.</summary>
+        public async Task<string> DownloadTextOnce(string url, CancellationToken ct = default)
+        {
+            var bytes = await FetchOnce(url, ct);
+            return bytes == null ? null : System.Text.Encoding.UTF8.GetString(bytes);
+        }
+
         private Task<byte[]> FetchOnce(string url, CancellationToken ct)
         {
             lock (_underway) Progress(url).Received = 0;

@@ -57,6 +57,11 @@ namespace Lvn.UI.Screens
         public Func<(long bytes, int files)> MissingInfo;
         /// <summary>Что-то уже на диске → кнопка говорит «Докачать».</summary>
         public Func<bool> HasSomeDownloaded;
+
+        /// <summary>Все адреса каталога — по ним считается цена ступени
+        /// качества. Пусто — раздела выбора нет: без каталога цену назвать
+        /// нечем.</summary>
+        public Func<IEnumerable<string>> CatalogUrls;
         /// <summary>Есть ли работа прямо сейчас (кружок показан) — единый
         /// навбар держится на экране этим сигналом в игровом режиме.</summary>
         public bool HasWork => _shown;

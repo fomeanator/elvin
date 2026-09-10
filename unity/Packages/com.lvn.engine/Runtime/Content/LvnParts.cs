@@ -144,6 +144,32 @@ namespace Lvn.Content
         }
 
         /// <summary>
+        /// ГЕРОИНЯ В ОДНОМ ОБЛИКЕ — то, чем её рисуют в первом же кадре.
+        ///
+        /// <para>Умолчания и только они: скелет, кадры моргания и слои «как она
+        /// выглядит сейчас». Ни гардероба, ни разворота по осям — их привозит
+        /// <see cref="OfHero"/> ступенью ниже.</para>
+        ///
+        /// <para>Разделено 10.09 по слову Ильи: «фон, агент, героиня с одной
+        /// эмоцией, фавориты — чтобы картинка всегда успевала к загрузке».
+        /// Полный облик — сотни файлов; ждать их ради первого кадра значит
+        /// показать пустое место там, где нужен один слой.</para>
+        /// </summary>
+        public static IEnumerable<LvnPart> OfHeroBase(LvnManifest m)
+        {
+            var id = HeroEntity(m);
+            if (id == null || m?.sprites == null) yield break;
+            if (!m.sprites.TryGetValue(id, out var e) || e == null) yield break;
+            var seen = new HashSet<string>();
+            foreach (var url in LooksAt(e, e.defaults ?? new Dictionary<string, string>(), seen))
+                yield return new LvnPart(url, Sprite);
+            foreach (var part in OfSpine(e))
+                if (seen.Add(part.Url)) yield return part;
+            foreach (var part in OfFrames(e))
+                if (seen.Add(part.Url)) yield return part;
+        }
+
+        /// <summary>
         /// ОБЛИК ГЕРОИНИ ЦЕЛИКОМ: её эмоции (и прочие оси) плюс её гардероб.
         ///
         /// <para>Слои в каталоге — ШАБЛОНЫ (<c>hero_{emotion}.png</c>), и

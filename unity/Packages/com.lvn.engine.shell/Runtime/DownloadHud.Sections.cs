@@ -60,6 +60,24 @@ namespace Lvn.UI.Screens
                 foreach (var e in Center.Queue) card.Add(QueueRow(e, failed: false));
             }
 
+            // КАЧЕСТВО — ВЫБОР С ЦЕНОЙ, А НЕ ТРИ БУКВЫ. Ступень стоит места на
+            // телефоне, и назвать её цену в мегабайтах — единственный честный
+            // способ дать выбрать («качество 1к — 360 МБ, 1.4к — 700 МБ, 2к —
+            // 1.5 гига» — Илья 10.09). Пока сервер не назвал весов, раздела
+            // нет вовсе: выдуманные мегабайты хуже их отсутствия.
+            if (Lvn.Content.LvnCatalogSize.Known && CatalogUrls != null)
+            {
+                var card = Section(() => LvnWords.Of("dl.quality_title", "Art quality"));
+                card.Add(Hint(() => LvnWords.Of("dl.quality_hint",
+                    "Lower quality saves space on this device. Already downloaded files stay.")));
+                foreach (var q in new[] { "1k", "1440", "2k" })
+                {
+                    string quality = q;
+                    long bytes = Lvn.Content.LvnCatalogSize.Total(CatalogUrls(), quality);
+                    card.Add(QualityRow(quality, bytes));
+                }
+            }
+
             // ЧТО УЖЕ НА УСТРОЙСТВЕ — и в сети тоже: при живой сети под графиком
             // пустовала половина листа, а вопрос «что у меня скачано» оставался
             // без ответа. Идёт последним: очередь и отказы важнее.
@@ -280,6 +298,33 @@ namespace Lvn.UI.Screens
 
         /// <summary>Плашка ряда: тон панели, скругление; выбранной — грань
         /// цветом облика.</summary>
+        /// <summary>Строка выбора качества: название ступени, её цена в
+        /// мегабайтах и отметка выбранного. Выбор пишется в настройки — тот же
+        /// ключ, что в настройках устройства, второго хозяина у него нет.</summary>
+        private VisualElement QualityRow(string quality, long bytes)
+        {
+            bool chosen = (string.IsNullOrEmpty(LvnPrefs.ArtQuality)
+                           ? Lvn.UI.Screens.NovelApp.EffectiveArtQuality()
+                           : LvnPrefs.ArtQuality) == quality;
+            var row = RowPlate(chosen);
+            var name = new Label(quality == "1k" ? "1K" : quality == "1440" ? "1440p" : "2K");
+            name.style.color = chosen ? LvnTokens.Gold : LvnTokens.Text;
+            name.style.fontSize = LvnTokens.TextSm;
+            name.style.flexGrow = 1;
+            row.Add(name);
+            var size = new Label(bytes > 0 ? "≈ " + Mb(bytes) : "");
+            size.style.color = LvnTokens.TextDim;
+            size.style.fontSize = LvnTokens.TextXs;
+            row.Add(size);
+            row.AddManipulator(new Clickable(() =>
+            {
+                LvnPrefs.ArtQuality = quality;
+                RebuildSections();
+            }));
+            LvnMotion.Tappable(row);
+            return row;
+        }
+
         private VisualElement RowPlate(bool chosen)
         {
             var row = new VisualElement();
