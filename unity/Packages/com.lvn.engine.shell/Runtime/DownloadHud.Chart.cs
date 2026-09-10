@@ -43,7 +43,10 @@ namespace Lvn.UI.Screens
         {
             pickingMode = PickingMode.Ignore;
             generateVisualContent += Draw;
-            schedule.Execute(MarkDirtyRepaint).Every(100);
+            // Перерисовка — ТОЛЬКО ПОКА ЛИСТ ОТКРЫТ. Расписание живёт всегда,
+            // а тесселяция трёх кривых десять раз в секунду под свёрнутым
+            // кружком — работа впустую, на телефоне заметная.
+            schedule.Execute(() => { if (Live) MarkDirtyRepaint(); }).Every(100);
         }
 
         /// <summary>Досыпать байты в текущую секунду; при переходе секунды
@@ -62,7 +65,7 @@ namespace Lvn.UI.Screens
             }
             _bucketDown += Mathf.Max(0f, downBytes);
             _bucketUp += Mathf.Max(0f, upBytes);
-            MarkDirtyRepaint();
+            if (Live) MarkDirtyRepaint();
         }
 
         private void Push(float down, float up)
@@ -108,6 +111,10 @@ namespace Lvn.UI.Screens
         private const float Inset = 6f;
         private float _live;          // скорость «сейчас» — сглаженная, от хоста
         private float _scaleShown;    // шкала, к которой график подходит плавно
+
+        /// <summary>Лист открыт — график виден и обязан двигаться; свёрнут —
+        /// копит секунды молча, без перерисовок.</summary>
+        public bool Live { get; set; }
 
         /// <summary>Скорость «сейчас» для правого края кривой — сглаженная
         /// хостом (EMA), а не проекция долей секунды: проекция дёргалась от

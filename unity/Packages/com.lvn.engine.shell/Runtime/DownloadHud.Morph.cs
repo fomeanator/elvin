@@ -24,6 +24,8 @@ namespace Lvn.UI.Screens
             if (_expanded == on) return;
             _expanded = on;
             _scrim.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+            _chart.Live = on;
+            if (on) { _deviceRows = null; _deviceChapters = null; }   // на разворот — свежий взгляд на диск
             // Секции собираются ПОСЛЕ старта морфа (офлайн-ветка проверяет
             // кэш на диске — десятки миллисекунд, и они не должны съедать
             // первые кадры разворота). Вся карточка раскрывается одним жестом.

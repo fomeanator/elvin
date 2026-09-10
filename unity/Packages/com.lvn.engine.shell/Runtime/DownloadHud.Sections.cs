@@ -146,27 +146,42 @@ namespace Lvn.UI.Screens
 
         // ── ряды ──────────────────────────────────────────────────────────────
 
+        // СНИМОК ДИСКА, А НЕ ОБХОД НА КАЖДУЮ ПЕРЕСБОРКУ. «На устройстве» — это
+        // File.Exists на каждый файл каждой главы; лист пересобирается на
+        // каждое событие очереди, и во время «скачать всю игру» обход шёл бы
+        // сотнями stat-ов с каждой доехавшей главой, на телефоне — рывком в
+        // кадре. Снимок берётся на развороте листа и на границах работы
+        // (начало и конец очереди): между ними на диске меняется только то,
+        // что лист и так показывает очередью.
+        private List<(string title, int cached, int total)> _deviceRows;
+        private List<(string label, bool cached)> _deviceChapters;
+
+        private void TakeDeviceSnapshot()
+        {
+            if (_deviceRows != null || _deviceChapters != null) return;
+            _deviceRows = TitlesInfo?.Invoke();
+            if (_deviceRows == null) _deviceChapters = ChaptersInfo?.Invoke();
+        }
+
         private bool HasDeviceRows()
         {
-            var titles = TitlesInfo?.Invoke();
-            if (titles != null) return titles.Count > 0;
-            var chapters = ChaptersInfo?.Invoke();
-            return chapters != null && chapters.Count > 0;
+            TakeDeviceSnapshot();
+            if (_deviceRows != null) return _deviceRows.Count > 0;
+            return _deviceChapters != null && _deviceChapters.Count > 0;
         }
 
         /// <summary>Что на устройстве — по новеллам, если хост умеет их
         /// считать; иначе по главам (старый шов, тесты и чужие хосты).</summary>
         private void AddDeviceRows(VisualElement card)
         {
-            var titles = TitlesInfo?.Invoke();
-            if (titles != null)
+            TakeDeviceSnapshot();
+            if (_deviceRows != null)
             {
-                foreach (var (title, cached, total) in titles) card.Add(TitleRow(title, cached, total));
+                foreach (var (title, cached, total) in _deviceRows) card.Add(TitleRow(title, cached, total));
                 return;
             }
-            var chapters = ChaptersInfo?.Invoke();
-            if (chapters == null) return;
-            foreach (var (label, cached) in chapters) card.Add(ChapterRow(label, cached));
+            if (_deviceChapters == null) return;
+            foreach (var (label, cached) in _deviceChapters) card.Add(ChapterRow(label, cached));
         }
 
         /// <summary>Ряд очереди или отказа — как строка торрента: имя, размер,
