@@ -51,7 +51,7 @@ namespace Lvn.UI.Screens
                 _capsule.schedule.Execute(() => { if (_expanded) RebuildSections(); }).ExecuteLater(70);
             }
             float from = _morph, to = on ? 1f : 0f;
-            _capsule.experimental.animation.Start(0f, 1f, LvnMotion.Ms(260), (_, p) =>
+            _capsule.experimental.animation.Start(0f, 1f, LvnMotion.Ms(340), (_, p) =>
             {
                 float e = LvnMotion.Settle(p);
                 ApplyMorph(Mathf.Lerp(from, to, e));
@@ -87,8 +87,8 @@ namespace Lvn.UI.Screens
             // полная карточка проявляется во второй — в середине капсула
             // «пустая», и перетекание читается формой, а не мешаниной слоёв.
             _miniRing.style.opacity = Mathf.Clamp01(1f - k * 3f);
-            _full.style.opacity = Mathf.Clamp01((k - 0.55f) / 0.45f);
-            _full.style.visibility = k > 0.55f ? Visibility.Visible : Visibility.Hidden;
+            _full.style.opacity = Mathf.Clamp01((k - 0.65f) / 0.35f);
+            _full.style.visibility = k > 0.65f ? Visibility.Visible : Visibility.Hidden;
         }
     }
 }

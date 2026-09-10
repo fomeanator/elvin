@@ -116,7 +116,7 @@ namespace Lvn.UI.Screens
         private Label _file, _kind;
         private readonly Label _eta;
         private readonly VisualElement _info;
-        private VisualElement _bar, _barFill;
+        private VisualElement _bar, _barFill, _barSlot;
         private Label _vSpeed, _vUp, _vQueue, _vGot, _vLeft;
         private Label _state, _percent;
         private TrafficChart _chart;
@@ -246,14 +246,20 @@ namespace Lvn.UI.Screens
             hero.pickingMode = PickingMode.Ignore;
             hero.style.marginTop = LvnTokens.Space2;
             hero.style.alignItems = Align.FlexStart;
+            // МЕСТО ДЕРЖИТ ГНЕЗДО, А НЕ ЧИСЛО. Процент появляется, когда план
+            // известен; раньше вместе с ним вправо съезжало имя, а вниз — весь
+            // лист («всё как-то прыгает» — Ваня 10.09). Гнездо стоит всегда.
+            var percentSlot = new VisualElement { pickingMode = PickingMode.Ignore };
+            percentSlot.style.width = LvnTokens.TextDisplay * 2.4f;
+            percentSlot.style.marginRight = LvnTokens.Space2;
+            percentSlot.style.flexShrink = 0;
+            hero.Add(percentSlot);
             _percent = new Label("") { name = "download-percent" };
             _percent.pickingMode = PickingMode.Ignore;
             _percent.style.color = LvnTokens.Accent;
             _percent.style.fontSize = LvnTokens.TextDisplay;
             _percent.style.unityFontStyleAndWeight = FontStyle.Bold;
-            _percent.style.marginRight = LvnTokens.Space2;
-            _percent.style.flexShrink = 0;
-            hero.Add(_percent);
+            percentSlot.Add(_percent);
 
             var col = new VisualElement();
             col.pickingMode = PickingMode.Ignore;
@@ -277,18 +283,26 @@ namespace Lvn.UI.Screens
             _kind.style.whiteSpace = WhiteSpace.Normal;
             col.Add(_kind);
 
+            // Строка «≈… осталось» — тоже в гнезде своей высоты.
+            var etaSlot = new VisualElement { pickingMode = PickingMode.Ignore };
+            etaSlot.style.height = LvnTokens.TextXs * 1.5f;
+            etaSlot.style.marginTop = LvnTokens.Hair;
+            col.Add(etaSlot);
             _eta = new Label { name = "download-eta" };
             _eta.pickingMode = PickingMode.Ignore;
             _eta.style.color = LvnTokens.TextDim;
             _eta.style.fontSize = LvnTokens.TextXs;
-            _eta.style.marginTop = LvnTokens.Hair;
-            col.Add(_eta);
+            etaSlot.Add(_eta);
             _full.Add(hero);
 
+            // Полоса — в гнезде своей высоты: приходит и уходит, не двигая график.
+            _barSlot = new VisualElement { pickingMode = PickingMode.Ignore };
+            _barSlot.style.height = 10;
+            _barSlot.style.marginTop = LvnTokens.Space2;
+            _full.Add(_barSlot);
             _bar = new VisualElement();
             _bar.pickingMode = PickingMode.Ignore;
             _bar.style.height = 10;
-            _bar.style.marginTop = LvnTokens.Space2;
             _bar.style.backgroundColor = LvnTokens.Track;
             LvnChrome.Edged(_bar, 5);
             _barFill = new VisualElement();
@@ -298,7 +312,7 @@ namespace Lvn.UI.Screens
             _barFill.style.backgroundColor = LvnTokens.Accent;
             LvnChrome.Edged(_barFill, 5);
             _bar.Add(_barFill);
-            _full.Add(_bar);
+            _barSlot.Add(_bar);
 
             // ГРАФИК: последняя минута приёма и отдачи, рядом — текущие числа.
             var chartBox = new VisualElement { name = "download-chart" };
