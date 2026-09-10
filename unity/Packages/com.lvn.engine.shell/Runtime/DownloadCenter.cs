@@ -20,6 +20,7 @@ namespace Lvn.UI.Screens
         public sealed class Entry
         {
             public string Label;            // «Cold — глава 3»
+            public string Group;            // «Cold» — по нему очередь сводится в новеллы
             public long Bytes;              // оценка недостающего
             public List<PreloadItem> Items;
             public bool Active;
@@ -60,11 +61,11 @@ namespace Lvn.UI.Screens
 
         /// <summary>Поставить главу в хвост очереди; пустые списки не занимают
         /// место. Запускает прокачку, если она не шла.</summary>
-        public void Enqueue(string label, long bytes, List<PreloadItem> items)
+        public void Enqueue(string label, long bytes, List<PreloadItem> items, string group = null)
         {
             if (items == null || items.Count == 0) return;
             LastRunCompleted = false;
-            _queue.Add(new Entry { Label = label, Bytes = bytes, Items = items });
+            _queue.Add(new Entry { Label = label, Bytes = bytes, Items = items, Group = group });
             _totalBytes += bytes;
             Changed?.Invoke();
             if (!_running) LvnAsync.Fire(RunAsync(), "Run");
