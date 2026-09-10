@@ -69,7 +69,10 @@ var KnownOps = map[string]bool{
 	// катсцене адрес — по нему она попадает в галерею и переигрывается
 	// оттуда, а на сервере по-прежнему лежит ТОЛЬКО сценарий.
 	"cutscene": true,
-	"audio":    true, "wait": true, "input": true, "preload": true, "text_pace": true,
+	// Пометка отрезка для галереи — НЕ кадр без интерфейса: она ничего не
+	// прячет, и старые сборки её просто пропускают (см. cutscene start/end).
+	"cutscene_mark": true,
+	"audio":         true, "wait": true, "input": true, "preload": true, "text_pace": true,
 	"voice": true,               // compile-time prefix: voices the NEXT say line
 	"text":  true,               // reactive HUD/stat label
 	"save":  true, "load": true, // snapshot save/load (func is lowered away by expandLoops)

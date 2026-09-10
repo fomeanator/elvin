@@ -820,8 +820,7 @@ namespace Lvn.UI
             if (host == null) return;
             _cutsceneVeil?.RemoveFromHierarchy();
             var veil = new VisualElement { name = "cutscene-veil" };
-            veil.style.position = Position.Absolute;
-            veil.style.left = 0; veil.style.right = 0; veil.style.top = 0; veil.style.bottom = 0;
+            LvnChrome.Stretch(veil);
             veil.style.backgroundColor = Color.black;
             // Тапы сквозь занавес не проходят: отрезок ещё не начался, и
             // нажатие пролистало бы первую же реплику вслепую.

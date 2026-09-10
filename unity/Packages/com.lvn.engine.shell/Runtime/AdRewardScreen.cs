@@ -77,12 +77,7 @@ namespace Lvn.UI.Screens
             => LvnStageKit.TakeSkin(manifest, ref _skin, StageDress);
 
         private void StageDress()
-        {
-            if (!StageDressed || _sheet == null || _stageGlass) return;
-            _stageGlass = true;
-            LvnStageKit.GlassSheet(_sheet, _skin, _assets, LvnTokens.Radius);
-            _title.style.color = LvnTokens.Gold;
-        }
+            => _stageGlass = LvnStageKit.DressSheet(_sheet, _skin, _assets, _stageGlass, _title);
 
         /// <summary>Показать предложение и довести его до конца: ролик, награда
         /// и слово о том, чем всё кончилось.</summary>

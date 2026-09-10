@@ -41,7 +41,8 @@
     "bg3d",
     "track",
     "ui",
-    "cutscene"
+    "cutscene",
+    "cutscene_mark"
   ],
   "structural_ops": [
     "label"
@@ -352,6 +353,13 @@
       "radius",
       "color",
       "dur"
+    ],
+    "cutscene_mark": [
+      "id",
+      "name",
+      "end",
+      "dur",
+      "poster"
     ]
   },
   "$closed_comment": "Ops where an unknown key is flagged by the validator. actor/obj/say/choice are OPEN (catalog emotion axes, placement extras) — never list them here.",

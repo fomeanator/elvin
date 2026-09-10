@@ -61,6 +61,41 @@ namespace Lvn.UI.Screens
         }
 
         /// <summary>
+        /// ШАПКА ГАЛЕРЕИ — «назад», заголовок и счётчик открытого.
+        ///
+        /// <para>Ряд стоял копией в двух галереях — открытых CG и прожитых
+        /// сцен. Экраны разные (одна показывает АРТ, другая играет СЦЕНЫ), а
+        /// шапка у них одна и та же, и расходиться ей нельзя: игрок ходит
+        /// между ними в один вечер и видит два разных заголовка одного веса.</para>
+        ///
+        /// <para>Счётчик отдаётся наружу: наполняет его экран — только он
+        /// знает, что считает.</para>
+        /// </summary>
+        public static VisualElement GalleryHeader(System.Action onBack, Label title, out Label counter)
+        {
+            var header = Row();
+            header.style.marginBottom = LvnTokens.Space3;
+
+            var back = BackButton(onBack, 52f, 36f);
+            back.style.marginRight = LvnTokens.Space2;
+            header.Add(back);
+
+            Lvn.UI.LvnChrome.Heading(title);
+            title.style.color = LvnTokens.Text;
+            title.style.fontSize = LvnTokens.TextLg;
+            title.style.unityFontStyleAndWeight = FontStyle.Bold;
+            title.style.flexGrow = 1;
+            header.Add(title);
+
+            counter = new Label();
+            counter.style.color = LvnTokens.Gold;
+            counter.style.fontSize = LvnTokens.TextXs;
+            LvnStyler.Chip(counter, LvnTokens.Veil(0.35f), LvnTokens.Radius, padY: LvnTokens.Space1);
+            header.Add(counter);
+            return header;
+        }
+
+        /// <summary>
         /// ВКЛАДКА ХАБА — экран, который не закрывает собой мир.
         ///
         /// <para>Это не окно поверх игры, а ещё одна вкладка той же витрины:

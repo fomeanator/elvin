@@ -204,7 +204,10 @@ var KnownOps = map[string]bool{
 	"ui": true,
 	// кадр без интерфейса: прячет реплику, выборы, метки, меню и деревья `ui`
 	"cutscene": true,
-	"audio":    true, "wait": true, "input": true, "preload": true, "text_pace": true,
+	// Пометка отрезка для галереи: адрес сцены, а не кадр без интерфейса —
+	// прятать она ничего не должна (см. cutscene start/end в .lvns).
+	"cutscene_mark": true,
+	"audio":         true, "wait": true, "input": true, "preload": true, "text_pace": true,
 	"text": true,               // reactive HUD/stat label
 	"save": true, "load": true, // snapshot save/load
 	"label": true, "goto": true, "if": true,

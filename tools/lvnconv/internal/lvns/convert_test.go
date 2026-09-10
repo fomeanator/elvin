@@ -997,26 +997,38 @@ cutscene on=1 zoom=1.1
 	if err != nil {
 		t.Fatal(err)
 	}
-	var got []Cmd
+	// ПОМЕТКА И КАДР — РАЗНЫЕ КОМАНДЫ. «start/end» помечает отрезок для
+	// галереи (op cutscene_mark) и НИЧЕГО не прячет, а «cutscene on/off»
+	// остаётся кадром без интерфейса. Разделили 09.09: пометка, прятавшая
+	// интерфейс, вешала главу на старых сборках, которые об этом опе не
+	// знают, — а незнакомый оп они просто пропускают.
+	var marks, frames []Cmd
 	for _, c := range doc.Script {
-		if op, _ := c["op"].(string); op == "cutscene" {
-			got = append(got, c)
+		switch op, _ := c["op"].(string); op {
+		case "cutscene_mark":
+			marks = append(marks, c)
+		case "cutscene":
+			frames = append(frames, c)
 		}
 	}
-	if len(got) != 4 {
-		t.Fatalf("ожидались четыре команды катсцены, пришло %d: %v", len(got), got)
+	if len(marks) != 3 || len(frames) != 1 {
+		t.Fatalf("ожидались три пометки и один кадр, пришло %d и %d: %v %v",
+			len(marks), len(frames), marks, frames)
 	}
-	if got[0]["id"] != "favorites_ch0" || got[0]["name"] != "Показ фаворитов" || got[0]["on"] != true {
-		t.Fatalf("start не донёс имя и адрес: %v", got[0])
+	if marks[0]["id"] != "favorites_ch0" || marks[0]["name"] != "Показ фаворитов" {
+		t.Fatalf("start не донёс имя и адрес: %v", marks[0])
 	}
-	if got[1]["off"] != true || fmt.Sprint(got[1]["dur"]) != "0.5" {
-		t.Fatalf("end потерял авторское время возврата камеры: %v", got[1])
+	if marks[0]["on"] != nil {
+		t.Fatalf("пометка не прячет интерфейс — это дело «cutscene on»: %v", marks[0])
 	}
-	if got[2]["id"] != "знакомство_с_городом" {
-		t.Fatalf("без id адрес берётся из имени: %v", got[2])
+	if marks[1]["end"] != true || fmt.Sprint(marks[1]["dur"]) != "0.5" {
+		t.Fatalf("end потерял конец отрезка или авторское время: %v", marks[1])
 	}
-	if got[3]["id"] != nil {
-		t.Fatalf("безымянный кадр остаётся безымянным: %v", got[3])
+	if marks[2]["id"] != "знакомство_с_городом" {
+		t.Fatalf("без id адрес берётся из имени: %v", marks[2])
+	}
+	if frames[0]["id"] != nil || frames[0]["on"] == nil {
+		t.Fatalf("безымянный кадр остаётся кадром без адреса: %v", frames[0])
 	}
 }
 
