@@ -51,6 +51,19 @@ namespace Lvn.UI.Screens
 
         /// <summary>Досыпать байты в текущую секунду; при переходе секунды
         /// ведро закрывается и уходит в историю.</summary>
+        /// <summary>
+        /// ПОТОК ИЛИ ВЕЛИЧИНА — две разные вещи в одной картинке.
+        ///
+        /// <para>Скорость КОПИТСЯ: сколько байт пришло за секунду, столько и
+        /// высота. Кадры и память — величина: их за секунду не «набирается»,
+        /// они просто есть. Складывая их, график рисовал шестьсот кадров при
+        /// шестидесяти живых, и шкала уезжала в небо.</para>
+        ///
+        /// <para>Поэтому у величины бакет УСРЕДНЯЕТСЯ по числу замеров за
+        /// секунду: столбик — среднее этой секунды, шаг ровно секунда.</para>
+        /// </summary>
+        public bool Averaging;
+
         public void Add(double now, float downBytes, float upBytes)
         {
             if (double.IsNaN(_bucketStart)) _bucketStart = now;
@@ -58,15 +71,22 @@ namespace Lvn.UI.Screens
             if (elapsed >= 1.0)
             {
                 int whole = (int)elapsed;
-                Push(_bucketDown, _bucketUp);
-                for (int i = 1; i < whole && i < Seconds; i++) Push(0f, 0f); // тишина — тоже история
+                float down = Averaging && _samples > 0 ? _bucketDown / _samples : _bucketDown;
+                float up = Averaging && _samples > 0 ? _bucketUp / _samples : _bucketUp;
+                Push(down, up);
+                // Тишина — тоже история, НО не у величины: пропущенная секунда
+                // не значит «ноль кадров», она значит «замера не было».
+                for (int i = 1; i < whole && i < Seconds; i++) Push(Averaging ? down : 0f, Averaging ? up : 0f);
                 _bucketStart += whole;
-                _bucketDown = 0f; _bucketUp = 0f;
+                _bucketDown = 0f; _bucketUp = 0f; _samples = 0;
             }
             _bucketDown += Mathf.Max(0f, downBytes);
             _bucketUp += Mathf.Max(0f, upBytes);
+            _samples++;
             if (Live) MarkDirtyRepaint();
         }
+
+        private int _samples;
 
         private void Push(float down, float up)
         {

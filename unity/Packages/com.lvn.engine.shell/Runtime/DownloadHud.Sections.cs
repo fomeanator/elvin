@@ -333,12 +333,12 @@ namespace Lvn.UI.Screens
             // кадрами и памятью. У каждого СВОЙ пол шкалы — иначе кривая
             // кадров легла бы по нулю рядом с килобайтами.
             box.Add(ChartLabel(() => LvnWords.Of("dl.fps", "Frames")));
-            _fpsChart = new TrafficChart { pickingMode = PickingMode.Ignore, Floor = 60f, Live = true };
+            _fpsChart = new TrafficChart { pickingMode = PickingMode.Ignore, Floor = 60f, Live = true, Averaging = true };
             _fpsChart.style.height = 56f;
             box.Add(_fpsChart);
 
             box.Add(ChartLabel(() => LvnWords.Of("dl.ram", "Memory")));
-            _ramChart = new TrafficChart { pickingMode = PickingMode.Ignore, Floor = 256f * 1024f * 1024f, Live = true };
+            _ramChart = new TrafficChart { pickingMode = PickingMode.Ignore, Floor = 256f * 1024f * 1024f, Live = true, Averaging = true };
             _ramChart.style.height = 56f;
             box.Add(_ramChart);
             return box;
