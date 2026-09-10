@@ -34,6 +34,7 @@ namespace Lvn.UI.Screens
             bool failed = Center != null && Center.Failed.Count > 0;
             bool visible = work || pend > 0 || failed;
             bool changed = work != _wasWorking || off != _lastOffline || pend != _lastPending;
+            if (work != _wasWorking) { _deviceRows = null; _deviceChapters = null; }   // конец очереди — на диске новое
             _queueFinished = !work && Center != null && Center.LastRunCompleted
                 && (_wasQueued || _centerDirty || _queueFinished);
 
