@@ -74,8 +74,12 @@ namespace Lvn.UI
         public static IReadOnlyList<string> Options()
         {
             var list = new List<string>();
-            var sys = LvnDeviceProfile.SystemLocale;
-            if (!string.IsNullOrEmpty(sys) && Has(sys)) list.Add(Auto);
+            // «КАК В СИСТЕМЕ» КНОПКОЙ НЕ ПОКАЗЫВАЕМ. Она объясняла себя хуже
+            // всех: игрок видел три кнопки, где выбранной выглядела одна, а
+            // текст шёл на языке другой («пункт как в системе криво работает,
+            // убери его» — Илья 10.09). Само правило осталось: пока игрок не
+            // выбирал, Effective берёт язык телефона — просто это умолчание, а
+            // не вариант в ряду.
             list.Add(Original);
             var have = LvnPrefs.AvailableLocales;
             if (have != null)
