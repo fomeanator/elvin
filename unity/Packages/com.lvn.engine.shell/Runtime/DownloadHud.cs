@@ -139,6 +139,24 @@ namespace Lvn.UI.Screens
         // Ряд очереди, что качается сейчас: его полоса и подпись под ней.
         private VisualElement _activeFill;
         private Label _activeMeta;
+        // ПОЛОСЫ ЕДУТ, А НЕ ПРЫГАЮТ. Тик приносит долю раз в 300 мс;
+        // ставить её в стиль напрямую — ступенька на каждый тик. Здесь цели,
+        // а к целям стили подходят каждый кадр (Glide).
+        private float _barTarget, _barShown, _rowTarget, _rowShown;
+        private double _glideAt = double.NaN;
+
+        private void Glide()
+        {
+            if (!_shown) return;
+            double now = Lvn.LvnClock.Wall();
+            float dt = double.IsNaN(_glideAt) ? 0.033f : Mathf.Clamp((float)(now - _glideAt), 0.001f, 0.25f);
+            _glideAt = now;
+            float k = 1f - Mathf.Exp(-dt / 0.25f);
+            _barShown = Mathf.Lerp(_barShown, _barTarget, k);
+            _rowShown = Mathf.Lerp(_rowShown, _rowTarget, k);
+            _barFill.style.width = Length.Percent(Mathf.Clamp01(_barShown) * 100f);
+            if (_activeFill != null) _activeFill.style.width = Length.Percent(Mathf.Clamp01(_rowShown) * 100f);
+        }
         /// <summary>Новеллы и сколько их глав на устройстве — ряды «На
         /// устройстве» свёрнуты по новеллам. Без него лист падает на
         /// <see cref="ChaptersInfo"/>.</summary>
@@ -166,6 +184,7 @@ namespace Lvn.UI.Screens
                 _watched = null;
             });
             FollowChapterMode();               // вид следует за Режиссёром сам
+            schedule.Execute(Glide).Every(33);   // полосы — к цели каждый кадр
             // И за кромкой — тоже сам: кружок сидит в строке бара, ниже выреза.
             Lvn.UI.LvnEdges.Follow(this, insets => SetSafeTop(insets.x));
 
