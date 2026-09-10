@@ -276,6 +276,10 @@
   "default": "{title} — chapter {n}"
  },
  {
+  "key": "dl.chapters_of",
+  "default": "{0} of {1} chapters"
+ },
+ {
   "key": "dl.class_actor",
   "default": "Characters and outfits"
  },
@@ -336,8 +340,20 @@
   "default": "No active downloads"
  },
  {
+  "key": "dl.in_queue",
+  "default": "queued"
+ },
+ {
+  "key": "dl.minute_ago",
+  "default": "a minute ago"
+ },
+ {
   "key": "dl.next",
   "default": "Next in queue"
+ },
+ {
+  "key": "dl.now",
+  "default": "now"
  },
  {
   "key": "dl.offline_available",
@@ -354,6 +370,10 @@
  {
   "key": "dl.on_device",
   "default": "On this device"
+ },
+ {
+  "key": "dl.peak",
+  "default": "peak"
  },
  {
   "key": "dl.pending_title",

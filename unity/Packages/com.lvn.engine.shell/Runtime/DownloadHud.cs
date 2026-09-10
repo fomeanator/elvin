@@ -121,6 +121,17 @@ namespace Lvn.UI.Screens
         private Label _state, _percent;
         private TrafficChart _chart;
         private VisualElement _actions;
+        // Детали, которые облик переодевает после сборки (DownloadHud.Stage).
+        private Label _title, _speedTitle, _peak, _axisLeft, _axisRight;
+        private VisualElement _chartBox, _closeBtn;
+        private readonly List<Label> _captions = new List<Label>();
+        // Ряд очереди, что качается сейчас: его полоса и подпись под ней.
+        private VisualElement _activeFill;
+        private Label _activeMeta;
+        /// <summary>Новеллы и сколько их глав на устройстве — ряды «На
+        /// устройстве» свёрнуты по новеллам. Без него лист падает на
+        /// <see cref="ChaptersInfo"/>.</summary>
+        public Func<List<(string title, int cached, int total)>> TitlesInfo;
         private ScrollView _sections;
         private VisualElement _sectionCards;
         /// <summary>Текущий качаемый url — для человеческой подписи
@@ -205,6 +216,7 @@ namespace Lvn.UI.Screens
             title.style.fontSize = LvnTokens.TextLg;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
             headLeft.Add(title);
+            _title = title;
             _state = new Label("") { name = "download-state" };
             _state.pickingMode = PickingMode.Ignore;
             _state.style.fontSize = LvnTokens.TextMicro;
@@ -225,6 +237,7 @@ namespace Lvn.UI.Screens
             close.style.unityTextAlign = TextAnchor.MiddleCenter;
             close.style.flexShrink = 0;
             head.Add(close);
+            _closeBtn = close;
 
             // ГЕРОЙ: крупный процент слева, что качается — справа, полоса под ними.
             // Число — то, ради чего лист открывают; форма полосы — то, что
@@ -294,13 +307,24 @@ namespace Lvn.UI.Screens
             chartBox.style.backgroundColor = LvnTokens.Faint;
             LvnChrome.Edged(chartBox, LvnTokens.Radius);
             LvnAir.Pad(chartBox, LvnTokens.Space2, LvnTokens.Space1);
+            _chartBox = chartBox;
             var legend = ScreenUi.Row(spread: true);
             legend.pickingMode = PickingMode.Ignore;
+            var legendLeft = ScreenUi.Row();
+            legendLeft.pickingMode = PickingMode.Ignore;
             var speedTitle = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("dl.speed", "Speed"));
             speedTitle.pickingMode = PickingMode.Ignore;
             speedTitle.style.color = LvnTokens.TextDim;
             speedTitle.style.fontSize = LvnTokens.TextMicro;
-            legend.Add(speedTitle);
+            legendLeft.Add(speedTitle);
+            _speedTitle = speedTitle;
+            // Пик за минуту — как «Peak» на сетевом графике Steam.
+            _peak = new Label("") { name = "download-peak", pickingMode = PickingMode.Ignore };
+            _peak.style.color = LvnTokens.TextDim;
+            _peak.style.fontSize = LvnTokens.TextMicro;
+            _peak.style.marginLeft = LvnTokens.Space2;
+            legendLeft.Add(_peak);
+            legend.Add(legendLeft);
             var legendRight = ScreenUi.Row();
             legendRight.pickingMode = PickingMode.Ignore;
             _vSpeed = LegendValue(legendRight, "↓", LvnTokens.Accent);
@@ -313,6 +337,16 @@ namespace Lvn.UI.Screens
             _chart.style.height = ChartH;
             _chart.style.marginTop = LvnTokens.Space1;
             chartBox.Add(_chart);
+            // Ось времени: минута слева, «сейчас» справа — иначе непонятно,
+            // куда течёт график.
+            var axis = ScreenUi.Row(spread: true);
+            axis.pickingMode = PickingMode.Ignore;
+            axis.style.marginTop = LvnTokens.Hair;
+            _axisLeft = AxisMark(() => LvnWords.Of("dl.minute_ago", "a minute ago"));
+            _axisRight = AxisMark(() => LvnWords.Of("dl.now", "now"));
+            axis.Add(_axisLeft);
+            axis.Add(_axisRight);
+            chartBox.Add(axis);
             _full.Add(chartBox);
 
             // ПОКАЗАТЕЛИ: скачано, осталось, в очереди — строкой из трёх ячеек.
@@ -354,6 +388,15 @@ namespace Lvn.UI.Screens
         /// <summary>Пара «стрелка + число» в легенде графика: стрелка — цветом
         /// ряда, число жирно. Стрелка отдельной подписью: значение обязано
         /// оставаться чистым числом — по нему сверяются проверки.</summary>
+        private static Label AxisMark(Func<string> text)
+        {
+            var l = Lvn.UI.LvnRedress.Bind(new Label(), text);
+            l.pickingMode = PickingMode.Ignore;
+            l.style.color = LvnTokens.TextDim;
+            l.style.fontSize = LvnTokens.TextMicro;
+            return l;
+        }
+
         private static Label LegendValue(VisualElement host, string arrow, Color tint)
         {
             var a = new Label(arrow) { pickingMode = PickingMode.Ignore };

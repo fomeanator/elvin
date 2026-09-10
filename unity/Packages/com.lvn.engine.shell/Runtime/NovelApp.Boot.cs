@@ -559,6 +559,7 @@ namespace Lvn.UI.Screens
                     hud.FlushPending = Lvn.Services.LvnWallet.FlushAsync;
                     hud.DownloadAll = DownloadEverythingAsync;
                     hud.ChaptersInfo = ChapterAvailability;
+                    hud.TitlesInfo = TitleAvailability;
                     hud.CurrentChapterOffer = () =>
                     {
                         // Только во время сессии: вне игры «текущая глава» —

@@ -288,6 +288,24 @@ namespace Lvn.UI.Screens
             return b;
         }
 
+        /// <summary>КНОПКА-ПЛАШКА облика: тёмная плашка тона панели, у главной —
+        /// золотая грань и золотое слово, у второстепенной — приглушённое.
+        /// Одевает готовый элемент, а не строит новый: имя кнопки (по нему
+        /// ходят тесты и тур) и её обработчик остаются у вызывающего.</summary>
+        public static T PlateButton<T>(T b, bool primary) where T : VisualElement
+        {
+            if (b == null) return null;
+            LvnStyler.Plate(b, UiColor.WithAlpha(LvnTokens.PanelBg, primary ? 0.94f : 0.6f),
+                            primary ? LvnTokens.Gold : LvnTokens.TextDim, D(6f));
+            if (primary) LvnStyler.Chosen(b, true, LvnTokens.Gold);
+            if (b is TextElement t)
+            {
+                t.style.unityTextAlign = TextAnchor.MiddleCenter;
+                LvnFonts.Apply(t, LvnFonts.Display);
+            }
+            return b;
+        }
+
         /// <summary>Полоса прогресса макета: чёрная дорожка, тёмная канавка,
         /// светлый ход слева. Ход двигает <see cref="Fill"/>.</summary>
         public static VisualElement Progress(out VisualElement fill)
