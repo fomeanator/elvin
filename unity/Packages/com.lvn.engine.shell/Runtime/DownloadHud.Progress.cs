@@ -83,6 +83,7 @@ namespace Lvn.UI.Screens
             float downDelta = handover ? chartDown
                 : t.Received > _lastBytes && _lastAt >= 0f ? t.Received - _lastBytes : 0f;
             _chart.Add(now, downDelta, upDelta);
+            _chart.SetLive(work && _speed > 0f ? _speed : 0f);
             _lastAt = now;
             _lastEpoch = t.Epoch;
             _lastBytes = t.Received;

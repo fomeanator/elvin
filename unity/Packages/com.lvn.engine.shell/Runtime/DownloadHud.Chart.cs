@@ -43,7 +43,7 @@ namespace Lvn.UI.Screens
         {
             pickingMode = PickingMode.Ignore;
             generateVisualContent += Draw;
-            schedule.Execute(MarkDirtyRepaint).Every(250);
+            schedule.Execute(MarkDirtyRepaint).Every(100);
         }
 
         /// <summary>Досыпать байты в текущую секунду; при переходе секунды
@@ -106,6 +106,13 @@ namespace Lvn.UI.Screens
 
         private const float FloorScale = 64f * 1024f;   // ниже пика не опускаемся: шум не гора
         private const float Inset = 6f;
+        private float _live;          // скорость «сейчас» — сглаженная, от хоста
+        private float _scaleShown;    // шкала, к которой график подходит плавно
+
+        /// <summary>Скорость «сейчас» для правого края кривой — сглаженная
+        /// хостом (EMA), а не проекция долей секунды: проекция дёргалась от
+        /// нуля до пика по десять раз в секунду.</summary>
+        public void SetLive(float bytesPerSec) => _live = Mathf.Max(0f, bytesPerSec);
 
         private void Draw(MeshGenerationContext mgc)
         {
@@ -113,7 +120,13 @@ namespace Lvn.UI.Screens
             float w = resolvedStyle.width, h = resolvedStyle.height;
             if (w <= 2f || h <= 2f) return;
             float top = Inset, bottom = h - Inset, span = bottom - top;
-            float scale = Mathf.Max(FloorScale, PeakDown, PeakUp);
+
+            // ШКАЛА ПОДХОДИТ К ЦЕЛИ ПЛАВНО. Пик ушёл за минуту — цель упала, и
+            // кривая перескакивала вдвое вверх одним кадром. Теперь шкала идёт
+            // к цели долей за перерисовку: гора растёт и оседает, а не прыгает.
+            float target = Mathf.Max(FloorScale, PeakDown, PeakUp, _live);
+            _scaleShown = _scaleShown <= 0f ? target : Mathf.Lerp(_scaleShown, target, 0.12f);
+            float scale = Mathf.Max(_scaleShown, _live * 0.98f);
 
             // Сетка: три полки, чтобы глаз мерил высоту гор.
             p.lineWidth = 1f;
@@ -127,56 +140,59 @@ namespace Lvn.UI.Screens
             p.strokeColor = LvnTokens.Track;
             p.BeginPath(); p.MoveTo(new Vector2(0f, bottom)); p.LineTo(new Vector2(w, bottom)); p.Stroke();
 
-            // Последняя точка — ТЕКУЩАЯ секунда, спроецированная на полную:
-            // иначе кривая отстаёт на секунду и в момент открытия листа стоит
-            // на нуле при живой скорости в подписи.
-            double lived = double.IsNaN(_bucketStart) ? 0.0 : Mathf.Clamp((float)(Lvn.LvnClock.Wall() - _bucketStart), 0.25f, 1f);
-            float liveDown = lived > 0.0 ? _bucketDown / (float)lived : 0f;
-            float liveUp = lived > 0.0 ? _bucketUp / (float)lived : 0f;
-            scale = Mathf.Max(scale, liveDown, liveUp);
-
-            // СТОЛБИКИ, А НЕ ПЛОЩАДЬ: секунда — столбик, как сетевой график
-            // Steam («как в стиме» — Илья 10.09). Столбик читается на телефоне
-            // лучше кривой: провал до нуля — пустое место, а не наклон.
-            float step = w / (Seconds + 1);
-            float barW = Mathf.Max(1f, step * 0.72f);
-            float Raw(float[] series, float live, int i) => i == Seconds ? live : series[(_newest + 1 + i) % Seconds];
-            var accent = LvnTokens.Accent;
-            for (int i = 0; i <= Seconds; i++)
+            // ВРЕМЯ ТЕЧЁТ, А НЕ ШАГАЕТ. Кривая сдвигается влево на прожитую долю
+            // текущей секунды: раньше вся история прыгала на шаг раз в секунду,
+            // и график «дёргался» даже при ровной скорости.
+            float lived = double.IsNaN(_bucketStart) ? 0f : Mathf.Clamp01((float)(Lvn.LvnClock.Wall() - _bucketStart));
+            float step = w / Seconds;
+            float shift = lived * step;
+            // Точка i = 0 — самая старая секунда, i = Seconds — «сейчас».
+            float Raw(float[] series, int i)
+                => i >= Seconds ? (ReferenceEquals(series, _down) ? _live : LastUp)
+                   : series[(_newest + 1 + i) % Seconds];
+            // Сглаживание по трём соседям: сырые секунды — частокол, а
+            // скорость сети глазу нужна как гора.
+            float Smooth(float[] series, int i)
             {
-                float hh = Mathf.Clamp01(Raw(_down, liveDown, i) / scale) * span;
-                if (hh < 1f) continue;
-                float x = i * step + (step - barW) / 2f;
-                float y = bottom - hh;
-                // Живая секунда — ярче: она и есть «сейчас».
-                p.fillColor = UiColor.WithAlpha(accent, i == Seconds ? 0.95f : 0.5f);
-                p.BeginPath();
-                p.MoveTo(new Vector2(x, bottom)); p.LineTo(new Vector2(x, y));
-                p.LineTo(new Vector2(x + barW, y)); p.LineTo(new Vector2(x + barW, bottom));
-                p.ClosePath(); p.Fill();
-                // Светлая шапка столбика — вершина читается и у низких.
-                p.fillColor = accent;
-                p.BeginPath();
-                p.MoveTo(new Vector2(x, y)); p.LineTo(new Vector2(x, y + 2f));
-                p.LineTo(new Vector2(x + barW, y + 2f)); p.LineTo(new Vector2(x + barW, y));
-                p.ClosePath(); p.Fill();
+                float a = i > 0 ? Raw(series, i - 1) : Raw(series, i);
+                float b = Raw(series, i);
+                float c = i < Seconds ? Raw(series, i + 1) : b;
+                return (a + 2f * b + c) / 4f;
             }
+            Vector2 At(int i, float[] series)
+                => new Vector2(i * step - shift, bottom - Mathf.Clamp01(Smooth(series, i) / scale) * span);
 
-            // Отдача: линия золотом, как в торрент-клиентах, — по центрам столбиков.
-            Vector2 At(int i, float[] series, float live)
-                => new Vector2(i * step + step / 2f, bottom - Mathf.Clamp01(Raw(series, live, i) / scale) * span);
-            p.lineWidth = 2f;
-            p.lineJoin = LineJoin.Round;
-            p.strokeColor = LvnTokens.Gold;
+            // Приём: площадь под кривой и линия акцента.
+            var accent = LvnTokens.Accent;
+            p.fillColor = UiColor.WithAlpha(accent, 0.22f);
             p.BeginPath();
-            p.MoveTo(At(0, _up, liveUp));
-            for (int i = 1; i <= Seconds; i++) p.LineTo(At(i, _up, liveUp));
+            p.MoveTo(new Vector2(-shift, bottom));
+            for (int i = 0; i <= Seconds; i++) p.LineTo(At(i, _down));
+            p.LineTo(new Vector2(w, At(Seconds, _down).y));
+            p.LineTo(new Vector2(w, bottom));
+            p.ClosePath();
+            p.Fill();
+            p.lineWidth = 2.5f;
+            p.lineJoin = LineJoin.Round;
+            p.strokeColor = accent;
+            p.BeginPath();
+            p.MoveTo(At(0, _down));
+            for (int i = 1; i <= Seconds; i++) p.LineTo(At(i, _down));
+            p.LineTo(new Vector2(w, At(Seconds, _down).y));
             p.Stroke();
 
-            // Точка «сейчас» на приёме.
-            var last = At(Seconds, _down, liveDown);
+            // Отдача: линия золотом, как в торрент-клиентах.
+            p.lineWidth = 2f;
+            p.strokeColor = LvnTokens.Gold;
+            p.BeginPath();
+            p.MoveTo(At(0, _up));
+            for (int i = 1; i <= Seconds; i++) p.LineTo(At(i, _up));
+            p.LineTo(new Vector2(w, At(Seconds, _up).y));
+            p.Stroke();
+
+            // Точка «сейчас» на приёме — у правого края.
             p.fillColor = accent;
-            p.BeginPath(); p.Arc(last, 3.5f, 0f, 360f); p.Fill();
+            p.BeginPath(); p.Arc(new Vector2(w - 3f, At(Seconds, _down).y), 3.5f, 0f, 360f); p.Fill();
         }
     }
 }

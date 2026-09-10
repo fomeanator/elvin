@@ -186,11 +186,9 @@ namespace Lvn.UI.Screens
             var right = ScreenUi.Row();
             right.style.flexShrink = 0;
             line.Add(right);
-            if (!active)
+            if (failed)
             {
-                var size = RowMeta(failed
-                    ? LvnBytes.Approx(e.Bytes)
-                    : LvnBytes.Approx(e.Bytes) + " · " + LvnWords.Of("dl.in_queue", "queued"));
+                var size = RowMeta(LvnBytes.Approx(e.Bytes));
                 size.style.marginRight = LvnTokens.Space1;
                 right.Add(size);
             }
@@ -211,16 +209,18 @@ namespace Lvn.UI.Screens
             }
             right.Add(RemoveCross(() => Center?.Remove(e)));
 
-            if (active)
+            // ОДНА ВЫСОТА У ВСЕХ РЯДОВ ОЧЕРЕДИ: полоса и подпись есть у каждого,
+            // у ждущих полоса пуста. Иначе с переходом хода к следующей главе
+            // ряды ниже прыгали на строку («всё как-то прыгает» — Ваня 10.09).
+            if (!failed)
             {
                 var bar = MakeBar(out var fill);
                 bar.style.marginTop = LvnTokens.Space1;
                 row.Add(bar);
-                var meta = RowMeta("");
+                var meta = RowMeta(active ? "" : LvnBytes.Approx(e.Bytes) + " · " + LvnWords.Of("dl.in_queue", "queued"));
                 meta.style.marginTop = LvnTokens.Hair;
                 row.Add(meta);
-                _activeFill = fill;
-                _activeMeta = meta;
+                if (active) { _activeFill = fill; _activeMeta = meta; }
             }
             return row;
         }

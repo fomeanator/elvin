@@ -61,11 +61,9 @@ namespace Lvn.UI.Screens
             _closeBtn.style.color = LvnTokens.Gold;
 
             // Полоса героя — полоса макета: чёрная дорожка, канавка, светлый ход.
-            int at = _full.IndexOf(_bar);
             _bar.RemoveFromHierarchy();
             _bar = LvnStageKit.Progress(out _barFill);
-            _bar.style.marginTop = LvnTokens.Space2;
-            _full.Insert(at, _bar);
+            _barSlot.Add(_bar);
         }
 
         /// <summary>Плашка облика: тёмная заливка тона панели, скруглённая.
