@@ -29,6 +29,20 @@ namespace Lvn.UI.Screens
             _sectionCards.Clear();
             _activeFill = null;
             _activeMeta = null;
+            _mFps = _mRam = _mCpu = _mDisk = null;
+            _fpsChart = null;
+
+            // ДВА ВИДА, А НЕ ОДИН ДЛИННЫЙ ЛИСТ. Показатели устройства нужны не
+            // всегда, а очередь — всегда; сложенные в одну прокрутку, они
+            // мешали друг другу («переключатель, не аккордеон», «тогда и
+            // список загрузок нормально показать можно» — Илья 10.09).
+            _sectionCards.Add(ViewSwitch());
+            if (_deviceView)
+            {
+                var card = Section(() => LvnWords.Of("dl.device_title", "This device"));
+                card.Add(DeviceMetrics());
+                return;
+            }
 
             bool off = Offline?.Invoke() ?? false;
             int pend = PendingOps?.Invoke() ?? 0;
@@ -60,6 +74,11 @@ namespace Lvn.UI.Screens
                 foreach (var e in Center.Queue) card.Add(QueueRow(e, failed: false));
             }
 
+            // СОСТОЯНИЕ УСТРОЙСТВА — рядом с загрузкой, как в клиенте Steam:
+            // одной строкой видно, тянет ли телефон то, что мы качаем. Кадры и
+            // память отвечают на вопрос «почему подтормаживает», место на
+            // диске — «влезет ли остальное» («можно даже запись и сколько
+            // оперативной памяти жрёт показывать… и кадры» — Илья 10.09).
             // КАЧЕСТВО — ВЫБОР С ЦЕНОЙ, А НЕ ТРИ БУКВЫ. Ступень стоит места на
             // телефоне, и назвать её цену в мегабайтах — единственный честный
             // способ дать выбрать («качество 1к — 360 МБ, 1.4к — 700 МБ, 2к —
@@ -301,6 +320,99 @@ namespace Lvn.UI.Screens
         /// <summary>Строка выбора качества: название ступени, её цена в
         /// мегабайтах и отметка выбранного. Выбор пишется в настройки — тот же
         /// ключ, что в настройках устройства, второго хозяина у него нет.</summary>
+        /// <summary>Кадры, память и место — тремя ячейками, как показатели
+        /// загрузки выше. Обновляются тиком окна, а не пересборкой листа:
+        /// цифра, которая меняется каждую секунду, не должна двигать строки.</summary>
+        /// <summary>Переключатель вида: загрузки или устройство. Одна строка
+        /// из двух слов — выбранное золотом, второе приглушено.</summary>
+        private VisualElement ViewSwitch()
+        {
+            var row = ScreenUi.Row();
+            row.style.marginBottom = LvnTokens.Space2;
+            VisualElement Tab(System.Func<string> text, bool on, System.Action tap)
+            {
+                var b = Lvn.UI.LvnRedress.Bind(new Button(() => tap()), text);
+                b.style.fontSize = LvnTokens.TextSm;
+                LvnAir.PadY(b, LvnTokens.Space1);
+                b.style.marginRight = LvnTokens.Space2;
+                LvnStyler.Tab(b, on, LvnTokens.RadiusSm);
+                return b;
+            }
+            row.Add(Tab(() => LvnWords.Of("dl.view_downloads", "Downloads"), !_deviceView,
+                        () => { _deviceView = false; RebuildSections(); }));
+            row.Add(Tab(() => LvnWords.Of("dl.device_title", "This device"), _deviceView,
+                        () => { _deviceView = true; RebuildSections(); }));
+            return row;
+        }
+
+        private bool _deviceView;
+
+        private VisualElement DeviceMetrics()
+        {
+            var box = new VisualElement { pickingMode = PickingMode.Ignore };
+            var row = new VisualElement { pickingMode = PickingMode.Ignore };
+            LvnFlow.Wrap(row);
+            _mFps = InfoCell(row, () => LvnWords.Of("dl.fps", "Frames"));
+            _mRam = InfoCell(row, () => LvnWords.Of("dl.ram", "Memory"));
+            _mCpu = InfoCell(row, () => LvnWords.Of("dl.cpu", "Frame time"));
+            _mDisk = InfoCell(row, () => LvnWords.Of("dl.disk", "Free space"));
+            box.Add(row);
+
+            // ГРАФИК КАДРОВ — тем же домом, что и график скорости: одна
+            // картинка минуты жизни, только по другой оси. Просадка видна
+            // глазом, а не вычитается из двух чисел.
+            _fpsChart = new TrafficChart { pickingMode = PickingMode.Ignore };
+            _fpsChart.style.height = 56f;
+            _fpsChart.style.marginTop = LvnTokens.Space2;
+            box.Add(_fpsChart);
+            return box;
+        }
+
+        private Label _mFps, _mRam, _mCpu, _mDisk;
+        private TrafficChart _fpsChart;
+
+        /// <summary>Обновить показатели устройства. Кадры — сглаженные, иначе
+        /// число прыгает и читать его нечем; память — то, что заняла игра;
+        /// место — сколько свободно под остальную игру.</summary>
+        private void TickDeviceMetrics()
+        {
+            if (_mFps == null) return;
+            float dt = Time.smoothDeltaTime;
+            int fps = dt > 0f ? Mathf.RoundToInt(1f / dt) : 0;
+            ScreenUi.SetText(_mFps, fps > 0 ? fps.ToString() : "—");
+            // «Проц» на телефоне честнее считать ВРЕМЕНЕМ КАДРА: доля ядер
+            // недоступна приложению, а миллисекунды на кадр — та же нагрузка,
+            // только измеримая.
+            ScreenUi.SetText(_mCpu, dt > 0f ? Mathf.RoundToInt(dt * 1000f) + " ms" : "—");
+            long ram = UnityEngine.Profiling.Profiler.GetTotalAllocatedMemoryLong();
+            ScreenUi.SetText(_mRam, ram > 0 ? Mb(ram) : "—");
+            ScreenUi.SetText(_mDisk, FreeDiskBytes() is long free && free > 0 ? Mb(free) : "—");
+            // График кадров живёт своей шкалой: дом рисует «байты в секунду»,
+            // а мы кормим его кадрами — картинка та же, подпись своя.
+            _fpsChart?.Add(Lvn.LvnClock.Wall(), fps, 0f);
+        }
+
+        /// <summary>Сколько места осталось на устройстве. Спрашиваем РЕДКО:
+        /// обращение к файловой системе стоит миллисекунды, а число меняется
+        /// медленнее, чем кадры.</summary>
+        private long? FreeDiskBytes()
+        {
+            float now = Lvn.LvnClock.Wall();
+            if (_diskAskedAt > 0f && now - _diskAskedAt < 5f) return _diskFree;
+            _diskAskedAt = now;
+            try
+            {
+                var root = System.IO.Path.GetPathRoot(Application.persistentDataPath);
+                if (!string.IsNullOrEmpty(root))
+                    _diskFree = new System.IO.DriveInfo(root).AvailableFreeSpace;
+            }
+            catch { _diskFree = null; }   // платформа не отвечает — покажем прочерк
+            return _diskFree;
+        }
+
+        private float _diskAskedAt;
+        private long? _diskFree;
+
         private VisualElement QualityRow(string quality, long bytes)
         {
             bool chosen = (string.IsNullOrEmpty(LvnPrefs.ArtQuality)

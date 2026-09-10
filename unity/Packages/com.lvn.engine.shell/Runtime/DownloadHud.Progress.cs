@@ -15,6 +15,12 @@ namespace Lvn.UI.Screens
         private long _lastSent = -1;
         private int _lastEpoch, _lastDone, _lastPending;
         private bool _centerDirty;
+
+        /// <summary>Сколько секунд окно считает загрузку живой после последнего
+        /// движения байтов. Обозы лестницы идут с паузами, и без выдержки
+        /// панель мигала бы состоянием на каждой границе пачки.</summary>
+        private const float WorkHoldSeconds = 4f;
+        private float _lastWorkAt;
         private DownloadCenter _watched;
 
         /// <summary>Обновляет также открытый ИДЛ: конец работы — новое
@@ -30,7 +36,15 @@ namespace Lvn.UI.Screens
             bool off = Offline?.Invoke() ?? false;
             int pend = PendingOps?.Invoke() ?? 0;
             bool queued = Center != null && (Center.Running || Center.Queue.Count > 0);
-            bool work = t.Working || queued;
+            // ПАУЗА МЕЖДУ ПАЧКАМИ — НЕ КОНЕЦ ЗАГРУЗКИ. Лестница качает обозами
+            // и между ними на доли секунды отпускает сеть: окно успевало
+            // сказать «простой», спрятать строку с цифрами и вернуть её
+            // обратно — панель прыгала по высоте туда-сюда («туда-сюда
+            // дёргает» — Илья 10.09). Держим состояние ещё несколько секунд
+            // после последнего движения: пока байты идут, разговор один.
+            bool flowing = t.Working || queued;
+            if (flowing) _lastWorkAt = now;
+            bool work = flowing || (_lastWorkAt > 0f && now - _lastWorkAt < WorkHoldSeconds);
             bool failed = Center != null && Center.Failed.Count > 0;
             bool visible = work || pend > 0 || failed;
             bool changed = work != _wasWorking || off != _lastOffline || pend != _lastPending;
@@ -137,9 +151,15 @@ namespace Lvn.UI.Screens
             _miniRing.Glyph = off || failed ? RingGlyph.Alert
                 : work ? RingGlyph.Down : RingGlyph.Up;
             _miniRing.Progress = work ? tally.Fraction : 0f;
-            _bar.style.display = work && tally.PlanKnown ? DisplayStyle.Flex : DisplayStyle.None;
+            // Полоса тоже держит место: без плана она пустая, но не пропадает —
+            // иначе высота панели скачет между пачками.
+            _bar.style.display = DisplayStyle.Flex;
+            _bar.style.opacity = work && tally.PlanKnown ? 1f : 0.25f;
             _barFill.style.width = Length.Percent(Mathf.Clamp01(tally.Fraction) * 100f);
-            _info.style.display = work ? DisplayStyle.Flex : DisplayStyle.None;
+            // СТРОКА ПОКАЗАТЕЛЕЙ НЕ ИСЧЕЗАЕТ. Она пряталась в простое, и лист
+            // подпрыгивал на её высоту каждый раз, когда обоз кончался. Пустое
+            // значение говорится прочерком — место остаётся за ним.
+            _info.style.display = DisplayStyle.Flex;
 
             string category = Humanize(ActiveUrl?.Invoke(), LvnWords.Of("downloads.content", "Downloading content"));
             _file.text = entry?.Label ?? category;
@@ -226,6 +246,7 @@ namespace Lvn.UI.Screens
                 _sectionsShape = shape;
                 Lvn.UI.LvnScroll.Keeping(_sections, () => RebuildSections());
             }
+            TickDeviceMetrics();   // кадры, память, место — цифрами, без пересборки листа
             _centerDirty = false;
             _wasWorking = work;
             _wasQueued = queued;
