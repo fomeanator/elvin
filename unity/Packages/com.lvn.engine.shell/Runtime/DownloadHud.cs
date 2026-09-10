@@ -31,7 +31,13 @@ namespace Lvn.UI.Screens
         // очереди внутри скроллится, всё остальное стоит на месте.
         private const float SheetSide = 16f;
         private const float SheetPad = 22f;
-        private const float SheetHeightShare = 0.5f;
+        /// <summary>Какую долю экрана занимает развёрнутый лист.半 экрана
+        /// хватало, пока в нём были очередь и график; теперь там же состояние
+        /// устройства и выбор качества, и список уезжал под обрез («надо
+        /// расширить его, чтобы не на пол-экрана, а на весь» — Илья 10.09).
+        /// Не единица: кружок остаётся на месте и лист растёт из него, а
+        /// упереться в самый верх значит перекрыть шапку витрины.</summary>
+        private const float SheetHeightShare = 0.98f;
         private const float ChartH = 150f;
         private float _fullW = 520f;
         private float _fullH = 560f;

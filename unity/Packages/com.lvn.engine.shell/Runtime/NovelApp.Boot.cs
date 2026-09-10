@@ -593,10 +593,19 @@ namespace Lvn.UI.Screens
                     };
                     // Цену ступени качества считает окно, а адреса каталога
                     // знает хозяин: у него манифест.
+                    // Цену ступени считают по СЫРЫМ адресам: список контента
+                    // отдаёт их уже с подставленным качеством, и вторая
+                    // подстановка поверх первой давала несуществующий вариант,
+                    // а с ним — заниженную цену. Героиня идёт отдельно: её
+                    // гардероб разворачивается по осям и в общий обход не
+                    // попадает.
                     hud.CatalogUrls = () =>
                     {
                         var urls = new List<string>();
-                        foreach (var (url, _, _) in CollectContentItems()) urls.Add(url);
+                        foreach (var part in Lvn.Content.LvnParts.OfAll(_manifest))
+                            if (!string.IsNullOrEmpty(part.Url)) urls.Add(part.Url);
+                        foreach (var part in Lvn.Content.LvnParts.OfHero(_manifest))
+                            if (!string.IsNullOrEmpty(part.Url)) urls.Add(part.Url);
                         return urls;
                     };
                     hud.HasSomeDownloaded = () =>
