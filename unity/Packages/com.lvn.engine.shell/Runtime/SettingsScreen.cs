@@ -408,7 +408,10 @@ namespace Lvn.UI.Screens
             return WideRow(label, LvnWords.Of("settings.language_hint", "Chapter text; the interface follows it"),
                 Lvn.UI.LvnSegment.Of(options,
                     LocaleName,
-                    loc => Lvn.UI.LvnLocale.Chosen == loc,
+                    // Подсвечен ФАКТИЧЕСКИЙ язык, а не записанный выбор: пока
+                    // игрок не выбирал, он читает на языке телефона, и ряд
+                    // обязан показывать именно это.
+                    loc => Lvn.UI.LvnLocale.Effective == loc,
                     loc => Lvn.UI.LvnLocale.Chosen = loc,   // NovelApp перечитает каталог сам
                     StyleValueButton, alignEnd: false));
         }

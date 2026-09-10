@@ -72,6 +72,51 @@ namespace Lvn.UI.Screens
                 try { await LoadUiWordsAsync(lang); }
                 catch { /* прогрев — оптимизация: не вышло, значит переключение будет медленнее */ }
             }
+            await WarmChapterCatalogsAsync(langs);
+        }
+
+        /// <summary>
+        /// КАТАЛОГИ ГЛАВ — ТОЖЕ ЗАРАНЕЕ, НА ВСЕХ ЯЗЫКАХ.
+        ///
+        /// <para>Словари интерфейса грелись, а текст глав — нет: переключение
+        /// языка шло в сеть за каталогом открытой главы, и игрок ловил
+        /// заметную паузу («лаг при переключении на русский» — Илья 10.09).
+        /// Каталог главы — это json со строками, он лёгкий; пока языков два,
+        /// проще привезти все и забыть про ожидание.</para>
+        ///
+        /// <para>Тишина при любой беде: каталога может не быть вовсе (глава не
+        /// переведена), и это нормальный ответ — покажем авторский текст.</para>
+        /// </summary>
+        private async Task WarmChapterCatalogsAsync(System.Collections.Generic.IReadOnlyList<string> langs)
+        {
+            var titles = _manifest?.titles;
+            if (titles == null || langs == null) return;
+            foreach (var t in titles)
+            {
+                if (t?.seasons == null) continue;
+                foreach (var se in t.seasons)
+                {
+                    if (se?.chapters == null) continue;
+                    foreach (var ch in se.chapters)
+                    {
+                        if (string.IsNullOrEmpty(ch?.script_url)) continue;
+                        foreach (var lang in langs)
+                        {
+                            if (string.IsNullOrEmpty(lang)) continue;
+                            var url = Lvn.LvnUrl.Sibling(ch.script_url, "." + lang + ".json");
+                            if (_stringsCache.ContainsKey(url)) continue;
+                            try
+                            {
+                                var json = await _assets.Loader.DownloadScriptText(url, default, singleAttempt: true);
+                                _stringsCache[url] = string.IsNullOrEmpty(json) ? null
+                                    : Newtonsoft.Json.JsonConvert
+                                        .DeserializeObject<System.Collections.Generic.Dictionary<string, string>>(json);
+                            }
+                            catch { _stringsCache[url] = null; }
+                        }
+                    }
+                }
+            }
         }
         private async Task ApplyLocaleAtBootAsync()
         {

@@ -39,8 +39,12 @@ namespace Lvn.Tests
             LvnLocale.Chosen = LvnLocale.Auto;
 
             Assert.AreEqual(sys, LvnLocale.Effective, "«авто» — это язык устройства");
-            CollectionAssert.Contains(LvnLocale.Options(), LvnLocale.Auto,
-                "вариант «авто» показывается, когда новелле есть что предложить системе");
+            // КНОПКИ «КАК В СИСТЕМЕ» В РЯДУ НЕТ (решение Ильи 10.09): она
+            // объясняла себя хуже всех — выбранной выглядела одна кнопка, а
+            // текст шёл на языке другой. Правило осталось умолчанием: не
+            // выбирал — читаешь на языке телефона.
+            CollectionAssert.DoesNotContain(LvnLocale.Options(), LvnLocale.Auto,
+                "язык системы — умолчание, а не вариант в ряду");
         }
 
         // Каталога на языке системы нет — «авто» не обещает того, чего не будет:
@@ -54,7 +58,7 @@ namespace Lvn.Tests
             Assert.AreEqual(LvnLocale.Original, LvnLocale.Effective,
                 "нечего предложить системе — остаётся авторский текст");
             CollectionAssert.DoesNotContain(LvnLocale.Options(), LvnLocale.Auto,
-                "вариант, который ничего не меняет, игроку не показывают");
+                "языка системы в ряду нет никогда — он умолчание");
         }
 
         // Выбор игрока сильнее устройства — и возвращается обратно в «авто».
