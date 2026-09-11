@@ -114,6 +114,14 @@ namespace Lvn.UI
                 if (string.IsNullOrEmpty(v) || v.IndexOf('{') >= 0) axes.Remove(key);
                 else axes[key] = v;
             }
+            // ЛИЦО — ВСЕГДА ПЕРЕБИВАЕМО ПРИМЕРКОЙ. Сюжетный литерал костюма
+            // неприкосновенен, но эмоция в гардеробе — взгляд игрока на свою
+            // героиню, а не костюм. Команда главы или реакция витрины с
+            // литеральной эмоцией оставалась в памяти куклы, и слияние молча
+            // выбрасывало выбранное лицо: пункт горел, лицо не менялось
+            // («выбираю эмоцию — не меняется» — Арам 11.09).
+            foreach (var key in axes.Keys)
+                if (LvnWardrobeStage.IsEmotion(key)) templated.Add(key);
             LvnWardrobe.MergeInto(axes, entity, templated);
             return axes;
         }

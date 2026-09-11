@@ -36,6 +36,16 @@ namespace Lvn.UI
         /// <paramref name="pane"/> "history" — сразу в историю.</summary>
         public void Open(string pane = null) { _pendingPane = pane; OpenSheet(); }
 
+        /// <summary>«Авто» извне (ряд кнопок единого навбара): включить со
+        /// скоростью из настроек и показать выбор скорости; повторно —
+        /// выключить. Тот же путь, что у пункта бокового меню.</summary>
+        public void ToggleAuto()
+        {
+            if (_stage.AutoReading) { _stage.StopAuto(); SpeedBar(false); return; }
+            _stage.StartAuto(LvnPrefs.AutoSpeed);
+            SpeedBar(true);
+        }
+
         private string _pendingPane;
 
         // Every chrome string resolves through the theme's label map (manifest
@@ -371,9 +381,7 @@ namespace Lvn.UI
                 sheet.Add(Item(_stage.AutoReading ? L("auto", "Auto") + " ✓" : L("auto", "Auto"), () =>
                 {
                     Close();
-                    if (_stage.AutoReading) { _stage.StopAuto(); SpeedBar(false); return; }
-                    _stage.StartAuto(LvnPrefs.AutoSpeed);
-                    SpeedBar(true);
+                    ToggleAuto();
                 }));
             if (!Hidden("settings"))
                 sheet.Add(Item(L("settings", "Settings"), () =>

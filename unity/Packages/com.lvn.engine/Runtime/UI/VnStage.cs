@@ -223,6 +223,9 @@ namespace Lvn.UI
         /// сразу в историю.</summary>
         public void OpenQuickMenu(string pane = null) => _menu?.Open(pane);
 
+        /// <summary>«Авто» извне (ряд кнопок единого навбара).</summary>
+        public void ToggleAuto() => _menu?.ToggleAuto();
+
         private readonly List<(string who, string text, string style)> _backlog
             = new List<(string, string, string)>();
 

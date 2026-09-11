@@ -280,7 +280,7 @@ namespace Lvn.UI.Screens
             col.style.flexGrow = 1;
             identity.Add(col);
 
-            var name = new Label(Lvn.UI.LvnPlayerName.Display);
+            var name = Lvn.UI.LvnRedress.Bind(new Label(), () => Lvn.UI.LvnPlayerName.Display);
             name.style.color = LvnTokens.Text;
             name.style.fontSize = LvnTokens.TextLg;
             name.style.unityFontStyleAndWeight = FontStyle.Bold;

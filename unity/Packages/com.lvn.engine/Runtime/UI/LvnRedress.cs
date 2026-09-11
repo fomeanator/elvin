@@ -129,6 +129,7 @@ namespace Lvn.UI
             _listening = true;
             Lvn.Content.LvnWords.Changed += All;   // сменился язык или каталог
             LvnFonts.Changed += All;               // гарнитура, кегль, толщина
+            LvnPlayerName.Changed += All;          // игрок назвался
         }
 
         /// <summary>Объявить корень дерева: его будут переодевать вместе со
