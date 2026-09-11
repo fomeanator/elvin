@@ -375,6 +375,15 @@ namespace Lvn.UI.Screens
         /// <summary>Картинка логотипа облика «сцена» — по ней считается место
         /// циферблата (см. <see cref="LogoDialRect"/>).</summary>
         private VisualElement _stageLogo;
+        private VisualElement _stageAvatar;
+
+        /// <summary>Показать другое лицо игрока (TR-79). Пересобирать всю
+        /// шапку ради кружка незачем: у аватара своя картинка и своё место.</summary>
+        public void SetAvatar(string url, ILvnAssets assets)
+        {
+            if (_stageAvatar == null || string.IsNullOrEmpty(url)) return;
+            LvnPicture.Photo(_stageAvatar, url, assets ?? _assets, cover: true);
+        }
 
         // ЦИФЕРБЛАТ В ЛОГОТИПЕ — доли от габаритов картинки. В логотипе Time
         // Romance буква «O» слова ROMANCE нарисована карманными часами, и
@@ -453,6 +462,7 @@ namespace Lvn.UI.Screens
             avatar.style.overflow = Overflow.Hidden;
             LvnChrome.Frame(avatar, StageD(4f), UiColor.Darker(LvnTokens.Gold, 0.55f), StageD(1f));
             if (!string.IsNullOrEmpty(look.Avatar)) LvnPicture.Photo(avatar, look.Avatar, assets);
+            _stageAvatar = avatar;   // TR-79: лицо меняется на ходу, без пересборки шапки
             profile.Add(avatar);
             var name = Lvn.UI.LvnRedress.Bind(new Label(), () => Lvn.UI.LvnPlayerName.Display);
             name.pickingMode = PickingMode.Ignore;

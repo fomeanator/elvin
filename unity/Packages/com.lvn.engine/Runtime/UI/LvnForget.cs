@@ -82,6 +82,12 @@ namespace Lvn.UI
                 Safe("сейвы", () => LvnSaveStore.DeleteAll(titleId));
                 Safe("галерея", () => LvnGalleryStore.Clear(titleId));
                 Safe("катсцены", () => LvnCutsceneStore.Clear(titleId));
+                // ЛИЦО ИГРОКА (TR-79) — тоже личное: кто он, а не что он прошёл.
+                // Ключ назван здесь строкой намеренно: дом аватарок (LvnAvatars)
+                // живёт в оболочке, движок его не видит, а забвение обязано
+                // работать и без неё. Имя ключа объявлено вслух там же
+                // (LvnAvatars.PickedKey) — расхождение поймает страж.
+                Safe("аватар", () => LvnKeep.Drop("lvn.avatar.picked"));
                 Safe("прочитанное", () => LvnReadStore.Clear(titleId));
                 // HttpStateStore uses the same scoped local keys. Forget also
                 // invalidates in-flight cloud replies; its sync index holds no

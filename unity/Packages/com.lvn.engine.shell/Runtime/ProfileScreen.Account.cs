@@ -14,65 +14,52 @@ namespace Lvn.UI.Screens
     /// </summary>
     public sealed partial class ProfileScreen
     {
-        // Ссылка на настройки: звук/язык/загрузку ищут в профиле — дадим путь.
-        private VisualElement SettingsLink()
+        /// <summary>
+        /// СТРОКА-ССЫЛКА ПРОФИЛЯ: подпись, пояснение, стрелка — и путь, куда
+        /// она ведёт. Настройки и катсцены были написаны дважды слово в слово:
+        /// копии расходятся молча, и вторую правят, когда замечают.
+        /// </summary>
+        private VisualElement LinkRow(Func<string> label, Func<string> hint, Action go)
         {
             var row = StageCard(LvnStyler.CardRow(ScreenUi.Row(spread: true), LvnTokens.SurfaceSoft));
             LvnAir.PadX(row, LvnTokens.Space3);
             LvnAir.MarginY(row, LvnTokens.Space1, LvnTokens.Space2);
             var col = new VisualElement();
             col.style.flexGrow = 1;
-            var lbl = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("settings.title", "Settings"));
+            var lbl = Lvn.UI.LvnRedress.Bind(new Label(), label);
             lbl.style.color = LvnTokens.Text;
             lbl.style.fontSize = LvnTokens.TextSm;
             col.Add(lbl);
-            var hint = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("settings.hint", "Sound, story language and full download"));
-            hint.style.color = LvnTokens.TextDim;
-            hint.style.fontSize = LvnTokens.TextXs;
-            hint.style.marginTop = LvnTokens.Hair;
-            col.Add(hint);
+            var sub = Lvn.UI.LvnRedress.Bind(new Label(), hint);
+            sub.style.color = LvnTokens.TextDim;
+            sub.style.fontSize = LvnTokens.TextXs;
+            sub.style.marginTop = LvnTokens.Hair;
+            col.Add(sub);
             row.Add(col);
             var arrow = new Label("›");
             arrow.style.color = LvnTokens.Accent;
             arrow.style.fontSize = LvnTokens.TextBase;
             arrow.style.unityFontStyleAndWeight = FontStyle.Bold;
             row.Add(arrow);
-            row.RegisterCallback<ClickEvent>(_ => { Close(); OnOpenSettings?.Invoke(); });
+            row.RegisterCallback<ClickEvent>(_ => { Close(); go(); });
             return row;
         }
 
+        // Настройки: звук, язык и загрузку ищут в профиле — дадим путь.
+        private VisualElement SettingsLink()
+            => LinkRow(() => LvnWords.Of("settings.title", "Settings"),
+                       () => LvnWords.Of("settings.hint", "Sound, story language and full download"),
+                       () => OnOpenSettings?.Invoke());
+
         /// <summary>ПУНКТ «КАТСЦЕНЫ» — вход в галерею пережитых сцен. Стоит
-        /// рядом с настройками и по тем же правилам: строка-карточка, подпись
-        /// со счётом открытых, стрелка. Пункта нет, пока хост не дал, чем его
-        /// открыть, — профиль не обещает того, чего в игре не заведено.</summary>
+        /// рядом с настройками и по тем же правилам; пункта нет, пока хост не
+        /// дал, чем его открыть, — профиль не обещает того, чего в игре нет.</summary>
         private VisualElement CutscenesLink()
-        {
-            var row = StageCard(LvnStyler.CardRow(ScreenUi.Row(spread: true), LvnTokens.SurfaceSoft));
-            LvnAir.PadX(row, LvnTokens.Space3);
-            LvnAir.MarginY(row, LvnTokens.Space1, LvnTokens.Space2);
-            var col = new VisualElement();
-            col.style.flexGrow = 1;
-            var lbl = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("cutscenes.title", "Cutscenes"));
-            lbl.style.color = LvnTokens.Text;
-            lbl.style.fontSize = LvnTokens.TextSm;
-            col.Add(lbl);
-            var hint = Lvn.UI.LvnRedress.Bind(new Label(),
-                () => CutsceneCount > 0
-                    ? LvnWords.Of("cutscenes.hint_count", "Scenes you have lived through: {0}", CutsceneCount)
-                    : LvnWords.Of("cutscenes.hint_empty", "Scenes you have lived through appear here"));
-            hint.style.color = LvnTokens.TextDim;
-            hint.style.fontSize = LvnTokens.TextXs;
-            hint.style.marginTop = LvnTokens.Hair;
-            col.Add(hint);
-            row.Add(col);
-            var arrow = new Label("›");
-            arrow.style.color = LvnTokens.Accent;
-            arrow.style.fontSize = LvnTokens.TextBase;
-            arrow.style.unityFontStyleAndWeight = FontStyle.Bold;
-            row.Add(arrow);
-            row.RegisterCallback<ClickEvent>(_ => { Close(); OnOpenCutscenes?.Invoke(); });
-            return row;
-        }
+            => LinkRow(() => LvnWords.Of("cutscenes.title", "Cutscenes"),
+                       () => CutsceneCount > 0
+                           ? LvnWords.Of("cutscenes.hint_count", "Scenes you have lived through: {0}", CutsceneCount)
+                           : LvnWords.Of("cutscenes.hint_empty", "Scenes you have lived through appear here"),
+                       () => OnOpenCutscenes?.Invoke());
 
         // «ВЫЙТИ ИЗ АККАУНТА». До 06.09 выхода не было вовсе, и его роль
         // случайно исполняла регистрация при старте: вход игрока не переживал
