@@ -454,6 +454,19 @@ func ensureKtx2Source(d *downscaler, ktx2Path string) string {
 			if src := variantSource(p); src != "" && fileExists(src) && sourceNewer(src, p) {
 				break
 			}
+			// КОДИРОВЩИК НЕ ДОЛЖЕН БРАТЬ БОЛЬШЕ, ЧЕМ ВЛЕЗАЕТ В ПАМЯТЬ СЛУЖБЫ.
+			// basisu держит картинку и свои промежуточные буферы целиком, и на
+			// крупном исходнике сумма упирается в потолок cgroup: процесс
+			// убивают, а в журнале остаётся «signal: killed» — молчаливая
+			// поломка, при которой ктx2 просто не появляются. За ночь 11.09
+			// так погибли 93 кодирования на проде. Крупное кодируем из @2k:
+			// он и так предполагался (см. ktx2EncodeTimeout), просто путь без
+			// суффикса приводил сюда оригинал.
+			if tooBigToEncode(p) {
+				if small := ensureDownscaled(d, p); small != "" {
+					return small
+				}
+			}
 			return p
 		}
 	}
@@ -815,4 +828,52 @@ func honestExtension(path string) (string, func()) {
 	}
 	log.Printf("[ktx2] %s назван %s, а внутри %s — кодируем по содержимому", filepath.Base(path), ext, real)
 	return link, func() { os.RemoveAll(dir) }
+}
+
+// Сколько точек кодировщик берёт без риска быть убитым по памяти. 2048² —
+// тот же потолок, что у @2k-варианта: на нём basisu укладывается в лимит
+// службы с запасом, а всё, что крупнее, и в игре показывается уменьшенным.
+const ktx2MaxPixels = 2048 * 2048
+
+// tooBigToEncode — читает ТОЛЬКО заголовок картинки: узнать размер, не
+// раскрывая её в память, иначе проверка стоила бы ровно того, что бережёт.
+func tooBigToEncode(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	cfg, _, err := image.DecodeConfig(f)
+	if err != nil {
+		return false // не наш формат — пусть решает кодировщик
+	}
+	return cfg.Width*cfg.Height > ktx2MaxPixels
+}
+
+// ensureDownscaled — взять (или сделать) @2k-вариант рядом с оригиналом.
+// Пусто — не вышло, и зовущий останется с оригиналом: лучше рискованное
+// кодирование, чем никакого.
+func ensureDownscaled(d *downscaler, srcPath string) string {
+	if d == nil {
+		return ""
+	}
+	ext := filepath.Ext(srcPath)
+	variant := strings.TrimSuffix(srcPath, ext) + downscaleSuffix + ext
+	lock := d.lockFor(variant)
+	lock.Lock()
+	defer lock.Unlock()
+	if fileExists(variant) && !sourceNewer(srcPath, variant) {
+		return variant
+	}
+	heavyGen <- struct{}{}
+	err := d.generate(srcPath, variant)
+	<-heavyGen
+	if err == nil {
+		return variant
+	}
+	if errors.Is(err, errFitsAlready) {
+		return srcPath // на деле он и так мал — кодируем как есть
+	}
+	log.Printf("[ktx2] %s: уменьшить перед кодированием не вышло: %v", srcPath, err)
+	return ""
 }
