@@ -47,8 +47,10 @@ namespace Lvn.Content
                 ["settings.text_size"] = "text_size",
                 ["settings.ui_size"] = "ui_size",
                 ["settings.text_speed"] = "text_speed",
-                ["settings.auto_advance"] = "auto_advance",
-                ["settings.auto_delay"] = "auto_delay",
+                // «Авто-чтение» и «задержка авто» из настроек УБРАНЫ (TR-73:
+                // режим один — «Авто» со скоростями рядом с кнопкой, а не два
+                // пункта в настройках). Подписей с такими ключами больше никто
+                // не спрашивает, и пара связывала бы живое имя с мёртвым.
                 ["settings.box_opacity"] = "window_opacity",
                 ["settings.skip_read"] = "skip_read_only",
                 ["settings.reduce_motion"] = "reduce_motion",

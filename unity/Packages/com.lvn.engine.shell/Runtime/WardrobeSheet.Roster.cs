@@ -109,7 +109,7 @@ namespace Lvn.UI.Screens
             icon.style.flexShrink = 0;
             icon.style.overflow = Overflow.Hidden;
             icon.style.backgroundColor = UiColor.WithAlpha(LvnTokens.PanelBg, 0.9f);
-            LvnChrome.Round(icon, _rosterIcon * 0.5f);
+            LvnChrome.Circle(icon, _rosterIcon);   // круг знает свою половину сам
             b.Add(icon);
             FillRosterIcon(icon, pid);
 
@@ -214,10 +214,9 @@ namespace Lvn.UI.Screens
             const float d = 40f;
             var ring = new VisualElement { pickingMode = PickingMode.Ignore };
             ring.style.position = Position.Absolute;
-            ring.style.width = d; ring.style.height = d;
             ring.style.left = Length.Percent(50f); ring.style.top = Length.Percent(50f);
             ring.style.marginLeft = -d * 0.5f; ring.style.marginTop = -d * 0.5f;
-            LvnChrome.Round(ring, d * 0.5f);
+            LvnChrome.Circle(ring, d);   // размер и круглые углы разом
             var faint = UiColor.WithAlpha(_text, 0.16f);
             // НАРОЧНО по сторонам: кольцо ожидания — одна грань акцентом, три бледные, и его вертят.
             ring.style.borderTopWidth = ring.style.borderBottomWidth = 3f;   // НАРОЧНО
