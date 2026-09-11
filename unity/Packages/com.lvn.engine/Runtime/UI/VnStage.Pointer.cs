@@ -177,7 +177,11 @@ namespace Lvn.UI
                 if (mine) return;
             }
             if (!wasTracking || _suppressTap) return;
-            if (Skipping) { StopSkip(); return; } // a tap during fast-forward just stops it
+            // ТАП СНИМАЕТ АВТО-ЧТЕНИЕ ЛЮБОЙ СКОРОСТИ (TR-69). Прежде тап гасил
+            // только промотку, а «Авто» снималось через боковое меню: игрок,
+            // которому надо остановиться на реплике, лез в меню вместо того,
+            // чтобы просто коснуться экрана.
+            if (AutoReading) { StopAuto(); return; }
             HandleTap(evt.position);
         }
 
