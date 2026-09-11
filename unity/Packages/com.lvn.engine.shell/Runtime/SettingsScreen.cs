@@ -157,8 +157,10 @@ namespace Lvn.UI.Screens
             // Состав громкостей — у КАТАЛОГА (он же знает про два режима:
             // «Звуки» одним движком ведут эффекты, эмбиент и голос, когда
             // новелла просит simple_audio). Здесь остаётся вид строки.
+            _audioSliders.Clear();
             foreach (var d in Lvn.UI.LvnSettingsCatalog.Audio(_cfg.simple_audio ?? false))
-                _list.Add(RowFor(d));
+                _list.Add(RowFor(d, audio: true));
+            ApplySoundEnabled();
             if (Lvn.UI.LvnLocale.Offered)
                 _list.Add(LanguageRow());
             if (MenuTracks != null && MenuTracks.Count > 1)
@@ -339,6 +341,7 @@ namespace Lvn.UI.Screens
                 LvnPrefs.SoundOn = !LvnPrefs.SoundOn;
                 btn.text = LvnPrefs.SoundOn ? (LvnWords.Pick("common.on", _cfg.on_text, "On")) : (LvnWords.Pick("common.off", _cfg.off_text, "Off"));
                 StyleValueButton(btn, LvnPrefs.SoundOn);
+                ApplySoundEnabled();   // громкости следуют за выключателем
             };
             row.Add(btn);
             return row;
@@ -358,27 +361,60 @@ namespace Lvn.UI.Screens
         /// значение тогда, а не когда провёл через него.</para>
         /// </summary>
         private VisualElement SliderRow(string label, string hint, float min, float max,
-            System.Func<float> get, System.Action<float> set, bool live = false)
+            System.Func<float> get, System.Action<float> set, bool live = false, bool audio = false)
         {
             var row = RowEx(label, hint);
             // Бегунок красит сам дом: штатный сделан прозрачным и служит только
             // областью захвата, так что покраска его фона отсюда была работой
             // по невидимому элементу.
-            var slider = Lvn.UI.LvnSlider.Make(min, max, get(), set,
-                onPreview: live ? set : null, accent: _accent);
+            // ПОКА ГАСИМ ВИД, ЗНАЧЕНИЕ НЕ ПИШЕТСЯ. Ползунок, которому ставят
+            // ноль программно, шлёт то же событие, что и палец игрока: без
+            // этой защиты «выключить звук» стирало бы сохранённые уровни, и
+            // «включить» возвращало бы тишину.
+            System.Action<float> guarded = v => { if (!_muting) set(v); };
+            var slider = Lvn.UI.LvnSlider.Make(min, max, get(), guarded,
+                onPreview: live ? guarded : null, accent: _accent);
             slider.style.width = 200;
             slider.style.marginLeft = LvnTokens.Space2;
             row.Add(slider);
+            // ЗВУК ВЫКЛЮЧЕН — ГРОМКОСТИ ПОКАЗЫВАЮТ НОЛЬ И НЕ ДВИГАЮТСЯ (TR-74).
+            // Иначе экран противоречил сам себе: тишина в игре и половина
+            // громкости на ползунке. Само значение НЕ трогаем: вернув «Вкл»,
+            // игрок обязан получить свои прежние уровни, а не ноль.
+            if (audio) _audioSliders.Add((slider, get));
             return row;
+        }
+
+        // Ползунки громкости и их истинные значения: по ним строка «Все звуки»
+        // гасит и возвращает вид, не трогая сохранённые уровни.
+        private readonly List<(Slider slider, System.Func<float> value)> _audioSliders
+            = new List<(Slider, System.Func<float>)>();
+        private bool _muting;
+
+        private void ApplySoundEnabled()
+        {
+            bool on = LvnPrefs.SoundOn;
+            _muting = true;
+            try
+            {
+                foreach (var (slider, value) in _audioSliders)
+                {
+                    if (slider == null) continue;
+                    slider.SetEnabled(on);
+                    slider.style.opacity = on ? 1f : 0.45f;
+                    slider.value = on ? value() : 0f;
+                }
+            }
+            finally { _muting = false; }
         }
 
         /// <summary>Строка настройки в ОБОЛОЧКЕ: широкая, с пояснением. Что
         /// показывать, знает каталог; как — этот метод.</summary>
-        private VisualElement RowFor(Lvn.UI.LvnSettingDef d)
+        private VisualElement RowFor(Lvn.UI.LvnSettingDef d, bool audio = false)
             => d.Kind == Lvn.UI.LvnSettingKind.Switch
                 ? SwitchRow(Lvn.UI.LvnSettingsCatalog.Label(d), Lvn.UI.LvnSettingsCatalog.Hint(d), d.Flag, d.SetFlag)
                 : SliderRow(Lvn.UI.LvnSettingsCatalog.Label(d), Lvn.UI.LvnSettingsCatalog.Hint(d),
-                            d.Min, d.Max, d.Num, d.SetNum, live: d.Live);
+                            d.Min, d.Max, d.Num, d.SetNum, live: d.Live, audio: audio);
 
         // Булева строка пилюлями Вкл/Выкл — как «Все звуки».
         private VisualElement SwitchRow(string label, string hint,

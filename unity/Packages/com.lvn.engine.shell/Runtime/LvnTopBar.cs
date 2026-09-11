@@ -52,6 +52,10 @@ namespace Lvn.UI.Screens
         public Action<string> OnCurrency;
         /// <summary>Бургер: в сцене — квик-меню, в меню — настройки.</summary>
         public Action OnBurger;
+
+        /// <summary>Игрок нажал логотип — домой, на главный экран витрины.
+        /// Пусто — логотип остаётся картинкой.</summary>
+        public Action OnHome;
         /// <summary>Игровые кнопки выезжающего бара (решение Ильи 26.08):
         /// выход в меню, история, гардероб, магазин.</summary>
         public Action OnGameExit, OnGameHistory, OnGameWardrobe, OnGameStore;
@@ -466,6 +470,13 @@ namespace Lvn.UI.Screens
                 art.style.left = StageD(3f); art.style.right = StageD(3f);
                 art.style.top = -StageD(12f); art.style.height = StageD(82f);
                 LvnPicture.Skin(art, look.Logo, assets, "StageLogo");
+                // ЛОГОТИП ВЕДЁТ ДОМОЙ (TR-77). Раньше на главную возвращала
+                // вкладка «Свидания», но у неё будет свой экран, и тогда
+                // возвращаться станет нечем. Логотип — привычная дверь домой в
+                // любом приложении, и она никуда не переедет.
+                art.pickingMode = PickingMode.Position;
+                art.AddManipulator(new Clickable(() => OnHome?.Invoke()));
+                LvnMotion.Tappable(art);
                 _row.Add(art);
                 _stageLogo = art;
             }

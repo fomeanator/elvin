@@ -72,20 +72,10 @@ namespace Lvn.UI
                 Kind = LvnSettingKind.Range, Min = TextSpeedMin, Max = TextSpeedMax,
                 Num = () => LvnPrefs.TextSpeed, SetNum = v => LvnPrefs.TextSpeed = v,
             },
-            new LvnSettingDef
-            {
-                Key = "settings.auto_advance", English = "Auto-advance",
-                HintKey = "settings.auto_advance_hint", HintEnglish = "Lines turn by themselves",
-                Kind = LvnSettingKind.Switch,
-                Flag = () => LvnPrefs.AutoAdvance, SetFlag = v => LvnPrefs.AutoAdvance = v,
-            },
-            new LvnSettingDef
-            {
-                Key = "settings.auto_delay", English = "Auto delay",
-                HintKey = "settings.auto_delay_hint", HintEnglish = "Pause before the next line",
-                Kind = LvnSettingKind.Range, Min = AutoDelayMin, Max = AutoDelayMax,
-                Num = () => LvnPrefs.AutoDelayScale, SetNum = v => LvnPrefs.AutoDelayScale = v,
-            },
+            // АВТО-ЧТЕНИЕ ЖИВЁТ В САМОЙ ИГРЕ, А НЕ В НАСТРОЙКАХ (TR-73).
+            // Режим включают из меню сцены и там же выбирают скорость — две
+            // ручки в настройках дублировали его и расходились с ним: игрок
+            // ставил галочку заранее, а сцена о ней узнавала только на входе.
             new LvnSettingDef
             {
                 Key = "settings.box_opacity", English = "Box opacity",

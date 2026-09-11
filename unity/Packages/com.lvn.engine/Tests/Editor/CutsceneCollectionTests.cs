@@ -23,14 +23,31 @@ namespace Lvn.Tests
         public void Clean() => LvnCutsceneStore.Clear(Title);
 
         [Test]
-        public void ДваПроходаОднойСценыДаютДвеКарточки()
+        public void ПовторВОдинПрисестНеПлодитКарточки()
+        {
+            // TR-70: игрок откатился, перечитал место, вернулся из меню — это
+            // ТОТ ЖЕ проход. Новая карточка на каждый повтор дублировала
+            // галерею; теперь повтор лишь обновляет кадр существующей.
+            var first = LvnCutsceneStore.Lived(Title, "meet", "Знакомство", "ch0");
+            var again = LvnCutsceneStore.Lived(Title, "meet", "Знакомство", "ch0");
+
+            Assert.AreEqual(first, again, "повтор в один присест — та же карточка");
+            Assert.AreEqual(1, LvnCutsceneStore.Seens(Title).Count);
+        }
+
+        [Test]
+        public void НовоеПрохождениеЗаводитСвоюКарточку()
         {
             var first = LvnCutsceneStore.Lived(Title, "meet", "Знакомство", "ch0");
-            var second = LvnCutsceneStore.Lived(Title, "meet", "Знакомство", "ch0");
+            // Отодвигаем прошлый проход за окно «того же присеста».
+            foreach (var seen in LvnCutsceneStore.Seens(Title))
+                seen.At -= LvnCutsceneStore.SameRunSeconds + 60;
+            LvnCutsceneStore.Remember(Title);
 
-            Assert.AreNotEqual(first, second, "у каждого прохождения свой адрес");
+            var second = LvnCutsceneStore.Lived(Title, "meet", "Знакомство", "ch0");
+            Assert.AreNotEqual(first, second, "у нового прохождения свой адрес");
             var seens = LvnCutsceneStore.Seens(Title);
-            Assert.AreEqual(2, seens.Count, "второй проход обязан лечь рядом, а не поверх");
+            Assert.AreEqual(2, seens.Count, "новый проход ложится рядом, а не поверх");
             foreach (var seen in seens)
                 Assert.AreEqual("meet", seen.Id, "метка сцены у обеих карточек одна — с неё их играют");
         }
