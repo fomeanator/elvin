@@ -653,7 +653,7 @@ namespace Lvn.UI.Screens
             // лицо снимается — иначе «сон» после покупки доиграл бы на героине
             // уже в сцене истории, где лицом командует сценарий.
             _moodClip?.Stop();
-            ReleaseFace();
+            ReleaseFace(refresh: false);
             Stage.CloseMenuLayer();
             _menuSceneActor = null;
         }
