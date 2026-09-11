@@ -346,6 +346,9 @@ namespace Lvn.UI.Screens
 
         private void ShowMenuScene(bool withPortal)
         {
+            // ВЕРНУЛИСЬ ИЗ ГЛАВЫ — героиня это замечает (TR-66). Только настоящий
+            // приход: лечение полотна зовёт нас же и событием не считается.
+            if (withPortal) Raise("on_return", act: true);
             if (Stage == null || InChapter)
             {
                 LvnLog.Trace($"[lvn-menu] сцена меню ПРОПУЩЕНА: stage={(Stage != null)}, играется глава={InChapter}");
