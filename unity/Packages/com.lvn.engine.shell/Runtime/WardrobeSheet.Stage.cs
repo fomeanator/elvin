@@ -37,8 +37,7 @@ namespace Lvn.UI.Screens
         {
             el.style.backgroundColor = UiColor.WithAlpha(LvnTokens.PanelBg, dense ? 0.94f : alpha);
             el.style.backgroundImage = new StyleBackground(StyleKeyword.None);
-            LvnChrome.ClearBorder(el);
-            LvnChrome.Round(el, D(radiusDp));
+            LvnChrome.Frame(el, D(radiusDp));   // скруглить и снять прежнюю обводку разом
         }
 
         /// <summary>Слово облика: золото у выбранного, приглушённое у прочих,

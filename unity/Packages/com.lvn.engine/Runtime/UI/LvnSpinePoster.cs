@@ -38,6 +38,11 @@ namespace Lvn.UI
     /// </summary>
     public static class LvnSpinePoster
     {
+        /// <summary>Кто держит страницы атласа: ключ — элемент-хозяин постера.
+        /// Одна доска на приложение, потому что и окно памяти одно.</summary>
+        private static readonly Lvn.UI.LvnPinBoard<VisualElement> _pins
+            = new Lvn.UI.LvnPinBoard<VisualElement>();
+
         private static int _seq;                 // номер установки → свой угол мира
         private const float Spacing = 5000f;     // разнос установок, чтобы камеры не видели чужой холст
 
@@ -150,10 +155,14 @@ namespace Lvn.UI
 
             // ЗАКРЕПЛЯЕМ СТРАНИЦЫ. Скелет держит их текстуры в своём материале, а
             // стриминговое окно про это не знает: выгруженная страница делает
-            // фигуру чёрной/розовой без шанса восстановиться (см. PinSprite).
-            // Отпускаем ровно там же, где сносим установку.
-            if (ledger != null && kit.Sprites != null)
-                foreach (var sp in kit.Sprites) ledger.PinSprite(sp, true);
+            // фигуру чёрной/розовой без шанса восстановиться.
+            //
+            // ДЕРЖИТ ДОСКА, а не мы сами: правило «прикрепить новое раньше, чем
+            // отпустить прежнее» живёт у неё одной. Наборы страниц у постеров
+            // пересекаются (один атлас на всех), и отпустив первым, доводишь
+            // счётчик общего спрайта до нуля — окно вправе забрать текстуру
+            // ровно в этот миг.
+            _pins.Hold(host, ledger, kit.Sprites);
 
             // ── офф-скрин установка: корень в своём углу мира ─────────────────
             var root = new GameObject("lvn-spine-poster");
@@ -207,7 +216,7 @@ namespace Lvn.UI
             driver.Camera = cam;
 
             var go = LvnSpineBridge.Create(crt, kit.Json, kit.Atlas, kit.Textures, spine.scale, kit.Bg);
-            if (go == null) { Cleanup(root, rt, ledger, kit.Sprites); onFallback?.Invoke(); return; }
+            if (go == null) { Cleanup(root, rt, host); onFallback?.Invoke(); return; }
             if (LvnSpineBridge.SetVisible != null) LvnSpineBridge.SetVisible(go, true);
             // И ВНУТРИ холста тоже в ровень: подгонка по ширине оставляла бы
             // фигуру в рамке пустоты, а её потом видно как те же полосы —
@@ -231,7 +240,7 @@ namespace Lvn.UI
 
             var pinned = kit.Sprites;
             EventCallback<DetachFromPanelEvent> onDetach = null;
-            onDetach = _ => { host.UnregisterCallback(onDetach); Cleanup(root, rt, ledger, pinned); };
+            onDetach = _ => { host.UnregisterCallback(onDetach); Cleanup(root, rt, host); };
             host.RegisterCallback(onDetach);
         }
 
@@ -267,14 +276,12 @@ namespace Lvn.UI
             }
         }
 
-        private static void Cleanup(GameObject root, RenderTexture rt,
-            Lvn.Content.ILvnPinLedger ledger, List<Sprite> pinned)
+        private static void Cleanup(GameObject root, RenderTexture rt, VisualElement host)
         {
-            // Отпускаем ПЕРВЫМ делом и ровно тем ledger'ом, который держал:
-            // каждый Pin(true) обязан получить свой Pin(false), иначе страницы
+            // Отпускает доска — тем же ledger'ом, которым держала: каждое
+            // закрепление обязано получить своё освобождение, иначе страницы
             // атласа останутся в памяти навсегда.
-            if (ledger != null && pinned != null)
-                foreach (var sp in pinned) ledger.PinSprite(sp, false);
+            if (host != null) _pins.Release(host);
             if (rt != null) { rt.Release(); UnityEngine.Object.Destroy(rt); }
             if (root != null) UnityEngine.Object.Destroy(root);
         }
