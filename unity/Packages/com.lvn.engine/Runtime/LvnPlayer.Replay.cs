@@ -83,6 +83,10 @@ namespace Lvn
                 ["cutscene_mark"] = ReplayClass.Outside,
             };
 
+        /// <summary>Заново наложить ВИДИМЫЕ следы команд <c>0..upto</c> — фон,
+        /// актёров, надписи HUD, покой и итоговое состояние эффектов и звука —
+        /// не показывая ни одной реплики. Нужно после <c>Restore</c>: кадр, в
+        /// котором сохранялись, собирается обратно, прежде чем игра продолжится.</summary>
         public void ReplayVisuals(int upto)
         {
             if (_script == null) return;

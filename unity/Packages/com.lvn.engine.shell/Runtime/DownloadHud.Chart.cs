@@ -49,8 +49,6 @@ namespace Lvn.UI.Screens
             schedule.Execute(() => { if (Live) MarkDirtyRepaint(); }).Every(100);
         }
 
-        /// <summary>Досыпать байты в текущую секунду; при переходе секунды
-        /// ведро закрывается и уходит в историю.</summary>
         /// <summary>
         /// ПОТОК ИЛИ ВЕЛИЧИНА — две разные вещи в одной картинке.
         ///
@@ -64,6 +62,8 @@ namespace Lvn.UI.Screens
         /// </summary>
         public bool Averaging;
 
+        /// <summary>Досыпать байты в текущую секунду; при переходе секунды
+        /// ведро закрывается и уходит в историю.</summary>
         public void Add(double now, float downBytes, float upBytes)
         {
             if (double.IsNaN(_bucketStart)) _bucketStart = now;
