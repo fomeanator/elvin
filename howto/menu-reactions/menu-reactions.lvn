@@ -1,0 +1,53 @@
+{
+  "scene": "menu_reactions",
+  "script": [
+    { "op": "label", "id": "on_launch" },
+    { "op": "actor", "id": "victoria", "emotion": "surprised" },
+    { "op": "wait", "ms": 700 },
+    { "op": "actor", "id": "victoria", "emotion": "happy" },
+    { "op": "wait", "ms": 1500 },
+
+    { "op": "label", "id": "on_home" },
+    { "op": "actor", "id": "victoria", "emotion": "idle" },
+
+    { "op": "label", "id": "on_store" },
+    { "op": "actor", "id": "victoria", "emotion": "smirk" },
+
+    { "op": "label", "id": "on_wardrobe" },
+    { "op": "actor", "id": "victoria", "emotion": "flirt" },
+
+    { "op": "label", "id": "on_profile" },
+    { "op": "actor", "id": "victoria", "emotion": "dreamy" },
+
+    { "op": "label", "id": "on_titles" },
+    { "op": "actor", "id": "victoria", "emotion": "thoughtfulness" },
+
+    { "op": "label", "id": "on_idle" },
+    { "op": "actor", "id": "victoria", "emotion": "boredom" },
+    { "op": "wait", "ms": 2600 },
+    { "op": "actor", "id": "victoria", "emotion": "medium" },
+    { "op": "wait", "ms": 1800 },
+    { "op": "actor", "id": "victoria", "emotion": "sleep" },
+    { "op": "wait", "ms": 12000 },
+
+    { "op": "label", "id": "on_purchase" },
+    { "op": "actor", "id": "victoria", "emotion": "surprised" },
+    { "op": "wait", "ms": 900 },
+    { "op": "actor", "id": "victoria", "emotion": "delight" },
+    { "op": "wait", "ms": 1600 },
+    { "op": "actor", "id": "victoria", "emotion": "happy" },
+    { "op": "wait", "ms": 1000 },
+
+    { "op": "label", "id": "on_equip" },
+    { "op": "actor", "id": "victoria", "emotion": "smirk" },
+    { "op": "wait", "ms": 1400 },
+
+    { "op": "label", "id": "on_return" },
+    { "op": "actor", "id": "victoria", "emotion": "happy" },
+    { "op": "wait", "ms": 1300 },
+
+    { "op": "label", "id": "on_tap" },
+    { "op": "actor", "id": "victoria", "emotion": "shame" },
+    { "op": "wait", "ms": 1400 }
+  ]
+}

@@ -649,6 +649,11 @@ namespace Lvn.UI.Screens
         private void HideMenuSceneActor()
         {
             if (Stage == null) return;
+            // Реакция витрины не идёт в главу: клип обрывается, наложенное
+            // лицо снимается — иначе «сон» после покупки доиграл бы на героине
+            // уже в сцене истории, где лицом командует сценарий.
+            _moodClip?.Stop();
+            ReleaseFace();
             Stage.CloseMenuLayer();
             _menuSceneActor = null;
         }

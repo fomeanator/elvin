@@ -99,6 +99,7 @@ blueprints of how things are built):
 | 🧱 Novel core | [`novella-core/`](novella-core/) | The "five bricks" every story novel is made of: slides, paid/free choices, stat gains, a stat-driven fork with no choice, hint popups |
 | 👗 Wardrobe | [`wardrobe/`](wardrobe/) | Dressing a character from the script: the catalog on the cast entity, `wardrobe_show`, and branching on what the player picked — plus how an articy import wires the same thing |
 | 🏛 Hub & collections | [`hub-collections/`](hub-collections/) | Hub layout for the library (`ui.browse.layout="hub"`): collections, title types, `unlock`/`cost`, chapter energy |
+| 🙂 Menu reactions | [`menu-reactions/`](menu-reactions/) | The showcase heroine reacts to the player (launch, rooms, idle, purchase, tap): a plain `.lvn` with labels, `ui.browse.reactions`; faces are an overlay that never moves the figure and yields to the wardrobe pick |
 | 🧾 Every command, once | [`every-command/`](every-command/) | The commands the genre examples never reach for — `save`/`load`, `preload`, `text_pace`, `tint`/`blur`, `wait`, named animations (`defanim`/`play`), splines, queued lanes, stat-gated options. It is the **witness** that keeps [`CAPABILITIES.md`](CAPABILITIES.md) from documenting features nothing compiles |
 | 🧮 Functions | [`functions/`](functions/) | The two kinds of `func`: inlined expression functions and call/return procedures |
 
