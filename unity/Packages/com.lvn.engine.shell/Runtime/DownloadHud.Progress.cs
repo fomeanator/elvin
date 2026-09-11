@@ -13,6 +13,11 @@ namespace Lvn.UI.Screens
         private float _speed, _sampleStarted;
         private long _lastBytes;
         private long _lastSent = -1;
+        private float _numbersAt = -1f;   // когда цифры менялись в последний раз
+        private float _fileAt = -1f;      // когда менялось имя текущего пакета
+        private float _fractionHigh;      // лучшая доля этой очереди
+        private int _queueSeen;
+        private bool _speedWasOn;
         private int _lastEpoch, _lastDone, _lastPending;
         private bool _centerDirty;
 
@@ -49,6 +54,7 @@ namespace Lvn.UI.Screens
             bool visible = work || pend > 0 || failed;
             bool changed = work != _wasWorking || off != _lastOffline || pend != _lastPending;
             if (work != _wasWorking) { _deviceRows = null; _deviceChapters = null; }   // конец очереди — на диске новое
+            if (work != _wasWorking) _fileAt = -1f;   // смена работы на покой и обратно — имя сразу
             _queueFinished = !work && Center != null && Center.LastRunCompleted
                 && (_wasQueued || _centerDirty || _queueFinished);
 
@@ -145,24 +151,49 @@ namespace Lvn.UI.Screens
             // «Осталось» — по средней за окно, а не по мгновенной: мелкие файлы
             // роняют мгновенную в десять раз, и оценка прыгала минутами.
             float etaSpeed = _chart.AvgDown(Mathf.Clamp(now - _sampleStarted, 2f, 15f));
+            // ДОЛЯ НЕ ХОДИТ НАЗАД. На стыке пакетов (прогрев кончился, глава
+            // началась) план и счёт меняются не в одном тике, и доля на кадр-два
+            // отскакивала — полоса дёргалась туда-сюда («дёргается» — Илья
+            // 10.09). Пока очередь та же, показывается лучшее из достигнутого;
+            // новые главы в очереди (план вырос) — честный откат.
+            int queueLen = Center != null ? Center.Queue.Count : 0;
+            if (!work || queueLen > _queueSeen) _fractionHigh = 0f;
+            _queueSeen = queueLen;
+            if (work && planned > 0)
+            {
+                float f = Mathf.Clamp01((float)received / planned);
+                if (f < _fractionHigh) received = (long)(_fractionHigh * planned);
+                else _fractionHigh = f;
+            }
             var tally = new DownloadTally(received, planned,
                 t.BatchDone, t.BatchTotal, etaSpeed > 0f ? etaSpeed : _speed, phase);
             bool moving = phase == DownloadTally.Phase.Running;
             _miniRing.Glyph = off || failed ? RingGlyph.Alert
                 : work ? RingGlyph.Down : RingGlyph.Up;
+            // Кольцо кружка плывёт своей моделью (той же, что вуаль и экран
+            // загрузки) — ему цель напрямую; полосы едут через Glide.
             _miniRing.Progress = work ? tally.Fraction : 0f;
+            if (!_wasWorking && work) { _barShown = 0f; _rowShown = 0f; }
             // Полоса тоже держит место: без плана она пустая, но не пропадает —
-            // иначе высота панели скачет между пачками.
+            // иначе высота панели скачет между пачками. Ход едет к цели кадрами (Glide).
             _bar.style.display = DisplayStyle.Flex;
             _bar.style.opacity = work && tally.PlanKnown ? 1f : 0.25f;
-            _barFill.style.width = Length.Percent(Mathf.Clamp01(tally.Fraction) * 100f);
+            _barTarget = Mathf.Clamp01(tally.Fraction);
             // СТРОКА ПОКАЗАТЕЛЕЙ НЕ ИСЧЕЗАЕТ. Она пряталась в простое, и лист
             // подпрыгивал на её высоту каждый раз, когда обоз кончался. Пустое
             // значение говорится прочерком — место остаётся за ним.
             _info.style.display = DisplayStyle.Flex;
 
             string category = Humanize(ActiveUrl?.Invoke(), LvnWords.Of("downloads.content", "Downloading content"));
-            _file.text = entry?.Label ?? category;
+            // ИМЯ ДЕРЖИТСЯ, А НЕ МИГАЕТ. Мелкие пакеты прогрева (текст, обложки)
+            // сменяются по три раза в секунду, и заголовок дрожал названиями.
+            // Категория живёт на экране не меньше секунды с лишним; глава из
+            // очереди — сразу: это смысл, а не шум.
+            string shown = entry?.Label ?? category;
+            if (entry != null || _fileAt < 0f || now - _fileAt >= 1.2f || string.IsNullOrEmpty(_file.text))
+            {
+                if (shown != _file.text) { _file.text = shown; _fileAt = now; }
+            }
             // Область показателей названа словами: это не вся библиотека и
             // не сумма оценок очереди плюс байты чужого активного прогрева.
             _kind.text = LvnWords.Of("dl.current_transfer", "Current download")
@@ -208,28 +239,41 @@ namespace Lvn.UI.Screens
             _eta.style.display = etaReady ? DisplayStyle.Flex : DisplayStyle.None;
             _eta.text = etaReady
                 ? LvnWords.Of("dl.eta", "≈{0} left", Lvn.UI.LvnTimeWords.Coarse((long)tally.EtaSeconds)) : "";
-            ScreenUi.SetText(_vSpeed, moving && _speed >= 1024f ? Speed(_speed) : "—");
-            ScreenUi.SetText(_vUp, _chart.LastUp >= 256f ? Speed(_chart.LastUp) : "—");
-            ScreenUi.SetText(_peak, _chart.PeakDown >= 1024f
-                ? LvnWords.Of("dl.peak", "peak") + " ↓ " + Speed(_chart.PeakDown) : "");
+            // ЦИФРЫ — НЕ ЧАЩЕ РАЗА В СЕКУНДУ. Тик идёт раз в 300 мс, и скорость
+            // мигала «2.4 → 2.1 → 2.4» три раза в секунду; глазу это дрожь, а не
+            // сведения. Смена «есть число ↔ нет числа» — сразу.
+            bool speedOn = moving && _speed >= 1024f;
+            bool numbersDue = _numbersAt < 0f || now - _numbersAt >= 1f || speedOn != _speedWasOn;
+            _speedWasOn = speedOn;
+            if (numbersDue)
+            {
+                _numbersAt = now;
+                ScreenUi.SetText(_vSpeed, speedOn ? Speed(_speed) : "—");
+                ScreenUi.SetText(_vUp, _chart.LastUp >= 256f ? Speed(_chart.LastUp) : "—");
+                ScreenUi.SetText(_peak, _chart.PeakDown >= 1024f
+                    ? LvnWords.Of("dl.peak", "peak") + " ↓ " + Speed(_chart.PeakDown) : "");
+            }
             // Ряд очереди, что качается сейчас: ход по своему пакету и скорость.
             if (_activeFill != null && entry != null)
             {
                 long inFlight = System.Math.Min(t.Received, entry.Bytes);
-                _activeFill.style.width = Length.Percent(entry.Bytes > 0
-                    ? Mathf.Clamp01((float)inFlight / entry.Bytes) * 100f : 0f);
-                ScreenUi.SetText(_activeMeta, Mb(inFlight) + " " + LvnWords.Of("common.of", "of") + " "
-                    + LvnBytes.Approx(entry.Bytes) + (moving && _speed >= 1024f ? " · " + Speed(_speed) : ""));
+                _rowTarget = entry.Bytes > 0 ? Mathf.Clamp01((float)inFlight / entry.Bytes) : 0f;
+                if (numbersDue)
+                    ScreenUi.SetText(_activeMeta, Mb(inFlight) + " " + LvnWords.Of("common.of", "of") + " "
+                        + LvnBytes.Approx(entry.Bytes) + (speedOn ? " · " + Speed(_speed) : ""));
             }
             // Процент — только когда план известен: доля без плана это догадка.
             bool showPercent = work && tally.PlanKnown;
             _percent.style.display = showPercent ? DisplayStyle.Flex : DisplayStyle.None;
             if (showPercent) _percent.text = Mathf.FloorToInt(Mathf.Clamp01(tally.Fraction) * 100f) + "%";
             ApplyStateChip(phase, work, failed, _queueFinished);
-            ScreenUi.SetText(_vGot, tally.PlanKnown
-                ? Mb(tally.DoneBytes) + " " + LvnWords.Of("common.of", "of") + " " + LvnBytes.Approx(tally.PlanBytes)
-                : Mb(tally.DoneBytes));
-            ScreenUi.SetText(_vLeft, tally.PlanKnown ? LvnBytes.Approx(tally.LeftBytes) : "—");
+            if (numbersDue || !work)
+            {
+                ScreenUi.SetText(_vGot, tally.PlanKnown
+                    ? Mb(tally.DoneBytes) + " " + LvnWords.Of("common.of", "of") + " " + LvnBytes.Approx(tally.PlanBytes)
+                    : Mb(tally.DoneBytes));
+                ScreenUi.SetText(_vLeft, tally.PlanKnown ? LvnBytes.Approx(tally.LeftBytes) : "—");
+            }
             int next = Center == null ? 0 : Center.Queue.Count - (entry != null ? 1 : 0);
             ScreenUi.SetText(_vQueue, next > 0 ? next.ToString() : "—");
 
