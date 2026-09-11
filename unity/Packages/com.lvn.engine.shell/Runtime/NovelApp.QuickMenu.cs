@@ -108,7 +108,8 @@ namespace Lvn.UI.Screens
             // — магазин не предлагался (игрок упирался в стену), а отказ не
             // попадал в отчёт, хотя «упёрся в цену» шлёт только Кассир.
             Stage.ChoiceSpend = (currency, amount) =>
-                ChargeWithStoreAsync(currency, amount, "choice", "You need more to pick this.");
+                ChargeWithStoreAsync(currency, amount, "choice",
+                                     LvnWords.Of("economy.need_choice", "You need more to pick this."));
 
             // Test-build currency faucet (economy.debug_grant): a quick-menu item
             // that credits the wallet on tap — the partner's "получить 100" button

@@ -572,6 +572,18 @@
   "default": "Downloads"
  },
  {
+  "key": "economy.need_chapter",
+  "default": "You need more to open this chapter."
+ },
+ {
+  "key": "economy.need_choice",
+  "default": "You need more to pick this."
+ },
+ {
+  "key": "economy.need_title",
+  "default": "You need more to start this."
+ },
+ {
   "key": "empty",
   "default": "— empty —"
  },
@@ -694,6 +706,34 @@
  {
   "key": "load_failed",
   "default": "Could not load this save."
+ },
+ {
+  "key": "look.buy_set",
+  "default": "Buy the whole look — {0}"
+ },
+ {
+  "key": "look.from_wheel",
+  "default": "from the wheel"
+ },
+ {
+  "key": "look.gacha_only",
+  "default": "Something here only comes from the wheel"
+ },
+ {
+  "key": "look.have_all",
+  "default": "You already have this look"
+ },
+ {
+  "key": "look.note",
+  "default": "This is where she stopped"
+ },
+ {
+  "key": "look.owned",
+  "default": "yours"
+ },
+ {
+  "key": "look.title",
+  "default": "Her look"
  },
  {
   "key": "menu.settings",
@@ -985,6 +1025,54 @@
  {
   "key": "settings.ui_size_hint",
   "default": "Menus, buttons and panels — the scene keeps its framing"
+ },
+ {
+  "key": "share.empty",
+  "default": "This slot is empty."
+ },
+ {
+  "key": "share.failed",
+  "default": "Could not share right now."
+ },
+ {
+  "key": "share.give",
+  "default": "Share your playthrough"
+ },
+ {
+  "key": "share.give_hint",
+  "default": "A friend opens it right where you are"
+ },
+ {
+  "key": "share.gone",
+  "default": "This link is no longer available."
+ },
+ {
+  "key": "share.open",
+  "default": "Open a playthrough"
+ },
+ {
+  "key": "share.open_hint",
+  "default": "Copy a friend's code and tap here"
+ },
+ {
+  "key": "share.ready",
+  "default": "Send this code to a friend: {0}"
+ },
+ {
+  "key": "share.ready_link",
+  "default": "Link copied — send it to a friend: {0}"
+ },
+ {
+  "key": "share.taken",
+  "default": "The playthrough is in your saves — open «Load»."
+ },
+ {
+  "key": "share.title",
+  "default": "Share"
+ },
+ {
+  "key": "share.unreadable",
+  "default": "This playthrough is from another version."
  },
  {
   "key": "shell.intro_failed_browse",
