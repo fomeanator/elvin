@@ -122,6 +122,7 @@
   },
   "CanvasOption": {
     "currency": "string",
+    "gacha": "bool",
     "id": "string",
     "preview": "string",
     "price": "long",

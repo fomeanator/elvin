@@ -142,6 +142,9 @@ namespace Lvn.UI.Screens
                         currency = o.currency,
                         price = o.price,
                         rarity = o.rarity,
+                        // Приз круток: цены нет, но и даром он не достаётся —
+                        // иначе барабан крутят ради того, что и так надето.
+                        gacha = o.gacha,
                     });
             if (items.Count == 0) return;   // каталога нет — и вкладки нет
             _slots[BackdropAxis] = new LvnWardrobeSlot
