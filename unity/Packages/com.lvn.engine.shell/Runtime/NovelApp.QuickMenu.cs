@@ -423,6 +423,9 @@ namespace Lvn.UI.Screens
                 _shell.Hub.OnAdTap = () => LvnAsync.Fire(OpenAdRewardAsync(), "AdReward");
                 // Крутки (TR-47): решает сервер, показывает экран.
                 _shell.Hub.OnSpin = () => LvnAsync.Fire(OpenGachaAsync(), "Gacha");
+                // Столбик героев в гардеробе меняет куклу витрины сразу, а не
+                // при следующей пересборке меню (иначе стоят двое).
+                if (_shell.WardrobeTab != null) _shell.WardrobeTab.OnFavoriteChanged = SwapMenuHeroine;
             }
         }
 

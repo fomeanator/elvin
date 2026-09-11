@@ -46,6 +46,11 @@ namespace Lvn.UI
             // живые»): смена лица идёт обычным кроссфейдом облика, как
             // сценарное emotion=, а не гардеробным свопом.
             bool emotion = IsEmotionAxis(axis);
+            // В журнал сервера (Info, не Trace): «выбираю эмоцию — не меняется»
+            // (тестировщик 11.09) нечем было разобрать — ни одной строки о том,
+            // дошла ли примерка до сцены и с чем.
+            LvnLog.Info($"[lvn-wardrobe] переодеваю {id}: ось «{axis ?? "?"}» = "
+                      + $"«{LvnCostumer.Chosen(id, axis ?? "")}»{(emotion ? " (лицо)" : "")}");
             await ReplayRememberedAsync(id, cmd, wardrobeSwap: !emotion,
                 wardrobeFromTop: !emotion && LvnWardrobeStage.IsHair(axis));
         }

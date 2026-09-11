@@ -400,6 +400,10 @@ namespace Lvn.UI.Screens
         private const float DialCenterX = 0.4353f;
         private const float DialCenterY = 0.6484f;
         private const float DialSize = 0.046f;
+        /// <summary>Прямоугольник букв логотипа долями картинки — зона двери
+        /// домой. Измерено по плотным пикселям logo.png без боковых линий.</summary>
+        private const float LogoLettersLeft = 0.36f, LogoLettersRight = 0.64f;
+        private const float LogoLettersTop = 0.15f, LogoLettersBottom = 0.82f;
 
         /// <summary>Докуда в картинке логотипа доходят БУКВЫ (доля высоты):
         /// ниже — только прозрачный запас под свечение. Картинка нарисована
@@ -494,9 +498,23 @@ namespace Lvn.UI.Screens
                 // вкладка «Свидания», но у неё будет свой экран, и тогда
                 // возвращаться станет нечем. Логотип — привычная дверь домой в
                 // любом приложении, и она никуда не переедет.
-                art.pickingMode = PickingMode.Position;
-                art.AddManipulator(new Clickable(() => OnHome?.Invoke()));
+                //
+                // ДВЕРЬ — ПРЯМОУГОЛЬНИК БУКВ, А НЕ ВСЯ ПОЛОСА. Арт логотипа
+                // нарисован на всю ширину шапки (линии по бокам — декор), и
+                // ловушка на нём накрывала аватар и валюты: «верхняя часть не
+                // кликается, нажимается только Time Romance» (тестировщик,
+                // 11.09). Сам арт тапов не ловит; ловит невидимый ребёнок,
+                // положенный по долям картинки на буквы (измерено по logo.png:
+                // буквы занимают середину, 36–64 % ширины и 15–82 % высоты).
+                var door = new VisualElement { name = "stage-logo-door", pickingMode = PickingMode.Position };
+                door.style.position = Position.Absolute;
+                door.style.left = Length.Percent(LogoLettersLeft * 100f);
+                door.style.right = Length.Percent((1f - LogoLettersRight) * 100f);
+                door.style.top = Length.Percent(LogoLettersTop * 100f);
+                door.style.bottom = Length.Percent((1f - LogoLettersBottom) * 100f);
+                door.AddManipulator(new Clickable(() => OnHome?.Invoke()));
                 LvnMotion.Tappable(art);
+                art.Add(door);
                 _row.Add(art);
                 _stageLogo = art;
             }

@@ -333,6 +333,24 @@ namespace Lvn.UI.Screens
         }
 
         /// <summary>
+        /// СМЕНА ГЕРОЯ ВИТРИНЫ ИЗ СТОЛБИКА ГАРДЕРОБА. Столбик менял только
+        /// избранное в настройках, а сцену не трогал: новая кукла вставала
+        /// своим путём, прежняя оставалась — «они вдвоём стоят в меню»
+        /// (тестировщик 11.09). Здесь то же, что делает витрина при своём
+        /// показе (ShowMenuScene): увести прежнюю командой витрины, поставить
+        /// новую через Приму — и запомнить, кто теперь стоит.
+        /// </summary>
+        private void SwapMenuHeroine(string from, string to)
+        {
+            if (Stage == null || InChapter || string.IsNullOrEmpty(to) || from == to) return;
+            LvnFace.Release(from);
+            if (!string.IsNullOrEmpty(from))
+                Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
+                { ["op"] = "actor", ["id"] = from, ["show"] = false }, LvnSender.Menu);
+            PlaceMenuHeroine();
+        }
+
+        /// <summary>
         /// СЦЕНА ГЛАВНОЙ: полотно, героиня и — по случаю — врата.
         ///
         /// <para><paramref name="withPortal"/> отделяет ПОЯВЛЕНИЕ МЕНЮ от его

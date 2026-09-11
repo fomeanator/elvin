@@ -47,8 +47,20 @@ namespace Lvn.UI.Screens
         /// показывает ролик сама (так было до экрана награды).</summary>
         public System.Action OnAdTap;
 
-        /// <summary>Игрок открыл крутки (TR-47). Пусто — кнопки нет.</summary>
-        public System.Action OnSpin;
+        /// <summary>Игрок открыл крутки (TR-47). Пусто — кнопки нет.
+        ///
+        /// <para>СВОЙСТВО, А НЕ ПОЛЕ: кнопка строится вместе с обликом сцены,
+        /// а обработчик оболочка вешает позже, при приёме манифеста. Пока это
+        /// было поле, проверка «есть ли обработчик» шла в момент сборки — и
+        /// кнопка круток не появлялась вовсе («нет Гачи», тестировщик 11.09).
+        /// Теперь кнопка есть всегда, а показывается — когда есть кому
+        /// открывать.</para></summary>
+        public System.Action OnSpin
+        {
+            get => _onSpin;
+            set { _onSpin = value; if (_stageSpin != null) _stageSpin.style.display = value != null ? DisplayStyle.Flex : DisplayStyle.None; }
+        }
+        private System.Action _onSpin;
         private VisualElement _stageSpin;
 
         private VisualElement _stageStack, _stageCard, _stageAd, _stageCover, _stageFill;
@@ -110,17 +122,17 @@ namespace Lvn.UI.Screens
             // как получить валюту, не платя деньгами. Пункта нет, пока хозяин
             // не дал, чем его открыть: гача заводится сервером, и обещать её
             // без сервера незачем.
-            if (OnSpin != null)
-            {
-                _stageSpin = LvnStageKit.Button(() => LvnWords.Of("gacha.title", "Spin"), () => OnSpin());
-                _stageSpin.style.height = D(LvnStageSkin.Adv.Height);
-                _stageSpin.style.marginTop = LvnTokens.Space1;
-                LvnStageKit.HollowFrame(_stageSpin, SkinUrl("card-back.png"), _assets,
-                                        LvnStageKit.CardBackW, LvnStageKit.CardBackH,
-                                        LvnStageKit.CardBackCornerPx, LvnStageKit.CardBackPxPerDp,
-                                        index: 0, solid: true);
-                stack.Add(_stageSpin);
-            }
+            // Кнопка круток строится ВСЕГДА и лишь показывается по обработчику:
+            // он приходит от оболочки позже сборки облика (см. OnSpin).
+            _stageSpin = LvnStageKit.Button(() => LvnWords.Of("gacha.title", "Spin"), () => _onSpin?.Invoke());
+            _stageSpin.style.height = D(LvnStageSkin.Adv.Height);
+            _stageSpin.style.marginTop = LvnTokens.Space1;
+            _stageSpin.style.display = _onSpin != null ? DisplayStyle.Flex : DisplayStyle.None;
+            LvnStageKit.HollowFrame(_stageSpin, SkinUrl("card-back.png"), _assets,
+                                    LvnStageKit.CardBackW, LvnStageKit.CardBackH,
+                                    LvnStageKit.CardBackCornerPx, LvnStageKit.CardBackPxPerDp,
+                                    index: 0, solid: true);
+            stack.Add(_stageSpin);
 
             // Высота экрана известна только после раскладки — и меняется на
             // повороте; столбик подгоняется при каждой смене геометрии.
