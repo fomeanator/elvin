@@ -118,7 +118,6 @@ namespace Lvn.UI.Screens
             // источник — при смене языка и переименовании её перечитает дом.
             var lbl = Lvn.UI.LvnRedress.Bind(new Label(), () => RosterName(pid, catalogName));
             lbl.style.color = _text;
-            lbl.style.fontSize = LvnTokens.TextSm;
             lbl.style.unityFontStyleAndWeight = FontStyle.Bold;
             lbl.style.unityTextAlign = TextAnchor.MiddleCenter;
             // ИМЯ В ОДНУ СТРОКУ. Перенос «Виктори/я» делал плитку выше, чем
@@ -127,7 +126,14 @@ namespace Lvn.UI.Screens
             lbl.style.whiteSpace = WhiteSpace.NoWrap;
             lbl.style.overflow = Overflow.Hidden;
             lbl.style.textOverflow = TextOverflow.Ellipsis;
-            lbl.style.maxWidth = _rosterIcon + 16f;
+            // ШИРИНА — ПО ПЛИТКЕ, А НЕ ПО ЛИЦУ, и длинное имя ужимается кеглем
+            // раньше, чем многоточием: «Виктор…» на плитке героини (TR-62) —
+            // это подпись, которая не называет. Сокращать имя человека можно
+            // только тогда, когда его уже не уместить никаким размером.
+            lbl.style.maxWidth = _rosterIcon + 20f;
+            var shown = RosterName(pid, catalogName);
+            lbl.style.fontSize = (shown != null && shown.Length > 9)
+                ? LvnTokens.TextXs : LvnTokens.TextSm;
             lbl.style.marginTop = LvnTokens.Tight;
             b.Add(lbl);
             StageRosterTile(b, lbl, active);
