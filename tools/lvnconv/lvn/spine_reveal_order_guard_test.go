@@ -26,54 +26,50 @@ import (
 func TestSpineRevealWaitsForFit(t *testing.T) {
 	root := repoRoot(t)
 	base := filepath.Join(root, "unity", "Packages", "com.lvn.engine.spine", "Runtime")
-
 	fit := read(t, filepath.Join(base, "LvnSpineFit.cs"))
-	// Подгонка обязана сообщать о своей готовности — иначе показу нечего ждать.
-	if !strings.Contains(fit, "Fitted") {
-		t.Fatal("LvnSpineFit больше не сообщает Fitted — показу нечего ждать, гонка вернётся")
-	}
-	if !regexp.MustCompile(`Fitted\s*=\s*true`).MatchString(fit) {
-		t.Error("LvnSpineFit нигде не выставляет Fitted=true — флаг всегда ложь, показ застрянет невидимым")
+
+	// ПОКАЗ И ПОДГОНКА — ОДНА ЖЕЛЕЗКА. Раньше их было две (LvnSpineFader +
+	// LvnSpineFit) с гейтом ReadyToReveal между ними, и за четыре захода это
+	// давало «через раз»: скелет успевал мелькнуть раздутым в сто крат.
+	// Теперь гонки нет ПО УСТРОЙСТВУ, и страж держит именно это устройство.
+
+	// 1. Пока ждём устаканивания MeshScale, фигуру прячет МАСШТАБ, а не альфа:
+	// погасив альфу, Canvas отсекает детей, меш не рисуется и MeshScale не
+	// устаканивается никогда — фигура остаётся невидимой навсегда.
+	if !regexp.MustCompile(`localScale\s*=\s*Vector3\.zero`).MatchString(fit) {
+		t.Error("ожидание больше не прячет фигуру нулевым масштабом — либо вернулась гонка, " +
+			"либо её гасят альфой, и тогда меш не соберётся вовсе")
 	}
 
-	fader := read(t, filepath.Join(base, "LvnSpineFader.cs"))
-	// В ветке РЕАЛЬНОГО показа (после сброса _warmLeft = 0) подъём альфы к
-	// единице обязан стоять ПОСЛЕ проверки готовности. Вырезаем эту ветку и
-	// смотрим, что подъёму предшествует гейт.
-	i := strings.Index(fader, "_warmLeft = 0")
-	if i < 0 {
-		t.Fatal("в LvnSpineFader не нашлась ветка реального показа (_warmLeft = 0) — страж смотрит не туда")
+	// 2. В ТОТ ЖЕ миг, когда подгонка села, альфа ставится в ноль: кадр с
+	// верным размером рисуется уже невидимым, вспышки во весь экран нет.
+	fitted := strings.Index(fit, "TryFit(")
+	if fitted < 0 {
+		t.Fatal("в LvnSpineFit не нашлась сама подгонка (TryFit) — страж смотрит не туда")
 	}
-	branch := fader[i:]
-	up := strings.Index(branch, "MoveTowards")
+	after := fit[fitted:]
+	if end := strings.Index(after, "return;"); end > 0 {
+		after = after[:end]
+	}
+	if !regexp.MustCompile(`alpha\s*=\s*0f`).MatchString(after) {
+		t.Error("после удачной подгонки альфа не обнуляется в том же кадре: " +
+			"фигура вспыхнет верным размером до начала фейда")
+	}
+
+	// 3. Подъём альфы к единице живёт ОТДЕЛЬНО и только после подгонки —
+	// иначе показывать будет нечего, кроме раздутого меша.
+	up := strings.Index(fit, "MoveTowards")
 	if up < 0 {
-		t.Fatal("в ветке показа нет подъёма альфы (MoveTowards) — страж смотрит не туда")
+		t.Fatal("в LvnSpineFit нет подъёма альфы (MoveTowards) — страж смотрит не туда")
 	}
-	before := branch[:up]
-	gate := strings.Contains(before, "ReadyToReveal") ||
-		strings.Contains(before, "Fitted")
-	if !gate {
-		t.Error("показ поднимает альфу к 1, не дождавшись подгонки: скелет мелькнёт раздутыми " +
-			"прямоугольниками (гонка «через раз»). Верните гейт ReadyToReveal/Fitted перед MoveTowards")
-	}
-	// ПОВТОРНЫЙ показ обязан ждать подгонку так же, как первый. После
-	// скрытия меш отбрасывается и пересобирается с MeshScale=1, а Fitted
-	// держит прошлый успех — без перевзвода показ проходит гейт мгновенно и
-	// снова мелькает раздутым (замер 07.09: «после выхода в меню»). Значит
-	// Fit умеет Rearm, а показ его зовёт.
-	if !strings.Contains(fit, "Rearm") {
-		t.Error("LvnSpineFit не умеет Rearm — повторный показ не сможет заново дождаться подгонки")
-	}
-	if !strings.Contains(fader, "Rearm") {
-		t.Error("Fader нигде не перевзводит подгонку (Rearm): первый показ чист, а повторный " +
-			"после скрытия мелькнёт раздутым — MeshScale сброшен, а Fitted держит прошлый раз")
+	if !strings.Contains(fit[:up], "_fitted") {
+		t.Error("подъём альфы стоит раньше проверки подгонки: гонка «через раз» вернётся")
 	}
 
-	// Гейт обязан рисовать почти-невидимый меш, пока ждёт: только живое
-	// рисование качает MeshScale, иначе подгонка не наступит никогда.
-	if !strings.Contains(before, "WarmAlpha") {
-		t.Error("во время ожидания подгонки альфа не держится на WarmAlpha — меш не рисуется, " +
-			"MeshScale не раскачается, и ожидание станет вечным")
+	// 4. Страховка на случай, когда подгонка не удаётся вовсе (нет холста или
+	// границ): фигуру всё равно показывают, иначе она невидима навсегда.
+	if !strings.Contains(fit, "FitWaitCap") {
+		t.Error("страховка ожидания исчезла — неудачная подгонка оставит фигуру невидимой навсегда")
 	}
 }
 
