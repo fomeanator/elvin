@@ -71,11 +71,22 @@ namespace Lvn.Tests
         public void ExpandedCardClearsMetricsWhenWorkEnds()
         {
             _hud.Tick(Snapshot(100_000));
-            _now = 2;
+            // ВЫДЕРЖКА ОКНА. Лестница качает обозами и между ними отпускает
+            // сеть на доли секунды; окно держит состояние ещё несколько секунд,
+            // иначе панель прыгала бы высотой на каждой границе пачки («туда-
+            // сюда дёргает» — Илья 10.09). Проверяя КОНЕЦ работы, часы двигаем
+            // за эту выдержку — иначе тест читает ровно то, что она и держит.
+            _now = 10;
             _hud.Tick(default);
             Assert.AreEqual(LvnWords.Of("dl.idle", "No active downloads"),
                 _hud.Q<Label>("download-title").text);
-            Assert.AreEqual(DisplayStyle.None, _hud.Q("download-metrics").style.display.value);
+            // СТРОКА ПОКАЗАТЕЛЕЙ ОСТАЁТСЯ НА МЕСТЕ (10.09). Прежде она пряталась
+            // в простое, и лист подпрыгивал на её высоту каждый раз, когда
+            // кончался обоз лестницы. Теперь место остаётся за ней, а пустое
+            // значение говорится прочерком: панель стоит смирно, а «нечего
+            // показывать» видно словом.
+            Assert.AreEqual(DisplayStyle.Flex, _hud.Q("download-metrics").style.display.value,
+                "строка показателей снова исчезает — лист будет прыгать между пачками");
         }
 
         [Test]
@@ -116,7 +127,7 @@ namespace Lvn.Tests
             _hud.Tick(default);
             _now = 2;
             _hud.Tick(Snapshot(10));
-            _now = 3;
+            _now = 12;   // за выдержкой окна: прежняя очередь давно кончилась
             _hud.Tick(default);
             Assert.AreEqual(LvnWords.Of("dl.idle", "No active downloads"),
                 _hud.Q<Label>("download-title").text);
@@ -148,6 +159,7 @@ namespace Lvn.Tests
             _hud.Tick(Snapshot(10, plan: 100));
             done.SetResult(true);
             await center.WhenDrainedAsync();
+            _now = 10;   // за выдержкой окна: работа кончилась совсем
             _hud.Tick(default);
             Assert.AreEqual(LvnWords.Of("dl.finished", "Download complete"),
                 _hud.Q<Label>("download-title").text);

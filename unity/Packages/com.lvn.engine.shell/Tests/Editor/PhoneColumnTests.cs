@@ -26,9 +26,18 @@ namespace Lvn.Shell.Tests
         {
             var el = new VisualElement();
             ScreenUi.PhoneColumn(el);
-            Assert.AreEqual(StyleKeyword.Auto, el.style.marginLeft.keyword,
-                "остаток делится поровну — иначе полоса прижмётся к краю");
-            Assert.AreEqual(StyleKeyword.Auto, el.style.marginRight.keyword);
+            // ЦЕНТРИРУЕМ СДВИГОМ, А НЕ ПОЛЯМИ. Полосу вешают на элемент,
+            // растянутый абсолютно (left = right = 0), а в такой раскладке
+            // автоматические поля остаток НЕ делят — полоса молча прижималась к
+            // левому краю. Правило сменилось вместе с этим наблюдением, и тест
+            // держит теперь его: половина ширины плюс сдвиг на половину себя.
+            Assert.AreEqual(50f, el.style.left.value.value, 0.01f,
+                "полоса должна начинаться от середины — иначе центра не выйдет");
+            Assert.AreEqual(LengthUnit.Percent, el.style.left.value.unit);
+            Assert.AreEqual(-50f, el.style.translate.value.x.value, 0.01f,
+                "остаток делится поровну сдвигом — иначе полоса прижмётся к краю");
+            Assert.AreEqual(Lvn.UI.LvnPanel.ReferenceWidth, el.style.maxWidth.value.value, 0.01f,
+                "полоса шире телефона — строка расплывается и её нельзя читать");
         }
 
         [Test]
