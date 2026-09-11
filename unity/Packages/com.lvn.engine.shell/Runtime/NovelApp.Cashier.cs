@@ -43,7 +43,8 @@ namespace Lvn.UI.Screens
             if (LvnProgress.HasReached(title)) return true;
 
             return await ChargeWithStoreAsync(cost.Currency, cost.Amount,
-                "title:" + title.id, "You need more to start this.");
+                "title:" + title.id,
+                LvnWords.Of("economy.need_title", "You need more to start this."));
         }
 
         /// <summary>
@@ -61,7 +62,12 @@ namespace Lvn.UI.Screens
         /// <param name="currency">чем платим</param>
         /// <param name="amount">сколько</param>
         /// <param name="reason">за что — уходит в журнал кошелька</param>
-        /// <param name="fallbackMessage">объяснение, когда новелла своего не дала</param>
+        /// <param name="fallbackMessage">объяснение, когда новелла своего не дала.
+        /// ПРИХОДИТ ПЕРЕВЕДЁННЫМ: три таких объяснения передавались сюда голой
+        /// английской строкой — ключа у них не было вовсе, и перевести их
+        /// манифестом было нельзя ни автору, ни игроку. Теперь у каждого свой
+        /// ключ (<c>economy.need_choice</c>, <c>need_title</c>,
+        /// <c>need_chapter</c>).</param>
         private async Task<bool> ChargeWithStoreAsync(string currency, long amount,
                                                   string reason, string fallbackMessage)
         {
@@ -126,7 +132,8 @@ namespace Lvn.UI.Screens
             if (price.Free) return true;
 
             return await ChargeWithStoreAsync(price.Currency, price.Amount,
-                "chapter:" + chapter?.id, "You need more to open this chapter.");
+                "chapter:" + chapter?.id,
+                LvnWords.Of("economy.need_chapter", "You need more to open this chapter."));
         }
     }
 }
