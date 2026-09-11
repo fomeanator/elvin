@@ -21,7 +21,14 @@ namespace Lvn.UI.Screens
         private bool StageDressed => !string.IsNullOrEmpty(_skin);
 
         public void SetContent(LvnManifest manifest)
-            => LvnStageKit.TakeSkin(manifest, ref _skin, () => { StageSheet(); Rebuild(); });
+        {
+            // Манифест держим у себя: кружок аватара берёт из него живой
+            // портрет героя (TR-68), а не только облик листа.
+            _manifest = manifest;
+            LvnStageKit.TakeSkin(manifest, ref _skin, () => { StageSheet(); Rebuild(); });
+        }
+
+        private LvnManifest _manifest;
 
         /// <summary>Лист профиля — стекло сцены вместо глухой заливки.</summary>
         private void StageSheet()

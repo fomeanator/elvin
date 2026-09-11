@@ -100,6 +100,7 @@
     "news_title": "string",
     "open_text": "string",
     "play_text": "string",
+    "portrait": "PortraitFrame",
     "profile_full": "bool",
     "show_daily": "bool",
     "show_gallery": "bool",
@@ -463,6 +464,7 @@
   "LvnWardrobeItem": {
     "color": "string",
     "currency": "string",
+    "gacha": "bool",
     "icon": "string",
     "name": "string",
     "price": "long",
@@ -538,6 +540,10 @@
     "sprite": "string",
     "x": "float",
     "y": "float"
+  },
+  "PortraitFrame": {
+    "anchor": "float",
+    "zoom": "float"
   },
   "SettingsConfig": {
     "accent_color": "string",

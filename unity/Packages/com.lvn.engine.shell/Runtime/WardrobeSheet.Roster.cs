@@ -173,7 +173,10 @@ namespace Lvn.UI.Screens
             var spin = Spinner();
             icon.Add(spin);
             var loads = new List<Task>();
-            const float zoom = 2.6f, ay = 0.13f;   // окно на голову
+            // ОКНО НА ГОЛОВУ — ОБЩЕЕ С ПОРТРЕТОМ ПРОФИЛЯ (TR-68): кружок здесь
+            // и кружок в шапке показывают одно лицо, и своими числами они
+            // разъехались бы при первой же правке.
+            Lvn.UI.LvnHeroPortrait.Window(_manifest, out float zoom, out float ay);
             foreach (var url in urls)
             {
                 if (string.IsNullOrEmpty(url)) continue;

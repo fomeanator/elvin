@@ -351,6 +351,15 @@ namespace Lvn.Content
         public System.Collections.Generic.List<SocialLink> social; // 2-3 clickable icons
     }
 
+    /// <summary>Окно портрета героя (см. <c>LvnHeroPortrait</c>):
+    /// <c>zoom</c> — во сколько раз слой крупнее кружка, <c>anchor</c> — какая
+    /// доля высоты слоя приходится на центр кружка. Нужно там, где у героя иная
+    /// пропорция: голова ребёнка и голова великана стоят на разной высоте.</summary>
+    public sealed class PortraitFrame
+    {
+        public float zoom, anchor;
+    }
+
     /// <summary>Одна аватарка в наборе: картинка и, если платная, цена.
     /// Товар (<c>sku</c>) можно назвать свой — иначе им служит «avatar.id».</summary>
     public sealed class AvatarChoice
@@ -786,6 +795,12 @@ namespace Lvn.Content
         /// открывается.
         /// </summary>
         public System.Collections.Generic.List<AvatarChoice> avatars;
+
+        /// <summary>
+        /// ОКНО ЖИВОГО ПОРТРЕТА (TR-68) — насколько кружок аватара приближен
+        /// к голове героя. Пусто — движковые числа фигуры в полный рост.
+        /// </summary>
+        public PortraitFrame portrait;
 
         /// <summary>Значки валют шапки: id валюты → url картинки. Пусто —
         /// вектор по смыслу валюты.</summary>

@@ -90,6 +90,23 @@ namespace Lvn.UI
             LvnSpineBridge.ClearCache?.Invoke();
         }
 
+        /// <summary>
+        /// КАКАЯ СЕЙЧАС ЭМОЦИЯ У АКТЁРА — по последней его команде.
+        ///
+        /// <para>Спрашивает живой портрет (TR-68): лицо в гардеробе НЕ
+        /// надевается (TR-72), и надетого значения у этой оси не бывает вовсе
+        /// — текущее знает только сцена. Нет команды или оси в ней — пусто, и
+        /// портрет берёт спокойное лицо по умолчанию.</para>
+        /// </summary>
+        public string EmotionOf(string id)
+        {
+            if (string.IsNullOrEmpty(id) || !_memory.TryCommand(id, out var cmd) || cmd == null)
+                return null;
+            foreach (var ax in AxesFrom(cmd))
+                if (LvnWardrobeStage.IsEmotion(ax.Key)) return ax.Value;
+            return null;
+        }
+
         /// <summary>ФИГУРА ЦЕЛА: слои на месте, и каждому есть чем рисовать.
         /// Такую показывают как есть — включением, а не сборкой.</summary>
         public bool ActorArtAlive(string id)

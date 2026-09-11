@@ -379,9 +379,15 @@ namespace Lvn.UI.Screens
 
         /// <summary>Показать другое лицо игрока (TR-79). Пересобирать всю
         /// шапку ради кружка незачем: у аватара своя картинка и своё место.</summary>
-        public void SetAvatar(string url, ILvnAssets assets)
+        public void SetAvatar(string url, ILvnAssets assets, Lvn.Content.LvnManifest manifest = null)
         {
-            if (_stageAvatar == null || string.IsNullOrEmpty(url)) return;
+            if (_stageAvatar == null) return;
+            // Живой портрет героя (TR-68) сильнее картинки набора; нет его —
+            // показываем выбранную аватарку, как прежде. Манифест приходит
+            // доводом, а не хранится здесь: шапка рисует чужие данные и своей
+            // копии каталога иметь не должна.
+            if (Lvn.UI.Screens.LvnPortraitFace.Wear(_stageAvatar, manifest, assets ?? _assets)) return;
+            if (string.IsNullOrEmpty(url)) return;
             LvnPicture.Photo(_stageAvatar, url, assets ?? _assets, cover: true);
         }
 
