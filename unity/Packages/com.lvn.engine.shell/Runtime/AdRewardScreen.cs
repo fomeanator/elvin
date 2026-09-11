@@ -171,34 +171,9 @@ namespace Lvn.UI.Screens
         // ── КНОПКИ ────────────────────────────────────────────────────────────
 
         private VisualElement Primary(Func<string> text, Action onTap)
-        {
-            if (StageDressed)
-            {
-                var plate = LvnStageKit.Button(text, onTap);
-                plate.style.height = LvnStageKit.D(52f);
-                plate.style.marginBottom = LvnTokens.Space2;
-                LvnStageKit.HollowFrame(plate, LvnStageKit.SkinUrl(_skin, "card-back.png"), _assets,
-                                        LvnStageKit.CardBackW, LvnStageKit.CardBackH,
-                                        LvnStageKit.CardBackCornerPx, LvnStageKit.CardBackPxPerDp,
-                                        index: 0, solid: true);
-                return plate;
-            }
-            var btn = Lvn.UI.LvnRedress.Bind(new Button(() => onTap()), text);
-            btn.style.fontSize = LvnTokens.TextBase;
-            btn.style.unityFontStyleAndWeight = FontStyle.Bold;
-            LvnAir.PadY(btn, LvnTokens.Space3);
-            btn.style.marginBottom = LvnTokens.Space2;
-            LvnStyler.Primary(btn, LvnTokens.RadiusSm);
-            return btn;
-        }
+            => LvnStageKit.SheetPrimary(text, onTap, _skin, _assets);
 
         private static VisualElement Quiet(Func<string> text, Action onTap)
-        {
-            var btn = Lvn.UI.LvnRedress.Bind(new Button(() => onTap()), text);
-            btn.style.fontSize = LvnTokens.TextSm;
-            LvnAir.PadY(btn, LvnTokens.Space2);
-            LvnStyler.Quiet(btn, LvnTokens.RadiusSm);
-            return btn;
-        }
+            => LvnStageKit.SheetQuiet(text, onTap);
     }
 }
