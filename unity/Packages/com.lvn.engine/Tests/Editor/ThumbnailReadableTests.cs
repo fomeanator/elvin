@@ -19,22 +19,28 @@ namespace Lvn.Tests
     /// </summary>
     public class ThumbnailReadableTests
     {
+        // Уборка — в [TearDown], а не в конце теста: упавшее утверждение
+        // оставляет текстуры жить до конца сессии редактора, и следующий тест
+        // падает не от своей причины.
+        private readonly Мусор _мусор = new Мусор();
+
+        [TearDown]
+        public void Убрать() => _мусор.Убрать();
+
         [Test]
         public void УменьшеннаяКопияДляДискаКодируетсяВPng()
         {
-            var src = new Texture2D(8, 8, TextureFormat.RGBA32, false);
+            var src = _мусор.Беречь(new Texture2D(8, 8, TextureFormat.RGBA32, false));
             for (int x = 0; x < 8; x++)
                 for (int y = 0; y < 8; y++)
                     src.SetPixel(x, y, Color.magenta);
             src.Apply();
 
-            var small = LvnTexCopy.Rescale(src, 4, 4, readable: true);
+            var small = _мусор.Беречь(LvnTexCopy.Rescale(src, 4, 4, readable: true));
             Assert.IsNotNull(small);
             Assert.IsTrue(small.isReadable, "копия для диска остаётся на процессоре");
             Assert.IsNotEmpty(small.EncodeToPNG(), "иначе карточка не запишется, и никто не узнает");
 
-            Object.DestroyImmediate(small);
-            Object.DestroyImmediate(src);
         }
     }
 }

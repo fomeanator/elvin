@@ -78,7 +78,8 @@ namespace Lvn.UI
             // Разбор json стоит 100-170 мс на главном потоке. Мост умеет сделать
             // его заранее и в стороне; без прогрева они пришлись бы ровно на тот
             // кадр, в котором игрок открывает ленту.
-            try { await LvnSpineBridge.Prepare(kit.Json, kit.Atlas, kit.Textures); } catch { }
+            try { await LvnSpineBridge.Prepare(kit.Json, kit.Atlas, kit.Textures); }
+            catch { }   // прогрев — ускорение, а не условие показа: без него фигура соберётся позже
         }
 
         // Файлы одного скелета. ОБЩИЙ ДОМ для прогрева и сборки нарочно: разойдись
@@ -111,11 +112,15 @@ namespace Lvn.UI
             kit.Json = await loadText(spine.json);
             string atlasText = null;
             try { atlasText = await loadText(spine.atlas); }
-            catch { }
+            catch { }   // имя атласа угадываем: вторая попытка ниже, крик тут был бы ложной тревогой
             if (string.IsNullOrEmpty(atlasText))
             {
                 var alt = AtlasWithoutTxt(spine.atlas);
-                if (!string.IsNullOrEmpty(alt)) { try { atlasText = await loadText(alt); spine.atlas = alt; } catch { } }
+                if (!string.IsNullOrEmpty(alt))
+                {
+                    try { atlasText = await loadText(alt); spine.atlas = alt; }
+                    catch { }   // вторая догадка об имени; нет и её — откатимся на обложку
+                }
             }
             if (string.IsNullOrEmpty(kit.Json) || string.IsNullOrEmpty(atlasText)) return kit;
             kit.Atlas = atlasText;
@@ -125,7 +130,8 @@ namespace Lvn.UI
             foreach (var url in PageUrls(spine.atlas, atlasText, spine.texture))
             {
                 Sprite spr = null;
-                try { spr = await loadSprite(url); } catch { }
+                try { spr = await loadSprite(url); }
+                catch { }   // страница атласа не доехала: пустая отсеется ниже, покажем что есть
                 var tex = LiveTexture(spr);
                 if (tex != null) { textures.Add(tex); sprites.Add(spr); }
             }
@@ -135,7 +141,8 @@ namespace Lvn.UI
             if (!string.IsNullOrEmpty(spine.bg))
             {
                 Sprite bg = null;
-                try { bg = await loadSprite(spine.bg); } catch { }
+                try { bg = await loadSprite(spine.bg); }
+                catch { }   // подложка необязательна: без неё фигура стоит на своём фоне
                 kit.Bg = LiveTexture(bg);
                 if (kit.Bg != null) sprites.Add(bg);
             }
