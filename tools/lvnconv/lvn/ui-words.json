@@ -44,6 +44,10 @@
   "default": "No connection — will check later"
  },
  {
+  "key": "ads.board",
+  "default": "AD"
+ },
+ {
   "key": "ads.done",
   "default": "Done"
  },

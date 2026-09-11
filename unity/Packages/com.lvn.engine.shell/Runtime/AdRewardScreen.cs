@@ -21,7 +21,7 @@ namespace Lvn.UI.Screens
     /// рекламы, награду начисляет сервер — здесь не считают ни того, ни
     /// другого.</para>
     /// </summary>
-    public sealed class AdRewardScreen : LvnOverlayScreen, ILvnContentAware
+    public sealed partial class AdRewardScreen : LvnOverlayScreen, ILvnContentAware
     {
         private readonly ILvnAssets _assets;
         private readonly VisualElement _sheet;
@@ -74,7 +74,12 @@ namespace Lvn.UI.Screens
 
         /// <inheritdoc cref="ILvnContentAware.SetContent"/>
         public void SetContent(LvnManifest manifest)
-            => LvnStageKit.TakeSkin(manifest, ref _skin, StageDress);
+        {
+            _manifest = manifest;
+            LvnStageKit.TakeSkin(manifest, ref _skin, StageDress);
+        }
+
+        private LvnManifest _manifest;
 
         private void StageDress()
             => _stageGlass = LvnStageKit.DressSheet(_sheet, _skin, _assets, _stageGlass, _title);
@@ -84,6 +89,7 @@ namespace Lvn.UI.Screens
         public async Task RunAsync(string placement)
         {
             _placement = placement;
+            BuildBillboard();   // щит стоит на сцене всё время разговора (TR-64)
             Offer();
             await ShowAsync();
         }
@@ -130,10 +136,14 @@ namespace Lvn.UI.Screens
 
         private async Task WatchAsync()
         {
+            // СНАЧАЛА ПЕРЕЕЗД, ПОТОМ РОЛИК: щит вырастает во весь кадр, и
+            // реклама начинается ИЗ сцены, а не поверх разговора.
+            await ApproachAsync();
             bool granted = false;
             try { granted = await Lvn.Services.LvnAds.WatchAndRewardAsync(_placement); }
             catch (Exception e) { LvnLog.Trace("[lvn-ads] показ не удался: " + e.Message); }
             if (!IsOpen) return;
+            Depart();
             Result(granted);
         }
 
