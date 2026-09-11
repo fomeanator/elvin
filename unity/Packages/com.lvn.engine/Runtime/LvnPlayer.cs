@@ -77,7 +77,7 @@ namespace Lvn
         {
             "bg", "bg3d", "actor", "obj", "text", "audio", "fade", "dim", "tint",
             "flash", "blur", "camera", "particles", "anim", "text_pace",
-            "ui", "cutscene",
+            "ui", "cutscene", "cutscene_mark",
             "hint", "save", "clear", "fx", "sfx", "portal",
         };
 
