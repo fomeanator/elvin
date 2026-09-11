@@ -24,6 +24,9 @@ type AdminService struct {
 	token   string
 	auth    *AuthService
 	wallet  *WalletService
+	// Служба ссылок на прохождения: админка спрашивает у неё сводку, а не
+	// лезет в её таблицу — счёт живёт там же, где хранение.
+	shares *ShareService
 	// Именованные учётки панели. Пусто — значит вход только по токену
 	// (первый запуск, пока никого не завели).
 	users *AdminUsers
@@ -62,6 +65,7 @@ func (s *AdminService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/admin/users/", s.handleUserDetail)
 	mux.HandleFunc("/v1/admin/grant", s.handleGrant)
 	mux.HandleFunc("/v1/admin/orders", s.handleOrders)
+	mux.HandleFunc("/v1/admin/shares", s.handleShares)
 	mux.HandleFunc("/v1/admin/saves", s.handleSaves)
 	mux.HandleFunc("/v1/admin/saves/", s.handleSaveDetail)
 	mux.HandleFunc("/v1/admin/config/", s.handleConfig)
@@ -511,6 +515,35 @@ func (s *AdminService) handleGrant(w http.ResponseWriter, r *http.Request) {
 
 // The purchase ledger across every wallet: IAP grants and sku spends (shop /
 // wardrobe buys), newest first.
+// СКОЛЬКО ПРОХОЖДЕНИЙ РАЗДАЛИ И СКОЛЬКО РАЗ ОТКРЫЛИ (TR-18). Продажи по таким
+// ссылкам видны в заказах причиной "share_look" — второй счёт того же события
+// разошёлся бы с первым.
+func (s *AdminService) handleShares(w http.ResponseWriter, r *http.Request) {
+	if !s.ok(w, r) {
+		return
+	}
+	if s.shares == nil {
+		writeJSON(w, http.StatusOK, map[string]any{"links": 0, "opens": 0})
+		return
+	}
+	out := s.shares.AdminSummary()
+	// Покупки считаем по журналу кошелька: одна причина — одна правда.
+	var bought int
+	var spent int64
+	for _, id := range s.wallet.AllUserIDs() {
+		doc := s.wallet.AdminLoad(id)
+		for _, e := range doc.History {
+			if e.Reason == "share_look" {
+				bought++
+				spent += e.Amount
+			}
+		}
+	}
+	out["bought"] = bought
+	out["spent"] = spent
+	writeJSON(w, http.StatusOK, out)
+}
+
 func (s *AdminService) handleOrders(w http.ResponseWriter, r *http.Request) {
 	if !s.ok(w, r) {
 		return

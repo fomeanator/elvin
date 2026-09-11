@@ -543,7 +543,7 @@ namespace Lvn.UI.Screens
             var q = Lvn.LvnUrl.Query(url);
             if (string.IsNullOrEmpty(q)) return;
 
-            string titleId = null, chapterId = null;
+            string titleId = null, chapterId = null, share = null;
             foreach (var pair in q.Split('&'))
             {
                 int eq = pair.IndexOf('=');
@@ -552,6 +552,15 @@ namespace Lvn.UI.Screens
                 var val = System.Uri.UnescapeDataString(pair.Substring(eq + 1).Replace("+", " "));
                 if (key == "title" || key == "t") titleId = val;
                 else if (key == "chapter" || key == "ch") chapterId = val;
+                else if (key == "share" || key == "s") share = val;
+            }
+            // ССЫЛКА НА ЧУЖОЕ ПРОХОЖДЕНИЕ (TR-17/TR-18) — сама себе адрес: она
+            // и есть то, ради чего её открыли, и новелла из неё узнаётся сама.
+            // Поэтому код проверяем ПЕРВЫМ и не требуем рядом title.
+            if (!string.IsNullOrEmpty(share))
+            {
+                LvnAsync.Fire(TakeShareAsync(share), "DeepLinkShare");
+                return;
             }
             if (string.IsNullOrEmpty(titleId)) return;
             if (!string.IsNullOrEmpty(chapterId))

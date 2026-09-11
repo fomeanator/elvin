@@ -51,6 +51,30 @@ func (s *ShareService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/share/", s.handleTake)
 }
 
+// СВОДКА ПО ССЫЛКАМ (TR-18) — сколько прохождений раздали и сколько раз их
+// открыли. Это канал привлечения: блогерка кидает ссылку, по ней приходят, и
+// без счёта разговор о «работает ли это» превращается в мнения.
+//
+// Покупки по таким ссылкам считать ЗДЕСЬ не нужно: они лежат в журнале
+// кошелька причиной "share_look", и второй счёт того же события разошёлся бы
+// с первым на первой же правке.
+func (s *ShareService) AdminSummary() map[string]any {
+	out := map[string]any{"links": 0, "opens": 0}
+	var links, opens, withOpens int
+	err := s.db.QueryRow(
+		`SELECT count(*), coalesce(sum(taken),0), coalesce(sum(taken > 0),0)
+		   FROM shares WHERE until >= ?`, s.now().UTC().Unix()).
+		Scan(&links, &opens, &withOpens)
+	if err != nil {
+		log.Printf("share: summary: %v", err)
+		return out
+	}
+	out["links"] = links
+	out["opens"] = opens
+	out["opened_links"] = withOpens
+	return out
+}
+
 // КОД ССЫЛКИ — ВОСЕМЬ ЗНАКОВ БЕЗ ПОХОЖИХ. Его читают с чужого экрана и
 // набирают руками, поэтому из алфавита убраны 0/O, 1/I/l: «код не работает» от
 // перепутанной буквы выглядит как сломанная игра.
