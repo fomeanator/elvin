@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -308,6 +309,7 @@ namespace Lvn.UiLab
 
             // Сценарию загрузчика нужен живой кружок — идём к нему сразу,
             // пока библиотека греется, не дожидаясь тишины сети и арта.
+            if (_tag.StartsWith("qa")) { yield return Qa(); if (marked != null) LvnProgress.ClearCurrent(marked); Done(); yield break; }
             if (_tag.StartsWith("dlvideo")) { yield return Video(); if (marked != null) LvnProgress.ClearCurrent(marked); Done(); yield break; }
             if (_tag.StartsWith("dl")) { yield return Downloads(); if (marked != null) LvnProgress.ClearCurrent(marked); Done(); yield break; }
             yield return new WaitForSecondsRealtime(4f);
@@ -430,6 +432,135 @@ namespace Lvn.UiLab
             Debug.Log($"[shots] видео: состояние «{st?.text}», процент «{pc?.text}», скорость «{sp?.text}», отдача «{hud.Q<Label>("download-up")?.text}»");
             _recording = false;
             yield return null;
+        }
+
+        // ── проверка находок тестировщика 11.09 ─────────────────────────────
+        // Семь пунктов Арама и Ильи: имя в шапке, валюта, дверь логотипа,
+        // кнопка круток, смена героя, эмоция, скрытый интерфейс главы.
+        // Каждый — вердикт в лог и кадр.
+
+        private IEnumerator Qa()
+        {
+            var bf = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+            VisualElement HubField(string n) => _hub.GetType().GetField(n, bf)?.GetValue(_hub) as VisualElement;
+            var shell = _app.Shell;
+            var bar = shell.TopBar;
+            VisualElement BarField(string n) => bar.GetType().GetField(n, bf)?.GetValue(bar) as VisualElement;
+            float CenterY(VisualElement e) => e != null ? e.worldBound.center.y : float.NaN;
+
+            // 1. Имя: игрок назвался — шапка перечиталась сразу, без пересборки.
+            string before = Lvn.UI.LvnPlayerName.Display;
+            var nameLbl = bar.Query<Label>().Where(l => l.text == before).First();
+            string wasName = Lvn.UI.LvnPlayerName.Current;
+            Lvn.UI.LvnPlayerName.Set("Виктория");
+            yield return null;
+            Verdict($"имя в шапке после ввода — «{nameLbl?.text}» (было «{before}»)", nameLbl != null && nameLbl.text == "Виктория");
+            yield return Shoot("qa-name");
+
+            // 2. Валюта: значок, число и «плюс» на одной середине, зазоры равные.
+            var pills = bar.Query<LvnWalletPill>().ToList();
+            bool aligned = pills.Count > 0; string geo = "";
+            foreach (var pill in pills)
+            {
+                if (pill.childCount < 3) { aligned = false; continue; }
+                var icon = pill[0]; var amount = pill.Q<Label>(); var plus = pill[pill.childCount - 1];
+                float dy = Mathf.Max(Mathf.Abs(CenterY(icon) - CenterY(amount)), Mathf.Abs(CenterY(plus) - CenterY(amount)));
+                float gapL = amount.worldBound.xMin - icon.worldBound.xMax, gapR = plus.worldBound.xMin - amount.worldBound.xMax;
+                geo += $" [{amount.text}: Δy={dy:F0} зазоры {gapL:F0}/{gapR:F0}]";
+                if (dy > 3f || Mathf.Abs(gapL - gapR) > 3f) aligned = false;
+            }
+            Verdict("валюта: одна середина и равные зазоры" + geo, aligned);
+
+            // 3. Дверь логотипа: аватар открывает профиль, буквы ведут домой.
+            Tap(BarField("_stageAvatar"));
+            yield return new WaitForSecondsRealtime(1.5f);
+            Verdict("тап по аватару открыл профиль", shell.Profile != null && OnScreen(shell.Profile));
+            yield return Shoot("qa-profile");
+            Tap(bar.Q(name: "stage-logo-door"));
+            yield return new WaitForSecondsRealtime(1.5f);
+            Verdict("дверь логотипа вернула главную", OnScreen(HubField("_hubView")) && !(shell.Profile != null && OnScreen(shell.Profile)));
+
+            // 4. Кнопка круток на месте.
+            var spin = HubField("_stageSpin");
+            Verdict($"кнопка круток показана (обработчик {(_hub.OnSpin != null ? "есть" : "нет")})",
+                spin != null && spin.resolvedStyle.display == DisplayStyle.Flex && _hub.OnSpin != null);
+
+            // 5. Гардероб: другой герой → в меню одна кукла, а не двое.
+            Tap(_hub.Q(name: "stage-tab-" + LvnTabs.Wardrobe));
+            yield return new WaitForSecondsRealtime(2.5f);
+            var tab = shell.WardrobeTab;
+            var sheet = tab?.GetType().GetField("_sheet", bf)?.GetValue(tab) as VisualElement;
+            var roster = sheet?.GetType().GetField("_roster", bf)?.GetValue(sheet) as List<(string id, string name)>;
+            string firstId = roster != null && roster.Count > 0 ? roster[0].id : null;
+            string otherName = roster != null && roster.Count > 1 ? roster[1].name : null;
+            var otherTile = otherName != null ? sheet.Query<Button>().Where(b => b.text == otherName || (b.Q<Label>()?.text == otherName)).First() : null;
+            Debug.Log($"[shots] тур: ростер {(roster == null ? "нет" : string.Join(", ", roster.ConvertAll(r => r.id + "=" + r.name)))}, плитка другого {(otherTile != null ? "есть" : "нет")}");
+            if (otherTile != null)
+            {
+                Tap(otherTile);
+                yield return new WaitForSecondsRealtime(3f);
+                yield return Shoot("qa-hero2");
+                Tap(_hub.Q(name: "stage-tab-home"));
+                yield return new WaitForSecondsRealtime(3f);
+                var onStage = _app.Stage != null ? _app.Stage.ActorsOnStage() : new List<string>();
+                Verdict($"после смены героя в меню одна кукла ({string.Join(", ", onStage)})", onStage.Count == 1);
+                yield return Shoot("qa-hero-home");
+                // назад к первому герою — стенд не должен оставаться переключённым
+                Tap(_hub.Q(name: "stage-tab-" + LvnTabs.Wardrobe));
+                yield return new WaitForSecondsRealtime(2.5f);
+                var firstTile = firstId != null ? sheet.Query<Button>().Where(b => b.text == roster[0].name || (b.Q<Label>()?.text == roster[0].name)).First() : null;
+                if (firstTile != null) { Tap(firstTile); yield return new WaitForSecondsRealtime(2f); }
+            }
+            else Verdict("смена героя: второй плитки нет — не проверить", false);
+
+            // 6. Эмоция: пункт → примерка → облик куклы берёт выбранное лицо.
+            string entity = sheet?.GetType().GetField("_entity", bf)?.GetValue(sheet) as string;
+            string axis = sheet?.GetType().GetField("_emotionAxis", bf)?.GetValue(sheet) as string;
+            string current = entity != null && axis != null ? Lvn.UI.LvnCostumer.Chosen(entity, axis, null) : null;
+            var def = _app.Stage?.Catalog?.Get(entity);
+            var values = def?.axes != null && axis != null && def.axes.TryGetValue(axis, out var vals) ? vals : null;
+            string pick = values != null ? values.Find(v => v != current && v != "idle") : null;
+            Debug.Log($"[shots] тур: эмоция — сущность {entity ?? "-"}, ось {axis ?? "-"}, сейчас {current ?? "-"}, беру {pick ?? "-"}");
+            if (entity != null && axis != null && pick != null)
+            {
+                string word = LvnWords.Of("emotion." + pick, pick);
+                var chip = sheet.Query<Button>().Where(b => b.text == word || b.text == pick).First();
+                Tap(chip);
+                yield return new WaitForSecondsRealtime(1.5f);
+                var look = Lvn.UI.LvnCostumer.Look(new Dictionary<string, string> { [axis] = "idle" }, entity, null);
+                Verdict($"эмоция «{pick}»: пункт {(chip != null ? "нажат" : "не найден")}, примерка {Lvn.UI.LvnCostumer.Chosen(entity, axis, null)}, облик даёт {(look.TryGetValue(axis, out var got) ? got : "-")}",
+                    chip != null && look.TryGetValue(axis, out var got2) && got2 == pick);
+                yield return Shoot("qa-emotion");
+                Lvn.UI.LvnWardrobe.ClearPreview(entity);
+            }
+            else Verdict("эмоция: нет оси или значений — не проверить", false);
+            Tap(_hub.Q(name: "stage-tab-home"));
+            yield return new WaitForSecondsRealtime(2f);
+
+            // 7. Глава: скрытый интерфейс не накрывает процент и валюту; «Авто» есть и включается.
+            Tap(_hub.Q(name: "stage-open-card"));
+            yield return new WaitForSecondsRealtime(2f);
+            var playWord = LvnWords.Of("hub.play", "Play");
+            var playLbl = shell.Detail?.Query<Label>().Where(l => string.Equals(l.text, playWord, System.StringComparison.OrdinalIgnoreCase)).First();
+            Tap(playLbl?.parent ?? playLbl);
+            for (float t = 0f; t < 40f && !Lvn.UI.LvnScreenDirector.Current.InChapter; t += 0.5f) yield return new WaitForSecondsRealtime(0.5f);
+            Verdict("глава открылась по «Играть»", Lvn.UI.LvnScreenDirector.Current.InChapter);
+            yield return new WaitForSecondsRealtime(4f);
+            Tap(BarField("_tapCatcher"));
+            yield return new WaitForSecondsRealtime(1.2f);
+            var row = BarField("_gameRow"); var mini = BarField("_miniPills"); var prog = BarField("_miniProgress");
+            float lineBottom = Mathf.Max(mini?.worldBound.yMax ?? 0f, prog?.worldBound.yMax ?? 0f);
+            Verdict($"ряд кнопок под строкой процента и валюты (ряд с {row?.worldBound.yMin:F0}, строка до {lineBottom:F0})",
+                row != null && row.resolvedStyle.display == DisplayStyle.Flex && row.worldBound.yMin >= lineBottom - 1f);
+            yield return Shoot("qa-chapter-row");
+            var autoWord = LvnWords.Of("game.auto", "Auto");
+            var autoLbl = row?.Query<Label>().Where(l => l.text == autoWord).First();
+            Tap(autoLbl?.parent);
+            yield return new WaitForSecondsRealtime(1f);
+            Verdict($"«{autoWord}» в ряду включает авточтение", autoLbl != null && _app.Stage != null && _app.Stage.AutoReading);
+            yield return Shoot("qa-auto");
+            _app.Stage?.StopAuto();
+            Lvn.UI.LvnPlayerName.Set(wasName ?? string.Empty);
         }
 
         // ── тур по нажатиям ─────────────────────────────────────────────────
