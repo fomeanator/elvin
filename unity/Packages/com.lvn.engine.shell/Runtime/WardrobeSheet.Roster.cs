@@ -201,7 +201,8 @@ namespace Lvn.UI.Screens
 
         private static async Task DropWhenLoaded(VisualElement spin, List<Task> loads)
         {
-            try { await Task.WhenAll(loads); } catch { }
+            try { await Task.WhenAll(loads); }
+            catch { }   // ждём только КОНЦА загрузок: крутилка обязана уйти в любом исходе
             spin?.RemoveFromHierarchy();
         }
 
