@@ -106,6 +106,7 @@
     "profile_full": "bool",
     "reactions": "string",
     "rooms": "map:float",
+    "share_link": "string",
     "show_daily": "bool",
     "show_gallery": "bool",
     "show_level": "bool",

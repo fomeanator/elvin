@@ -1,6 +1,7 @@
 using System.Threading.Tasks;
 using Lvn.Content;
 using Lvn.UI;
+using UnityEngine;
 using Newtonsoft.Json.Linq;
 
 namespace Lvn.UI.Screens
@@ -47,11 +48,18 @@ namespace Lvn.UI.Screens
                                         LvnWords.Of("share.failed", "Could not share right now."));
                 return;
             }
-            // Ссылку И код: ссылка открывается нажатием, код переживает
-            // пересылку через любое место, где ссылки режут.
+            // ССЫЛКУ, ЕСЛИ ОНА ЕСТЬ, ИНАЧЕ КОД. Ссылка открывает игру сразу на
+            // нужном месте, но домен продукта объявляет новелла: выдумать его
+            // значило бы дать ссылку, которая никуда не ведёт. Копируем в буфер
+            // сразу — иначе игрок переписывает восемь знаков руками.
+            var link = _manifest?.ui?.browse?.share_link;
+            var shown = string.IsNullOrEmpty(link) ? code : link + code;
+            GUIUtility.systemCopyBuffer = shown;
             await _shell.AlertAsync(
                 LvnWords.Of("share.title", "Share"),
-                LvnWords.Of("share.ready", "Send this code to a friend: {0}", code));
+                string.IsNullOrEmpty(link)
+                    ? LvnWords.Of("share.ready", "Send this code to a friend: {0}", shown)
+                    : LvnWords.Of("share.ready_link", "Link copied — send it to a friend: {0}", shown));
         }
 
         /// <summary>Принять чужое прохождение по коду: снимок кладётся в

@@ -243,7 +243,9 @@ func main() {
 	dailySvc.Routes(mux)
 	gachaSvc.Routes(mux)
 	// Передача прохождения (TR-17): игрок отдаёт свой снимок по ссылке.
-	NewShareService(db, authSvc).Routes(mux)
+	shareSvc := NewShareService(db, authSvc)
+	shareSvc.Routes(mux)
+	adminSvc.shares = shareSvc // сводка «раздали / открыли» для панели
 	adsSvc.Routes(mux)
 	netSvc := NewNetService()
 	netSvc.Routes(mux) // комнаты для игры вдвоём: сервер держит ящики, правила у клиентов
