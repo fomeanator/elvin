@@ -293,7 +293,10 @@ namespace Lvn.UI
                 foreach (var raw in atlasText.Split('\n'))
                 {
                     var line = raw.Trim();
-                    if (line.EndsWith(".png") || line.EndsWith(".PNG")) urls.Add(dir + line);
+                    // РОД ФАЙЛА СПРАШИВАЕМ У ДОМА. Свой список расширений знал
+                    // только png — атлас со страницей в jpg (Spine так тоже
+                    // умеет) разбирался в пустоту, молча и без ошибки.
+                    if (Lvn.Content.DownloadPolicy.IsImage(line)) urls.Add(dir + line);
                 }
             if (urls.Count == 0 && !string.IsNullOrEmpty(fallback)) urls.Add(fallback);
             return urls;
