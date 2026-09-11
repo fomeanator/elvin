@@ -337,8 +337,11 @@ namespace Lvn.UI
             // Через дом закрытого слова: опечатка в `ui.stage.speaker_focus`
             // молча означала «dim», и режим новеллы просто не включался.
             if (Theme == null) return;
-            if (LvnAuthorWord.Pick(Theme.SpeakerFocus, "ui.stage.speaker_focus", "dim",
-                                   "dim", "solo") != "solo") return;
+            // «none» — законное слово, а не опечатка: так выглядит тема по
+            // умолчанию (VnTheme.SpeakerFocus), и без него дом закрытого слова
+            // ругался на КАЖДУЮ реплику любой новеллы, где фокус не задан.
+            if (LvnAuthorWord.Pick(Theme.SpeakerFocus, "ui.stage.speaker_focus", "none",
+                                   "none", "dim", "solo") != "solo") return;
 
             if (!string.IsNullOrEmpty(speakerId))
             {

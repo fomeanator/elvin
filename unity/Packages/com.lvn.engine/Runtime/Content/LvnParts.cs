@@ -208,9 +208,14 @@ namespace Lvn.Content
                 if (Fetchable(slot.icon) && seen.Add(slot.icon))
                     yield return new LvnPart(slot.icon, Sprite);
                 if (slot.items == null) continue;
+                // Шаблонная иконка предмета греется в облике по умолчанию (см.
+                // OfCast) — иначе она молча выпадала из прогрева героини.
                 foreach (var it in slot.items)
-                    if (Fetchable(it?.icon) && seen.Add(it.icon))
-                        yield return new LvnPart(it.icon, Sprite);
+                {
+                    var icon = Lvn.LayerTemplate.Fill(it?.icon, e.defaults, e.defaults);
+                    if (Fetchable(icon) && seen.Add(icon))
+                        yield return new LvnPart(icon, Sprite);
+                }
             }
         }
 
@@ -366,9 +371,17 @@ namespace Lvn.Content
                     if (Fetchable(slot.icon))
                         yield return new LvnPart(slot.icon, Sprite);
                     if (slot.items == null) continue;
+                    // ИКОНКА ПРЕДМЕТА — ШАБЛОН: `hair_rose_{hair}` показывает
+                    // причёску в ТЕКУЩЕМ цвете (WardrobeSheet.ResolveIcon). Сырой
+                    // шаблон в очереди — гарантированный промах: семь строк
+                    // «ось не подставлена» на каждом запуске (журнал 11.09), а
+                    // сами иконки оставались холодными. Греем облик по умолчанию:
+                    // с ним лист гардероба и открывается.
                     foreach (var it in slot.items)
-                        if (!string.IsNullOrEmpty(it?.icon))
-                            yield return new LvnPart(it.icon, Sprite);
+                    {
+                        var url = Lvn.LayerTemplate.Fill(it?.icon, e.defaults, e.defaults);
+                        if (Fetchable(url)) yield return new LvnPart(url, Sprite);
+                    }
                 }
             }
         }

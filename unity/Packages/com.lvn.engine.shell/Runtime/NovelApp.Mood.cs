@@ -179,12 +179,16 @@ namespace Lvn.UI.Screens
             if (asleep) Play(_mood.Ended());
         }
 
-        private void ReleaseFace()
+        /// <param name="refresh">Пересобрать ли фигуру сразу. При уходе в
+        /// главу — НЕТ: пересборка заново показала бы куклу витрины уже в
+        /// сцене истории («ЛИШНИЕ [victoria]» в кадре главы); слой витрины
+        /// закрывается следом и уводит её сам.</param>
+        private void ReleaseFace(bool refresh = true)
         {
             var id = Stage?.Prima?.Id;
             if (string.IsNullOrEmpty(id) || LvnFace.Holding(id) == null) return;
             LvnFace.Release(id);
-            Stage.RefreshActor(id);
+            if (refresh) Stage.RefreshActor(id);
         }
 
         /// <summary>
