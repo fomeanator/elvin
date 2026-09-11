@@ -241,8 +241,14 @@ namespace Lvn.UI
         private Dictionary<string, string> AxesOf(JObject cmd)
         {
             var vars = _player?.Vars;
-            return LvnCostumer.Look(AxesFrom(cmd), (string)cmd["id"],
+            var id = (string)cmd["id"];
+            var axes = LvnCostumer.Look(AxesFrom(cmd), id,
                 vars != null ? (Func<string, string>)(v => TextInterpolation.Apply(v, vars)) : null);
+            // ВЫРАЖЕНИЕ ЛИЦА — ПОСЛЕ КОСТЮМЕРА. Реакция витрины ложится поверх
+            // собранного облика и уступает выбору игрока; старшинство читается
+            // в одном доме (LvnFace), а не размазано по отправителям команд.
+            LvnFace.ApplyTo(axes, id);
+            return axes;
         }
 
         // Множитель размера. Работает и когда ширина с высотой не заданы: тогда

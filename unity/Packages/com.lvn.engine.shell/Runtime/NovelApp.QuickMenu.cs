@@ -302,7 +302,7 @@ namespace Lvn.UI.Screens
             _shell.OnTabTravel = (from, to) =>     // полотно панорамирует с вкладками
             {
                 PanMenuScene(from, to);
-                RoomMood(to);                      // …и героиня узнаёт, куда приехали (TR-66)
+                RoomMoodAfterTravel(to);           // …и героиня узнаёт, куда приехали, — доехав (TR-66)
             };
             _shell.OnTabTravelTick = k =>          // …кадр в кадр с UI
             {
