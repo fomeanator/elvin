@@ -118,6 +118,39 @@ namespace Lvn.UI
         }
 
         /// <summary>
+        /// РОСТ В МЕТРАХ СИЛЬНЕЕ ЛЮБОЙ ДОЛИ ЭКРАНА.
+        ///
+        /// <para>Рост — свойство самого персонажа, а долю экрана называет тот,
+        /// кто его ставит: сценарий одну, меню другую, гардероб третью. Пока
+        /// побеждала доля, один и тот же человек менял рост на каждом переходе.
+        /// Порядок ответов: назвали метры в команде — считаем по ним; молчит
+        /// команда, но рост есть у персонажа — по нему; нет ни того ни другого —
+        /// всё как раньше, доли экрана и тема.</para>
+        ///
+        /// <para>И это свойство МИРА СЦЕНЫ, а не витрины. В кадре истории
+        /// человек ростом 1.7 при потолке 2 занимает 85 % экрана, и это верно:
+        /// там он стоит в комнате. Витрина меню — не комната, а полка: её кукла
+        /// стоит за карточками и меряется рамкой витрины
+        /// (<c>ui.browse.doll_height</c>). Когда шкала мира дотянулась и до
+        /// неё, героиня выросла во весь экран и оказалась обрезанной по грудь
+        /// (живая запись Ильи, 27.08). Витрина вправе назвать метры явно —
+        /// тогда она сама этого захотела.</para>
+        /// </summary>
+        private static void ApplyHeightInMetres(JObject cmd, string id,
+            LvnSpriteEntity aspectEntity, LvnSender sender, ref Placement placement)
+        {
+            float meters = LvnScale.MetersIn(cmd);
+            if (meters <= 0f && aspectEntity != null && LvnStageManager.Sticky(sender))
+                meters = LvnScale.MetersOf(aspectEntity.meters);   // свой рост или общий (TR-45)
+            if (meters <= 0f || !LvnScale.Sane) return;
+
+            if (!Mathf.Approximately(placement.Meters, meters))
+                LvnLog.Trace($"[lvn-scale] {id}: рост {meters:0.00} м при сцене "
+                           + $"{LvnScale.SceneMeters:0.00} м → {LvnScale.Fraction(meters):0.000} кадра");
+            placement.Meters = meters;
+        }
+
+        /// <summary>
         /// УХОД ФИГУРЫ — работа без арта, и потому отдельная.
         ///
         /// <para>Раньше он шёл общим путём показа и ЖДАЛ те самые слои, которые
@@ -290,31 +323,7 @@ namespace Lvn.UI
                 placement.ContentW = box.w; placement.ContentH = box.h;
             }
 
-            // РОСТ В МЕТРАХ СИЛЬНЕЕ ЛЮБОЙ ДОЛИ ЭКРАНА. Рост — свойство самого
-            // персонажа, а долю экрана называет тот, кто его ставит: сценарий
-            // одну, меню другую, гардероб третью. Пока побеждала доля, один и
-            // тот же человек менял рост на каждом переходе. Теперь: назвал
-            // метры в команде — считаем по ним; молчит команда, но рост есть у
-            // персонажа — считаем по нему; нет ни того ни другого — всё как
-            // раньше, доли экрана и тема.
-            // РОСТ В МЕТРАХ — СВОЙСТВО МИРА СЦЕНЫ, А НЕ ВИТРИНЫ. В кадре истории
-            // человек ростом 1.7 при потолке 2 занимает 85% экрана, и это верно:
-            // там он стоит в комнате. Но витрина меню — не комната, а полка: её
-            // кукла стоит за карточками и меряется рамкой витрины
-            // (ui.browse.doll_height). Когда шкала мира дотянулась и до неё,
-            // героиня выросла во весь экран и оказалась обрезанной по грудь
-            // (живая запись Ильи, 27.08). Витрина по-прежнему может назвать
-            // метры явно — тогда она сама этого захотела.
-            float meters = LvnScale.MetersIn(cmd);
-            if (meters <= 0f && aspectEntity != null && LvnStageManager.Sticky(sender))
-                meters = LvnScale.MetersOf(aspectEntity.meters);   // свой рост или общий (TR-45)
-            if (meters > 0f && LvnScale.Sane)
-            {
-                if (!Mathf.Approximately(placement.Meters, meters))
-                    LvnLog.Trace($"[lvn-scale] {id}: рост {meters:0.00} м при сцене "
-                               + $"{LvnScale.SceneMeters:0.00} м → {LvnScale.Fraction(meters):0.000} кадра");
-                placement.Meters = meters;
-            }
+            ApplyHeightInMetres(cmd, id, aspectEntity, sender, ref placement);
 
             // Smart slots: never draw two actors standing inside each other.
             if (placement.Show)
