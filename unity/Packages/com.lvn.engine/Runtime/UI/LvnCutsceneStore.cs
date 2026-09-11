@@ -93,6 +93,12 @@ namespace Lvn.UI
             return list;
         }
 
+        /// <summary>Сколько секунд повтор сцены считается ТЕМ ЖЕ проходом.
+        /// Полчаса: за это время игрок мог откатиться и перечитать место, но
+        /// не мог начать главу заново и дойти до той же сцены иначе как
+        /// нарочно.</summary>
+        public const long SameRunSeconds = 30 * 60;
+
         /// <summary>Сколько прохождений храним у одной новеллы. Коллекция —
         /// память, а не журнал: без предела десятое переигрывание главы завалило
         /// бы галерею собой и унесло место снимками.</summary>
@@ -108,6 +114,25 @@ namespace Lvn.UI
             if (string.IsNullOrEmpty(cutsceneId)) return null;
             var map = Live(titleId);
             long now = System.DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+            // ОДИН ПРОХОД — ОДНА КАРТОЧКА (TR-70). Сцену можно встретить дважды
+            // за короткое время: игрок откатился назад, перечитал место,
+            // вернулся из меню — и на каждый повтор заводилась новая запись,
+            // так галерея дублировалась. Прохождением считаем то, что случилось
+            // не в один присест: повтор в пределах получаса — тот же проход,
+            // ему просто обновляют кадр.
+            foreach (var pair in map)
+            {
+                var seen = pair.Value;
+                if (seen == null || seen.Id != cutsceneId) continue;
+                if (now - seen.At > SameRunSeconds) continue;
+                if (!string.IsNullOrEmpty(name)) seen.Name = name;
+                if (!string.IsNullOrEmpty(chapter)) seen.Chapter = chapter;
+                if (!string.IsNullOrEmpty(poster)) seen.Poster = poster;
+                seen.At = now;
+                LvnKeep.Put(Key(titleId), JsonConvert.SerializeObject(map));
+                return seen.Key ?? pair.Key;
+            }
             // Секунда — достаточная разница: две метки одной сцены за один
             // проход не случаются, а два прохождения подряд быстрее секунды
             // не проходятся. Совпало — сдвигаем, лишь бы адрес был свой.
@@ -248,6 +273,12 @@ namespace Lvn.UI
             }
             catch { /* снимок — украшение: не убрался, и ладно */ }
         }
+
+        /// <summary>Записать на диск то, что уже разобрано в памяти. Нужно
+        /// тем, кто правит записи по месту (страж коллекции, перенос данных):
+        /// иначе правка живёт до первой перезагрузки словаря.</summary>
+        public static void Remember(string titleId)
+            => LvnKeep.Put(Key(titleId), JsonConvert.SerializeObject(Live(titleId)));
 
         /// <summary>Забыть всё открытое у новеллы (сброс прогресса, отладка).</summary>
         public static void Clear(string titleId)

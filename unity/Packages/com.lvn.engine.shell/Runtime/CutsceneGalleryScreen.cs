@@ -63,10 +63,6 @@ namespace Lvn.UI.Screens
         /// умеет.</summary>
         public System.Action OnForget;
 
-        /// <summary>ВЫБРОСИТЬ ОДНУ КАРТОЧКУ — зовётся вторым нажатием корзины.
-        /// Хранилище опять же не наше: экран показывает, хост помнит.</summary>
-        public System.Action<Entry> OnDrop;
-
         /// <summary>ЗАКРЫТЬ ВИТРИНУ НА ВРЕМЯ КАРТИНКИ. Шапка с именем и
         /// кошельками живёт в своём слое и разворотом не накрывается — просим
         /// хозяина убрать её, как это делает разглядывание фигуры в гардеробе
@@ -88,10 +84,11 @@ namespace Lvn.UI.Screens
             var header = ScreenUi.GalleryHeader(Close, _title, out _counter);
             sheet.Add(header);
 
-            // ОЧИСТИТЬ — рядом со счётом, тихой плашкой: снос коллекции не
-            // должен выглядеть привлекательнее самих сцен. Через тот же обряд
-            // взведения, что и удаление аккаунта: пережитое необратимо, а
-            // промах пальцем по шапке — обычное дело.
+            // УДАЛЕНИЯ ЗДЕСЬ НЕТ (TR-71). Галерея — пожизненное хранилище
+            // воспоминаний, и кнопка «стереть» в нём предлагает игроку ровно
+            // то, чего он потом не вернёт. Обряд оставлен в коде для отладки
+            // (LvnCutsceneStore.Clear зовётся забвением аккаунта), но на
+            // экране его больше не показываем.
             _forget = new Button();
             _forget.style.fontSize = LvnTokens.TextXs;
             _forget.style.marginLeft = LvnTokens.Space2;
@@ -102,7 +99,7 @@ namespace Lvn.UI.Screens
                 armed: () => LvnWords.Of("cutscenes.forget_sure", "Erase all?"),
                 confirmed: () => OnForget?.Invoke(),
                 armedTint: LvnTokens.Bad);
-            header.Add(_forget);
+            // header.Add(_forget);   // см. TR-71: коллекцию не стирают из галереи
 
             _empty = Lvn.UI.LvnRedress.Bind(new Label(),
                 () => LvnWords.Of("cutscenes.empty", "Scenes you have lived through appear here"));
@@ -153,8 +150,7 @@ namespace Lvn.UI.Screens
             _counter.style.display = _entries.Count > 0 ? DisplayStyle.Flex : DisplayStyle.None;
             // Стирать нечего — и кнопки нет: пустая галерея не предлагает
             // опасного действия.
-            _forget.style.display = _entries.Count > 0 && OnForget != null
-                ? DisplayStyle.Flex : DisplayStyle.None;
+            _forget.style.display = DisplayStyle.None;   // TR-71: очистки в галерее нет
             _empty.style.display = _entries.Count > 0 ? DisplayStyle.None : DisplayStyle.Flex;
             // ПОВТОРЫ ОДНОЙ СЦЕНЫ ПОДПИСЫВАЕМ ДАТОЙ. Пока карточка на сцену
             // одна, дата — лишний шум; как только рядом легло второе
@@ -256,7 +252,7 @@ namespace Lvn.UI.Screens
 
             cell.AddManipulator(new Clickable(() => OpenArt(e)));
             LvnMotion.Tappable(cell);
-            if (OnDrop != null) cell.Add(DropButton(e));
+            // Корзины на карточке тоже нет (TR-71): прожитое не выбрасывают.
             return cell;
         }
 
@@ -410,45 +406,5 @@ namespace Lvn.UI.Screens
         }
 
         private VisualElement _art;
-
-        /// <summary>КОРЗИНА В УГЛУ КАРТОЧКИ. Первое нажатие взводит и краснеет,
-        /// второе выбрасывает; тап мимо корзины по-прежнему открывает сцену —
-        /// поэтому кнопка своя, а не жест по всей плитке. Обряд взведения тот
-        /// же, что у удаления аккаунта: коллекция необратима.</summary>
-        private Button DropButton(Entry e)
-        {
-            var bin = new Button();
-            bin.style.position = Position.Absolute;
-            bin.style.top = LvnTokens.Space1;
-            bin.style.right = LvnTokens.Space1;
-            const float size = 28f;
-            LvnAir.Pad(bin, 0f);
-            LvnAir.Margin(bin, 0f);
-            bin.style.alignItems = Align.Center;
-            bin.style.justifyContent = Justify.Center;
-            bin.style.backgroundColor = LvnTokens.Veil(0.55f);
-            LvnChrome.Circle(bin, size);
-
-            var glyph = Lvn.UI.LvnIcons.Make(Lvn.UI.LvnIcon.Trash, 16f, LvnTokens.Text);
-            glyph.pickingMode = PickingMode.Ignore;
-            bin.Add(glyph);
-
-            // Слов у кнопки-значка нет — переспрос виден заливкой: спокойная
-            // корзина тёмная, взведённая красная. Обряд сам её красит и сам
-            // разоружает, когда экран закрыли или прошло четыре секунды.
-            Lvn.UI.LvnAskTwice.AskTwice(bin,
-                calm: () => "",
-                armed: () => "",
-                confirmed: () => OnDrop?.Invoke(e),
-                armedTint: LvnTokens.Bad);
-
-            // ТАП ПО КОРЗИНЕ НЕ ОТКРЫВАЕТ СЦЕНУ. Плитка ловит клик целиком, а
-            // события всплывают: без остановки первое же нажатие на корзину
-            // увело бы игрока в пересмотр, и удалить он ничего не смог бы.
-            bin.RegisterCallback<PointerDownEvent>(evt => evt.StopPropagation());
-            bin.RegisterCallback<PointerUpEvent>(evt => evt.StopPropagation());
-            bin.RegisterCallback<ClickEvent>(evt => evt.StopPropagation());
-            return bin;
-        }
     }
 }

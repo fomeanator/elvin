@@ -527,8 +527,9 @@ namespace Lvn.UI.Screens
             name.style.fontSize = LvnTokens.TextSm;
             name.style.flexGrow = 1;
             row.Add(name);
-            var meta = new Label(LvnWords.Of("dl.chapters_queued", "{0} chapters", chapters.ToString())
-                                 + " · " + Lvn.Content.LvnBytes.Approx(bytes));
+            var meta = Lvn.UI.LvnRedress.Bind(new Label(),
+                () => LvnWords.Of("dl.chapters_queued", "{0} chapters", chapters.ToString())
+                      + " · " + Lvn.Content.LvnBytes.Approx(bytes));
             meta.style.color = LvnTokens.TextDim;
             meta.style.fontSize = LvnTokens.TextXs;
             row.Add(meta);

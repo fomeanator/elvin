@@ -72,7 +72,6 @@ namespace Lvn.UI.Screens
             // («после показа катсцены в меню перебрасывает, а надо чтобы экран
             // катсцен был открыт» — Илья 09.09).
             screen.OnForget = ForgetCutscenes;
-            screen.OnDrop = DropCutscene;
             // Картинка во весь экран просит убрать витрину — тем же приёмом,
             // каким её убирает разглядывание фигуры в гардеробе.
             screen.OnPeek = peek => _shell?.PeekChrome(peek);
@@ -86,17 +85,6 @@ namespace Lvn.UI.Screens
                 if (picked == null) return;   // закрыл галерею — вышли из круга
                 await PlayCutsceneAsync(picked);
             }
-        }
-
-        /// <summary>ВЫБРОСИТЬ ОДНУ КАРТОЧКУ — по нажатию корзины на ней самой.
-        /// Уходит именно это прохождение: другие показы той же сцены остаются
-        /// на месте.</summary>
-        private void DropCutscene(CutsceneGalleryScreen.Entry entry)
-        {
-            if (entry == null || string.IsNullOrEmpty(entry.Key)) return;
-            if (!_cutsceneTitles.TryGetValue(entry.Id, out var titleId)) return;
-            LvnCutsceneStore.Drop(titleId, entry.Key);
-            _shell?.Cutscenes?.SetEntries(CollectCutscenes());
         }
 
         /// <summary>ЗАБЫТЬ ВСЕ СЦЕНЫ — галерея пустеет, снимки удаляются,

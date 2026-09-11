@@ -531,6 +531,14 @@ namespace Lvn.UI.Screens
                         }, _assets, () => LvnAsync.Fire(OpenProfileWithRelationsAsync(), "TopBarProfile"));
                     }
                     _shell.TopBar.OnCurrency = _ => LvnAsync.Fire(_shell.OpenPackShopAsync(), "TopBarStore");
+                    // ЛОГОТИП — ДВЕРЬ ДОМОЙ (TR-77). В главе он не уводит:
+                    // выйти из сцены можно только осознанно, через её меню, —
+                    // иначе один промах пальцем стоил бы игроку места в тексте.
+                    _shell.TopBar.OnHome = () =>
+                    {
+                        if (InChapter) return;
+                        LvnAsync.Fire(_shell.TabGoTo(Lvn.UI.Screens.LvnTabs.Home), "TopBarHome");
+                    };
                     _shell.TopBar.OnBurger = () =>
                     {
                         if (InChapter && Stage != null) Stage.OpenQuickMenu();
