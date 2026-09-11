@@ -660,6 +660,10 @@
   "default": "{0} unlocked"
  },
  {
+  "key": "game.auto",
+  "default": "Auto"
+ },
+ {
   "key": "game.exit",
   "default": "Menu"
  },

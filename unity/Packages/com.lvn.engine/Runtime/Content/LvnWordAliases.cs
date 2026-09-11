@@ -37,6 +37,7 @@ namespace Lvn.Content
                 ["nav.gallery"] = "gallery",
                 ["game.history"] = "history",
                 ["game.exit"] = "exit",
+                ["game.auto"] = "auto",
                 ["saves.auto"] = "autosave",
                 ["menu.settings"] = "settings",
 

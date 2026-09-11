@@ -556,6 +556,7 @@ namespace Lvn.UI.Screens
                     _shell.OnChapterSessionStart += () => _shell.TopBar.SetSilent(
                         Lvn.UI.Screens.LvnIntro.Is(_currentTitle));
                     _shell.TopBar.OnGameHistory = () => Stage?.OpenQuickMenu("history");
+                    _shell.TopBar.OnGameAuto = () => Stage?.ToggleAuto();
                     _shell.TopBar.OnGameWardrobe = () =>
                     { if (Stage != null) LvnAsync.Fire(OpenWardrobeFromMenuAsync(Stage), "OpenWardrobeFromMenu"); };
                     _shell.TopBar.OnGameStore = () =>

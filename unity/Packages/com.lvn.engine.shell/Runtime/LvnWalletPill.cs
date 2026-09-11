@@ -57,6 +57,10 @@ namespace Lvn.UI.Screens
             /// при смене баланса); облик «сцена» ставит теснее — макет держит
             /// значок, число и «плюс» вплотную.</summary>
             public float? AmountMinWidth;
+            /// <summary>Зазор значок→число и число→«плюс» — ОДИН на оба.
+            /// Пусто — зазоры темы (8 и 4), как было; облик «сцена» ставит
+            /// свой из макета, чтобы пара читалась ровно с обеих сторон.</summary>
+            public float? Gap;
         }
 
         private readonly string _currency;
@@ -100,8 +104,17 @@ namespace Lvn.UI.Screens
             // вещь. Опора осталась (ряд не дёргается на смене баланса), но
             // текст прижат влево, к тому, о чём он говорит.
             _amount.style.unityTextAlign = TextAnchor.MiddleLeft;
-            _amount.style.marginLeft = LvnTokens.Tight;
+            // Зазор до значка несёт значок; с общим зазором облика число своего
+            // не добавляет — иначе слева выходило вдвое больше, чем справа.
+            _amount.style.marginLeft = _look.Gap.HasValue ? 0f : LvnTokens.Tight;
             _amount.style.flexShrink = 0;   // длинное число не режется многоточием
+            _amount.style.whiteSpace = WhiteSpace.NoWrap;
+            // ОДНА СЕРЕДИНА У ЗНАЧКА, ЧИСЛА И «ПЛЮСА». Три коробки трёх высот
+            // (значок во весь ряд, строка шрифта, квадрат плюса) центровались
+            // каждая по-своему, и цифры стояли ниже значка («кривовато
+            // валюта сверстана» — Арам 11.09). Число получает высоту ряда и
+            // центруется в ней по вертикали.
+            if (_look.Height > 0f) _amount.style.height = _look.Height;
             Add(_amount);
 
             if (_look.ShowTimer)
@@ -134,7 +147,8 @@ namespace Lvn.UI.Screens
             {
                 var img = new VisualElement { pickingMode = PickingMode.Ignore };
                 img.style.width = _look.IconSize; img.style.height = _look.IconSize;
-                img.style.marginRight = LvnTokens.Space1;
+                img.style.marginRight = _look.Gap ?? LvnTokens.Space1;
+                img.style.flexShrink = 0;
                 LvnPicture.Photo(img, _look.IconUrl, assets, cover: false);
                 return img;
             }
@@ -146,7 +160,8 @@ namespace Lvn.UI.Screens
             var tint = _look.IconTint ?? look.Tint;
             var ic = LvnIcons.Make(look.Icon, _look.IconSize, tint);
             ic.pickingMode = PickingMode.Ignore;
-            ic.style.marginRight = LvnTokens.Space1;
+            ic.style.marginRight = _look.Gap ?? LvnTokens.Space1;
+            ic.style.flexShrink = 0;
             return ic;
         }
 
@@ -158,7 +173,8 @@ namespace Lvn.UI.Screens
                 // шапки читалась бы как чужая деталь в чужом ряду.
                 var img = new VisualElement();
                 img.style.width = _look.PlusSize; img.style.height = _look.PlusSize;
-                img.style.marginLeft = LvnTokens.Tight;
+                img.style.marginLeft = _look.Gap ?? LvnTokens.Tight;
+                img.style.flexShrink = 0;
                 LvnPicture.Photo(img, _look.PlusIconUrl, assets, cover: false);
                 img.AddManipulator(new Clickable(onPlus));
                 img.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());

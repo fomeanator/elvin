@@ -47,8 +47,20 @@ namespace Lvn.UI
                 : LvnPrefs.PlayerName;
 
         /// <summary>Игрок назвался — имя сохраняется, и все, кто его
-        /// показывает, увидят новое при следующей отрисовке.</summary>
-        public static void Set(string name) => LvnPrefs.PlayerName = name ?? string.Empty;
+        /// показывает, переодеваются СРАЗУ (<see cref="Changed"/> слушает
+        /// <c>LvnRedress</c>): подпись шапки привязана один раз при сборке и
+        /// без события держала «Гость» всю сессию, хотя игрок уже назвался в
+        /// прологе («вот тут почему-то Гость, а не Виктория» — Арам 11.09).</summary>
+        public static void Set(string name)
+        {
+            var next = name ?? string.Empty;
+            if (next == LvnPrefs.PlayerName) return;
+            LvnPrefs.PlayerName = next;
+            Changed?.Invoke();
+        }
+
+        /// <summary>Имя сменилось — перечитать всем, кто его показывает.</summary>
+        public static event System.Action Changed;
 
         /// <summary>Как игрока зовут ВНУТРИ истории: переменная новеллы, по
         /// которой автор пишет «{player}» и ветвит реплики. Имя переменной
