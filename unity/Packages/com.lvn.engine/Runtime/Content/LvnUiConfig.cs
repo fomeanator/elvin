@@ -252,6 +252,11 @@ namespace Lvn.Content
         // Площадка рекламы для бесплатной карточки магазина («посмотри ролик —
         // получи валюту»). Пусто — карточки нет.
         public string ad_placement;
+        /// <summary>Картинка НА ЩИТЕ рекламы (TR-64): она стоит внутри рамки,
+        /// пока едет ролик. Пусто — щит показывает тёмное стекло с бликом:
+        /// ждать арт, которого может не быть, значит не показать сцену
+        /// вовсе.</summary>
+        public string ad_art;
 
         public string title;          // default "Store"
         public string scrim_color;    // fullscreen backdrop; default #000000b3

@@ -645,6 +645,7 @@
     "shop": "StageColumn"
   },
   "StoreConfig": {
+    "ad_art": "string",
     "ad_placement": "string",
     "bonus_text": "string",
     "buy_text": "string",
