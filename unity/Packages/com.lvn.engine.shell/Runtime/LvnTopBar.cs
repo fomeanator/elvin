@@ -399,6 +399,10 @@ namespace Lvn.UI.Screens
         /// подбираем отступ: её высота и вылет заданы рядом, тут же.</summary>
         private float GameRowTop()
         {
+            // ШАПКИ В ГЛАВЕ НЕТ (TR-76) — и вставать под неё не нужно: ряд
+            // садится сразу под вырез, а не под пустое место, где раньше был
+            // логотип с валютами.
+            if (InChapter) return _safeTop + LvnTokens.Space1;
             float row = BottomEdge(_safeTop);
             if (_stageLogo == null) return row;
             float logoInk = _safeTop - StageD(12f) + StageD(82f) * LogoInkBottom + StageD(6f);
@@ -716,8 +720,17 @@ namespace Lvn.UI.Screens
             // сцены, и своя отмена не снимает чужую.
             bool hush = _silent || Lvn.UI.LvnScreenDirector.Current.ChromeHidden;
             bool bar = _gameBarShown && !hush;      // игровой бар развёрнут
-            bool mini = InChapter && !hush && !bar;   // баблики — дубль бара, вместе не живут
-            Vis(_row, !hush && (bar || !InChapter));
+            // В ГЛАВЕ ПО ТАПУ ПОКАЗЫВАЕТСЯ РОВНО ОДНО: ряд из четырёх кнопок,
+            // а с ним процент главы и кошелёк (TR-76). Шапка витрины — аватар,
+            // логотип, пилюли, бургер — в главе не нужна вовсе: это экран
+            // истории, а не витрины, и всё перечисленное либо дублирует ряд,
+            // либо уводит из сцены случайным касанием.
+            //
+            // Процент и валюта РАНЬШЕ ВИСЕЛИ ВСЕГДА: их показывали, пока бар
+            // свёрнут, — то есть постоянно поверх текста. Теперь они приходят
+            // и уходят вместе с рядом, одним тапом.
+            bool mini = bar && InChapter;
+            Vis(_row, !hush && !InChapter);
             Vis(_gameRow, bar);
             Vis(_miniPills, mini);
             Vis(_miniProgress, mini);
