@@ -460,6 +460,11 @@ namespace Lvn.Content
         /// Одно число задаёт масштаб всей сцены, и рост перестаёт зависеть от
         /// того, кто ставит фигуру — сценарий, меню или гардероб.</summary>
         public float? meters;
+        /// <summary>Рост персонажа, которому его не назвали
+        /// (<c>sprites.&lt;id&gt;.meters</c> пуст). Пусто — прежние доли экрана:
+        /// молчание манифеста не должно назначать рост предметам и вывескам,
+        /// которых ставят той же командой. Взрослый человек — 1.7.</summary>
+        public float? default_meters;
         public float? actor_spread; // multiplier on left/right offset from centre; 1 = default, <1 = closer to centre
         /// <summary>Speaker focus mode: "dim" (default — everyone stays, non-speakers
         /// darken) or "solo" (novel mode — only the CURRENT speaker is visible; other

@@ -131,5 +131,32 @@ namespace Lvn.Tests.Editor
             Assert.AreEqual(1920f * 0.93f, slot.sizeDelta.y, 0.5f,
                 "новелла без шкалы получила чужой рост");
         }
+
+        /// <summary>
+        /// РОСТ ТЕХ, КОМУ ЕГО НЕ НАЗВАЛИ (TR-45): у главных героев метры
+        /// выставлены поимённо, а второстепенные оставались на долях экрана —
+        /// и официант рядом с героем снова оказывался «на глаз», потому что
+        /// его арт нарисован на другом холсте.
+        /// </summary>
+        [Test]
+        public void UnnamedActorsTakeTheNovelsDefaultHeight()
+        {
+            float was = LvnScale.DefaultActorMeters;
+            try
+            {
+                LvnScale.DefaultActorMeters = 0f;
+                Assert.AreEqual(0f, LvnScale.MetersOf(0f),
+                    "без числа новеллы рост браться не должен — иначе его получат вывески и предметы");
+                Assert.AreEqual(1.9f, LvnScale.MetersOf(1.9f), 0.001f,
+                    "свой рост персонажа сильнее умолчания");
+
+                LvnScale.DefaultActorMeters = 1.7f;
+                Assert.AreEqual(1.7f, LvnScale.MetersOf(0f), 0.001f,
+                    "безымянный по росту не взял число новеллы");
+                Assert.AreEqual(1.9f, LvnScale.MetersOf(1.9f), 0.001f,
+                    "умолчание перебило собственный рост персонажа");
+            }
+            finally { LvnScale.DefaultActorMeters = was; }
+        }
     }
 }

@@ -33,6 +33,10 @@ namespace Lvn.UI
                 // высота фигуры, кто бы её ни ставил (см. LvnScale).
                 if (stg.meters.HasValue && stg.meters.Value > 0.05f)
                     LvnScale.SceneMeters = stg.meters.Value;
+                // Рост тех, кому его не назвали (TR-45). Ноль — прежние доли
+                // экрана: включает автор, а не молчание манифеста.
+                LvnScale.DefaultActorMeters = stg.default_meters.HasValue
+                    ? Mathf.Max(0f, stg.default_meters.Value) : 0f;
                 if (stg.actor_spread.HasValue) t.ActorSpread = stg.actor_spread.Value;
                 if (!string.IsNullOrEmpty(stg.speaker_focus)) t.SpeakerFocus = stg.speaker_focus;
                 // Пустая строка здесь ЗНАЧИМА: это «мгновенно, без перехода».
