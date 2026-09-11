@@ -189,6 +189,9 @@ namespace Lvn.UI.Screens
         /// только она сама: в облике «сцена» она рисованная и выше обычной.
         /// Пусто — остаёмся на прежнем запасе.</summary>
         public System.Func<float> NavHeight;
+        /// <summary>Игрок выбрал в столбике другого героя: (прежний, новый).
+        /// Хост меняет куклу витрины — увести прежнюю, поставить новую.</summary>
+        public System.Action<string, string> OnFavoriteChanged;
 
         private void SetPeek(bool on)
         {
@@ -243,7 +246,15 @@ namespace Lvn.UI.Screens
             _sheet.OnPeek = on => SetPeek(on);
             // Смена персонажа в ростере = назначить фаворита меню: кукла
             // сцены меняется хостом (NovelApp слушает LvnPrefs.Changed).
-            _sheet.OnCharacterPicked = (_, to) => LvnPrefs.MenuFavorite = to;
+            _sheet.OnCharacterPicked = (from, to) =>
+            {
+                LvnPrefs.MenuFavorite = to;
+                // Витрина обязана узнать о смене героя СРАЗУ: иначе прежняя
+                // кукла остаётся стоять рядом с новой до следующей пересборки
+                // меню («выбираю кого-то кроме ГГ — и они вдвоём стоят»,
+                // тестировщик 11.09). Сцену знает хост — ему и сообщаем.
+                OnFavoriteChanged?.Invoke(from, to);
+            };
             // Крючки, повешенные до того, как лист появился, догоняют его здесь
             // — один раз, а не на каждом показе.
             _sheet.OpenStore = _openStore;
