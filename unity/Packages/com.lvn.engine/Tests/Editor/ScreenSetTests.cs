@@ -239,6 +239,10 @@ namespace Lvn.Tests
             ("PackShop", об.PackShop), ("PackShopModal", об.PackShopModal),
             ("Popup", об.Popup), ("WardrobeTab", об.WardrobeTab),
             ("ChapterEnd", об.ChapterEnd),
+            // Комната списка новелл и галерея катсцен — экраны того же набора:
+            // появились вместе с комнатами витрины (TR-63) и галереей
+            // прохождений (TR-70), и уборка обязана знать о них так же.
+            ("Titles", об.Titles), ("Cutscenes", об.Cutscenes),
         };
 
         private static LvnScreenSet НаборОболочки(NovelShell об)

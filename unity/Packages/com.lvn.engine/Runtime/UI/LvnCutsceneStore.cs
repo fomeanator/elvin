@@ -99,6 +99,17 @@ namespace Lvn.UI
         /// нарочно.</summary>
         public const long SameRunSeconds = 30 * 60;
 
+        /// <summary>
+        /// ЧАСЫ ДОМА — шов для стража «того же присеста».
+        ///
+        /// <para>Правило «повтор в пределах получаса — тот же проход» нельзя
+        /// проверить, пока время берётся прямо из системных часов: тест либо
+        /// ждёт полчаса, либо не проверяет ничего. Подменяемые часы — обычный
+        /// приём этого движка (LvnClock у сцены, now у служб сервера).</para>
+        /// </summary>
+        public static System.Func<long> Now =
+            () => System.DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
         /// <summary>Сколько прохождений храним у одной новеллы. Коллекция —
         /// память, а не журнал: без предела десятое переигрывание главы завалило
         /// бы галерею собой и унесло место снимками.</summary>
@@ -113,7 +124,7 @@ namespace Lvn.UI
         {
             if (string.IsNullOrEmpty(cutsceneId)) return null;
             var map = Live(titleId);
-            long now = System.DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            long now = Now();
 
             // ОДИН ПРОХОД — ОДНА КАРТОЧКА (TR-70). Сцену можно встретить дважды
             // за короткое время: игрок откатился назад, перечитал место,

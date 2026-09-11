@@ -20,7 +20,14 @@ namespace Lvn.Tests
 
         [SetUp]
         [TearDown]
-        public void Clean() => LvnCutsceneStore.Clear(Title);
+        public void Clean()
+        {
+            LvnCutsceneStore.Clear(Title);
+            // ЧАСЫ ВОЗВРАЩАЕМ. Сдвинутое время — состояние, общее на весь
+            // прогон: утёкшее из одного теста, оно ломает соседний, и виноватым
+            // выглядит соседний.
+            LvnCutsceneStore.Now = () => System.DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        }
 
         [Test]
         public void ПовторВОдинПрисестНеПлодитКарточки()
@@ -66,7 +73,10 @@ namespace Lvn.Tests
         [Test]
         public void ПревьеЛожитсяВСвоюКарточку()
         {
+            // Два РАЗНЫХ прохождения: повтор в один присест новой карточки не
+            // заводит (TR-70), и проверять «свою карточку» было бы не на чем.
             var first = LvnCutsceneStore.Lived(Title, "meet", "Знакомство", "ch0");
+            ЧасыВперёд(LvnCutsceneStore.SameRunSeconds + 60);
             var second = LvnCutsceneStore.Lived(Title, "meet", "Знакомство", "ch0");
             LvnCutsceneStore.Dress(Title, second, "/content/bg/second.jpg");
 
@@ -80,7 +90,12 @@ namespace Lvn.Tests
         [Test]
         public void КорзинаУбираетТолькоСвоюКарточку()
         {
+            // ДВА РАЗНЫХ ПРОХОЖДЕНИЯ, а не два повтора подряд: с TR-70 повтор в
+            // пределах получаса считается ТЕМ ЖЕ проходом и новой карточки не
+            // заводит (Илья: «задублировалась кат-сцена»). Чтобы проверить
+            // корзину, нужны именно две записи — разводим их по времени.
             var first = LvnCutsceneStore.Lived(Title, "meet", "Знакомство", "ch0");
+            ЧасыВперёд(LvnCutsceneStore.SameRunSeconds + 60);
             var second = LvnCutsceneStore.Lived(Title, "meet", "Знакомство", "ch0");
 
             Assert.IsTrue(LvnCutsceneStore.Drop(Title, first));
@@ -93,8 +108,13 @@ namespace Lvn.Tests
         [Test]
         public void КоллекцияНеРастётБезКонца()
         {
+            // Каждый проход — свой присест: иначе все повторы схлопнутся в одну
+            // карточку и предел проверять будет нечем (см. TR-70).
             for (int i = 0; i < LvnCutsceneStore.Keep + 5; i++)
+            {
                 LvnCutsceneStore.Lived(Title, "meet", "Знакомство", "ch0");
+                ЧасыВперёд(LvnCutsceneStore.SameRunSeconds + 60);
+            }
 
             Assert.AreEqual(LvnCutsceneStore.Keep, LvnCutsceneStore.Seens(Title).Count,
                             "предел держит галерею и место на диске");
@@ -115,6 +135,14 @@ namespace Lvn.Tests
             Assert.AreEqual(1, seens.Count);
             Assert.AreEqual("meet", seens[0].Key, "адресом старой записи служит её ключ");
             Assert.AreEqual("meet", seens[0].Id);
+        }
+
+        /// <summary>Подвинуть часы дома вперёд: «того же присеста» больше нет,
+        /// следующий проход считается новым прохождением.</summary>
+        private static void ЧасыВперёд(long секунд)
+        {
+            long было = LvnCutsceneStore.Now();
+            LvnCutsceneStore.Now = () => было + секунд;
         }
     }
 }
