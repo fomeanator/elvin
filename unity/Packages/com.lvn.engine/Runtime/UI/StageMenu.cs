@@ -63,11 +63,7 @@ namespace Lvn.UI
             // Mode badge: AUTO ▷ / SKIP ▶▶ while a hands-free mode runs — the
             // player must SEE why the game advances itself (and a tap on the
             // badge turns the mode off). Sits left of the buttons.
-            _modeBadge = new Button(() =>
-            {
-                if (_stage.Skipping) _stage.StopSkip();
-                else LvnPrefs.AutoAdvance = false;
-            });
+            _modeBadge = new Button(() => { _stage.StopAuto(); SpeedBar(false); });
             _modeBadge.style.height = LvnTokens.Touch;
             LvnAir.PadX(_modeBadge, LvnTokens.Space2);
             _modeBadge.style.marginRight = LvnTokens.Space1;
@@ -92,6 +88,66 @@ namespace Lvn.UI
         }
 
         private Button _modeBadge;
+        private VisualElement _speedBar;
+
+        /// <summary>
+        /// ПОЛОСА СКОРОСТИ АВТО-ЧТЕНИЯ (TR-69) — не панель меню: она не
+        /// открывается вместо чего-то и ничего не закрывает, а живёт поверх
+        /// кадра, пока идёт режим: ×1 читать глазами, ×5
+        /// перечитывать, ×100 проматывать.
+        ///
+        /// <para>Внизу экрана, где её видно и где до неё дотягивается большой
+        /// палец: скорость меняют на ходу, не отрываясь от текста. Живёт,
+        /// пока идёт режим, — тап по кадру снимает и режим, и панель.</para>
+        /// </summary>
+        private void SpeedBar(bool on)
+        {
+            if (!on)
+            {
+                _speedBar?.RemoveFromHierarchy();
+                _speedBar = null;
+                return;
+            }
+            if (_speedBar != null) return;
+            var bar = new VisualElement { name = "auto-speed" };
+            bar.style.position = Position.Absolute;
+            bar.style.left = 0; bar.style.right = 0;
+            bar.style.bottom = LvnEdges.Bottom(this, LvnTokens.Space4);
+            bar.style.flexDirection = FlexDirection.Row;
+            bar.style.justifyContent = Justify.Center;
+            foreach (var speed in new[] { 1, 5, 100 })
+            {
+                int value = speed;
+                var b = new Button(() => { _stage.StartAuto(value); PaintSpeedBar(); })
+                { text = "×" + speed };
+                b.style.height = LvnTokens.Touch;
+                LvnAir.PadX(b, LvnTokens.Space4);
+                b.style.marginLeft = LvnTokens.Space1;
+                b.style.fontSize = LvnTokens.TextSm;
+                b.name = "speed-" + speed;
+                b.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
+                LvnFonts.Apply(b, _theme.Font);
+                bar.Add(b);
+            }
+            Add(bar);
+            _speedBar = bar;
+            PaintSpeedBar();
+        }
+
+        /// <summary>Выбранная скорость — плашкой ярче прочих.</summary>
+        private void PaintSpeedBar()
+        {
+            if (_speedBar == null) return;
+            foreach (var child in _speedBar.Children())
+            {
+                if (child is not Button b) continue;
+                bool on = b.name == "speed-" + LvnPrefs.AutoSpeed;
+                // Выбранная скорость — плашка ярче: у темы меню своего акцента
+                // нет, берём общий акцент оформления.
+                LvnStyler.Plate(b, on ? LvnTokens.Accent : _theme.MenuFabColor,
+                                on ? LvnTokens.OnAccent : _theme.MenuTextColor, LvnTokens.RadiusLg);
+            }
+        }
 
         private void RefreshModeBadge()
         {
@@ -100,9 +156,14 @@ namespace Lvn.UI
             // this poll runs anyway).
             _fabRow.style.display = _stage.PanelOpen ? DisplayStyle.None : DisplayStyle.Flex;
             if (_stage.PanelOpen) return;
-            string label = _stage.Skipping ? L("skip", "Skip").ToUpperInvariant() + " ▶▶"
-                : LvnPrefs.AutoAdvance ? L("auto", "Auto").ToUpperInvariant() + " ▷"
+            // Значок режима называет и скорость: «АВТО ×5» честнее, чем два
+            // разных слова для одного и того же (TR-69).
+            string label = _stage.AutoReading
+                ? L("auto", "Auto").ToUpperInvariant() + " ×" + LvnPrefs.AutoSpeed
                 : null;
+            // Панель скорости живёт ровно столько же, сколько режим: тап по
+            // кадру снял его — она уходит сама, без отдельного выключателя.
+            if (!_stage.AutoReading && _speedBar != null) SpeedBar(false);
             _modeBadge.style.display = label == null ? DisplayStyle.None : DisplayStyle.Flex;
             if (label != null && _modeBadge.text != label) _modeBadge.text = label;
         }
@@ -303,17 +364,16 @@ namespace Lvn.UI
                 sheet.Add(Item(L("load", "Load"), () => ShowSlots(saveMode: false)));
             if (!Hidden("history"))
                 sheet.Add(Item(L("history", "History"), ShowHistory));
+            // ОДИН ПУНКТ ВМЕСТО ДВУХ (TR-69). «Авто» и «Пропуск» делали одно и
+            // то же с разной поспешностью; теперь «Авто» открывает выбор
+            // скорости внизу экрана, а пропуск — это её крайнее значение.
             if (!Hidden("auto"))
-                sheet.Add(Item(LvnPrefs.AutoAdvance ? L("auto", "Auto") + " ✓" : L("auto", "Auto"), () =>
-                {
-                    LvnPrefs.AutoAdvance = !LvnPrefs.AutoAdvance;
-                    Close(); // hands-free mode starts/stops right away
-                }));
-            if (!Hidden("skip"))
-                sheet.Add(Item(L("skip", "Skip"), () =>
+                sheet.Add(Item(_stage.AutoReading ? L("auto", "Auto") + " ✓" : L("auto", "Auto"), () =>
                 {
                     Close();
-                    _stage.StartSkip(); // fast-forward until a choice or a tap
+                    if (_stage.AutoReading) { _stage.StopAuto(); SpeedBar(false); return; }
+                    _stage.StartAuto(LvnPrefs.AutoSpeed);
+                    SpeedBar(true);
                 }));
             if (!Hidden("settings"))
                 sheet.Add(Item(L("settings", "Settings"), () =>

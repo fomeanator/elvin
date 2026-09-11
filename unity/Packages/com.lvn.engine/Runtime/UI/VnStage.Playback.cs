@@ -58,6 +58,32 @@ namespace Lvn.UI
             Skipping = true;
         }
 
+        /// <summary>
+        /// ВКЛЮЧИТЬ АВТО-ЧТЕНИЕ НА ЗАДАННОЙ СКОРОСТИ (TR-69).
+        ///
+        /// <para>Один режим вместо двух: «×1» и «×5» листают с паузой на
+        /// чтение, «×100» — промотка без пауз. Игрок выбирает число, а не
+        /// две разные кнопки, которые делают одно и то же.</para>
+        /// </summary>
+        public void StartAuto(int speed)
+        {
+            LvnPrefs.AutoSpeed = speed;
+            if (LvnPrefs.AutoSpeed >= 100) { LvnPrefs.AutoAdvance = false; StartSkip(); return; }
+            StopSkip();
+            LvnPrefs.AutoAdvance = true;
+        }
+
+        /// <summary>Снять авто-чтение целиком, какой бы скорости оно ни было.
+        /// Зовётся тапом по кадру: «как только юзер тапнет по экрану» (TR-69).</summary>
+        public void StopAuto()
+        {
+            if (Skipping) StopSkip();
+            LvnPrefs.AutoAdvance = false;
+        }
+
+        /// <summary>Идёт ли авто-чтение — любой скорости.</summary>
+        public bool AutoReading => Skipping || LvnPrefs.AutoAdvance;
+
         /// <summary>Остановка ПО ВОЛЕ ИГРОКА (тап по кадру, значок режима, меню):
         /// продолжать на следующей главе нечего.</summary>
         public void StopSkip()
@@ -224,8 +250,11 @@ namespace Lvn.UI
                 _autoRevealDoneAt = LvnClock.Now();
                 return;
             }
+            // СКОРОСТЬ — ДЕЛИТЕЛЬ ПАУЗЫ (TR-69). «×1» читают глазами, «×5»
+            // перечитывают знакомое; «×100» сюда не доходит — это промотка, и
+            // её ведёт SkipTick.
             float delay = (AutoPauseBase + AutoPausePerChar * _lastSayLength)
-                          * LvnPrefs.AutoDelayScale;
+                          * LvnPrefs.AutoDelayScale / Mathf.Max(1, LvnPrefs.AutoSpeed);
             // Через LvnClock: на реальном времени свёрнутая на минуту игра
             // возвращалась с «реплику читали минуту» и листала её сразу.
             if (LvnClock.Since(_autoRevealDoneAt) < delay) return;

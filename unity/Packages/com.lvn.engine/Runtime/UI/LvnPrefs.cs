@@ -40,6 +40,7 @@ namespace Lvn.UI
             _textSpeed = Mathf.Clamp(LvnKeep.Get(P + "text_speed", 1f),
                 LvnSettingsCatalog.TextSpeedMin, LvnSettingsCatalog.TextSpeedMax);
             _autoAdvance = LvnKeep.Get(P + "auto_advance", 0) == 1;
+            _autoSpeed = LvnKeep.Get(P + "auto_speed", 1);
             _autoDelayScale = Mathf.Clamp(LvnKeep.Get(P + "auto_delay", 1f),
                 LvnSettingsCatalog.AutoDelayMin, LvnSettingsCatalog.AutoDelayMax);
             _volMusic = Mathf.Clamp01(LvnKeep.Get(P + "vol_music", 1f));
@@ -195,6 +196,22 @@ namespace Lvn.UI
             get { EnsureLoaded(); return _autoAdvance; }
             set { EnsureLoaded(); Set(ref _autoAdvance, "auto_advance", value); }
         }
+
+        /// <summary>
+        /// СКОРОСТЬ АВТО-ЧТЕНИЯ: 1 — читать глазами, 5 — перечитывать, 100 —
+        /// проматывать (TR-69).
+        ///
+        /// <para>Прежде это были ДВЕ сущности: «Авто» и «Пропуск». Игрок видел
+        /// два режима, которые делают одно и то же с разной поспешностью, и
+        /// выключались они по-разному. Теперь режим один, а поспешность —
+        /// число; сотня означает «без пауз вовсе», то есть прежний пропуск.</para>
+        /// </summary>
+        public static int AutoSpeed
+        {
+            get { EnsureLoaded(); return _autoSpeed; }
+            set { EnsureLoaded(); Set(ref _autoSpeed, "auto_speed", value <= 1 ? 1 : value < 100 ? 5 : 100); }
+        }
+        private static int _autoSpeed = 1;
 
         /// <summary>Auto-advance delay multiplier (0.5×–2.5×; 1 = default pace).</summary>
         public static float AutoDelayScale
