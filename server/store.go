@@ -249,6 +249,21 @@ var migrations = []string{
 		spins      INTEGER NOT NULL DEFAULT 0
 	);
 	`,
+	// Переданные прохождения (TR-17): снимок, который игрок отдал другому по
+	// ссылке. Живут месяц — за ним уборка при каждой выдаче нового кода.
+	`
+	CREATE TABLE IF NOT EXISTS shares (
+		code   TEXT PRIMARY KEY,
+		owner  TEXT NOT NULL,
+		title  TEXT NOT NULL DEFAULT '',
+		note   TEXT NOT NULL DEFAULT '',
+		body   TEXT NOT NULL,
+		made   INTEGER NOT NULL,
+		until  INTEGER NOT NULL,
+		taken  INTEGER NOT NULL DEFAULT 0
+	);
+	CREATE INDEX IF NOT EXISTS shares_owner ON shares (owner);
+	`,
 }
 
 func migrate(db *sql.DB) error {

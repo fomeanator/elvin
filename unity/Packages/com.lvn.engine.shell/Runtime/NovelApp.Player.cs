@@ -127,6 +127,10 @@ namespace Lvn.UI.Screens
             // нажатию открывает набор. Пункта нет, пока новелла не назвала ни
             // одной аватарки — обещать выбор без набора не за чем.
             p.AvatarUrl = LvnAvatars.Url(_manifest);
+            // Принять чужое прохождение (TR-17): код лежит в буфере обмена,
+            // разворачивает его хозяин приложения.
+            p.OnTakeShare = code => LvnAsync.Fire(TakeShareAsync(code), "TakeShare");
+            p.OnGiveShare = () => LvnAsync.Fire(ShareLatestAsync(), "GiveShare");
             p.OnPickAvatar = LvnAvatars.Offered(_manifest).Count > 0
                 ? () => LvnAsync.Fire(OpenAvatarPickAsync(), "AvatarPick")
                 : (System.Action)null;
