@@ -87,6 +87,7 @@
     "logo": "string",
     "menu_drift": "float",
     "menu_drift_seconds": "float",
+    "menu_rise_ms": "int",
     "menu_travel_ms": "int",
     "music": "string",
     "music_options": "MusicOption",
