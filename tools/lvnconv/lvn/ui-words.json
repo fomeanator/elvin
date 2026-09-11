@@ -44,20 +44,48 @@
   "default": "No connection — will check later"
  },
  {
+  "key": "ads.done",
+  "default": "Done"
+ },
+ {
   "key": "ads.free_title",
   "default": "Watch an ad — get {0}"
+ },
+ {
+  "key": "ads.got",
+  "default": "Crystals are in your wallet"
+ },
+ {
+  "key": "ads.later",
+  "default": "Not now"
  },
  {
   "key": "ads.left",
   "default": "{0} of {1} left"
  },
  {
+  "key": "ads.loading",
+  "default": "Loading the ad…"
+ },
+ {
+  "key": "ads.none",
+  "default": "No ad right now. Try again in a minute."
+ },
+ {
   "key": "ads.recharging",
   "default": "More in {0}"
  },
  {
+  "key": "ads.title",
+  "default": "Free crystals"
+ },
+ {
   "key": "ads.unlimited",
   "default": "Available now"
+ },
+ {
+  "key": "ads.wait",
+  "default": "Available in {0}"
  },
  {
   "key": "ads.watch",
@@ -74,6 +102,18 @@
  {
   "key": "autosave",
   "default": "Autosave"
+ },
+ {
+  "key": "avatar.self",
+  "default": "My look"
+ },
+ {
+  "key": "avatar.self_hint",
+  "default": "This novel has no hero to dress"
+ },
+ {
+  "key": "avatar.title",
+  "default": "Your picture"
  },
  {
   "key": "board.all_time",
@@ -200,42 +240,6 @@
   "default": "Sure?"
  },
  {
-  "key": "ads.done",
-  "default": "Done"
- },
- {
-  "key": "ads.got",
-  "default": "Crystals are in your wallet"
- },
- {
-  "key": "ads.later",
-  "default": "Not now"
- },
- {
-  "key": "ads.left",
-  "default": "{0} of {1} left today"
- },
- {
-  "key": "ads.loading",
-  "default": "Loading the ad…"
- },
- {
-  "key": "ads.none",
-  "default": "No ad right now. Try again in a minute."
- },
- {
-  "key": "ads.title",
-  "default": "Free crystals"
- },
- {
-  "key": "ads.wait",
-  "default": "Available in {0}"
- },
- {
-  "key": "ads.watch",
-  "default": "Watch"
- },
- {
   "key": "cutscenes.counter",
   "default": "{0} seen"
  },
@@ -332,10 +336,6 @@
   "default": "The whole game is on this device."
  },
  {
-  "key": "dl.all_hint",
-  "default": "Download once and play with no network: chapters, art and music stay on the device."
- },
- {
   "key": "dl.bytes_left",
   "default": "Left to download"
  },
@@ -346,6 +346,10 @@
  {
   "key": "dl.chapters_of",
   "default": "{0} of {1} chapters"
+ },
+ {
+  "key": "dl.chapters_queued",
+  "default": "{0} chapters"
  },
  {
   "key": "dl.class_actor",
@@ -380,8 +384,16 @@
   "default": "Interface"
  },
  {
+  "key": "dl.cpu",
+  "default": "Frame time"
+ },
+ {
   "key": "dl.current_transfer",
   "default": "Current download"
+ },
+ {
+  "key": "dl.disk",
+  "default": "Free space"
  },
  {
   "key": "dl.done",
@@ -400,8 +412,8 @@
   "default": "Download complete"
  },
  {
-  "key": "dl.get_all",
-  "default": "Download the whole game"
+  "key": "dl.fps",
+  "default": "Frames"
  },
  {
   "key": "dl.idle",
@@ -448,12 +460,20 @@
   "default": "Waiting to send"
  },
  {
+  "key": "dl.quality_hint",
+  "default": "Lower quality saves space on this device. Already downloaded files stay."
+ },
+ {
+  "key": "dl.quality_title",
+  "default": "Art quality"
+ },
+ {
   "key": "dl.queue_title",
   "default": "Download queue"
  },
  {
-  "key": "dl.resume",
-  "default": "Finish downloading"
+  "key": "dl.ram",
+  "default": "Memory"
  },
  {
   "key": "dl.retry",
@@ -520,6 +540,14 @@
   "default": "Progress is saved on this device. Syncing with the server."
  },
  {
+  "key": "dl.view_downloads",
+  "default": "Download"
+ },
+ {
+  "key": "dl.view_perf",
+  "default": "Performance"
+ },
+ {
   "key": "dl.waiting_data",
   "default": "Waiting for data…"
  },
@@ -554,6 +582,58 @@
  {
   "key": "font_author",
   "default": "As authored"
+ },
+ {
+  "key": "gacha.come_back",
+  "default": "Come back tomorrow for a free spin"
+ },
+ {
+  "key": "gacha.failed",
+  "default": "The spin did not go through. Try again."
+ },
+ {
+  "key": "gacha.free_ready",
+  "default": "Today's free spin is waiting"
+ },
+ {
+  "key": "gacha.no_funds",
+  "default": "Not enough for a spin"
+ },
+ {
+  "key": "gacha.offline",
+  "default": "Spins need a connection."
+ },
+ {
+  "key": "gacha.price",
+  "default": "Next spin: {0}"
+ },
+ {
+  "key": "gacha.spin",
+  "default": "Spin"
+ },
+ {
+  "key": "gacha.spinning",
+  "default": "Spinning…"
+ },
+ {
+  "key": "gacha.super",
+  "default": "Rare"
+ },
+ {
+  "key": "gacha.take",
+  "default": "Take the prize"
+ },
+ {
+  "key": "gacha.title",
+  "default": "Spin"
+ },
+ {
+  "key": "gacha.won_currency",
+  "default": "You got: {0}"
+ },
+ {
+  "key": "gacha.won_prize",
+  "default": "You got: {0}"
  },
  {
   "key": "gallery",
@@ -962,10 +1042,6 @@
  {
   "key": "shop.value",
   "default": "BEST VALUE"
- },
- {
-  "key": "skip",
-  "default": "Skip"
  },
  {
   "key": "slot",

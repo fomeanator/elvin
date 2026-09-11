@@ -29,10 +29,15 @@ namespace Lvn.UI.Screens
             public string Item => string.IsNullOrEmpty(Sku) ? "avatar." + Id : Sku;
         }
 
-        /// <summary>Ключ выбранного лица. Забвение аккаунта сносит его по
-        /// имени (LvnForget): дом аватарок живёт в оболочке, а забвение — в
-        /// движке, и знать друг о друге они не могут.</summary>
+        /// <summary>Приставка ключа выбранного лица. Забвение аккаунта сносит
+        /// его по имени (LvnForget): дом аватарок живёт в оболочке, а забвение
+        /// — в движке, и знать друг о друге они не могут.</summary>
         public const string PickedKey = "lvn.avatar.picked";
+
+        /// <summary>Ключ выбранного лица В ПРОСТРАНСТВЕ ВЛАДЕЛЬЦА. Лицо — самое
+        /// личное, что есть у игрока: на общем телефоне оно доставалось
+        /// следующему, кто войдёт, и не уходило по «удалите меня».</summary>
+        private static string Key => Lvn.LvnKeep.Scoped(PickedKey, null);
 
         /// <summary>Что предлагает новелла. Пусто — выбора нет, и экран не
         /// открывается: обещать выбор без набора хуже, чем не обещать.</summary>
@@ -56,12 +61,19 @@ namespace Lvn.UI.Screens
             return list;
         }
 
+        /// <summary>
+        /// ВЫБОР «МОЙ ОБЛИК» (TR-68) — живой портрет героя вместо картинки из
+        /// набора. Стоит первым в наборе и картинки в манифесте не имеет: его
+        /// рисует сама игра снимком сцены.
+        /// </summary>
+        public const string SelfId = "self";
+
         /// <summary>Выбранная игроком аватарка или пусто — тогда показывается
         /// та, что назвал автор (<c>ui.browse.avatar</c>).</summary>
         public static string Picked
         {
-            get => Lvn.LvnKeep.Get(PickedKey, "");
-            set => Lvn.LvnKeep.Put(PickedKey, value ?? "");
+            get => Lvn.LvnKeep.Get(Key, "");
+            set => Lvn.LvnKeep.Put(Key, value ?? "");
         }
 
         /// <summary>Адрес картинки для показа: выбранная, если она ещё есть в
@@ -70,6 +82,9 @@ namespace Lvn.UI.Screens
         public static string Url(LvnManifest m)
         {
             var picked = Picked;
+            // «Мой облик» — не адрес: портрет живёт файлом на телефоне и
+            // ставится текстурой (см. NovelApp.ApplyAvatar).
+            if (picked == SelfId) return m?.ui?.browse?.avatar;
             if (!string.IsNullOrEmpty(picked))
                 foreach (var c in Offered(m))
                     if (c.Id == picked) return c.Url;

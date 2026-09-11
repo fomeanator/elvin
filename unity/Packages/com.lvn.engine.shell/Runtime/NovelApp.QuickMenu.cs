@@ -180,6 +180,14 @@ namespace Lvn.UI.Screens
             Lvn.UI.Screens.WardrobeSheet.SectionFocus -= OnWardrobeSection;
             Lvn.UI.Screens.WardrobeSheet.SectionFocus += OnWardrobeSection;
 
+            // ЖИВОЙ ПОРТРЕТ (TR-68): облик сменился — лицо в шапке и профиле
+            // пересобрали. Текущую эмоцию портрет спрашивает у сцены: в
+            // гардеробе она не надевается (TR-72), и знает её только сцена.
+            Lvn.UI.Screens.LvnPortraitFace.EmotionOf = who => Stage?.EmotionOf(who);
+            Action<string> onLookChanged = _ => SchedulePortrait();
+            _leash.Hold(() => Lvn.UI.LvnWardrobe.Changed += onLookChanged,
+                        () => Lvn.UI.LvnWardrobe.Changed -= onLookChanged);
+
             WireMenuScene();
             var menuTrack = ResolveMenuTrackUrl(manifest);
             if (!string.IsNullOrEmpty(menuTrack)) LvnAsync.Fire(StartMenuMusicAsync(menuTrack), "MenuMusic");

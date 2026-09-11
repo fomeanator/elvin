@@ -34,7 +34,40 @@ namespace Lvn.UI.Screens
                 _shell.Profile.AvatarUrl = url;
                 _shell.Profile.Rebuild();
             }
-            _shell?.TopBar?.SetAvatar(url, _assets);
+            _shell?.TopBar?.SetAvatar(url, _assets, _manifest);
+        }
+
+        /// <summary>
+        /// ОБЛИК ГЕРОЯ СМЕНИЛСЯ — ЛИЦО СЛЕДОМ (TR-68).
+        ///
+        /// <para>Портрет собирается из слоёв на лету, поэтому «пересобрать» —
+        /// это просто одеть кружки заново. Пачку правок сводим в одну
+        /// пересборку: подтверждая облик, гардероб надевает вещи по одной, и
+        /// каждая объявляет смену.</para>
+        /// </summary>
+        private void SchedulePortrait()
+        {
+            if (LvnAvatars.Picked != LvnAvatars.SelfId) return;
+            _portraitDue = true;
+            if (_portraitWaiting) return;
+            _portraitWaiting = true;
+            LvnAsync.Fire(PortraitSoonAsync(), "HeroPortrait");
+        }
+
+        private bool _portraitDue, _portraitWaiting;
+
+        private async Task PortraitSoonAsync()
+        {
+            try
+            {
+                while (_portraitDue)
+                {
+                    _portraitDue = false;
+                    await Task.Delay(250);      // пачка правок успевает закончиться
+                }
+                ApplyAvatar();
+            }
+            finally { _portraitWaiting = false; }
         }
     }
 }

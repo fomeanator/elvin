@@ -87,7 +87,7 @@ namespace Lvn.UI
                 // живёт в оболочке, движок его не видит, а забвение обязано
                 // работать и без неё. Имя ключа объявлено вслух там же
                 // (LvnAvatars.PickedKey) — расхождение поймает страж.
-                Safe("аватар", () => LvnKeep.Drop("lvn.avatar.picked"));
+                Safe("аватар", () => LvnKeep.Drop(LvnKeep.Scoped("lvn.avatar.picked", null)));
                 Safe("прочитанное", () => LvnReadStore.Clear(titleId));
                 // HttpStateStore uses the same scoped local keys. Forget also
                 // invalidates in-flight cloud replies; its sync index holds no

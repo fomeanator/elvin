@@ -63,15 +63,65 @@ namespace Lvn.UI.Screens
         {
             if (_grid == null) return;
             _grid.Clear();
+            // СВОЁ ЛИЦО ПЕРВЫМ (TR-68): герой, которого игрок собрал сам,
+            // важнее готовых картинок — его и предлагаем раньше.
+            _grid.Add(SelfTile());
             foreach (var choice in LvnAvatars.Offered(_manifest)) _grid.Add(Tile(choice));
         }
 
-        /// <summary>Плитка лица: картинка, отметка выбранной и цена у платной.</summary>
-        private VisualElement Tile(LvnAvatars.Choice c)
+        /// <summary>Плитка «мой облик» — живой портрет героя. Пока портрет не
+        /// снят, плитка объясняет это словом, а не показывает пустоту: снимок
+        /// делается в гардеробе, и игрока туда надо позвать.</summary>
+        private VisualElement SelfTile()
         {
-            bool owned = LvnAvatars.Owned(c);
-            bool picked = LvnAvatars.Picked == c.Id;
+            bool picked = LvnAvatars.Picked == LvnAvatars.SelfId;
+            var cell = Cell(picked);
 
+            var art = ScreenUi.Stretch(new VisualElement());
+            art.pickingMode = PickingMode.Ignore;
+            cell.Add(art);
+            // На плитке лицо показываем ВСЕГДА, даже когда выбрана картинка из
+            // набора: иначе игрок не видит, на что меняет.
+            if (!LvnPortraitFace.Wear(art, _manifest, _assets, force: true))
+            {
+                art.style.backgroundColor = LvnTokens.SurfaceHi;
+                var hint = Lvn.UI.LvnRedress.Bind(new Label(),
+                    () => LvnWords.Of("avatar.self_hint", "This novel has no hero to dress"));
+                hint.style.whiteSpace = WhiteSpace.Normal;
+                hint.style.color = LvnTokens.TextDim;
+                hint.style.fontSize = LvnTokens.TextXs;
+                hint.style.unityTextAlign = TextAnchor.MiddleCenter;
+                hint.style.marginTop = LvnTokens.Space4;
+                hint.pickingMode = PickingMode.Ignore;
+                cell.Add(hint);
+            }
+
+            var caption = Lvn.UI.LvnRedress.Bind(new Label(),
+                () => LvnWords.Of("avatar.self", "My look"));
+            caption.style.position = Position.Absolute;
+            caption.style.left = 0; caption.style.right = 0; caption.style.bottom = 0;
+            caption.style.unityTextAlign = TextAnchor.MiddleCenter;
+            caption.style.color = LvnTokens.Text;
+            caption.style.fontSize = LvnTokens.TextXs;
+            caption.style.backgroundColor = LvnTokens.Veil(0.6f);
+            LvnAir.PadY(caption, LvnTokens.Hair);
+            caption.pickingMode = PickingMode.Ignore;
+            cell.Add(caption);
+
+            cell.AddManipulator(new Clickable(() =>
+            {
+                LvnAvatars.Picked = LvnAvatars.SelfId;
+                Changed?.Invoke();
+                Rebuild();
+            }));
+            LvnMotion.Tappable(cell);
+            return cell;
+        }
+
+        /// <summary>Пустая плитка набора: размер, углы и отметка выбранной.
+        /// Общая у своего лица и у картинок — иначе они разъедутся видом.</summary>
+        private VisualElement Cell(bool picked)
+        {
             var cell = new VisualElement();
             cell.style.width = Length.Percent(31f);
             cell.style.marginRight = Length.Percent(2f);
@@ -88,6 +138,16 @@ namespace Lvn.UI.Screens
             cell.style.overflow = Overflow.Hidden;
             LvnChrome.Round(cell, LvnTokens.RadiusSm);
             LvnStyler.Chosen(cell, picked, StageDressed ? LvnTokens.Gold : LvnTokens.Accent);
+            return cell;
+        }
+
+        /// <summary>Плитка лица: картинка, отметка выбранной и цена у платной.</summary>
+        private VisualElement Tile(LvnAvatars.Choice c)
+        {
+            bool owned = LvnAvatars.Owned(c);
+            bool picked = LvnAvatars.Picked == c.Id;
+
+            var cell = Cell(picked);
 
             var art = ScreenUi.Stretch(new VisualElement());
             art.pickingMode = PickingMode.Ignore;

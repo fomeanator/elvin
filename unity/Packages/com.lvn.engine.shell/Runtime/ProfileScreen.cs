@@ -257,7 +257,10 @@ namespace Lvn.UI.Screens
             var glyph = LvnIcons.Make(AvatarIcon, 50f, LvnTokens.Text);
             glyph.style.alignSelf = Align.Center;
             avatar.Add(glyph);
-            if (!string.IsNullOrEmpty(AvatarUrl))
+            // ЖИВОЙ ПОРТРЕТ СИЛЬНЕЕ КАРТИНКИ (TR-68): игрок выбрал «мой облик»
+            // — в кружке лицо его героя, собранное в гардеробе, а не картинка
+            // из набора.
+            if (!LvnPortraitFace.Wear(avatar, _manifest, _assets) && !string.IsNullOrEmpty(AvatarUrl))
             {
                 LvnPicture.Photo(avatar, AvatarUrl, _assets);
             }
