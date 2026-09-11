@@ -238,6 +238,17 @@ var migrations = []string{
 	INSERT OR IGNORE INTO iap_receipt_owner (txn, user_id, ts)
 		SELECT txn, user_id, min(ts) FROM wallet_receipts GROUP BY txn;
 	`,
+	// Крутки (TR-47): что игрок уже выбил из супер-сектора и когда крутил
+	// бесплатно. Выбитое хранится списком через запятую: призов единицы, и
+	// отдельная таблица ради трёх строк на игрока стоила бы дороже вопроса.
+	`
+	CREATE TABLE IF NOT EXISTS gacha_players (
+		user_id    TEXT PRIMARY KEY,
+		taken      TEXT NOT NULL DEFAULT '',
+		free_day   TEXT NOT NULL DEFAULT '',
+		spins      INTEGER NOT NULL DEFAULT 0
+	);
+	`,
 }
 
 func migrate(db *sql.DB) error {

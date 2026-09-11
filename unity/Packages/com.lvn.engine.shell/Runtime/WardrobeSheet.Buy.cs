@@ -47,8 +47,11 @@ namespace Lvn.UI.Screens
         // «Штук больше нуля», а не «ключ есть»: инвентарь считает штуки, и
         // потраченная вещь остаётся ключом с нулём — здесь она выглядела
         // купленной, тогда как язык (has_item) считал её отсутствующей.
+        /// <summary>ВЕЩЬ ИЗ КРУТОК НЕ ПРОДАЁТСЯ (TR-47): её владение решает
+        /// только инвентарь. Цена у неё может быть не названа вовсе — это не
+        /// значит «бесплатна», это значит «здесь не купишь».</summary>
         private bool IsOwnedIn(string axis, LvnWardrobeItem item) =>
-            item == null || item.price <= 0
+            item == null || (item.price <= 0 && !item.gacha)
             || (axis == BackdropAxis
                     ? OwnsBackdrop(_entity, item.value)
                     : LvnWallet.Has(LvnWardrobe.Sku(OwnerOf(axis), axis, item.value)));

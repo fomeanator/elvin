@@ -579,6 +579,69 @@ func (s *WalletService) adminAdjust(userID, currency string, amount int64, kind,
 	return s.save(userID, doc)
 }
 
+// GrantItem — ВЫДАТЬ ВЕЩЬ, а не валюту: наряд, фон, аватарку. Нужно там, где
+// приз не измеряется числом — например, супер-сектор круток (TR-47): его
+// награда это предмет, и списывать за неё нечего.
+//
+// Инвентарь тот же, что у покупок: игра спрашивает «есть ли у меня эта вещь»
+// одним способом, независимо от того, куплена она или выиграна.
+func (s *WalletService) GrantItem(userID, sku, reason string) error {
+	if !reUserFile.MatchString(userID) || sku == "" {
+		return fmt.Errorf("bad grant item: user %q sku %q", userID, sku)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	doc, err := s.load(userID)
+	if err != nil {
+		return err
+	}
+	doc.Inventory[sku]++
+	doc.History = append(doc.History, walletEntry{
+		TS: time.Now().UTC().Format(time.RFC3339), Type: "earn",
+		SKU: sku, Reason: reason,
+	})
+	return s.save(userID, doc)
+}
+
+// Charge — плата за услугу сервера (крутка барабана). В отличие от Clawback
+// это ПОКУПКА: не хватает денег — отказ, а не списание до нуля. Начисление
+// накопительного запаса делается до проверки, чтобы игрок не платил дважды за
+// то, что натикало минуту назад.
+func (s *WalletService) Charge(userID, currency string, amount int64, reason string) error {
+	if !reUserFile.MatchString(userID) || currency == "" || amount <= 0 {
+		return fmt.Errorf("bad charge: user %q %s %d", userID, currency, amount)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	doc, err := s.load(userID)
+	if err != nil {
+		return err
+	}
+	s.accrue(doc, s.now())
+	if doc.Balances[currency] < amount {
+		return fmt.Errorf("insufficient funds: %s %d < %d", currency, doc.Balances[currency], amount)
+	}
+	doc.Balances[currency] -= amount
+	s.accrue(doc, s.now())
+	doc.History = append(doc.History, walletEntry{
+		TS: time.Now().UTC().Format(time.RFC3339), Type: "spend",
+		Currency: currency, Amount: amount, Reason: reason,
+	})
+	return s.save(userID, doc)
+}
+
+// Owns — есть ли вещь у игрока. Спрашивает тот, кто раздаёт призы: выдать
+// второй раз то, что уже лежит в инвентаре, значит обмануть ожидание.
+func (s *WalletService) Owns(userID, sku string) bool {
+	if !reUserFile.MatchString(userID) || sku == "" {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	doc, err := s.load(userID)
+	return err == nil && doc.Inventory[sku] > 0
+}
+
 func (s *WalletService) handleIAP(w http.ResponseWriter, r *http.Request) {
 	if !onlyMethod(w, r, http.MethodPost) {
 		return

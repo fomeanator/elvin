@@ -201,6 +201,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("daily service: %v", err)
 	}
+	// Крутки (TR-47): сектора и призы — контент, решение о выпавшем — сервер.
+	gachaSvc, err := NewGachaService(db, authSvc, walletSvc,
+		filepath.Join(*contentDir, "gacha.json"))
+	if err != nil {
+		log.Fatalf("gacha service: %v", err)
+	}
 	lbSvc, err := NewLeaderboardService(filepath.Join(servicesDir, "leaderboards"), db, authSvc)
 	if err != nil {
 		log.Fatalf("leaderboard service: %v", err)
@@ -235,6 +241,7 @@ func main() {
 	walletSvc.Routes(mux)
 	analyticsSvc.Routes(mux)
 	dailySvc.Routes(mux)
+	gachaSvc.Routes(mux)
 	adsSvc.Routes(mux)
 	netSvc := NewNetService()
 	netSvc.Routes(mux) // комнаты для игры вдвоём: сервер держит ящики, правила у клиентов
