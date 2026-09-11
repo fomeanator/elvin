@@ -101,12 +101,22 @@ namespace Lvn.UI.Screens
                 var libRow = CollectionRow(lib, hero: _collections.Count == 0);
                 if (libRow != null) _hubRows.Add(libRow);
             }
-            // Последний ряд стоит на 110px выше нижнего меню (Илья поднимал
-            // лесенкой: +20, +40, +50) — раньше был вплотную (0).
             var cc = _hubRows.contentContainer;
-            if (cc.childCount > 0) cc[cc.childCount - 1].style.marginBottom = 110;
+            if (cc.childCount > 0) cc[cc.childCount - 1].style.marginBottom = LastRowLift;
             AnimateIn(_hubRows); // staggered entrance
         }
+
+        /// <summary>
+        /// НА СКОЛЬКО ПОСЛЕДНИЙ РЯД ПОДНЯТ НАД НИЖНИМ МЕНЮ.
+        ///
+        /// <para>Не ступень отступов и не должна ею быть: величину Илья
+        /// подбирал лесенкой на живом экране (+20, +40, +50 — раньше ряд стоял
+        /// вплотную и последняя карточка пряталась за меню). Поэтому у неё
+        /// имя и объяснение, а не голое число в середине сборки: округлив её
+        /// до ближайшей ступени, мы вернём ровно тот дефект, ради которого
+        /// её и подбирали.</para>
+        /// </summary>
+        private const float LastRowLift = 110f;
 
         // Titles present in the manifest but not referenced by any collection —
         // preserves manifest order (dictionary order follows insertion in SetData).

@@ -28,7 +28,11 @@ func TestTopBarVisibilityHasOneAuthor(t *testing.T) {
 	root := repoRoot(t)
 	path := filepath.Join(root, "unity", "Packages", "com.lvn.engine.shell", "Runtime", "LvnTopBar.cs")
 	src := stripComments(string(mustRead(t, path)))
-	surface := regexp.MustCompile(`_(row|gameRow|miniPills|miniProgress|tapCatcher)\.style\.display\s*=`)
+	// ПРИСВАИВАНИЕ, А НЕ СРАВНЕНИЕ: хвост `[^=]` отсекает `== DisplayStyle.None`.
+	// Без него страж считал решением ЧТЕНИЕ видимости (место циферблата в
+	// логотипе спрашивает, не скрыт ли ряд) — и порог рос на ровном месте,
+	// а настоящее пятое решение прошло бы незамеченным.
+	surface := regexp.MustCompile(`_(row|gameRow|miniPills|miniProgress|tapCatcher)\.style\.display\s*=\s*[^=]`)
 
 	// Тело ApplyBarVisibility — единственное законное место решений.
 	lines := strings.Split(src, "\n")
