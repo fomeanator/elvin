@@ -294,9 +294,6 @@ namespace Lvn.UI.Screens
         public static Label Plaque(Func<string> text)
             => Text(() => (text() ?? string.Empty).ToUpperInvariant(), LvnTokens.TextSm, LvnTokens.Text);
 
-        /// <summary>Кнопка облика: рамка нарисована в панели, здесь слово и зона
-        /// нажатия с откликом. Подпись стоит чуть выше центра — у нарисованной
-        /// кнопки нижняя грань толще.</summary>
         /// <summary>
         /// ГЛАВНАЯ КНОПКА ЛИСТА — одна на все разговорные экраны (награда за
         /// ролик, витрина прохождения): в облике «сцена» это плашка с рисованной
@@ -339,6 +336,9 @@ namespace Lvn.UI.Screens
             return btn;
         }
 
+        /// <summary>Кнопка облика: рамка нарисована в панели, здесь слово и зона
+        /// нажатия с откликом. Подпись стоит чуть выше центра — у нарисованной
+        /// кнопки нижняя грань толще.</summary>
         public static VisualElement Button(Func<string> text, Action onTap)
         {
             var b = new VisualElement();
