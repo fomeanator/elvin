@@ -184,6 +184,11 @@ namespace Lvn.UI.Screens
             // пересобрали. Текущую эмоцию портрет спрашивает у сцены: в
             // гардеробе она не надевается (TR-72), и знает её только сцена.
             Lvn.UI.Screens.LvnPortraitFace.EmotionOf = who => Stage?.EmotionOf(who);
+
+            // РАССТАНОВКА КОМНАТ — АВТОРСКАЯ (TR-63). Полотно нарисовано под
+            // свою карту, и держать её числами в коде значит требовать сборки
+            // ради композиции чужой игры.
+            Lvn.UI.Screens.LvnTabs.Rooms = Lvn.UI.Screens.LvnTabs.RoomsOf(manifest?.ui?.browse?.rooms);
             Action<string> onLookChanged = _ => SchedulePortrait();
             _leash.Hold(() => Lvn.UI.LvnWardrobe.Changed += onLookChanged,
                         () => Lvn.UI.LvnWardrobe.Changed -= onLookChanged);
