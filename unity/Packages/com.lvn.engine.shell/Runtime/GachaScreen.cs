@@ -234,9 +234,11 @@ namespace Lvn.UI.Screens
             {
                 t += Time.unscaledDeltaTime;
                 // Торможение к концу: быстрый разгон, долгая осадка — так
-                // читается «повезло или нет» на последних сантиметрах.
+                // читается «повезло или нет» на последних сантиметрах. Кривая
+                // берётся у движения оболочки, а не пишется числом: почерк у
+                // всех приходов один, и своя копия однажды разошлась бы с ним.
                 float k = Mathf.Clamp01(t / SpinSeconds);
-                float eased = 1f - Mathf.Pow(1f - k, 3f);
+                float eased = LvnMotion.Settle(k);
                 _strip.style.left = Mathf.Lerp(from, -target, eased);
                 await Task.Yield();
             }

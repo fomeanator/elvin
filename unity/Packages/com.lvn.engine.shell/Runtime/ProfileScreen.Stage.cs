@@ -47,8 +47,10 @@ namespace Lvn.UI.Screens
             if (!StageDressed || el == null) return el;
             el.style.backgroundColor = UiColor.WithAlpha(LvnTokens.PanelBg, 0.82f);
             el.style.backgroundImage = new StyleBackground(StyleKeyword.None);
-            LvnChrome.ClearBorder(el);
-            LvnChrome.Round(el, LvnStageKit.D(8f));
+            // Скруглить И снять прежнюю обводку — одно решение, и дом для
+            // него один: порознь вторую строку легко написать с другой
+            // величиной или забыть вовсе.
+            LvnChrome.Frame(el, LvnStageKit.D(8f));
             return el;
         }
 
