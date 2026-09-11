@@ -35,6 +35,11 @@ namespace Lvn.UI.Screens
                 return;
             }
             var snapshot = JObject.FromObject(slot);
+            // ОБРАЗ ЕДЕТ ВМЕСТЕ СО СНИМКОМ (TR-18): получатель должен видеть, во
+            // что одета героиня у автора ссылки. Видеть — не значит получить:
+            // вещи остаются товаром, их продают, а не выдают.
+            var look = LookOf();
+            if (look != null) snapshot["Look"] = look;
             var code = await Lvn.Services.LvnShare.GiveAsync(titleId, snapshot, slot.Preview);
             if (string.IsNullOrEmpty(code))
             {
@@ -77,9 +82,32 @@ namespace Lvn.UI.Screens
                                         LvnWords.Of("share.failed", "Could not share right now."));
                 return;
             }
+            // ВИТРИНА ПРОХОЖДЕНИЯ (TR-18): показать, во что она одета, и почём
+            // это повторить. Сами вещи НЕ выдаются — иначе один купил, десять
+            // получили даром; прохождение уже лежит в сохранениях, и продолжить
+            // можно в своей одежде.
+            var look = taken.Body["Look"] as JObject;
+            if (look?["worn"] is JObject worn && worn.HasValues)
+            {
+                await ShowLookAsync((string)look["entity"], worn, taken.Note);
+                return;
+            }
             await _shell.AlertAsync(
                 LvnWords.Of("share.title", "Share"),
                 LvnWords.Of("share.taken", "The playthrough is in your saves — open «Load»."));
+        }
+
+        /// <summary>Что надето на героине сейчас — для витрины прохождения
+        /// (TR-18). Эмоция в образ не входит: лицо не продаётся.</summary>
+        private JObject LookOf()
+        {
+            var hero = _manifest?.ui?.wardrobe?.entity;
+            if (string.IsNullOrEmpty(hero)) return null;
+            var worn = new JObject();
+            foreach (var kv in Lvn.UI.LvnWardrobe.Equipped(hero))
+                if (!Lvn.UI.LvnWardrobeStage.IsEmotion(kv.Key)) worn[kv.Key] = kv.Value;
+            if (!worn.HasValues) return null;
+            return new JObject { ["entity"] = hero, ["worn"] = worn };
         }
 
         /// <summary>Слот для принятого прохождения. ОДИН на всё: следующий
@@ -98,6 +126,22 @@ namespace Lvn.UI.Screens
                 if (best == null || kv.Value.SavedAtUnixMs > best.SavedAtUnixMs) best = kv.Value;
             }
             return best;
+        }
+
+        /// <summary>Открыть витрину чужого образа (TR-18). Экран живёт ровно на
+        /// время разговора: вещи он не выдаёт, только показывает и продаёт.</summary>
+        private async Task ShowLookAsync(string entity, JObject worn, string note)
+        {
+            var root = _shell?.Document?.rootVisualElement;
+            if (root == null || _assets == null) return;
+            var wardrobe = new System.Collections.Generic.Dictionary<string, string>();
+            foreach (var kv in worn) wardrobe[kv.Key] = (string)kv.Value;
+
+            var screen = new ShareLookScreen(_assets);
+            screen.SetContent(_manifest);
+            root.Add(screen);
+            try { await screen.RunAsync(entity, wardrobe, note); }
+            finally { screen.RemoveFromHierarchy(); }
         }
     }
 }

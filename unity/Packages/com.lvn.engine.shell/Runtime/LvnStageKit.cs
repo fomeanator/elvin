@@ -297,6 +297,48 @@ namespace Lvn.UI.Screens
         /// <summary>Кнопка облика: рамка нарисована в панели, здесь слово и зона
         /// нажатия с откликом. Подпись стоит чуть выше центра — у нарисованной
         /// кнопки нижняя грань толще.</summary>
+        /// <summary>
+        /// ГЛАВНАЯ КНОПКА ЛИСТА — одна на все разговорные экраны (награда за
+        /// ролик, витрина прохождения): в облике «сцена» это плашка с рисованной
+        /// рамкой, без облика — обычная кнопка темы.
+        ///
+        /// <para>Тело этой кнопки было списано в двух экранах слово в слово.
+        /// Копия расходится молча: правку вносят в один дом и забывают про
+        /// второй — а выглядят они у игрока одинаково.</para>
+        /// </summary>
+        public static VisualElement SheetPrimary(Func<string> text, Action onTap,
+                                                 string skin, ILvnAssets assets)
+        {
+            if (!string.IsNullOrEmpty(skin))
+            {
+                var plate = Button(text, onTap);
+                plate.style.height = D(52f);
+                plate.style.marginBottom = LvnTokens.Space2;
+                HollowFrame(plate, SkinUrl(skin, "card-back.png"), assets,
+                            CardBackW, CardBackH, CardBackCornerPx, CardBackPxPerDp,
+                            index: 0, solid: true);
+                return plate;
+            }
+            var btn = Lvn.UI.LvnRedress.Bind(new Button(() => onTap()), text);
+            btn.style.fontSize = LvnTokens.TextBase;
+            btn.style.unityFontStyleAndWeight = FontStyle.Bold;
+            LvnAir.PadY(btn, LvnTokens.Space3);
+            btn.style.marginBottom = LvnTokens.Space2;
+            LvnStyler.Primary(btn, LvnTokens.RadiusSm);
+            return btn;
+        }
+
+        /// <summary>Тихая кнопка листа: «не сейчас», «закрыть». Облика не носит
+        /// — отказ и не должен выглядеть предложением.</summary>
+        public static VisualElement SheetQuiet(Func<string> text, Action onTap)
+        {
+            var btn = Lvn.UI.LvnRedress.Bind(new Button(() => onTap()), text);
+            btn.style.fontSize = LvnTokens.TextSm;
+            LvnAir.PadY(btn, LvnTokens.Space2);
+            LvnStyler.Quiet(btn, LvnTokens.RadiusSm);
+            return btn;
+        }
+
         public static VisualElement Button(Func<string> text, Action onTap)
         {
             var b = new VisualElement();
