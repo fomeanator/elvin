@@ -94,7 +94,12 @@ namespace Lvn.UI.Screens
             // Минимальная ширина под четыре знака держит ряд неподвижным, а
             // выравнивание по центру не даёт числу «прилипать» к значку.
             _amount.style.minWidth = _look.AmountMinWidth ?? _look.FontSize * 2.2f;
-            _amount.style.unityTextAlign = TextAnchor.MiddleCenter;
+            // ЧИСЛО ЖМЁТСЯ К СВОЕМУ ЗНАЧКУ (TR-78). По центру оно уезжало в
+            // середину опорной ширины, и между кристаллом и «3 470» зияла
+            // дырка шире самого значка — пара переставала читаться как одна
+            // вещь. Опора осталась (ряд не дёргается на смене баланса), но
+            // текст прижат влево, к тому, о чём он говорит.
+            _amount.style.unityTextAlign = TextAnchor.MiddleLeft;
             _amount.style.marginLeft = LvnTokens.Tight;
             _amount.style.flexShrink = 0;   // длинное число не режется многоточием
             Add(_amount);

@@ -574,7 +574,10 @@ namespace Lvn.UI.Screens
             if (_stage != null && !compact)
                 return new LvnWalletPill(cur, new LvnWalletPill.Look
                 {
-                    MarginLeft = StageD(8f),
+                    // Пары валют стоят плотно внутри и просторно между собой:
+                    // так читается «значок с числом», а не четыре отдельных
+                    // предмета в ряд (TR-78, эталон Арама).
+                    MarginLeft = StageD(14f),
                     Height = StageD(24f),
                     PadLeft = 0, PadRight = 0, PadY = 0,
                     Radius = 0f,
@@ -588,7 +591,7 @@ namespace Lvn.UI.Screens
                               && _stage.CurrencyIcons.TryGetValue(cur, out var iconUrl) ? iconUrl : null,
                     PlusIconUrl = _stage.Plus,
                     PlusSize = StageD(16f),
-                    AmountMinWidth = StageD(14f),
+                    AmountMinWidth = StageD(10f),
                 }, _assets,
                 onTap: () => OnCurrency?.Invoke(captured),
                 onPlus: () => OnCurrency?.Invoke(captured));
