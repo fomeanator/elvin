@@ -309,14 +309,6 @@ namespace Lvn.UI.Screens
 
         // ── детали рядов ──────────────────────────────────────────────────────
 
-        /// <summary>Плашка ряда: тон панели, скругление; выбранной — грань
-        /// цветом облика.</summary>
-        /// <summary>Строка выбора качества: название ступени, её цена в
-        /// мегабайтах и отметка выбранного. Выбор пишется в настройки — тот же
-        /// ключ, что в настройках устройства, второго хозяина у него нет.</summary>
-        /// <summary>Кадры, память и место — тремя ячейками, как показатели
-        /// загрузки выше. Обновляются тиком окна, а не пересборкой листа:
-        /// цифра, которая меняется каждую секунду, не должна двигать строки.</summary>
         /// <summary>Переключатель вида: загрузки или устройство. Одна строка
         /// из двух слов — выбранное золотом, второе приглушено.</summary>
         private VisualElement ViewSwitch()
@@ -341,6 +333,9 @@ namespace Lvn.UI.Screens
 
         private bool _deviceView;
 
+        /// <summary>Кадры, память и место — тремя ячейками, как показатели
+        /// загрузки выше. Обновляются тиком окна, а не пересборкой листа:
+        /// цифра, которая меняется каждую секунду, не должна двигать строки.</summary>
         private VisualElement DeviceMetrics()
         {
             var box = new VisualElement { pickingMode = PickingMode.Ignore };
@@ -492,6 +487,9 @@ namespace Lvn.UI.Screens
         private float _diskAskedAt;
         private long? _diskFree;
 
+        /// <summary>Строка выбора качества: название ступени, её цена в
+        /// мегабайтах и отметка выбранного. Выбор пишется в настройки — тот же
+        /// ключ, что в настройках устройства, второго хозяина у него нет.</summary>
         private VisualElement QualityRow(string quality, long bytes)
         {
             bool chosen = (string.IsNullOrEmpty(LvnPrefs.ArtQuality)
@@ -536,6 +534,8 @@ namespace Lvn.UI.Screens
             return row;
         }
 
+        /// <summary>Плашка ряда: тон панели, скругление; выбранной — грань
+        /// цветом облика.</summary>
         private VisualElement RowPlate(bool chosen)
         {
             var row = new VisualElement();
