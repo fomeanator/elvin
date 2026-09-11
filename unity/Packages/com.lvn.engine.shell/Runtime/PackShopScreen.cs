@@ -397,6 +397,11 @@ namespace Lvn.UI.Screens
         // отпускает её при любом исходе; releaseOnSuccess: false — потому что
         // успех экран доигрывает сам («Готово» на секунду, потом прежняя
         // подпись).
+        /// <summary>Игрок купил пакет. Слушает витрина: реакция героини на
+        /// покупку (TR-66). Статическое, потому что магазинов два — вкладка и
+        /// лист поверх главы, — а героиня одна.</summary>
+        public static event System.Action Purchased;
+
         private void Buy(Button b, Pack pack)
         {
             string label = b.text;   // подпись запоминаем ДО занятости
@@ -433,6 +438,10 @@ namespace Lvn.UI.Screens
                 b.SetEnabled(true);
                 return;
             }
+            // ПОКУПКА СОСТОЯЛАСЬ — героиня витрины об этом узнаёт (TR-66).
+            // Событие поднимает магазин, а что играть, решает дом настроения:
+            // знать про эмоции магазину нечего.
+            Purchased?.Invoke();
             b.schedule.Execute(() =>
             {
                 b.text = LvnWords.Of("common.done", "Done");

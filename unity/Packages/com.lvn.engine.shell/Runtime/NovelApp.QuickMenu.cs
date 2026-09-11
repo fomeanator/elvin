@@ -189,6 +189,16 @@ namespace Lvn.UI.Screens
             // свою карту, и держать её числами в коде значит требовать сборки
             // ради композиции чужой игры.
             Lvn.UI.Screens.LvnTabs.Rooms = Lvn.UI.Screens.LvnTabs.RoomsOf(manifest?.ui?.browse?.rooms);
+
+            // РЕАКЦИИ ГЕРОИНИ (TR-66): сценарий витрины и события, на которые
+            // он отзывается. Пусто в манифесте — героиня стоит как стояла.
+            WireMood(manifest);
+            System.Action onBought = () => Raise("on_purchase", act: true);
+            _leash.Hold(() => Lvn.UI.Screens.PackShopScreen.Purchased += onBought,
+                        () => Lvn.UI.Screens.PackShopScreen.Purchased -= onBought);
+            System.Action<string> onDressed = _ => Raise("on_equip", act: true);
+            _leash.Hold(() => Lvn.UI.LvnWardrobe.Changed += onDressed,
+                        () => Lvn.UI.LvnWardrobe.Changed -= onDressed);
             Action<string> onLookChanged = _ => SchedulePortrait();
             _leash.Hold(() => Lvn.UI.LvnWardrobe.Changed += onLookChanged,
                         () => Lvn.UI.LvnWardrobe.Changed -= onLookChanged);
@@ -288,7 +298,11 @@ namespace Lvn.UI.Screens
         {
             _shell.OnMenuVisible -= ShowMenuScene;
             _shell.OnMenuVisible += ShowMenuScene; // сцена меню по факту показа хаба
-            _shell.OnTabTravel = PanMenuScene;     // полотно панорамирует с вкладками
+            _shell.OnTabTravel = (from, to) =>     // полотно панорамирует с вкладками
+            {
+                PanMenuScene(from, to);
+                RoomMood(to);                      // …и героиня узнаёт, куда приехали (TR-66)
+            };
             _shell.OnTabTravelTick = k =>          // …кадр в кадр с UI
             {
                 // ПОЧЕМУ ПОЛОТНО МОГЛО НЕ ПОЕХАТЬ — вслух и один раз за переезд.
