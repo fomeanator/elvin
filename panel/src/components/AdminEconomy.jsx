@@ -13,6 +13,8 @@ const CONFIGS = [
     hint: '{ "placement": {"currency","amount","daily_cap"} }' },
   { file: "daily-rewards.json", title: "Ежедневные награды (стрик)",
     hint: '[ {"currency","amount"}, … день за днём; последний повторяется ]' },
+  { file: "gacha.json", title: "Барабан круток",
+    hint: '{ "currency","price", "sectors":[{"id","kind":"currency|super","currency","amount","weight","label"}], "prizes":[{"sku","label"}] }. Вес — доля, а не проценты: сумма любая' },
 ];
 
 export default function AdminEconomy({ token, notify }) {

@@ -285,6 +285,7 @@ var adminConfigs = map[string]bool{
 	"iap-catalog.json":   true, // packs (sku → grant + presentation)
 	"ads.json":           true, // rewarded placements (currency/amount/daily_cap)
 	"daily-rewards.json": true, // streak rewards, day by day
+	"gacha.json":         true, // барабан круток: секторы, веса, призы, цена
 }
 
 // GET/PUT /v1/admin/config/<name> — validated JSON, atomic write. Services
@@ -295,7 +296,7 @@ func (s *AdminService) handleConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	name := strings.TrimPrefix(r.URL.Path, "/v1/admin/config/")
 	if !adminConfigs[name] {
-		http.Error(w, "unknown config (iap-catalog.json | ads.json | daily-rewards.json)", http.StatusNotFound)
+		http.Error(w, "unknown config (iap-catalog.json | ads.json | daily-rewards.json | gacha.json)", http.StatusNotFound)
 		return
 	}
 	path := filepath.Join(s.content, name)
