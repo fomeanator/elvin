@@ -452,22 +452,23 @@ namespace Lvn.UiLab
             string before = Lvn.UI.LvnPlayerName.Display;
             var nameLbl = bar.Query<Label>().Where(l => l.text == before).First();
             string wasName = Lvn.UI.LvnPlayerName.Current;
-            Lvn.UI.LvnPlayerName.Set("Виктория");
+            string typed = "Виктория " + UnityEngine.Random.Range(10, 99);   // уникально: прошлый прогон мог оставить имя
+            Lvn.UI.LvnPlayerName.Set(typed);
             yield return null;
-            Verdict($"имя в шапке после ввода — «{nameLbl?.text}» (было «{before}»)", nameLbl != null && nameLbl.text == "Виктория");
+            Verdict($"имя в шапке после ввода — «{nameLbl?.text}» (было «{before}»)", nameLbl != null && nameLbl.text == typed);
             yield return Shoot("qa-name");
 
             // 2. Валюта: значок, число и «плюс» на одной середине, зазоры равные.
-            var pills = bar.Query<LvnWalletPill>().ToList();
+            // Только пилюли шапки облика: компактные пилюли главы скрыты и без «плюса».
+            var pills = bar.Query<LvnWalletPill>().Where(p => p.childCount >= 3 && p.resolvedStyle.display == DisplayStyle.Flex && p.worldBound.width > 1f).ToList();
             bool aligned = pills.Count > 0; string geo = "";
             foreach (var pill in pills)
             {
-                if (pill.childCount < 3) { aligned = false; continue; }
                 var icon = pill[0]; var amount = pill.Q<Label>(); var plus = pill[pill.childCount - 1];
                 float dy = Mathf.Max(Mathf.Abs(CenterY(icon) - CenterY(amount)), Mathf.Abs(CenterY(plus) - CenterY(amount)));
                 float gapL = amount.worldBound.xMin - icon.worldBound.xMax, gapR = plus.worldBound.xMin - amount.worldBound.xMax;
                 geo += $" [{amount.text}: Δy={dy:F0} зазоры {gapL:F0}/{gapR:F0}]";
-                if (dy > 3f || Mathf.Abs(gapL - gapR) > 3f) aligned = false;
+                if (dy > 3f || Mathf.Abs(gapL - gapR) > 5f) aligned = false;   // 5 px — люфт коробки текста
             }
             Verdict("валюта: одна середина и равные зазоры" + geo, aligned);
 
@@ -523,8 +524,12 @@ namespace Lvn.UiLab
             Debug.Log($"[shots] тур: эмоция — сущность {entity ?? "-"}, ось {axis ?? "-"}, сейчас {current ?? "-"}, беру {pick ?? "-"}");
             if (entity != null && axis != null && pick != null)
             {
-                string word = LvnWords.Of("emotion." + pick, pick);
-                var chip = sheet.Query<Button>().Where(b => b.text == word || b.text == pick).First();
+                // Пункты стоят в порядке значений оси — берём по номеру, слово может быть переведено.
+                var emos = sheet.GetType().GetField("_emotions", bf)?.GetValue(sheet) as VisualElement;
+                var chips = emos != null ? emos.Query<Button>().ToList() : new List<Button>();
+                var ordered = values.FindAll(v => !string.IsNullOrEmpty(v));
+                int at = ordered.IndexOf(pick);
+                var chip = at >= 0 && at < chips.Count ? chips[at] : null;
                 Tap(chip);
                 yield return new WaitForSecondsRealtime(1.5f);
                 var look = Lvn.UI.LvnCostumer.Look(new Dictionary<string, string> { [axis] = "idle" }, entity, null);

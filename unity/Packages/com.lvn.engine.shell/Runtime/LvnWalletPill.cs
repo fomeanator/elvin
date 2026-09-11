@@ -104,7 +104,9 @@ namespace Lvn.UI.Screens
             // вещь. Опора осталась (ряд не дёргается на смене баланса), но
             // текст прижат влево, к тому, о чём он говорит.
             _amount.style.unityTextAlign = TextAnchor.MiddleLeft;
-            _amount.style.marginLeft = _look.Gap ?? LvnTokens.Tight;
+            // Зазор до значка несёт значок; с общим зазором облика число своего
+            // не добавляет — иначе слева выходило вдвое больше, чем справа.
+            _amount.style.marginLeft = _look.Gap.HasValue ? 0f : LvnTokens.Tight;
             _amount.style.flexShrink = 0;   // длинное число не режется многоточием
             _amount.style.whiteSpace = WhiteSpace.NoWrap;
             // ОДНА СЕРЕДИНА У ЗНАЧКА, ЧИСЛА И «ПЛЮСА». Три коробки трёх высот
