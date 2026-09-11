@@ -57,9 +57,6 @@ namespace Lvn.UI
                 p.TransitionDuration = VnTheme.Motion(p.TransitionDuration);
         }
 
-        /// <summary>Side entrances and changes between stage positions should
-        /// read as a quick piece of blocking, not as the actor skating through
-        /// the shot. Fade-only exits deliberately keep their own timing.</summary>
         /// <summary>СКОЛЬКО ЗАЯВИТЬ, чтобы переход между слотами длился
         /// <paramref name="onScreenSeconds"/> на экране. Заявленное время
         /// проходит темп темы и укорачивание мизансцены; тот, кому надо
@@ -68,6 +65,9 @@ namespace Lvn.UI
         public static float DeclareMovement(float onScreenSeconds)
             => onScreenSeconds / (VnTheme.MotionDurationScale * ActorMovementDurationScale);
 
+        /// <summary>Side entrances and changes between stage positions should
+        /// read as a quick piece of blocking, not as the actor skating through
+        /// the shot. Fade-only exits deliberately keep their own timing.</summary>
         private static void ShortenCharacterMovement(JObject cmd, ref Placement p)
         {
             if (!IsCharacterCommand(cmd) || p.TransitionDuration <= 0.001f) return;

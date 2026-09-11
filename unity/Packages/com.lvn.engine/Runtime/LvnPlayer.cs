@@ -311,11 +311,6 @@ namespace Lvn
             }
         }
 
-        /// <summary>Re-apply the persistent visual side-effects (background, actors,
-        /// HUD labels, idle animations, and the net FX/audio state) of commands
-        /// <c>0..upto</c> without showing any dialogue — used after
-        /// <see cref="Restore(LvnSnapshot)"/> to rebuild the scene a save was taken
-        /// in before resuming.</summary>
         /// <summary>ВСТАТЬ НА КОМАНДУ, НЕ ИГРАЯ ЕЁ. Нужно, чтобы предзагрузка
         /// смотрела вперёд ОТ НУЖНОГО МЕСТА: пересмотр катсцены греет спайн и
         /// арт её отрезка, а не начала главы, где стоял указатель.</summary>
