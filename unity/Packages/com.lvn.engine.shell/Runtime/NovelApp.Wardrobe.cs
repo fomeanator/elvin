@@ -43,41 +43,27 @@ namespace Lvn.UI.Screens
         {
             var sprites = _manifest?.sprites;
             if (sprites == null) return null;
+            // ПРАВИЛО ОТБОРА — У ДОМА (LvnWardrobeRoster): кого пускать в
+            // столбик, спрашивают и меню, и лист внутри главы, и разойдись их
+            // ответы — игрок увидел бы в двух местах разных героев.
+            var ids = Lvn.UI.LvnWardrobeRoster.Pick(
+                sprites, _manifest?.ui?.wardrobe?.characters, primary,
+                Stage != null ? Stage.ActorsOnStage() : null,
+                _manifest?.titles?.Count ?? 0);
+
             var list = new List<(string id, string name)>();
-            var sigs = new HashSet<string>();
-            void TryAdd(string id)
+            foreach (var id in ids)
             {
-                if (string.IsNullOrEmpty(id) || !sprites.TryGetValue(id, out var d)
-                    || d?.wardrobe == null || d.wardrobe.Count == 0) return;
-                var vars = new List<string>();
-                foreach (var kv in d.wardrobe)
-                    if (!string.IsNullOrEmpty(kv.Value?.storyVar)) vars.Add(kv.Value.storyVar);
-                vars.Sort();
-                var sig = vars.Count > 0 ? string.Join("|", vars) : "id:" + id;
-                if (!sigs.Add(sig)) return; // same character under another entity id
+                sprites.TryGetValue(id, out var d);
                 // Имя персонажа — тоже подпись: игрок читает его рядом с
                 // переведёнными репликами.
-                list.Add((id, Lvn.Content.LvnWords.Name("actor", id, d.name)));
+                list.Add((id, Lvn.Content.LvnWords.Name("actor", id, d?.name)));
             }
-            // Явный ростер (ui.wardrobe.characters) — закон: только персонажи
-            // ЭТОЙ новеллы, в авторском порядке, героиня первой. Без него —
-            // все одеваемые сущности каталога (наследие одиночных новелл).
-            var explicitRoster = _manifest?.ui?.wardrobe?.characters;
-            if (explicitRoster != null && explicitRoster.Count > 0)
-            {
-                foreach (var id in explicitRoster) TryAdd(id);
-            }
-            else
-            {
-                TryAdd(primary);
-                foreach (var id in sprites.Keys) TryAdd(id);
-            }
-            // The protagonist's pill wears the name the PLAYER chose, not the
-            // import's internal label (Mira/demo_main/Главный_герой are all her).
-            // С явным ростером первая таблетка — ГГ по контракту списка.
+            // Таблетка ГГ носит имя, которое выбрал ИГРОК, а не внутреннюю
+            // подпись импорта (Mira / demo_main / Главный_герой — все она).
+            var authored = _manifest?.ui?.wardrobe?.characters;
             bool firstIsHeroine = list.Count > 0
-                && (list[0].id == primary
-                    || (explicitRoster != null && explicitRoster.Count > 0));
+                && (list[0].id == primary || (authored != null && authored.Count > 0));
             if (firstIsHeroine && !string.IsNullOrEmpty(_playerName))
                 list[0] = (list[0].id, _playerName);
             return list;
