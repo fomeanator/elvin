@@ -215,6 +215,12 @@ namespace Lvn.UI.Screens
                           $"inventory [{string.Join(", ", LvnWallet.Inventory.Keys)}]");
                 foreach (var kv in previewed)
                 {
+                    // ЛИЦО НЕ НАДЕВАЕТСЯ (TR-72). Эмоции в гардеробе — способ
+                    // разглядеть героиню, а не часть облика: их не покупают и
+                    // не носят. Уходя с подтверждением, выбранная эмоция
+                    // сохранялась вместе с нарядом и оставалась у героини в
+                    // главном меню. Примерка лица снимается вместе с листом.
+                    if (Lvn.UI.LvnWardrobeStage.IsEmotion(kv.Key)) continue;
                     var item = Find(kv.Key, kv.Value);
                     if (item == null)
                     {
