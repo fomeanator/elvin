@@ -257,6 +257,16 @@ namespace Lvn.Content
         public string currency; // price currency; with price>0 the item is bought
         public long price;
         public string rarity;   // optional tint key ("rare"/"epic"/…) → WardrobeConfig.rarity_colors
+        /// <summary>
+        /// ТОЛЬКО ИЗ КРУТОК (TR-47): вещь есть в гардеробе, но не продаётся.
+        ///
+        /// <para>Супер-сектор гачи раздаёт наряды и фоны, и те же вещи нельзя
+        /// оставлять на витрине за валюту — иначе приз, ради которого крутят,
+        /// покупается в два касания. Владение проверяется как обычно, по
+        /// инвентарю: выигранное надевается тем же путём, что купленное.</para>
+        /// </summary>
+        public bool gacha;
+
         /// <summary>Swatch fill ("#a93a2b") for sub-slot pickers (hair colour
         /// dots). Without it the swatch falls back to the item's icon.</summary>
         public string color;

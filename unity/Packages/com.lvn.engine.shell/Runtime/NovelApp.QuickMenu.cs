@@ -393,6 +393,8 @@ namespace Lvn.UI.Screens
                 // что у бесплатной карточки магазина.
                 _shell.Hub.AdPlacement = manifest.ui?.store?.ad_placement;
                 _shell.Hub.OnAdTap = () => LvnAsync.Fire(OpenAdRewardAsync(), "AdReward");
+                // Крутки (TR-47): решает сервер, показывает экран.
+                _shell.Hub.OnSpin = () => LvnAsync.Fire(OpenGachaAsync(), "Gacha");
             }
         }
 

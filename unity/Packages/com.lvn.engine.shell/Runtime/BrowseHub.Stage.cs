@@ -47,6 +47,10 @@ namespace Lvn.UI.Screens
         /// показывает ролик сама (так было до экрана награды).</summary>
         public System.Action OnAdTap;
 
+        /// <summary>Игрок открыл крутки (TR-47). Пусто — кнопки нет.</summary>
+        public System.Action OnSpin;
+        private VisualElement _stageSpin;
+
         private VisualElement _stageStack, _stageCard, _stageAd, _stageCover, _stageFill;
         private Label _stageChapter, _stageTitle, _stageSubtitle, _stageAdAmount;
         private LvnTitle _stageFeatured;
@@ -101,6 +105,22 @@ namespace Lvn.UI.Screens
             stack.Add(StageGap());
             _stageAd = StageAdButton();
             stack.Add(_stageAd);
+
+            // КРУТКИ (TR-47) — рядом с наградой за ролик: обе кнопки про то,
+            // как получить валюту, не платя деньгами. Пункта нет, пока хозяин
+            // не дал, чем его открыть: гача заводится сервером, и обещать её
+            // без сервера незачем.
+            if (OnSpin != null)
+            {
+                _stageSpin = LvnStageKit.Button(() => LvnWords.Of("gacha.title", "Spin"), () => OnSpin());
+                _stageSpin.style.height = D(LvnStageSkin.Adv.Height);
+                _stageSpin.style.marginTop = LvnTokens.Space1;
+                LvnStageKit.HollowFrame(_stageSpin, SkinUrl("card-back.png"), _assets,
+                                        LvnStageKit.CardBackW, LvnStageKit.CardBackH,
+                                        LvnStageKit.CardBackCornerPx, LvnStageKit.CardBackPxPerDp,
+                                        index: 0, solid: true);
+                stack.Add(_stageSpin);
+            }
 
             // Высота экрана известна только после раскладки — и меняется на
             // повороте; столбик подгоняется при каждой смене геометрии.
