@@ -32,6 +32,13 @@
     "title": "string",
     "title_color": "string"
   },
+  "AvatarChoice": {
+    "currency": "string",
+    "id": "string",
+    "price": "long",
+    "sku": "string",
+    "url": "string"
+  },
   "BootScreenConfig": {
     "bar_fill_color": "string",
     "bar_fill_url": "string",
@@ -53,6 +60,7 @@
     "accent_text_color": "string",
     "all_text": "string",
     "avatar": "string",
+    "avatars": "AvatarChoice",
     "back_text": "string",
     "bg_color": "string",
     "canvas": "string",

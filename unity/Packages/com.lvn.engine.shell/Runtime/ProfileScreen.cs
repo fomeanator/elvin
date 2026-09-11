@@ -58,6 +58,10 @@ namespace Lvn.UI.Screens
         public bool Minimal;
         public LvnIcon AvatarIcon = LvnIcon.Profile;
         public string AvatarUrl;               // optional art; falls back to the glyph
+
+        /// <summary>Игрок нажал аватар — открыть выбор лица. Пусто — кружок
+        /// остаётся картинкой (набора аватарок у новеллы нет).</summary>
+        public Action OnPickAvatar;
         // ЧЕГО ДВИЖОК НЕ СЧИТАЕТ, ТОГО ОН И НЕ ПОКАЗЫВАЕТ. Здесь стояли
         // «уровень 7», «1240 из 2000 XP» и чужой идентификатор — демо-значения,
         // которые никто никогда не задавал. Системы уровней в движке нет вовсе,
@@ -256,6 +260,13 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(AvatarUrl))
             {
                 LvnPicture.Photo(avatar, AvatarUrl, _assets);
+            }
+            // ПО АВАТАРУ ОТКРЫВАЕТСЯ ВЫБОР ЛИЦА (TR-79). Кружок и раньше
+            // выглядел кнопкой — по нему жали и ничего не происходило.
+            if (OnPickAvatar != null)
+            {
+                avatar.AddManipulator(new Clickable(() => OnPickAvatar()));
+                LvnMotion.Tappable(avatar);
             }
             identity.Add(avatar);
 

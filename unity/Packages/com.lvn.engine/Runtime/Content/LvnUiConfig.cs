@@ -351,6 +351,17 @@ namespace Lvn.Content
         public System.Collections.Generic.List<SocialLink> social; // 2-3 clickable icons
     }
 
+    /// <summary>Одна аватарка в наборе: картинка и, если платная, цена.
+    /// Товар (<c>sku</c>) можно назвать свой — иначе им служит «avatar.id».</summary>
+    public sealed class AvatarChoice
+    {
+        public string id;
+        public string url;
+        public string currency;   // пусто — бесплатная
+        public long? price;
+        public string sku;
+    }
+
     /// <summary>One social link in the settings screen — a clickable icon (or its
     /// name as a fallback) that opens a url via the web-view seam.</summary>
     public sealed class SocialLink
@@ -769,6 +780,13 @@ namespace Lvn.Content
         /// <summary>Аватар игрока в шапке облика «сцена» (url), пока у аккаунта
         /// нет своего.</summary>
         public string avatar;
+        /// <summary>
+        /// НАБОР АВАТАРОК ИГРОКА (TR-79). Часть бесплатна, часть продаётся —
+        /// у платной названы валюта и цена. Пусто — выбора нет, и экран не
+        /// открывается.
+        /// </summary>
+        public System.Collections.Generic.List<AvatarChoice> avatars;
+
         /// <summary>Значки валют шапки: id валюты → url картинки. Пусто —
         /// вектор по смыслу валюты.</summary>
         public Dictionary<string, string> currency_icons;

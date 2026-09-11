@@ -123,6 +123,13 @@ namespace Lvn.UI.Screens
             // Пустоту объясняет сам экран.
             p.CutsceneCount = CutsceneCount();
             p.OnOpenCutscenes = () => LvnAsync.Fire(OpenCutscenesAsync(), "OpenCutscenes");
+            // ЛИЦО ИГРОКА (TR-79): кружок профиля показывает выбранное и по
+            // нажатию открывает набор. Пункта нет, пока новелла не назвала ни
+            // одной аватарки — обещать выбор без набора не за чем.
+            p.AvatarUrl = LvnAvatars.Url(_manifest);
+            p.OnPickAvatar = LvnAvatars.Offered(_manifest).Count > 0
+                ? () => LvnAsync.Fire(OpenAvatarPickAsync(), "AvatarPick")
+                : (System.Action)null;
             await _shell.TabGoTo(LvnTabs.Profile); // вкладка ленты, не модалка
         }
 
