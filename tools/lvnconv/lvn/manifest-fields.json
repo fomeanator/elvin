@@ -606,6 +606,7 @@
     "actor_transition": "float",
     "actor_y": "float",
     "bg_fade": "float",
+    "default_meters": "float",
     "loading_silhouette": "bool",
     "long_press": "bool",
     "look_swap": "float",

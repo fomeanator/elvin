@@ -45,6 +45,47 @@ Chapters, My Story. Full research in session notes; medians below.
    (Romance-Club-like: `bottom_lift ~18%`, ornate frame) — both via theme,
    no code.
 
+## Height scale: metres, not eyeballing (TR-45)
+
+A character's size is **their height in metres**, not a share of the screen.
+The scene declares how many metres fit in the frame (`ui.stage.meters`,
+default 2 — a room's ceiling); the character declares their own height
+(`sprites.<id>.meters`); the on-screen height is the division. Whoever puts
+the doll up — script, menu, wardrobe, cutscene — gets the same height,
+because it comes from the same two numbers. Height is measured against the
+**figure**, not the canvas (`sprites.<id>.content`), so 1.70 and 1.90 stand
+side by side with a true 20 cm apart, whatever the art was drawn on.
+
+Reference scale (author-facing, all in metres):
+
+| Who | Height | Share of a 2.0 m frame |
+|---|---|---|
+| Adult woman | 1.62–1.75 | 0.81–0.875 |
+| Adult man | 1.78–1.92 | 0.89–0.96 |
+| Teenager | 1.50–1.62 | 0.75–0.81 |
+| Child (7–10) | 1.20–1.35 | 0.60–0.68 |
+| Seated figure | ~0.72 of their standing height | — |
+
+Rules that follow from it:
+
+- **Never** scale a person with `w=`/`h=` in a line of script. Those answer
+  "how much room to take", not "how tall are you", and they drift apart the
+  moment the same person appears in another room.
+- **Bigger** means a taller character or a closer camera (`ui.stage.meters`),
+  never a zoom stacked on top of them: the showcase zoom used to multiply the
+  frame share, and 1.90 m favourites walked off the top of the screen.
+- Characters with **no height named** take `ui.stage.default_meters` (1.7 for
+  an adult cast). Leave it unset and they keep the legacy screen shares —
+  silence must not hand a height to props, signs and backdrops, which the same
+  command also places.
+- A **figure that is not standing** — lying, fallen, a body on the ground —
+  is not measured by height at all: its extent runs along the floor, and a
+  standing height would stretch it up the frame. Leave `meters` unset for
+  those. On Time Romance 21 of the 24 entities without a height are exactly
+  this case, which is why the default must never be applied silently.
+- The showcase menu is a **shelf, not a room**: its doll is measured by the
+  showcase frame (`ui.browse.doll_height`) unless the menu names metres itself.
+
 ## Known deviations to fix in engine defaults
 
 - [x] `VnTheme.BottomLiftPercent` 0 → 4 (%, dialogue off the bottom edge)

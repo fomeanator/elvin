@@ -307,7 +307,7 @@ namespace Lvn.UI
             // метры явно — тогда она сама этого захотела.
             float meters = LvnScale.MetersIn(cmd);
             if (meters <= 0f && aspectEntity != null && LvnStageManager.Sticky(sender))
-                meters = aspectEntity.meters;
+                meters = LvnScale.MetersOf(aspectEntity.meters);   // свой рост или общий (TR-45)
             if (meters > 0f && LvnScale.Sane)
             {
                 if (!Mathf.Approximately(placement.Meters, meters))
