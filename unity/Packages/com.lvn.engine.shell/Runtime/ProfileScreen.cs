@@ -181,6 +181,8 @@ namespace Lvn.UI.Screens
             else _body.Add(HintCard(
                 LvnWords.Of("profile.relations_empty", "The first choice already bends the story. Start a chapter and your ties appear here.")));
 
+            if (OnGiveShare != null) _body.Add(GiveShareLink());
+            if (OnTakeShare != null) _body.Add(TakeShareLink());
             if (OnOpenCutscenes != null) _body.Add(CutscenesLink());
             if (OnOpenSettings != null) _body.Add(SettingsLink());
             if (OnSignOut != null) _body.Add(SignOutRow());

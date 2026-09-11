@@ -61,6 +61,39 @@ namespace Lvn.UI.Screens
                            : LvnWords.Of("cutscenes.hint_empty", "Scenes you have lived through appear here"),
                        () => OnOpenCutscenes?.Invoke());
 
+        /// <summary>
+        /// ПУНКТ «ОТКРЫТЬ ПРОХОЖДЕНИЕ» (TR-17) — принять чужой слот по коду.
+        ///
+        /// <para>Код берётся ИЗ БУФЕРА ОБМЕНА, а не набирается: его присылают в
+        /// чат, игрок копирует — и одного касания достаточно. Клавиатура на
+        /// восемь знаков, которые уже лежат в буфере, — лишний шаг там, где
+        /// человек и так делает одолжение приятелю.</para>
+        /// </summary>
+        private VisualElement TakeShareLink()
+            => LinkRow(() => LvnWords.Of("share.open", "Open a playthrough"),
+                       () => LvnWords.Of("share.open_hint", "Copy a friend's code and tap here"),
+                       () => OnTakeShare?.Invoke(GUIUtility.systemCopyBuffer));
+
+        /// <summary>Хост принимает чужое прохождение по коду; не подписан —
+        /// пункта нет.</summary>
+        public Action<string> OnTakeShare;
+
+        /// <summary>
+        /// ПУНКТ «ПОДЕЛИТЬСЯ ПРОХОЖДЕНИЕМ» (TR-17) — отдать свой прогресс.
+        ///
+        /// <para>Живёт В ПРОФИЛЕ, а не в меню сохранений: меню сохранений —
+        /// движок, а передача — служба продукта, и протягивать провод через
+        /// границу сборок ради одной кнопки значит заводить шов там, где его
+        /// можно не заводить.</para>
+        /// </summary>
+        private VisualElement GiveShareLink()
+            => LinkRow(() => LvnWords.Of("share.give", "Share your playthrough"),
+                       () => LvnWords.Of("share.give_hint", "A friend opens it right where you are"),
+                       () => OnGiveShare?.Invoke());
+
+        /// <summary>Хост отдаёт прохождение по ссылке; не подписан — пункта нет.</summary>
+        public Action OnGiveShare;
+
         // «ВЫЙТИ ИЗ АККАУНТА». До 06.09 выхода не было вовсе, и его роль
         // случайно исполняла регистрация при старте: вход игрока не переживал
         // закрытия игры. Теперь вход держится — значит выход обязан быть
