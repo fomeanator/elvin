@@ -42,6 +42,9 @@ namespace Lvn.UiLab
             DontDestroyOnLoad(go);
             var d = go.AddComponent<StageShotsDriver>();
             var parts = File.ReadAllText(FlagPath).Trim().Split('|');
+            // «live» — просто войти в Play и оставить приложение человеку:
+            // ни кадров, ни тура, ни выхода из Play.
+            if (parts.Length > 0 && parts[0].Trim() == "live") { File.Delete(FlagPath); return; }
             if (parts.Length > 0 && !string.IsNullOrEmpty(parts[0])) d._tag = parts[0].Trim();
             if (parts.Length > 3) d._titleId = parts[3].Trim();
             if (parts.Length > 4) int.TryParse(parts[4].Trim(), out d._chapter);
