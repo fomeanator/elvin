@@ -58,5 +58,33 @@ namespace Lvn.Tests
             Assert.AreEqual(LvnMenuStage.RiseMs / 1000f, sheet.Seconds, 0.0001f,
                 "лист живёт своим временем — в меню снова два разных движения");
         }
+
+        /// <summary>
+        /// РАССТАНОВКА КОМНАТ — АВТОРСКАЯ (TR-63). Полотно нарисовано под свою
+        /// карту: держать её числами в коде значит требовать сборки ради
+        /// композиции чужой игры.
+        /// </summary>
+        [Test]
+        public void TheNovelMayRedrawTheRoomMap()
+        {
+            var was = LvnTabs.Rooms;
+            try
+            {
+                LvnTabs.Rooms = null;
+                Assert.AreEqual(new UnityEngine.Vector2(0f, 1f), LvnTabs.Room(LvnTabs.Wardrobe),
+                    "без карты новеллы комнаты стоят движковым ромбом");
+
+                LvnTabs.Rooms = LvnTabs.RoomsOf(new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<float>>
+                {
+                    ["wardrobe"] = new System.Collections.Generic.List<float> { 1f, 0f },
+                    ["broken"] = new System.Collections.Generic.List<float> { 1f },   // половина записи
+                });
+                Assert.AreEqual(new UnityEngine.Vector2(1f, 0f), LvnTabs.Room(LvnTabs.Wardrobe),
+                    "карта новеллы не перебила движковую точку");
+                Assert.AreEqual(new UnityEngine.Vector2(1f, 1f), LvnTabs.Room(LvnTabs.Store),
+                    "комната без своей точки должна остаться на движковой");
+            }
+            finally { LvnTabs.Rooms = was; }
+        }
     }
 }

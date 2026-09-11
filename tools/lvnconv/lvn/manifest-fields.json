@@ -103,6 +103,7 @@
     "play_text": "string",
     "portrait": "PortraitFrame",
     "profile_full": "bool",
+    "rooms": "map:float",
     "show_daily": "bool",
     "show_gallery": "bool",
     "show_level": "bool",

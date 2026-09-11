@@ -69,6 +69,12 @@ namespace Lvn.UI.Screens
         /// </summary>
         public static Vector2 Room(int tab)
         {
+            // КАРТУ МОЖЕТ ПЕРЕРИСОВАТЬ НОВЕЛЛА (ui.browse.rooms). Расстановка —
+            // решение композиции, а не устройство движка: у другой игры полотно
+            // нарисовано иначе, и комнаты на нём стоят по-своему. Пусто —
+            // движковый ромб ниже.
+            var own = RoomOverride(tab);
+            if (own.HasValue) return own.Value;
             switch (tab)
             {
                 case Profile:  return new Vector2(0f,   0f);   // слева сверху
@@ -81,6 +87,51 @@ namespace Lvn.UI.Screens
                 case Titles:   return new Vector2(1f,   0f);   // дальний угол: справа сверху
                 default:       return new Vector2(0.5f, 0.5f);
             }
+        }
+
+        /// <summary>Имя вкладки в манифесте — им автор называет комнату в
+        /// <c>ui.browse.rooms</c>. Номера туда не годятся: «5» ничего не
+        /// говорит тому, кто правит новеллу.</summary>
+        public static string NameOf(int tab)
+        {
+            switch (tab)
+            {
+                case Home:     return "home";
+                case Store:    return "store";
+                case Wardrobe: return "wardrobe";
+                case Profile:  return "profile";
+                case Gallery:  return "gallery";
+                case Titles:   return "titles";
+                default:       return null;
+            }
+        }
+
+        /// <summary>Карта комнат, назначенная новеллой: имя вкладки → точка
+        /// полотна. Ставит оболочка при загрузке манифеста.</summary>
+        public static IReadOnlyDictionary<string, Vector2> Rooms;
+
+        /// <summary>Разобрать карту манифеста: <c>[x, y]</c> долями. Кривую
+        /// запись пропускаем молча — половина карты лучше, чем ни одной, а
+        /// комната без своей точки встанет на движковую.</summary>
+        public static IReadOnlyDictionary<string, Vector2> RoomsOf(
+            IReadOnlyDictionary<string, List<float>> raw)
+        {
+            if (raw == null || raw.Count == 0) return null;
+            var map = new Dictionary<string, Vector2>();
+            foreach (var kv in raw)
+            {
+                var xy = kv.Value;
+                if (string.IsNullOrEmpty(kv.Key) || xy == null || xy.Count < 2) continue;
+                map[kv.Key] = new Vector2(Mathf.Clamp01(xy[0]), Mathf.Clamp01(xy[1]));
+            }
+            return map.Count > 0 ? map : null;
+        }
+
+        private static Vector2? RoomOverride(int tab)
+        {
+            var name = NameOf(tab);
+            if (Rooms == null || string.IsNullOrEmpty(name)) return null;
+            return Rooms.TryGetValue(name, out var p) ? p : (Vector2?)null;
         }
 
         /// <summary>РОД КОМНАТЫ для композиции витрины: где стоит героиня и
