@@ -18,22 +18,58 @@ namespace Lvn.UI.Screens
     /// </summary>
     public sealed partial class BrowseHub
     {
-        // РАЗМЕР КАРТОЧКИ ЛЕНТЫ ЖИВЁТ ОДНОЙ ПАРОЙ ЧИСЕЛ. Высота полосы слайдера
-        // раньше дублировала литерал постера (292f + 112f): постер подняли, а
-        // полоса осталась прежней — и карточки обрезало снизу ВМЕСТЕ С
-        // ПОДПИСЯМИ. Теперь полоса считается отсюда, разъехаться нечему.
-        private const float CardW = 429f;     // подобрано с Ильёй: 500 → 460 → 391 → 405 → 429
-        private const float PosterH = 564f;   // пропорция спайна (w/h 0.8315) + запас высоты
-        private const float CaptionH = 112f;  // цоколь с названием и метаданными
+        // Размер плитки и зазоры — в BrowseHub.Rhythm.cs: одни числа на все полки.
 
         private VisualElement CollectionRow(LvnCollection c, bool hero)
         {
-            var row = new VisualElement();
+            var row = new VisualElement { name = ShelfName };
             row.style.flexShrink = 0; // children of a vertical ScrollView must not shrink
-            row.style.marginBottom = LvnEdges.PageSide;
+            row.style.marginBottom = ShelfGap;
 
+            var shown = new System.Collections.Generic.List<LvnTitle>();
+            if (c.titles != null)
+                foreach (var id in c.titles)
+                    if (_titles.TryGetValue(id, out var t)) shown.Add(t);
+
+            row.Add(ShelfHead(c, shown.Count));
+
+            // ПУСТАЯ ПОЛКА ОСТАЁТСЯ НА МЕСТЕ. Прежде сборник без новелл исчезал
+            // целиком, и игрок не знал, что раздел есть; теперь шапка стоит,
+            // счётчик говорит «0», а под ним — слово автора о том, что здесь
+            // будет (ui.browse.empty_text).
+            if (shown.Count == 0) { row.Add(EmptyShelf()); return row; }
+
+            var strip = Lvn.UI.LvnScroll.Horizontal();
+            // И ВЕРТИКАЛЬНУЮ тоже. Полоса брала своё не от прокрутки, а от того,
+            // что карточка выше отведённой ей строки: сбоку появлялся системный
+            // ползунок чужого вида, а низ карточки обрезался.
+            strip.verticalScrollerVisibility = ScrollerVisibility.Hidden;
+            strip.style.flexShrink = 0;
+            strip.style.flexDirection = FlexDirection.Row;
+            // Полоса того же роста, что плитка: одно число на обеих.
+            strip.style.height = ShelfCardHeight;
+            var entering = new System.Collections.Generic.List<VisualElement>(shown.Count);
+            foreach (var t in shown)
+            {
+                var card = SliderCard(t, c, hero);
+                strip.Add(card);
+                entering.Add(card);
+            }
+            row.Add(strip);
+            RevealShelf(entering);
+            return row;
+        }
+
+        /// <summary>Шапка полки: название с разрядкой темы, счётчик новелл
+        /// плашкой и «Все ›», когда есть что листать.</summary>
+        private VisualElement ShelfHead(LvnCollection c, int count)
+        {
             var head = ScreenUi.Row(spread: true);
-            head.style.marginBottom = LvnTokens.Space2;
+            head.name = ShelfHeadName;
+            head.style.marginBottom = HeadGap;
+
+            var lead = ScreenUi.Row();
+            lead.style.flexShrink = 1; lead.style.flexGrow = 1;
             // Подпись знает свой источник: при смене языка её перечитает дом,
             // а карточки не придётся пересобирать — вместе с ними уехали бы
             // прокрутка и то, на чём игрок остановился.
@@ -45,57 +81,85 @@ namespace Lvn.UI.Screens
             title.style.color = _text; title.style.fontSize = LvnTokens.TextXl;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
             title.style.letterSpacing = _theme.Tracking;
-            head.Add(title);
+            title.style.flexShrink = 1;
+            lead.Add(title);
+            lead.Add(CountPill(count));
+            head.Add(lead);
+
             // «Все ›» — подпись и векторная стрелка. Стрелка символом «→» на
             // части шрифтов Android тоже отсутствует, а её пропажу замечаешь
             // позже прочих: пустое место в конце строки читается как отступ.
-            var all = ScreenUi.Row();
-            var allText = Lvn.UI.LvnRedress.Bind(new Label(),
-                () => _theme.Heading(LvnWords.Pick("hub.all", _cfg?.all_text, "All")));
-            allText.pickingMode = PickingMode.Ignore;
-            allText.style.color = _accent; allText.style.fontSize = LvnTokens.TextLg;
-            allText.style.unityFontStyleAndWeight = FontStyle.Bold;
-            allText.style.letterSpacing = _theme.Tracking;
-            all.Add(allText);
-            var allArrow = LvnIcons.Make(LvnIcon.Chevron, 20f, _accent);
-            allArrow.style.marginLeft = LvnTokens.Tight;
-            all.Add(allArrow);
-            all.RegisterCallback<ClickEvent>(_ => ShowCollection(c));
-            LvnMotion.Tappable(all);
-            head.Add(all);
-            row.Add(head);
+            // На пустой полке листать нечего — и звать некуда.
+            if (count > 0)
+            {
+                var all = ScreenUi.Row();
+                all.style.flexShrink = 0;
+                var allText = Lvn.UI.LvnRedress.Bind(new Label(),
+                    () => _theme.Heading(LvnWords.Pick("hub.all", _cfg?.all_text, "All")));
+                allText.pickingMode = PickingMode.Ignore;
+                allText.style.color = _accent; allText.style.fontSize = LvnTokens.TextLg;
+                allText.style.unityFontStyleAndWeight = FontStyle.Bold;
+                allText.style.letterSpacing = _theme.Tracking;
+                all.Add(allText);
+                var allArrow = LvnIcons.Make(LvnIcon.Chevron, 20f, _accent);
+                allArrow.style.marginLeft = LvnTokens.Tight;
+                all.Add(allArrow);
+                all.RegisterCallback<ClickEvent>(_ => ShowCollection(c));
+                LvnMotion.Tappable(all);
+                head.Add(all);
+            }
+            return head;
+        }
 
-            var strip = Lvn.UI.LvnScroll.Horizontal();
-            // И ВЕРТИКАЛЬНУЮ тоже. Полоса брала своё не от прокрутки, а от того,
-            // что карточка выше отведённой ей строки: сбоку появлялся системный
-            // ползунок чужого вида, а низ карточки обрезался.
-            strip.verticalScrollerVisibility = ScrollerVisibility.Hidden;
-            strip.style.flexShrink = 0;
-            strip.style.flexDirection = FlexDirection.Row;
-            var entering = new System.Collections.Generic.List<VisualElement>();
-            if (c.titles != null)
-                foreach (var id in c.titles)
-                    if (_titles.TryGetValue(id, out var t))
-                    {
-                        var card = SliderCard(t, c, hero);
-                        strip.Add(card);
-                        entering.Add(card);
-                    }
-            // Карточки приезжают со сдвигом, а не разом: одновременное появление
-            // читается как перерисовка экрана, последовательное — как намерение.
-            // Пустой сборник — не строка нулевой высоты, а ОТСУТСТВИЕ строки.
-            // Фиксированная высота ниже иначе зарезервировала бы полэкрана
-            // пустоты под заголовком, который не о чем.
-            if (entering.Count == 0) return null;
-            // Подпись теперь живёт на собственном матовом цоколе, а не поверх
-            // шумного полотна меню. Высота считается от постера и этой плашки:
-            // ни буквы, ни нижняя кромка не могут провалиться под навигацию.
-            strip.style.height = PosterH + CaptionH;
-            // Плитки просто проступают: волна с въездом и пружиной читалась
-            // как дёрганье списка (Илья 26.08).
-            Lvn.UI.LvnMotion.FadeInAll(entering);
-            row.Add(strip);
-            return row;
+        /// <summary>Счётчик полки: сколько новелл на ней на самом деле —
+        /// известных каталогу, а не перечисленных в сборнике.</summary>
+        private Label CountPill(int count)
+        {
+            var pill = Lvn.UI.LvnRedress.Bind(new Label { name = ShelfCountName },
+                () => LvnWords.Of("hub.count", "{0}", count));
+            pill.pickingMode = PickingMode.Ignore;
+            LvnStyler.Plate(pill, LvnTokens.Faint, _text, LvnTokens.RadiusPill);
+            LvnAir.PadX(pill, LvnTokens.Space2);
+            pill.style.marginLeft = LvnTokens.Space2;
+            pill.style.flexShrink = 0;
+            pill.style.alignSelf = Align.Center;
+            pill.style.fontSize = LvnTokens.TextXs;
+            pill.style.unityTextAlign = TextAnchor.MiddleCenter;
+            return pill;
+        }
+
+        /// <summary>Пустая полка: компактная плашка во всю ширину со значком
+        /// часов и словом автора. Не притворяется карточкой новеллы — иначе
+        /// её бы нажимали.</summary>
+        private VisualElement EmptyShelf()
+        {
+            var empty = ScreenUi.Row();
+            empty.name = ShelfEmptyName;
+            empty.pickingMode = PickingMode.Ignore;
+            empty.style.height = EmptyShelfHeight;
+            empty.style.flexShrink = 0;
+            empty.style.backgroundColor = UiColor.WithAlpha(_card, 0.72f);
+            LvnChrome.Frame(empty, _radius, UiColor.WithAlpha(_border, _border.a * 0.85f), LvnTokens.Hair);
+            LvnAir.PadX(empty, LvnTokens.Space4);
+
+            var well = new VisualElement { pickingMode = PickingMode.Ignore };
+            well.style.width = LvnTokens.TouchLg; well.style.height = LvnTokens.TouchLg;
+            well.style.flexShrink = 0;
+            well.style.alignItems = Align.Center; well.style.justifyContent = Justify.Center;
+            well.style.backgroundColor = UiColor.WithAlpha(_accent, 0.10f);
+            LvnChrome.Frame(well, LvnTokens.RadiusPill, UiColor.WithAlpha(_accent, 0.28f), LvnTokens.Hair);
+            well.Add(LvnIcons.Make(LvnIcon.Clock, LvnTokens.TextLg, UiColor.WithAlpha(_accent, 0.82f)));
+            empty.Add(well);
+
+            var word = Lvn.UI.LvnRedress.Bind(new Label(),
+                () => LvnWords.Pick("hub.empty", _cfg?.empty_text, "Coming soon"));
+            word.pickingMode = PickingMode.Ignore;
+            word.style.color = _text; word.style.fontSize = LvnTokens.TextBase;
+            word.style.marginLeft = LvnTokens.Space3;
+            word.style.whiteSpace = WhiteSpace.Normal;
+            word.style.flexShrink = 1;
+            empty.Add(word);
+            return empty;
         }
 
         // A poster card inside a slider: gradient depth, a cost/lock chip top-right,
@@ -106,15 +170,22 @@ namespace Lvn.UI.Screens
         private VisualElement SliderCard(LvnTitle t, LvnCollection from, bool hero)
         {
             bool locked = IsLocked(t);
-            var card = new VisualElement();
+            var card = new VisualElement { name = ShelfCardName };
             card.style.width = CardW;
+            card.style.height = ShelfCardHeight;
             card.style.flexShrink = 0;      // horizontal slider: keep the poster size
-            card.style.marginRight = LvnTokens.Space3;
-            card.style.opacity = locked ? 0.5f : 1f;
+            card.style.marginRight = CardGap;
+            // ЗАМОК ГАСИТ ОБЛОЖКУ, А НЕ ПЛИТКУ: полупрозрачная плитка целиком
+            // гасила и подпись, и название закрытой новеллы не читалось.
+            // Вуаль ложится на постер (ниже), слова остаются на цоколе.
+            bool active = !locked && LvnProgress.Current(t) != null;
             var plinth = LvnTokens.PanelBg;
             card.style.backgroundColor = UiColor.WithAlpha(plinth, 0.93f);
             card.style.overflow = Overflow.Hidden;
-            LvnChrome.Frame(card, _radius + 2f, UiColor.WithAlpha(_border, _border.a * 0.85f), 1f);
+            // «Читаю сейчас» — единственная плитка с весом: рамка акцентом,
+            // свечение из-под цоколя (ниже). У остальных рамка темы.
+            LvnChrome.Frame(card, _radius + 2f,
+                active ? UiColor.WithAlpha(_accent, 0.9f) : UiColor.WithAlpha(_border, _border.a * 0.85f), 1f);
 
             // Poster has only the top rounding; the caption below is visibly part
             // of the same physical card rather than loose text under an image.
@@ -166,6 +237,23 @@ namespace Lvn.UI.Screens
             else
             {
                 poster.style.backgroundImage = PosterFallbackImage(useAccent: hero);
+            }
+            if (locked)
+            {
+                var veil = new VisualElement { name = ShelfLockName, pickingMode = PickingMode.Ignore };
+                ScreenUi.Stretch(veil);
+                veil.style.backgroundColor = LvnTokens.Veil(LockedVeil);
+                poster.Add(veil);
+            }
+            else if (active)
+            {
+                var glow = new VisualElement { name = ShelfGlowName, pickingMode = PickingMode.Ignore };
+                glow.style.position = Position.Absolute;
+                glow.style.left = 0; glow.style.right = 0; glow.style.bottom = 0;
+                glow.style.height = Length.Percent(GlowPercent);
+                glow.style.backgroundImage = LvnBackdrop.Vertical(
+                    UiColor.WithAlpha(_accent, 0f), UiColor.WithAlpha(_accent, GlowAlpha), smooth: true);
+                poster.Add(glow);
             }
             // cost / lock chip, small, floated on the poster
             var chip = locked ? Chip(LvnWords.Pick("hub.locked", _cfg?.locked_text, "Locked"), _dim, LvnIcon.Lock)
