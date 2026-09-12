@@ -336,6 +336,7 @@ namespace Lvn.UI
         public void ClearStage()
         {
             if (!_built) return;
+            DropCutsceneWatch();
             ResetStage();
             _sayUp = false;
             _curChoices = null;
@@ -370,6 +371,14 @@ namespace Lvn.UI
             LvnPlayer.Log?.Invoke("════ PLAY scene=" + doc.Scene + " (" + (doc.Script?.Count ?? 0)
                 + " cmds, скрипт " + scriptHash + ") ════");
             ExitRequested = false; // a fresh chapter is a fresh run
+            // ПЕРЕСМОТР НЕ ПЕРЕЖИВАЕТ НОВЫЙ ДОКУМЕНТ. Флаг просмотра снимался
+            // только концом отрезка или выходом; сорванный иначе пересмотр
+            // (свернули, убили, начали главу) оставлял его — и живое
+            // прохождение больше не записывало ни одной катсцены, а ввод и
+            // автосейв в главе считались «просмотром» («катсцены не
+            // сохранились» — Арам 12.09). Хозяина просмотра не зовём: его
+            // отрезок не доиграл, ему нечего завершать.
+            DropCutsceneWatch();
             _entryGateArmed = true; // the first say defers to the entry choreography
             _cast = SpriteComposer.ParseCast(doc.Cast);
             PrewarmGlyphs(doc); // rasterize the chapter's glyphs NOW, not mid-typewriter
@@ -794,6 +803,20 @@ namespace Lvn.UI
         /// <inheritdoc cref="Watching"/>
         internal bool InCutsceneReplay => Watching;
         private System.Action _cutsceneDone;
+
+        /// <summary>Забыть просмотр без хозяина: новый документ или чистая
+        /// сцена — отрезок не доиграл, завершать нечего.</summary>
+        private void DropCutsceneWatch()
+        {
+            _cutsceneWatch = null;
+            _cutsceneDone = null;
+            _openCutsceneKey = null;
+            _openCutsceneNeedsPoster = false;
+            _cutsceneExit?.RemoveFromHierarchy();
+            _cutsceneExit = null;
+            _cutsceneVeil?.RemoveFromHierarchy();
+            _cutsceneVeil = null;
+        }
 
         /// <summary>Конец отрезка при пересмотре: зовём хозяина просмотра один
         /// раз и забываем — дальше глава живёт как обычно.</summary>

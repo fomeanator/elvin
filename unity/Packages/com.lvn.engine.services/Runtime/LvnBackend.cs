@@ -69,7 +69,14 @@ namespace Lvn.Services
                     LvnWallet.NoteUser(UserId);
                     return true;
                 }
-                if (mine == 0) return SignedIn; // сети нет — пропуск остаётся нашим
+                if (mine == 0)
+                {
+                    // Сети нет — пропуск остаётся нашим, и владелец тот же:
+                    // без этой строки офлайн-запуск жил за первого владельца.
+                    Lvn.LvnKeep.NoteOwner(UserId);
+                    LvnWallet.NoteUser(UserId);
+                    return SignedIn;
+                }
             }
             // Метка устройства — у ПАСПОРТИСТА: её потеря регистрирует НОВУЮ
             // учётку, то есть отнимает кошелёк и покупки, поэтому дома два.

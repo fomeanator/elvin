@@ -147,9 +147,29 @@ namespace Lvn
         public static void NoteOwner(string userId)
         {
             _owner = userId ?? "";
-            if (string.IsNullOrEmpty(_owner)) return;
+            if (string.IsNullOrEmpty(_owner)) { Drop(PLast); return; }
             if (!Has(POwner)) Put(POwner, _owner);   // первый забирает прежние ключи
+            RememberLast();
         }
+
+        /// <summary>
+        /// ВЛАДЕЛЕЦ ПЕРЕЖИВАЕТ ЗАПУСК. Кто играет — узнавалось только из ответа
+        /// сервера, и до него (и вовсе без него, офлайн) ключи считались за
+        /// первого владельца: всё записанное до ответа ложилось в один ящик,
+        /// после — в другой, и на следующем запуске галерея катсцен и аватарка
+        /// «пропадали» (Арам 12.09). Последний владелец запоминается на диске
+        /// и восстанавливается с первого кадра; ответ сервера его лишь
+        /// подтверждает или сменяет.
+        /// </summary>
+        private static void RememberLast()
+        {
+            if (Get(PLast, "") != _owner) Put(PLast, _owner);
+        }
+
+        internal static void RestoreOwnerFromDisk() => _owner = Get(PLast, "");
+
+        /// <summary>Тестам: «процесс перезапустился» — память пуста, диск цел.</summary>
+        internal static void ForgetOwnerInProcess() => _owner = "";
 
         /// <summary>
         /// ТОТ ЖЕ ЧЕЛОВЕК ПОД НОВЫМ НОМЕРОМ.
@@ -174,6 +194,7 @@ namespace Lvn
             if (string.IsNullOrEmpty(userId)) return;
             _owner = userId;
             if (Get(POwner, "") != userId) Put(POwner, userId);
+            RememberLast();
         }
 
         /// <summary>Кому принадлежат данные прямо сейчас (пусто — игра без входа).</summary>
@@ -181,6 +202,7 @@ namespace Lvn
 
         private static string _owner = "";
         private const string POwner = "lvn.local.owner";
+        private const string PLast = "lvn.local.owner.last";
         private static int _batch;      // глубина открытых пачек
         private static bool _pending;   // есть незафиксированное карандашное
 
@@ -191,6 +213,7 @@ namespace Lvn
             // нужен объект на сцене, а значит и порядок его создания.
             Application.focusChanged += focused => { if (!focused) Flush(); };
             Application.quitting += Flush;
+            RestoreOwnerFromDisk();
         }
 
         // ── чтение ───────────────────────────────────────────────────────────
