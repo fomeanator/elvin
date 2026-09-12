@@ -54,6 +54,9 @@ namespace Lvn.UI.World
         private readonly Dictionary<string, Active> _channels = new Dictionary<string, Active>();
         private readonly Dictionary<string, Queue<LvnAnim>> _queue = new Dictionary<string, Queue<LvnAnim>>(); // mode=queue pending steps
         private Vector2 _slotBase;
+        /// <summary>Последнее размещение, применённое к слоту, — по нему сцена
+        /// ставит фигуру заново, когда меняется кадр (см. WorldStage.RefitToFrame).</summary>
+        public Placement? LastPlacement;
         private Vector2 _slotMoveFrom, _slotMoveTo;
         private float _slotMoveStart = -1f, _slotMoveDuration;
 
