@@ -80,6 +80,7 @@
     "doll_nudge": "float",
     "doll_place": "string",
     "doll_width": "float",
+    "empty_text": "string",
     "featured_text": "string",
     "idle_after": "float",
     "layout": "string",

@@ -889,6 +889,9 @@ namespace Lvn.Content
         public string featured_text;     // featured-banner eyebrow; default "Рекомендуем"
         public string continue_text;     // resume banner label; default "Продолжить"
         public string library_text;      // auto row for un-collected titles; default "Новеллы"
+        /// <summary>Слово пустой полки («Скоро»): сборник без новелл не исчезает,
+        /// а говорит, что раздел есть и наполнится. Пусто — умолчание движка.</summary>
+        public string empty_text;
         public string nav_home;          // bottom nav labels
         public string nav_store;
         public string nav_wardrobe;
