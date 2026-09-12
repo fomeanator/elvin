@@ -125,13 +125,20 @@ namespace Lvn.UI.Screens
             float rootW = resolvedStyle.width;
             if (float.IsNaN(rootW) || rootW <= 1f) return;   // до первой раскладки
             var d = dial.Value;
-            float w = Mathf.Lerp(MiniSize, _fullW, k);
+            // Часы облика крупнее прежнего баблика: капсула растёт до кольца,
+            // иначе её коробка (overflow: hidden) срезает кольцо до невидимых
+            // дужек — на стенде 12.09 кружок «пропал», хотя стоял на месте.
+            float ring = d.width * DialRingScale;
+            float mini = Mathf.Max(MiniSize, ring + DialRingStroke * 2f);
+            float w = Mathf.Lerp(mini, _fullW, k), h = Mathf.Lerp(mini, _fullH, k);
             float barTop = _sheetTop > 0f ? _sheetTop : _safeTop + 5f;
+            _capsule.style.width = w;
+            _capsule.style.height = h;
             _capsule.style.position = Position.Absolute;
             _capsule.style.marginTop = 0f;
             _capsule.style.marginLeft = 0f;
-            _capsule.style.left = Mathf.Lerp(d.center.x - MiniSize * 0.5f, (rootW - w) * 0.5f, k);
-            _capsule.style.top = Mathf.Lerp(d.center.y - MiniSize * 0.5f, barTop, k);
+            _capsule.style.left = Mathf.Lerp(d.center.x - mini * 0.5f, (rootW - w) * 0.5f, k);
+            _capsule.style.top = Mathf.Lerp(d.center.y - mini * 0.5f, barTop, k);
             // На часах капсула — только кольцо: тон и кромка накрыли бы
             // циферблат, ради которого кружок сюда и сел. Зона нажатия при
             // этом остаётся прежней — MiniSize вокруг центра часов.
@@ -141,7 +148,6 @@ namespace Lvn.UI.Screens
             if (!_onDial)
             {
                 _onDial = true;
-                float ring = d.width * DialRingScale;
                 _miniRing.style.width = ring; _miniRing.style.height = ring;
                 _miniRing.SetGeometry(ring * 0.5f - DialRingStroke * 0.5f - 1f, DialRingStroke, drawArrow: false);
             }
@@ -156,6 +162,7 @@ namespace Lvn.UI.Screens
             _capsule.style.left = StyleKeyword.Null;
             _capsule.style.top = StyleKeyword.Null;
             LvnChrome.Edge(_capsule);
+            _capsule.style.width = MiniSize; _capsule.style.height = MiniSize;
             _miniRing.style.width = MiniSize; _miniRing.style.height = MiniSize;
             _miniRing.SetGeometry(MiniSize * 0.5f - 5f, 3.5f, drawArrow: true);
             ApplyMorph(_morph);   // отступ строки и тон — как в потоке

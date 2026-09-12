@@ -76,7 +76,9 @@ namespace Lvn.Tests
 
             var hud = new DownloadHud();
             root.Add(hud);
-            var dial = new Rect(470f, 210f, 26f, 26f);
+            // Часы в логотипе облика — 53 px на телефоне: крупнее прежнего
+            // баблика, и кольцо вокруг них не должно резаться его коробкой.
+            var dial = new Rect(470f, 210f, 60f, 60f);
             hud.MiniAnchor = () => dial;
             hud.Tick(Work(2));
             for (int i = 0; i < 6; i++) yield return null;
@@ -90,6 +92,8 @@ namespace Lvn.Tests
             Assert.IsNotNull(ring, "кольцо названо — его меряют");
             Assert.GreaterOrEqual(ring.worldBound.width, dial.width, "кольцо обнимает часы");
             Assert.LessOrEqual(ring.worldBound.width, dial.width * 1.7f, "кольцо по размеру часов, а не баблик поверх логотипа");
+            Assert.GreaterOrEqual(capsule.worldBound.width, ring.worldBound.width,
+                "капсула вмещает кольцо целиком — иначе коробка с overflow:hidden срезает его до невидимых дужек (стенд 12.09)");
 
             hud.SetExpanded(true);
             now = 4f;
@@ -97,6 +101,13 @@ namespace Lvn.Tests
             yield return new WaitForSecondsRealtime(0.6f);
             Assert.AreEqual(1170f * 0.5f, capsule.worldBound.center.x, 2f, "лист растёт по центру экрана");
             Assert.Less(capsule.worldBound.yMin, dial.yMin, "лист начинается в строке бара, выше циферблата");
+            // Раскрытый лист в облике темы — к эталону: график, ряды, кнопки.
+            if (SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null)
+            {
+                var shot = TestPixels.Read(_texture);
+                try { TestPixels.AssertGolden(shot, "download-sheet-1170x2532"); }
+                finally { Object.Destroy(shot); }
+            }
 
             hud.SetExpanded(false);
             yield return new WaitForSecondsRealtime(0.6f);
