@@ -313,7 +313,8 @@ namespace Lvn.UiLab
             yield return new WaitForSecondsRealtime(4f);
             yield return WaitArt(20f);
             yield return WaitDownloads(60f);
-            yield return WaitHeroine(12f);
+            // Полки движка (тег «hub»): героини на них нет, ждать её нечего.
+            if (!_tag.StartsWith("hub")) yield return WaitHeroine(12f);
             yield return new WaitForSecondsRealtime(1.5f);
             Diagnose();
             yield return Shoot("main");
