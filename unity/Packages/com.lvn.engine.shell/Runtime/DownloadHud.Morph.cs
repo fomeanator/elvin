@@ -91,6 +91,74 @@ namespace Lvn.UI.Screens
             _miniRing.style.opacity = Mathf.Clamp01(1f - k * 3f);
             _full.style.opacity = Mathf.Clamp01((k - 0.65f) / 0.35f);
             _full.style.visibility = k > 0.65f ? Visibility.Visible : Visibility.Hidden;
+            PlaceCapsule(k);
+        }
+
+        // ── место капсулы: строка бара или циферблат логотипа ────────────────
+
+        /// <summary>Кольцо на часах — чуть шире циферблата, тонкое.</summary>
+        private const float DialRingScale = 1.35f, DialRingStroke = 3f;
+        private bool _onDial;
+
+        /// <summary>Циферблат, на который можно сесть: дан оболочкой, размерен и
+        /// не в главе — там кружок баблик у левого края сцены, шапки нет.</summary>
+        private Rect? DialOnScreen()
+        {
+            if (Lvn.UI.LvnScreenDirector.Current.InChapter) return null;
+            var r = MiniAnchor?.Invoke();
+            if (r == null || float.IsNaN(r.Value.width) || r.Value.width <= 1f) return null;
+            return r;
+        }
+
+        /// <summary>ПОСТАВИТЬ КАПСУЛУ. Свёрнутая — на циферблат логотипа, если
+        /// он на экране; лист — в строке бара по центру, как всегда; между ними
+        /// по ходу морфа, чтобы лист вырастал из кольца, а не прыгал к строке.
+        /// Без циферблата капсула живёт в потоке строки бара, как прежде.</summary>
+        private void PlaceCapsule(float k)
+        {
+            var dial = DialOnScreen();
+            if (dial == null)
+            {
+                if (_onDial) LeaveDial();
+                return;
+            }
+            float rootW = resolvedStyle.width;
+            if (float.IsNaN(rootW) || rootW <= 1f) return;   // до первой раскладки
+            var d = dial.Value;
+            float w = Mathf.Lerp(MiniSize, _fullW, k);
+            float barTop = _sheetTop > 0f ? _sheetTop : _safeTop + 5f;
+            _capsule.style.position = Position.Absolute;
+            _capsule.style.marginTop = 0f;
+            _capsule.style.marginLeft = 0f;
+            _capsule.style.left = Mathf.Lerp(d.center.x - MiniSize * 0.5f, (rootW - w) * 0.5f, k);
+            _capsule.style.top = Mathf.Lerp(d.center.y - MiniSize * 0.5f, barTop, k);
+            // На часах капсула — только кольцо: тон и кромка накрыли бы
+            // циферблат, ради которого кружок сюда и сел. Зона нажатия при
+            // этом остаётся прежней — MiniSize вокруг центра часов.
+            _capsule.style.backgroundColor = UiColor.WithAlpha(LvnTokens.PanelBg,
+                Mathf.Lerp(0f, StageDressed ? 0f : 1f, k));
+            if (k < 0.05f) LvnChrome.ClearBorder(_capsule);
+            if (!_onDial)
+            {
+                _onDial = true;
+                float ring = d.width * DialRingScale;
+                _miniRing.style.width = ring; _miniRing.style.height = ring;
+                _miniRing.SetGeometry(ring * 0.5f - DialRingStroke * 0.5f - 1f, DialRingStroke, drawArrow: false);
+            }
+        }
+
+        /// <summary>Циферблата больше нет (глава, обычная шапка) — капсула
+        /// возвращается в поток строки бара со своим баблик-кольцом.</summary>
+        private void LeaveDial()
+        {
+            _onDial = false;
+            _capsule.style.position = Position.Relative;
+            _capsule.style.left = StyleKeyword.Null;
+            _capsule.style.top = StyleKeyword.Null;
+            LvnChrome.Edge(_capsule);
+            _miniRing.style.width = MiniSize; _miniRing.style.height = MiniSize;
+            _miniRing.SetGeometry(MiniSize * 0.5f - 5f, 3.5f, drawArrow: true);
+            ApplyMorph(_morph);   // отступ строки и тон — как в потоке
         }
     }
 }
