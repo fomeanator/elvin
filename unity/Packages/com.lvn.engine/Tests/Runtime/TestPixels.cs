@@ -55,6 +55,14 @@ namespace Lvn.Tests
             string dir = System.IO.Path.GetFullPath(System.IO.Path.Combine(
                 Application.dataPath, "..", "..", "Packages", "com.lvn.engine", "Tests", "Runtime", "Golden"));
             string path = System.IO.Path.Combine(dir, name + ".png");
+            // ПУСТОЙ КАДР — НЕ ЭТАЛОН. Первый эталон главной записался чёрным:
+            // вид ждал входа и стоял невидимым, а сверка с пустотой проходила бы
+            // вечно. Прежде чем писать или сверять, кадр обязан что-то показывать.
+            var pixels = shot.GetPixels32();
+            int painted = 0;
+            for (int i = 0; i < pixels.Length; i++) if (pixels[i].a > 0) painted++;
+            Assert.Greater(painted, pixels.Length / 100,
+                $"кадр «{name}» пуст ({painted} закрашенных пикселей из {pixels.Length}) — сверять нечего: вид не показан или снят до раскладки");
             if (!string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable("LVN_GOLDEN_WRITE")))
             {
                 System.IO.Directory.CreateDirectory(dir);
@@ -100,6 +108,16 @@ namespace Lvn.Tests
                           + $"разница — {where}/{name}-diff.png. Если так и задумано, перепишите эталон (LVN_GOLDEN_WRITE=1).");
             }
             finally { Object.Destroy(golden); }
+        }
+
+        /// <summary>Пропустить тест, если панель UITK в этой среде не считает
+        /// раскладку: без размеров мерить нечего, а молчаливый ноль выдавать
+        /// за «не влезло» нельзя. Одно место на все геометрические тесты.</summary>
+        public static void RequireLayout(UnityEngine.UIElements.VisualElement el, string what)
+        {
+            if (el == null || float.IsNaN(el.worldBound.width) || el.worldBound.width <= 0f
+                || float.IsNaN(el.worldBound.height) || el.worldBound.height <= 0f)
+                Assert.Ignore($"панель UITK в этой среде не считает раскладку ({what}) — размеры проверить нечем");
         }
 
         /// <summary>Пропустить тест, если рисовать нечем.</summary>

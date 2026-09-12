@@ -59,9 +59,6 @@ namespace Lvn.Tests
             for (int i = 0; i < frames; i++) yield return null;
         }
 
-        private static bool Measured(VisualElement el)
-            => el != null && !float.IsNaN(el.worldBound.height) && el.worldBound.height > 0f;
-
         [TearDown]
         public void TearDown()
         {
@@ -84,8 +81,7 @@ namespace Lvn.Tests
 
             // Низ столбика панелей — кнопка «Открыть» карточки экспедиции.
             var card = hub.Q("stage-open-card");
-            if (!Measured(card))
-                Assert.Ignore("панель UITK в этой среде не считает раскладку — размеры проверить нечем");
+            TestPixels.RequireLayout(card, "кнопка карточки");
             float cardBottomBefore = card.worldBound.yMax;
 
             hub.OnSpin = () => { };
@@ -119,8 +115,11 @@ namespace Lvn.Tests
             });
             hub.OnSpin = () => { };
             yield return Layout(8);
-            if (!Measured(hub.Q("stage-open-card")))
-                Assert.Ignore("панель UITK в этой среде не считает раскладку — кадр сравнивать не с чем");
+            TestPixels.RequireLayout(hub.Q("stage-open-card"), "кнопка карточки");
+            // Вид проявляется (FadeIn 160 мс): снимать раньше — записать
+            // пустой кадр, так и вышло с первым эталоном. WaitForEndOfFrame в
+            // batchmode не приходит — ждём по часам.
+            yield return new WaitForSecondsRealtime(0.6f);
             var shot = TestPixels.Read(_texture);
             try { TestPixels.AssertGolden(shot, "hub-stage-1170x2532"); }
             finally { Object.Destroy(shot); }

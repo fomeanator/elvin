@@ -63,9 +63,6 @@ namespace Lvn.Tests
         private static TransferSnapshot Work(int seconds)
             => new TransferSnapshot(2, 12, seconds, (long)seconds * 5 << 20, 50 << 20, 50 << 20, 0, null, 1);
 
-        private static bool Measured(VisualElement el)
-            => el != null && !float.IsNaN(el.worldBound.width) && el.worldBound.width > 0f;
-
         [UnityTest]
         public IEnumerator MiniRing_SitsOnTheDial_AndTheSheetStillGrowsFromTheBar()
         {
@@ -84,8 +81,7 @@ namespace Lvn.Tests
             for (int i = 0; i < 6; i++) yield return null;
 
             var capsule = hud.Q("download-capsule");
-            if (!Measured(capsule))
-                Assert.Ignore("панель UITK в этой среде не считает раскладку — размеры проверить нечем");
+            TestPixels.RequireLayout(capsule, "капсула кружка");
             Assert.AreEqual(dial.center.x, capsule.worldBound.center.x, 1f, "кружок стоит по центру циферблата");
             Assert.AreEqual(dial.center.y, capsule.worldBound.center.y, 1f, "кружок стоит по центру циферблата");
             var ring = hud.Q("download-ring");
