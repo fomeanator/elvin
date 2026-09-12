@@ -77,6 +77,7 @@
     "detail_saves": "bool",
     "dim_text_color": "string",
     "doll_height": "float",
+    "doll_lift": "float",
     "doll_nudge": "float",
     "doll_place": "string",
     "doll_width": "float",

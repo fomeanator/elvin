@@ -321,7 +321,8 @@ namespace Lvn.UI.Screens
                 {
                     _menuDollSent = true;
                     Stage.Prima.Stand(LvnSender.Menu, place: _menuDollSlot,
-                                      seconds: LvnMenuStage.TravelMs / 1000f, nudge: _menuDollNudge);
+                                      seconds: LvnMenuStage.TravelMs / 1000f, nudge: _menuDollNudge,
+                                      lift: _menuDollLift);
                 }
                 if (!Stage.ShowsBackdrop(MenuCanvasUrl()))
                 {

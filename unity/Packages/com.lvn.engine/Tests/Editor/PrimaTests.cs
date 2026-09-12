@@ -72,5 +72,18 @@ namespace Lvn.Tests.Editor
             }
             finally { LvnMenuStage.DollHeight = before; }
         }
+
+        // Подъём — доля высоты кадра над нижней кромкой; в позе он становится
+        // якорем ног `y` (1 — кромка). Без подъёма поле не пишется: сцена
+        // ставит фигуру на базу темы, как ставила.
+        [Test]
+        public void TheLiftRaisesTheFeetAboveTheBottomEdge()
+        {
+            var lifted = LvnPrima.Pose("hero", "left", 1f, 0.9f, 0, nudge: 0f, lift: 0.1f);
+            Assert.AreEqual(0.9f, (float)lifted["y"], 1e-4f, "ноги на десятую кадра выше кромки");
+
+            var grounded = LvnPrima.Pose("hero", "left", 1f, 0.9f, 0);
+            Assert.IsNull(grounded["y"], "без подъёма якорь ног остаётся за темой сцены");
+        }
     }
 }
