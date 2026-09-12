@@ -82,12 +82,6 @@ namespace Lvn.UI
                 Safe("сейвы", () => LvnSaveStore.DeleteAll(titleId));
                 Safe("галерея", () => LvnGalleryStore.Clear(titleId));
                 Safe("катсцены", () => LvnCutsceneStore.Clear(titleId));
-                // ЛИЦО ИГРОКА (TR-79) — тоже личное: кто он, а не что он прошёл.
-                // Ключ назван здесь строкой намеренно: дом аватарок (LvnAvatars)
-                // живёт в оболочке, движок его не видит, а забвение обязано
-                // работать и без неё. Имя ключа объявлено вслух там же
-                // (LvnAvatars.PickedKey) — расхождение поймает страж.
-                Safe("аватар", () => LvnKeep.Drop(LvnKeep.Scoped("lvn.avatar.picked", null)));
                 Safe("прочитанное", () => LvnReadStore.Clear(titleId));
                 // HttpStateStore uses the same scoped local keys. Forget also
                 // invalidates in-flight cloud replies; its sync index holds no
@@ -127,6 +121,14 @@ namespace Lvn.UI
 
                 Safe("последний кадр", VnStage.ForgetLastSceneBg);
                 Safe("имя", () => LvnPlayerName.Set(""));
+                // ЛИЦО ИГРОКА (TR-79) — личное, как имя: кто он, а не что он
+                // прошёл. Стояло в забвении ОДНОЙ новеллы — «начать заново» в
+                // одной истории стирало аватарку игрока целиком. Ключ назван
+                // здесь строкой намеренно: дом аватарок (LvnAvatars) живёт в
+                // оболочке, движок его не видит, а забвение обязано работать и
+                // без неё. Имя ключа объявлено вслух там же (LvnAvatars.PickedKey)
+                // — расхождение поймает страж.
+                Safe("аватар", () => LvnKeep.Drop(LvnKeep.Scoped("lvn.avatar.picked", null)));
                 Safe("флаги вступления", () =>
                 {
                     LvnPrefs.IntroDone = false;
