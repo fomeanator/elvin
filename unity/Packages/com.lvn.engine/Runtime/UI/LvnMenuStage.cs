@@ -198,6 +198,17 @@ namespace Lvn.UI
         /// магазин стоят ровно в слоте.</summary>
         public static float DollNudge(Room room) => room == Room.Home ? HomeDollNudge : 0f;
 
+        /// <summary>ПОДЪЁМ КУКЛЫ НА ГЛАВНОЙ — доля высоты кадра над нижней
+        /// кромкой (<c>ui.browse.doll_lift</c>); 0 — стоит на кромке. Якорь у
+        /// фигуры в ногах, а по макету партнёра она стоит выше: голова под
+        /// шапкой, обрез по коленям над меню. Рост так не поставит — он меняет
+        /// размер, а не место; сдвиг по ширине — только ширину.</summary>
+        public static float DollLift;
+
+        /// <summary>Подъём для комнаты: композиция главной, в остальных
+        /// комнатах фигура стоит на кромке.</summary>
+        public static float DollLiftFor(Room room) => room == Room.Home ? DollLift : 0f;
+
         /// <summary>Где фигура стоит на самом деле: слот плюс сдвиг.</summary>
         public static float DollX(Room room) => Mathf.Clamp01(DollSlotX(room) + DollNudge(room));
 
@@ -332,6 +343,8 @@ namespace Lvn.UI
             if (b == null) return;
             Apply(b.doll_height, b.doll_width, b.canvas_pan, b.canvas_pan_step, b.doll_place);
             HomeDollNudge = b.doll_nudge.HasValue ? Mathf.Clamp01(b.doll_nudge.Value) : 0.12f;
+            // Выше половины кадра ноги ушли бы за шапку — обрезаем, а не верим.
+            DollLift = b.doll_lift.HasValue ? Mathf.Clamp(b.doll_lift.Value, 0f, 0.5f) : 0f;
             StoreCastGain = b.store_zoom.HasValue ? Mathf.Clamp(b.store_zoom.Value, 0.2f, 3f) : 1.05f;
             TravelMs = b.menu_travel_ms.HasValue ? Mathf.Clamp(b.menu_travel_ms.Value, 0, 5000) : 680;
             // Всплытие следует за перелётом: назвали одно — второе встаёт само,

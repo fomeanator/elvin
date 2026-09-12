@@ -72,6 +72,13 @@ namespace Lvn.UI.Screens
         /// навбар держится на экране этим сигналом в игровом режиме.</summary>
         public bool HasWork => _shown;
 
+        /// <summary>ГДЕ НА ЭКРАНЕ ЦИФЕРБЛАТ ЛОГОТИПА — прямоугольник в
+        /// координатах панели или null, если логотипа облика сейчас нет.
+        /// Даёт оболочка (<c>LvnTopBar.LogoDialRect</c>): шапка знает, где
+        /// часы, кружок только спрашивает. Есть циферблат — кольцо садится на
+        /// него, «по размеру часов» (Илья 08.09); нет — кружок в строке бара.</summary>
+        public Func<Rect?> MiniAnchor;
+
         /// <summary>Отступ safe area — кружок сидит в строке бара, ниже выреза.</summary>
         public void SetSafeTop(float units)
         {
@@ -219,8 +226,11 @@ namespace Lvn.UI.Screens
             _capsule.RegisterCallback<ClickEvent>(_ => { if (!_expanded) SetExpanded(true); });
             _capsule.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             Add(_capsule);
+            // Циферблат ездит вместе с шапкой (ширина экрана, safe area) —
+            // после каждой раскладки кружок сверяется, где он.
+            RegisterCallback<GeometryChangedEvent>(_ => PlaceCapsule(_morph));
 
-            _miniRing = new ProgressRing(MiniSize * 0.5f - 5f, 3.5f, drawArrow: true);
+            _miniRing = new ProgressRing(MiniSize * 0.5f - 5f, 3.5f, drawArrow: true) { name = "download-ring" };
             _miniRing.style.width = MiniSize; _miniRing.style.height = MiniSize;
             _miniRing.pickingMode = PickingMode.Ignore;
             _capsule.Add(_miniRing);
@@ -496,8 +506,8 @@ namespace Lvn.UI.Screens
         /// короткая дуга крутится сама (спиннер).</summary>
         private sealed class ProgressRing : VisualElement
         {
-            private readonly float _radius, _stroke;
-            private readonly bool _arrow;
+            private float _radius, _stroke;
+            private bool _arrow;
             private float _progress = -1f;  // цель
             private float _shown = -1f;     // что нарисовано: плывёт к цели
             private float _spin;
@@ -545,7 +555,7 @@ namespace Lvn.UI.Screens
 
             public ProgressRing(float radius, float stroke, bool drawArrow)
             {
-                _radius = radius; _stroke = stroke; _arrow = drawArrow;
+                SetGeometry(radius, stroke, drawArrow);
                 generateVisualContent += Draw;
                 // Спиннеру нужен ход времени; при известном прогрессе тик
                 // просто перерисовывает свежую дугу.
@@ -572,6 +582,15 @@ namespace Lvn.UI.Screens
                     _lastTick = now;
                     MarkDirtyRepaint();
                 }).Every(16);
+            }
+
+            /// <summary>Радиус, толщина и стрелка — по месту: на часах логотипа
+            /// кольцо тоньше и без стрелки (циферблат — сам значок), в строке
+            /// бара — как было.</summary>
+            public void SetGeometry(float radius, float stroke, bool drawArrow)
+            {
+                _radius = radius; _stroke = stroke; _arrow = drawArrow;
+                MarkDirtyRepaint();
             }
 
             private void Draw(MeshGenerationContext mgc)

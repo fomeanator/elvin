@@ -78,8 +78,10 @@ namespace Lvn.UI
         /// <param name="nudge">Сдвиг от слота, доля ширины кадра (вправо
         /// положительный). Слот остаётся словом сцены — по нему фигура
         /// ездит и разводится; сдвиг — нюанс композиции витрины.</param>
+        /// <param name="lift">Подъём ног над нижней кромкой, доля высоты
+        /// кадра; 0 — на кромке, как ставит тема сцены.</param>
         public bool Stand(LvnSender sender, int? z = null, string place = null, float seconds = 0f,
-                          float nudge = 0f)
+                          float nudge = 0f, float lift = 0f)
         {
             if (_stage == null || !Exists) return false;
             if (string.IsNullOrEmpty(place)) place = LvnMenuStage.HomeDollSlot;
@@ -87,7 +89,7 @@ namespace Lvn.UI
             // длинном телефоне умещается, а на 16:9 и планшете кадр равен
             // экрану — та же единица срезала бы голову; зажим живёт в витрине
             // (DollHeightOnScreen) и знает про вырез и шапку.
-            var pose = Pose(Id, place, LvnMenuStage.DollWidth, LvnMenuStage.DollHeightOnScreen, z ?? 0, nudge);
+            var pose = Pose(Id, place, LvnMenuStage.DollWidth, LvnMenuStage.DollHeightOnScreen, z ?? 0, nudge, lift);
             if (seconds > 0f) pose["transition_duration"] = VnStage.DeclareMovement(seconds);
             LvnLog.Trace($"[lvn-doll] {Id}: в слот «{place}» ({Placement.SlotX(place):0.000}"
                        + (nudge != 0f ? $" {(nudge > 0 ? "+" : "−")} {Mathf.Abs(nudge):0.000} = {(float)pose["x"]:0.000}" : "")
@@ -113,11 +115,14 @@ namespace Lvn.UI
         /// следующего явного значения, и «сотка» катсцены тащилась бы за куклой
         /// в меню и в следующую главу — она стояла бы поверх собеседников.</para>
         ///
-        /// <para>Y НЕ ЗАДАЁТСЯ: у фигуры якорь ног, и число здесь уводило её за
-        /// нижнюю кромку кадра.</para>
+        /// <para>Y — ТОЛЬКО ПОДЪЁМОМ. У фигуры якорь ног: <c>y</c> — где
+        /// стоят ноги долей высоты кадра, 1 — нижняя кромка. Произвольное
+        /// число здесь уводило её за кромку; подъём считается ОТ кромки
+        /// вверх, а без него поле не пишется — сцена ставит фигуру на базу
+        /// темы, как ставила.</para>
         /// </summary>
         public static JObject Pose(string id, string place, float width, float height, int z,
-                                   float nudge = 0f)
+                                   float nudge = 0f, float lift = 0f)
         {
             var pose = new JObject
             {
@@ -133,6 +138,7 @@ namespace Lvn.UI
                 // почти в центр при любом слоте.
                 ["crop"] = true,
             };
+            if (lift > 0f) pose["y"] = 1f - Mathf.Clamp(lift, 0f, 0.5f);
             // Место — словом («left», «center»…) или долей ширины кадра
             // («0.32»): доля идёт полем x, у слова свой словарь мест.
             if (float.TryParse(place, System.Globalization.NumberStyles.Float,

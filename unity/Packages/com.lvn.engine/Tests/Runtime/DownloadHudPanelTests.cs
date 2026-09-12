@@ -54,7 +54,15 @@ namespace Lvn.Tests
                 // нечего, и молчаливый ноль выдавать за «не влезло» нельзя:
                 // соседние проверки прокрутки пропускаются по тому же признаку.
                 if (close == null || close.worldBound.width <= 0f)
-                    Assert.Ignore("панель UITK в этой среде не считает раскладку — размеры проверить нечем");
+                {
+                    // ПРОПУСК — ВСЛУХ И С ЧИСЛАМИ. Тест молча пропускался в каждом
+                    // прогоне, и пропуск читался как «зелено» (12.09).
+                    var capsule = hud.Q("download-capsule");
+                    Assert.Ignore("панель UITK в этой среде не считает раскладку — размеры проверить нечем: "
+                                + $"крестик {(close == null ? "не найден" : close.worldBound.ToString())}, "
+                                + $"капсула {(capsule == null ? "нет" : capsule.worldBound.ToString())}, "
+                                + $"экран {hud.worldBound}");
+                }
                 Assert.LessOrEqual(close.worldBound.xMax, width);
                 Assert.GreaterOrEqual(close.worldBound.xMin, 0f);
                 var scroll = hud.Q<ScrollView>();
@@ -62,14 +70,21 @@ namespace Lvn.Tests
                     Assert.Ignore("панель UITK в этой среде не считает раскладку — размеры проверить нечем");
                 Assert.LessOrEqual(scroll.worldBound.yMax, height);
 
+                // Кадр — и на диск для глаз, и к эталону для сборки: лист в
+                // облике темы (без арта) — то, что ломают правки токенов и
+                // раскладки, а числа выше не замечают.
                 string shots = Environment.GetEnvironmentVariable("LVN_TEST_SHOTS");
-                if (!string.IsNullOrEmpty(shots))
+                var screenshot = TestPixels.Read(texture);
+                try
                 {
-                    Directory.CreateDirectory(shots);
-                    var screenshot = TestPixels.Read(texture);
-                    try { File.WriteAllBytes(Path.Combine(shots, $"download-hud-{width}x{height}.png"), screenshot.EncodeToPNG()); }
-                    finally { Object.Destroy(screenshot); }
+                    if (!string.IsNullOrEmpty(shots))
+                    {
+                        Directory.CreateDirectory(shots);
+                        File.WriteAllBytes(Path.Combine(shots, $"download-hud-{width}x{height}.png"), screenshot.EncodeToPNG());
+                    }
+                    TestPixels.AssertGolden(screenshot, $"download-hud-{width}x{height}");
                 }
+                finally { Object.Destroy(screenshot); }
 
                 hud.Tick(default);
                 yield return null;
