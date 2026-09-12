@@ -323,8 +323,9 @@ namespace Lvn.UI.Screens
             // смену наряда и на каждый возврат из главы; ставь её всегда в
             // слот главной — и она прыгала бы влево посреди гардероба, где её
             // только что увели в центр.
+            var room = LvnTabs.RoomOf(_shell?.Tab ?? LvnTabs.Home);
             if (!Stage.Prima.Stand(sender, z, MenuDollSlot(),
-                                   nudge: LvnMenuStage.DollNudge(LvnTabs.RoomOf(_shell?.Tab ?? LvnTabs.Home))))
+                                   nudge: LvnMenuStage.DollNudge(room), lift: LvnMenuStage.DollLiftFor(room)))
                 return false;
             // План и дыхание полотна — тоже свойства вкладки, не картинки.
             if (sender == LvnSender.Menu) RestoreMenuComposition();
@@ -446,6 +447,7 @@ namespace Lvn.UI.Screens
         // где её поставил автор, на боковых возвращается в центр кадра.
         private string _menuDollSlot;     // куда едет героиня в этом переезде
         private float _menuDollNudge;     // …и на сколько правее слота там стоит
+        private float _menuDollLift;      // …и на сколько выше кромки (главная по макету)
         private bool _menuDollSent;         // …и послана ли она уже (первым тиком)
         // …и насколько она отодвинута: на главной свой план, на боковых — вблизи.
         private float _menuCastZoomFrom = 1f, _menuCastZoomTo = 1f;
@@ -474,6 +476,7 @@ namespace Lvn.UI.Screens
             // бы раньше кадра. Тик посылает её один раз — по этому флагу.
             _menuDollSlot = LvnMenuStage.DollSlot(LvnTabs.RoomOf(toTab));
             _menuDollNudge = LvnMenuStage.DollNudge(LvnTabs.RoomOf(toTab));
+            _menuDollLift = LvnMenuStage.DollLiftFor(LvnTabs.RoomOf(toTab));
             _menuDollSent = false;
             // УХОДИМ ИЗ ГАРДЕРОБА — ОБЩИЙ ПЛАН ВОЗВРАЩАЕТСЯ ВМЕСТЕ С ПЕРЕЛЁТОМ.
             // Наезд гардероба (камера 1.07 на разделе «Моё») снимался при
