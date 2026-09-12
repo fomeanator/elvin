@@ -115,24 +115,38 @@ namespace Lvn.UI.Screens
             _stageCard = StageCard();
             stack.Add(_stageCard);
             stack.Add(StageGap());
-            _stageAd = StageAdButton();
-            stack.Add(_stageAd);
+            // РЯД КНОПОК ПОД КАРТОЧКОЙ — награда за ролик и крутки (TR-47) в
+            // ОДНУ строку, высотой в кнопку награды. Крутки стояли ПОД наградой
+            // и молча поднимали весь столбик на 47 dp от макета: стек прижат к
+            // низу, и каждая новая строка растёт вверх (сверка кадров 12.09).
+            // Ряд держит высоту и без кнопок: нет рекламы — столбик не едет.
+            var actions = ScreenUi.Row();
+            actions.name = "stage-actions";
+            actions.pickingMode = PickingMode.Ignore;
+            actions.style.justifyContent = Justify.FlexEnd;
+            actions.style.flexShrink = 0;
+            actions.style.height = D(LvnStageSkin.Adv.Height);
 
-            // КРУТКИ (TR-47) — рядом с наградой за ролик: обе кнопки про то,
-            // как получить валюту, не платя деньгами. Пункта нет, пока хозяин
-            // не дал, чем его открыть: гача заводится сервером, и обещать её
-            // без сервера незачем.
-            // Кнопка круток строится ВСЕГДА и лишь показывается по обработчику:
-            // он приходит от оболочки позже сборки облика (см. OnSpin).
+            // КРУТКИ — рядом с наградой за ролик: обе кнопки про то, как
+            // получить валюту, не платя деньгами. Пункта нет, пока хозяин не
+            // дал, чем его открыть: гача заводится сервером, и обещать её без
+            // сервера незачем. Кнопка строится ВСЕГДА и лишь показывается по
+            // обработчику: он приходит от оболочки позже сборки облика (см.
+            // OnSpin). Размер — как у награды: рамка-арт карточки, сплющенная
+            // под одно слово, читалась дырой рядом с ней.
             _stageSpin = LvnStageKit.Button(() => LvnWords.Of("gacha.title", "Spin"), () => _onSpin?.Invoke());
+            _stageSpin.name = "stage-spin";
+            _stageSpin.style.width = D(LvnStageSkin.Adv.Width);
             _stageSpin.style.height = D(LvnStageSkin.Adv.Height);
-            _stageSpin.style.marginTop = LvnTokens.Space1;
+            _stageSpin.style.flexShrink = 0;
+            _stageSpin.style.marginRight = LvnTokens.Space1;
             _stageSpin.style.display = _onSpin != null ? DisplayStyle.Flex : DisplayStyle.None;
-            LvnStageKit.HollowFrame(_stageSpin, SkinUrl("card-back.png"), _assets,
-                                    LvnStageKit.CardBackW, LvnStageKit.CardBackH,
-                                    LvnStageKit.CardBackCornerPx, LvnStageKit.CardBackPxPerDp,
-                                    index: 0, solid: true);
-            stack.Add(_stageSpin);
+            LvnStageKit.PlateButton(_stageSpin, primary: true);
+            actions.Add(_stageSpin);
+
+            _stageAd = StageAdButton();
+            actions.Add(_stageAd);
+            stack.Add(actions);
 
             // Высота экрана известна только после раскладки — и меняется на
             // повороте; столбик подгоняется при каждой смене геометрии.
