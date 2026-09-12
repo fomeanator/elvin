@@ -529,6 +529,10 @@ namespace Lvn.UI.Screens
                             Plus = skin + "plus.png",
                             CurrencyIcons = browse.currency_icons,
                         }, _assets, () => LvnAsync.Fire(OpenProfileWithRelationsAsync(), "TopBarProfile"));
+                        // ВЫБРАННОЕ ЛИЦО — И ПОСЛЕ ПЕРЕЗАПУСКА. Шапка красила авторскую
+                        // картинку манифеста и о выборе игрока не спрашивала: выбор
+                        // жил только в сессии выбора («ава не сохраняется» — Арам 12.09).
+                        ApplyAvatar();
                     }
                     _shell.TopBar.OnCurrency = _ => LvnAsync.Fire(_shell.OpenPackShopAsync(), "TopBarStore");
                     // ЛОГОТИП — ДВЕРЬ ДОМОЙ (TR-77). В главе он не уводит:
