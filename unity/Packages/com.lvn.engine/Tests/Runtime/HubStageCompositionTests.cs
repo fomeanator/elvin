@@ -102,5 +102,28 @@ namespace Lvn.Tests
                 "ширина — как у кнопки награды: рамка не сплющена под слово");
             Assert.GreaterOrEqual(spin.worldBound.yMin, card.worldBound.yMax, "ряд кнопок ниже карточки");
         }
+
+        /// <summary>Кадр главной в облике «сцена» без арта (рамки не грузятся,
+        /// слова и плашки — да) против эталона: съехавший шрифт, цвет или
+        /// раскладку числа выше не видят, а глаз — да.</summary>
+        [UnityTest]
+        public IEnumerator StageHub_1170x2532_MatchesTheGoldenFrame()
+        {
+            TestPixels.RequireGraphics();
+            var root = Root(1170, 2532);
+            var hub = new BrowseHub(new BrowseConfig { skin = "/skin/", layout = "hub" }, new NoAssets());
+            root.Add(hub);
+            hub.SetContent(new LvnManifest
+            {
+                titles = new List<LvnTitle> { new LvnTitle { id = "a", name = "Первая" } },
+            });
+            hub.OnSpin = () => { };
+            yield return Layout(8);
+            if (!Measured(hub.Q("stage-open-card")))
+                Assert.Ignore("панель UITK в этой среде не считает раскладку — кадр сравнивать не с чем");
+            var shot = TestPixels.Read(_texture);
+            try { TestPixels.AssertGolden(shot, "hub-stage-1170x2532"); }
+            finally { Object.Destroy(shot); }
+        }
     }
 }
