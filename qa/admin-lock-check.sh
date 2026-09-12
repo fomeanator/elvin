@@ -54,6 +54,8 @@ curl -fsS -m 2 "http://127.0.0.1:$PORT/healthz" >/dev/null 2>&1 \
 
 B="http://127.0.0.1:$PORT"
 # Пропуск подставляется только в укусе — в обычном прогоне стучимся с улицы.
+# Пустой массив под set -u в bash 3.2 (macOS) — «unbound variable», и проверка
+# краснела на каждом маке; разворачиваем его через ${AUTH[@]+…}.
 AUTH=(); [ -n "$BITE" ] && AUTH=(-H "Authorization: Bearer $TOKEN")
 
 routes="$(grep -rhoE 'mux\.HandleFunc\("/v1/admin/[^"]*"' server/*.go \
@@ -67,7 +69,7 @@ for path in $routes; do
   case "$path" in */session/logout) continue;; esac
   for method in GET POST; do
     code="$(curl -s -o "$W/body" -w '%{http_code}' -m 6 -X "$method" \
-            -H 'Content-Type: application/json' -d '{}' "${AUTH[@]}" "$B$path")"
+            -H 'Content-Type: application/json' -d '{}' ${AUTH[@]+"${AUTH[@]}"} "$B$path")"
     case "$code" in
       401|403|405|404) ;;                        # отказ — то, что нужно
       *) open_doors="$open_doors\n  $method $path → $code";;
@@ -76,7 +78,7 @@ for path in $routes; do
 done
 
 # БЕЗДЕЙСТВИЕ: отказ обязан означать, что ничего не произошло.
-curl -s -o /dev/null -m 6 -X POST "${AUTH[@]}" "$B/v1/admin/agent/publish" \
+curl -s -o /dev/null -m 6 -X POST ${AUTH[@]+"${AUTH[@]}"} "$B/v1/admin/agent/publish" \
   -H 'Content-Type: application/json' \
   -d '{"id":"probe","name":"Проба","chapter":1,"lvns":"scene p\n\nГолос: строка\n-> __end\n"}'
 wrote="$(ls "$W/content/scripts" 2>/dev/null | wc -l | tr -d ' ')"

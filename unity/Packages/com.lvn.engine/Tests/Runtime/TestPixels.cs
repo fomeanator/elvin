@@ -63,6 +63,15 @@ namespace Lvn.Tests
             for (int i = 0; i < pixels.Length; i++) if (pixels[i].a > 0) painted++;
             Assert.Greater(painted, pixels.Length / 100,
                 $"кадр «{name}» пуст ({painted} закрашенных пикселей из {pixels.Length}) — сверять нечего: вид не показан или снят до раскладки");
+            // КАДР — В ОТЧЁТ ВСЕГДА, не только при провале: перед сборкой на
+            // кадры смотрят глазами (qa/prebuild.sh), а зелёная сверка с
+            // эталоном не отменяет взгляда — эталон мог устареть вместе с ней.
+            string shots = System.Environment.GetEnvironmentVariable("LVN_TEST_SHOTS");
+            if (!string.IsNullOrEmpty(shots))
+            {
+                System.IO.Directory.CreateDirectory(shots);
+                System.IO.File.WriteAllBytes(System.IO.Path.Combine(shots, name + "-now.png"), shot.EncodeToPNG());
+            }
             if (!string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable("LVN_GOLDEN_WRITE")))
             {
                 System.IO.Directory.CreateDirectory(dir);
@@ -93,7 +102,6 @@ namespace Lvn.Tests
                 float share = (float)changed / a.Length;
                 TestContext.WriteLine($"эталон «{name}»: ушло {share:P2} пикселей (порог {tolerance:P0})");
                 if (share <= tolerance) return;
-                string shots = System.Environment.GetEnvironmentVariable("LVN_TEST_SHOTS");
                 string where = string.IsNullOrEmpty(shots) ? System.IO.Path.GetTempPath() : shots;
                 System.IO.Directory.CreateDirectory(where);
                 var diffTex = new Texture2D(shot.width, shot.height, TextureFormat.RGBA32, false);
@@ -101,7 +109,8 @@ namespace Lvn.Tests
                 {
                     diffTex.SetPixels32(diff); diffTex.Apply();
                     System.IO.File.WriteAllBytes(System.IO.Path.Combine(where, name + "-diff.png"), diffTex.EncodeToPNG());
-                    System.IO.File.WriteAllBytes(System.IO.Path.Combine(where, name + "-now.png"), shot.EncodeToPNG());
+                    if (string.IsNullOrEmpty(shots))
+                        System.IO.File.WriteAllBytes(System.IO.Path.Combine(where, name + "-now.png"), shot.EncodeToPNG());
                 }
                 finally { Object.Destroy(diffTex); }
                 Assert.Fail($"кадр «{name}» ушёл от эталона: {share:P2} пикселей при пороге {tolerance:P0}; "
