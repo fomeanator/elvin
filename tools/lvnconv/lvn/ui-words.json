@@ -676,6 +676,10 @@
   "default": "Continue"
  },
  {
+  "key": "hub.count",
+  "default": "{0}"
+ },
+ {
   "key": "hub.open",
   "default": "Open"
  },

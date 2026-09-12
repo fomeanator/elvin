@@ -85,11 +85,9 @@ namespace Lvn.UI.Screens
             air.style.flexShrink = 0;
             _hubRows.Add(air);
             // Баннер «Рекомендуем» убран по просьбе Ильи — такого блока нет.
+            // Пустой сборник тоже полка: шапка, счётчик «0» и слово автора.
             for (int i = 0; i < _collections.Count; i++)
-            {
-                var cr = CollectionRow(_collections[i], hero: i == 0);
-                if (cr != null) _hubRows.Add(cr);   // null = в сборнике нечего показывать
-            }
+                _hubRows.Add(CollectionRow(_collections[i], hero: i == 0));
             if (orphans.Count > 0)
             {
                 // ИМЕНИ У СЛУЖЕБНОГО СБОРНИКА НЕТ НАРОЧНО. Оно вычислялось
@@ -98,8 +96,7 @@ namespace Lvn.UI.Screens
                 // а перезаход в хаб. Как зовётся эта полоса, знает подпись
                 // (см. CollectionRow), и знает по ключу.
                 var lib = new LvnCollection { id = LibraryId, titles = orphans };
-                var libRow = CollectionRow(lib, hero: _collections.Count == 0);
-                if (libRow != null) _hubRows.Add(libRow);
+                _hubRows.Add(CollectionRow(lib, hero: _collections.Count == 0));
             }
             var cc = _hubRows.contentContainer;
             if (cc.childCount > 0) cc[cc.childCount - 1].style.marginBottom = LastRowLift;
