@@ -26,11 +26,14 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 SHOTS="$REPO_ROOT/qa/reports/$STAMP-prebuild-shots"
 mkdir -p "$SHOTS"
 
-MODE=()
-[ "${1:-}" = "--quick" ] && MODE=(--editmode)
+# Без массива: пустой массив под set -u в bash 3.2 (macOS, наш раннер) —
+# «unbound variable», на этом уже спотыкался admin-lock-check.sh.
+MODE=""
+[ "${1:-}" = "--quick" ] && MODE="--editmode"
 
 echo "[prebuild] кадры панелей и разницы с эталонами: $SHOTS"
-LVN_TEST_SHOTS="$SHOTS" bash "$REPO_ROOT/qa/run-all.sh" "${MODE[@]}"
+# shellcheck disable=SC2086  # MODE — один флаг или пусто, разбиение по словам и нужно
+LVN_TEST_SHOTS="$SHOTS" bash "$REPO_ROOT/qa/run-all.sh" $MODE
 status=$?
 
 shots=$(ls "$SHOTS" 2>/dev/null | wc -l | tr -d ' ')
