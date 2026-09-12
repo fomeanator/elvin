@@ -64,7 +64,11 @@ namespace Lvn.UI.Screens
                 if (IsFaceOnly(cmd) && !string.IsNullOrEmpty(_moodFaceAxis))
                 {
                     var id = (string)cmd["id"];
-                    LvnFace.Hold(id, _moodFaceAxis, (string)cmd["emotion"]);
+                    var emotion = (string)cmd["emotion"];
+                    // То же лицо — ничего не делаем: пересборка без перемены
+                    // заново ставила фигуру («героиня прыгала на месте»).
+                    if (string.Equals(LvnFace.Holding(id), emotion, System.StringComparison.Ordinal)) return true;
+                    LvnFace.Hold(id, _moodFaceAxis, emotion);
                     stage.RefreshActor(id);
                     return true;
                 }
@@ -91,7 +95,7 @@ namespace Lvn.UI.Screens
         /// главы. Метки нет — ничего не происходит.</summary>
         private void Raise(string label, bool act)
         {
-            if (_mood == null) return;
+            if (_mood == null || InChapter) return;
             Play(act ? _mood.Act(label) : _mood.EnterRoom(label));
         }
 
@@ -119,9 +123,14 @@ namespace Lvn.UI.Screens
         private const float MoodTickSeconds = 0.5f;
         private bool _moodTicking;
 
+        // ОДНА ДВЕРЬ В ГЛАВУ — ЗАКРЫТА ЗДЕСЬ. Реакции витрины (тик скуки,
+        // касание, покупка, наряд, возврат) заходили в главу с трёх из семи
+        // входов, и каждая заново ставила героиню в сцене истории («ГГ опять
+        // летает на месте» — Арам 12.09). Проверка стоит у самого проигрывания:
+        // остальные входы безопасны по построению.
         private void Play(string label)
         {
-            if (string.IsNullOrEmpty(label) || _moodClip == null) return;
+            if (string.IsNullOrEmpty(label) || _moodClip == null || InChapter) return;
             if (!_moodClip.Play(label, OnClipEnded))
                 LvnLog.Trace($"[lvn-mood] метки «{label}» в сценарии нет");
         }
@@ -173,7 +182,7 @@ namespace Lvn.UI.Screens
         /// </summary>
         private void Wake()
         {
-            if (_mood == null) return;
+            if (_mood == null || InChapter) return;
             bool asleep = _mood.PlayingKind == LvnMenuMood.Kind.Idle && _mood.Playing != null;
             _mood.Touch();
             if (asleep) Play(_mood.Ended());
@@ -188,7 +197,7 @@ namespace Lvn.UI.Screens
             var id = Stage?.Prima?.Id;
             if (string.IsNullOrEmpty(id) || LvnFace.Holding(id) == null) return;
             LvnFace.Release(id);
-            if (refresh) Stage.RefreshActor(id);
+            if (refresh && !InChapter) Stage.RefreshActor(id);
         }
 
         /// <summary>
