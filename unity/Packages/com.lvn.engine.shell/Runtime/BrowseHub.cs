@@ -257,7 +257,9 @@ namespace Lvn.UI.Screens
         private void ApplySafeArea()
         {
             _hubView.style.paddingTop =
-                LvnEdges.Top(this, LvnEdges.HomeTopMin, LvnEdges.PageTopAir);
+                ExternalTopBar && !Staged
+                    ? LvnTopBar.BottomEdge(this) + LvnEdges.PageTopAir
+                    : LvnEdges.Top(this, LvnEdges.HomeTopMin, LvnEdges.PageTopAir);
             _collectionView.style.paddingTop =
                 LvnEdges.Top(this, LvnEdges.PageTopMin, LvnEdges.PageTopAir);
             _detailView.style.paddingTop =
@@ -312,9 +314,23 @@ namespace Lvn.UI.Screens
             foreach (var pill in _pills) pill.Refresh();
         }
 
+        private bool _externalTopBar;
+
         /// <summary>Единый навбар приложения несёт валюты сам — пилюли хаба
         /// выключаются, чтобы не дублировать (решение Ильи 26.08).</summary>
-        public bool ExternalTopBar;
+        public bool ExternalTopBar
+        {
+            get => _externalTopBar;
+            set
+            {
+                if (_externalTopBar == value) return;
+                _externalTopBar = value;
+                // Хост подключает общий бар уже после создания хаба; вырез
+                // при этом не меняется и сам пересчёт отступов не разбудит.
+                RefreshTopBar();
+                ApplySafeArea();
+            }
+        }
 
         /// <summary>Валюты шапки, по порядку (ui.browse.currencies). Дефолт —
         /// прежняя пара; хост подменяет данными манифеста. «gold» был зашит в

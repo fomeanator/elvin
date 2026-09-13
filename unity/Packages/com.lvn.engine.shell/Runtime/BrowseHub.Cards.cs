@@ -56,8 +56,38 @@ namespace Lvn.UI.Screens
                 entering.Add(card);
             }
             row.Add(strip);
+            FitShelfCaptions(strip, entering);
             RevealShelf(entering);
             return row;
+        }
+
+        // Высоту диктует текст после раскладки: две строки названия плюс
+        // описание не помещались в прежние 112 единиц. Меряем внутренний
+        // блок, который не растягивается вместе с карточкой, иначе каждый
+        // пересчёт добавлял бы к уже увеличенной высоте ещё отступы.
+        private static void FitShelfCaptions(ScrollView strip, List<VisualElement> cards)
+        {
+            void Fit()
+            {
+                float height = ShelfCardHeight;
+                foreach (var card in cards)
+                {
+                    var content = card.Q("hub-shelf-caption-content");
+                    float textH = content.resolvedStyle.height;
+                    if (float.IsNaN(textH)) continue;
+                    var caption = content.parent.resolvedStyle;
+                    // Рамка и поля самой карточки — разница её коробки и
+                    // области содержимого, без повторения толщины рамки.
+                    float chrome = card.resolvedStyle.height - card.contentRect.height;
+                    height = Mathf.Max(height, PosterH + textH + caption.paddingTop + caption.paddingBottom
+                        + chrome);
+                }
+                if (Mathf.Approximately(strip.style.height.value.value, height)) return;
+                strip.style.height = height;
+                foreach (var card in cards) card.style.height = height;
+            }
+            foreach (var card in cards)
+                card.Q("hub-shelf-caption-content").RegisterCallback<GeometryChangedEvent>(_ => Fit());
         }
 
         /// <summary>Шапка полки: название с разрядкой темы, счётчик новелл
@@ -196,6 +226,7 @@ namespace Lvn.UI.Screens
             // contain, см. LvnSpinePoster), поэтому фигура видна во весь рост
             // и не тянется, а лишняя высота уходит в поле карточки.
             poster.style.height = PosterH;
+            poster.style.flexShrink = 0;
             poster.style.overflow = Overflow.Hidden;
             poster.style.backgroundColor = _card;
             LvnChrome.RoundTop(poster, _radius + 2f);
@@ -270,7 +301,11 @@ namespace Lvn.UI.Screens
             var caption = new VisualElement { pickingMode = PickingMode.Ignore };
             LvnAir.Pad(caption, LvnTokens.Space2);
             caption.style.flexGrow = 1;
+            caption.style.flexShrink = 0;
             caption.style.backgroundColor = UiColor.WithAlpha(plinth, 0.98f);
+            var text = new VisualElement { name = "hub-shelf-caption-content" };
+            text.style.flexShrink = 0;
+            caption.Add(text);
 
             var tid0 = t.id; var tname0 = t.name;
             var name = Lvn.UI.LvnRedress.Bind(new Label(),
@@ -278,9 +313,8 @@ namespace Lvn.UI.Screens
             name.style.color = _text; name.style.fontSize = LvnTokens.TextBase;
             name.style.unityFontStyleAndWeight = FontStyle.Bold;
             name.style.whiteSpace = WhiteSpace.Normal;
-            name.style.maxHeight = 108;     // две строки не съедают метаданные (карточка вдвое крупнее)
-            name.style.overflow = Overflow.Hidden;
-            caption.Add(name);
+            name.style.flexShrink = 0;
+            text.Add(name);
 
             // Подзаголовок («Сезон 1 · Глава 0 — Вербовка») — тоже данные:
             // переведён — берём перевод, нет — читаем латиницей, чтобы он не
@@ -295,7 +329,8 @@ namespace Lvn.UI.Screens
                 subLbl.style.whiteSpace = WhiteSpace.NoWrap;
                 subLbl.style.overflow = Overflow.Hidden;
                 subLbl.style.textOverflow = TextOverflow.Ellipsis;
-                caption.Add(subLbl);
+                subLbl.style.flexShrink = 0;
+                text.Add(subLbl);
             }
             card.Add(caption);
 
