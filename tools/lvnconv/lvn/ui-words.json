@@ -1112,6 +1112,10 @@
   "default": "TOP UP"
  },
  {
+  "key": "shop.failed",
+  "default": "Failed"
+ },
+ {
   "key": "shop.loading",
   "default": "Loading…"
  },

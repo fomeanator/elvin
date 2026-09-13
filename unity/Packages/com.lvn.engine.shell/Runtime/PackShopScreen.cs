@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,17 +19,15 @@ namespace Lvn.UI.Screens
     /// ("ПОПУЛЯРНЫЙ" / "ВЫГОДНО" / "ЛУЧШАЯ ЦЕНА"), and a highlighted best-value
     /// pack. Colours all come from <see cref="LvnTokens"/> ("Полночь" palette).
     ///
-    /// Self-contained by design: it ships hardcoded demo packs so it looks
-    /// complete without a live catalog, and the buy button drives a harmless
-    /// "…" → "✓" demo state rather than a real purchase. A host that wants real
-    /// billing can wire it to the same <see cref="LvnWallet.VerifyPurchaseAsync"/>
-    /// pattern <see cref="StoreScreen"/> uses.
+    /// Catalog and prices come from the server. The default purchase transport
+    /// credits the development wallet; a billing host can inject receipt verification
+    /// through <see cref="LvnWallet.VerifyPurchaseAsync"/>.
     /// </summary>
     public sealed partial class PackShopScreen : LvnOverlayScreen, ILvnContentAware
     {
-        private enum Ribbon { None, Popular, Value, BestPrice }
+        internal enum Ribbon { None, Popular, Value, BestPrice }
 
-        private struct Pack
+        internal struct Pack
         {
             public string Sku;
             public string Currency;                     // валюта одиночного пака
@@ -65,6 +64,11 @@ namespace Lvn.UI.Screens
         private readonly Dictionary<string, List<Pack>> _catalog;
 
         private int _tab;
+        private StoreConfig _store;
+        private string _recommendationKey;
+        // В тестах подменяется только транспорт, вся машина состояний остаётся настоящей.
+        internal Func<Pack, Task<bool>> Purchase = CreditAsync;
+        internal Func<int, Task> NoticeDelay = Task.Delay;
 
         /// <summary>Магазин стоит СТОЛБИКОМ (вкладка витрины), а не листом во
         /// всю ширину: карточки идут в один ряд — на две в такой ширине
@@ -184,28 +188,34 @@ namespace Lvn.UI.Screens
                     }
                     list.Add(ToCard(p, bundle));
                 }
-                // Витринные акценты: самый крупный пак вкладки — «герой» с
-                // лучшей ценой, серединный — «популярный».
-                foreach (var list in _catalog.Values)
-                {
-                    if (list.Count >= 3)
-                    {
-                        var mid = list[list.Count / 2];
-                        mid.Badge = Ribbon.Popular;
-                        list[list.Count / 2] = mid;
-                    }
-                    if (list.Count >= 2)
-                    {
-                        var last = list[list.Count - 1];
-                        last.Badge = Ribbon.BestPrice;
-                        last.Best = true;
-                        list[list.Count - 1] = last;
-                    }
-                }
+                foreach (var list in _catalog.Values) Recommend(list);
             }
             _tab = 0;
             BuildTabs();
             Rebuild();
+        }
+
+        /// <summary>Клиентская рекомендация: последний пак вкладки, средний — Popular.
+        /// Манифест может назвать единственный SKU и полностью задать набор лент.
+        /// Пустая карта badges снимает ленты; неизвестный SKU никого не рекомендует.</summary>
+        private void Recommend(List<Pack> list)
+        {
+            for (int i = 0; i < list.Count; i++)
+            {
+                var p = list[i];
+                p.Best = !string.IsNullOrEmpty(_store?.recommended_sku)
+                    ? p.Sku == _store.recommended_sku
+                    : list.Count >= 2 && i == list.Count - 1;
+                p.Badge = list.Count >= 2 && i == list.Count - 1 ? Ribbon.BestPrice
+                    : list.Count >= 3 && i == list.Count / 2 ? Ribbon.Popular : Ribbon.None;
+                if (_store?.badges != null)
+                {
+                    _store.badges.TryGetValue(p.Sku ?? string.Empty, out var badge);
+                    p.Badge = badge == "popular" ? Ribbon.Popular : badge == "value" ? Ribbon.Value
+                        : badge == "best_price" ? Ribbon.BestPrice : Ribbon.None;
+                }
+                list[i] = p;
+            }
         }
 
         // Названия валют держит ЦЕННИК — они приходят из манифеста новеллы.
@@ -298,14 +308,17 @@ namespace Lvn.UI.Screens
             if (free != null) _list.Add(free);
             if (_tab >= _tabIds.Count || !_catalog.TryGetValue(_tabIds[_tab], out var packs)) return;
             // Витрина, а не таблица: обычные паки — сеткой в две колонки,
-            // «герой» вкладки и наборы — широкими карточками. В облике
+            // «герой» вкладки — широкой карточкой. В облике
             // «сцена» — панели одна под другой, прижаты вправо, как на главной.
-            var grid = new VisualElement();
-            if (DressedColumn) grid.style.alignItems = Align.FlexEnd;
-            else if (Dressed) LvnFlow.Wrap(grid, Justify.SpaceBetween);
+            Recommend(packs);
+            var grid = new VisualElement { name = "shop-grid" };
+            grid.style.width = Length.Percent(100f);
+            if (_column) grid.style.alignItems = Align.FlexEnd;
             else LvnFlow.Wrap(grid, Justify.SpaceBetween);
             _list.Add(grid);
-            foreach (var p in packs) grid.Add(Card(p));
+            // Рекомендация видна при входе, а не после прокрутки всего каталога.
+            foreach (var p in packs) if (p.Best) grid.Add(Card(p));
+            foreach (var p in packs) if (!p.Best) grid.Add(Card(p));
         }
 
 
@@ -319,7 +332,13 @@ namespace Lvn.UI.Screens
         /// манифестом — и решение обязано доезжать вместе с ним.</remarks>
         public void SetContent(LvnManifest manifest)
         {
-            AdPlacement = manifest?.ui?.store?.ad_placement;
+            var store = manifest?.ui?.store;
+            string recommendationKey = Newtonsoft.Json.JsonConvert.SerializeObject(
+                new { store?.recommended_sku, store?.badges, store?.ad_placement });
+            bool storeChanged = recommendationKey != _recommendationKey;
+            _recommendationKey = recommendationKey;
+            _store = store;
+            AdPlacement = store?.ad_placement;
             // ОБЛИК КАРТОЧЕК — ТОТ ЖЕ, ЧТО У ГЛАВНОЙ. Папку арта объявляет
             // витрина (ui.browse.skin), а не магазин: рамка у панели новостей,
             // у карточки новеллы и у пакета одна и та же, и второе поле в
@@ -332,7 +351,7 @@ namespace Lvn.UI.Screens
             var skin = manifest?.ui?.browse?.skin;
             var spine = FirstSpine(manifest);
             string spineKey = spine == null ? null : Newtonsoft.Json.JsonConvert.SerializeObject(spine);
-            bool changed = skin != _skin || spineKey != _spineKey;
+            bool changed = storeChanged || skin != _skin || spineKey != _spineKey;
             _skin = skin; _spine = spine; _spineKey = spineKey;
             if (Dressed && !_dressedApplied)
             {
@@ -383,7 +402,9 @@ namespace Lvn.UI.Screens
         {
             // Скругление у вкладки своё (чуть круглее мелкого из темы) — роль
             // не имеет права его переопределять безымянным умолчанием.
-            LvnStyler.Tab(b, active, LvnTokens.Radius);
+            LvnStyler.Plate(b, active ? LvnTokens.Accent : Color.clear,
+                active ? LvnTokens.OnAccent : LvnTokens.TextDim, LvnTokens.Radius);
+            b.style.unityFontStyleAndWeight = active ? FontStyle.Bold : FontStyle.Normal;
         }
 
 
@@ -399,14 +420,39 @@ namespace Lvn.UI.Screens
         /// лист поверх главы, — а героиня одна.</summary>
         public static event System.Action Purchased;
 
-        private void Buy(Button b, Pack pack)
+        private void Buy(Button b, Pack pack) => LvnAsync.Fire(PurchaseAsync(b, pack), "Buy");
+
+        internal Task PurchaseAsync(Button b, Pack pack)
         {
-            string label = b.text;   // подпись запоминаем ДО занятости
-            LvnAsync.Fire(LvnBusy.RunAsync(b, () => BuyAsync(b, pack, label), "…",
-                                           releaseOnSuccess: false, what: "Buy"), "Buy");
+            if (!b.enabledSelf) return Task.CompletedTask;
+            string label = b.text;
+            Color ready = b.style.color.value;
+            Color plate = b.style.backgroundColor.value;
+            return LvnBusy.RunAsync(b, async () =>
+            {
+                try
+                {
+                    b.style.color = LvnTokens.TextDim;
+                    if (plate.a > 0f) b.style.backgroundColor = LvnTokens.PanelBg;
+                    bool ok;
+                    try { ok = await Purchase(pack); }
+                    catch (Exception) { ok = false; } // транспортный отказ виден тем же состоянием
+                    b.text = ok ? LvnWords.Of("common.done", "Done") : LvnWords.Of("shop.failed", "Failed");
+                    b.style.color = ok ? LvnTokens.Ok : LvnTokens.Warn;
+                    if (ok) Purchased?.Invoke();
+                    await NoticeDelay(ok ? 1000 : 2000);
+                }
+                finally
+                {
+                    b.text = label;
+                    b.style.color = ready;
+                    b.style.backgroundColor = plate;
+                    b.SetEnabled(true);
+                }
+            }, "…", releaseOnSuccess: false, what: "Buy");
         }
 
-        private async Task BuyAsync(Button b, Pack pack, string label)
+        private static async Task<bool> CreditAsync(Pack pack)
         {
             // TEST-mode purchase: no store billing yet, but the CREDIT is real —
             // it lands in the server wallet (idempotent op), so bought crystals
@@ -427,30 +473,7 @@ namespace Lvn.UI.Screens
                     string.IsNullOrEmpty(pack.Currency) ? "crystals" : pack.Currency,
                     total, "packshop_test:" + pack.Sku);
             }
-            // Баланс тут обновлять некому и незачем: его показывает единый
-            // навбар, а он слушает Changed сам.
-            if (!ok)
-            {
-                b.text = label;
-                b.SetEnabled(true);
-                return;
-            }
-            // ПОКУПКА СОСТОЯЛАСЬ — героиня витрины об этом узнаёт (TR-66).
-            // Событие поднимает магазин, а что играть, решает дом настроения:
-            // знать про эмоции магазину нечего.
-            Purchased?.Invoke();
-            b.schedule.Execute(() =>
-            {
-                b.text = LvnWords.Of("common.done", "Done");
-                b.schedule.Execute(() =>
-                {
-                    b.text = label;
-                    b.SetEnabled(true);
-                }).ExecuteLater(1100);
-            }).ExecuteLater(650);
+            return ok;
         }
-
-
-        // ── Hardcoded demo catalog: five tiered packs per tab ─────────────────
     }
 }
