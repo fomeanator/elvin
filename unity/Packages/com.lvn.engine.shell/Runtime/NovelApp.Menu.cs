@@ -142,7 +142,6 @@ namespace Lvn.UI.Screens
             var b = manifest?.ui?.browse;
             LvnMenuStage.Apply(b);
             LvnWardrobeStage.Apply(manifest?.ui?.wardrobe);
-            LvnWardrobe.ClearTransientEmotions(manifest);
         }
 
         /// <summary>Полотно витрины греется, как только известен манифест.
