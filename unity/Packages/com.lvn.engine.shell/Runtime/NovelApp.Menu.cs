@@ -327,6 +327,14 @@ namespace Lvn.UI.Screens
             if (!Stage.Prima.Stand(sender, z, MenuDollSlot(),
                                    nudge: LvnMenuStage.DollNudge(room), lift: LvnMenuStage.DollLiftFor(room)))
                 return false;
+            // РОСТ КУКЛЫ — ВСЛУХ И НА СЕРВЕР. «Героиня разжирнела» (14.09) —
+            // кукла на чужом экране вышла крупнее; её рост складывается из
+            // авторской единицы, зазора над головой и выреза, и без этих чисел
+            // с устройства разбирать такое можно только догадками.
+            LvnLog.Info($"[lvn-doll] {fav}: рост {LvnMenuStage.DollHeightOnScreen:0.000} кадра "
+                      + $"(авторский {LvnMenuStage.DollHeight:0.00}), запас над головой {LvnMenuStage.DollHeadroom:0}, "
+                      + $"экран {UnityEngine.Screen.width}×{UnityEngine.Screen.height}, "
+                      + $"безопасная зона {Lvn.UI.LvnEdges.SafeArea}, слот «{MenuDollSlot()}»");
             // План и дыхание полотна — тоже свойства вкладки, не картинки.
             if (sender == LvnSender.Menu) RestoreMenuComposition();
             _menuSceneActor = fav;
