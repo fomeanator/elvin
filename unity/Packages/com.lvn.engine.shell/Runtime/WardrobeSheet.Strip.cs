@@ -248,6 +248,20 @@ namespace Lvn.UI.Screens
         /// </summary>
         private VisualElement PriceBadge(LvnWardrobeItem item)
         {
+            // ПРИЗ КРУТОК (TR-93): цены у него нет, и ценник «0» врал —
+            // читалось как «бесплатно», а кнопка звала покупать за ноль.
+            // Значок подарка говорит правду: это выигрывают.
+            if (item.gacha && item.price <= 0)
+            {
+                var gift = new VisualElement { name = "card-price", pickingMode = PickingMode.Ignore };
+                gift.style.position = Position.Absolute;
+                gift.style.top = 6; gift.style.right = 6;
+                gift.style.backgroundColor = LvnTokens.Veil(0.62f);
+                LvnAir.Pad(gift, LvnTokens.Space1, LvnTokens.Hair);
+                LvnChrome.Round(gift, LvnTokens.RadiusSm);
+                gift.Add(LvnIcons.Make(LvnIcon.Gift, 20f, LvnTokens.Gold));
+                return gift;
+            }
             // ЗНАЧОК, А НЕ СЛОВО. Со словом («1 200 кристаллов») ярлык шире
             // плитки, а прижат он к правому краю — число уезжало за левый край,
             // и на карточке оставалось голое «кристаллов» (Илья, 28.08).

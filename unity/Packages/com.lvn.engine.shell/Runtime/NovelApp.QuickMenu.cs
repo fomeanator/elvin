@@ -440,6 +440,8 @@ namespace Lvn.UI.Screens
                 // Столбик героев в гардеробе меняет куклу витрины сразу, а не
                 // при следующей пересборке меню (иначе стоят двое).
                 if (_shell.WardrobeTab != null) _shell.WardrobeTab.OnFavoriteChanged = SwapMenuHeroine;
+                // Приз круток в гардеробе зовёт барабан (TR-93): та же дверь, что у кнопки «Крутка».
+                if (_shell.WardrobeTab != null) _shell.WardrobeTab.OpenGacha = () => OpenGachaAsync();
             }
         }
 

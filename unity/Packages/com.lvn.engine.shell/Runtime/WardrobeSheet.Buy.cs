@@ -94,7 +94,11 @@ namespace Lvn.UI.Screens
         private (string axis, LvnWardrobeItem item) PendingBuy()
         {
             var cur = CurrentItem();
-            if (cur != null && !IsOwned(cur)) return (_tab, cur);
+            // ПРИЗ КРУТОК — НЕ ПОКУПКА (TR-93). Он попадал сюда как «не своё»
+            // с ценой ноль: кнопка писала «Buy: 0», а «Выбрать» вместо
+            // подтверждения шёл покупать за ноль и до выбора остального не
+            // доходил — приз блокировал всю кассу. Приз — дело барабана.
+            if (cur != null && !IsOwned(cur) && !cur.gacha) return (_tab, cur);
             if (_tab != null && _tab != AllTab)
                 foreach (var sub in SubAxesOf(_tab))
                 {
@@ -104,7 +108,7 @@ namespace Lvn.UI.Screens
                     LvnWardrobe.Previewed(_entity).TryGetValue(sub, out var v);
                     if (v == null) continue;
                     var it = Find(sub, v);
-                    if (it != null && !IsOwnedIn(sub, it)) return (sub, it);
+                    if (it != null && !IsOwnedIn(sub, it) && !it.gacha) return (sub, it);
                 }
             return (null, null);
         }
@@ -138,9 +142,31 @@ namespace Lvn.UI.Screens
 
         private static bool Bare(string value) => LvnCostumer.Bare(value);
 
+        /// <summary>Приз круток в карусели, которого у игрока нет: карточка
+        /// показана, но её не купить — только выиграть.</summary>
+        private LvnWardrobeItem PrizeInView()
+        {
+            var cur = CurrentItem();
+            return cur != null && cur.gacha && !IsOwned(cur) ? cur : null;
+        }
+
         private void RefreshConfirm()
         {
             var (axis, item) = PendingBuy();
+            // ПРИЗ КРУТОК: кнопка зовёт барабан, а не кассу (TR-93). Без двери
+            // в крутки — честно говорит, что это приз, и не жмётся.
+            if (item == null && PrizeInView() != null)
+            {
+                bool canSpin = OpenGacha != null && !_buying;
+                _confirm.SetEnabled(canSpin);
+                _confirm.style.opacity = canSpin ? 1f : 0.4f;
+                _cancel?.SetEnabled(HasPendingLook() || !TabMode);
+                if (_cancel != null) _cancel.style.opacity = _cancel.enabledSelf ? 1f : 0.4f;
+                SetConfirmText(OpenGacha != null
+                    ? LvnWords.Of("wardrobe.spin", "Spin for it")
+                    : LvnWords.Of("wardrobe.prize", "Gacha prize"));
+                return;
+            }
             // Кнопки честны, как стрелки (Илья 26.08): «Выбрать» живёт, пока
             // есть что купить или что применить, «Отменить» — пока есть что
             // отменять. Живая кнопка, которая ничего не сделает, врёт.
@@ -188,6 +214,12 @@ namespace Lvn.UI.Screens
         internal async Task ConfirmAsync()
         {
             if (_buying) return;
+            // Приз круток на кнопке — это дверь в барабан, не покупка (TR-93).
+            if (PrizeInView() != null)
+            {
+                if (OpenGacha != null) await OpenGacha();
+                return;
+            }
             _buying = true;
             var label = ConfirmText;
             _confirm.SetEnabled(false);

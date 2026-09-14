@@ -158,6 +158,7 @@ namespace Lvn.UI.Screens
                 _storySheet = new WardrobeSheet(ui.wardrobe, ui.dialogue, ui.choices, _assets);
                 _storySheet.SetContent(_manifest);
                 _storySheet.OpenStore = () => _shell.OpenPackShopAsync();
+                _storySheet.OpenGacha = () => OpenGachaAsync();
                 // Кнопки — из economy-конфига, как у энергетических ворот: жёсткий
                 // англ. хардкод здесь светился игроку («а че у нас тут инглишь»).
                 _storySheet.ConfirmTopUp = (title, msg) => _shell.ConfirmAsync(title, msg,
