@@ -144,8 +144,9 @@ cp -f "$PREV_DIR/$NAME.png" "$PREV_DIR/$LBASE.png" 2>/dev/null
 sed "s#dl-preview/$NAME#dl-preview/$LBASE#g; s#/$NAME.apk#/$LATEST#g" "$PREV_DIR/$NAME.html" > "$PREV_DIR/$LBASE.html" 2>/dev/null
 $SCP "$PREV_DIR/$NAME.html" "$PREV_DIR/$NAME.png" "$PREV_DIR/$LBASE.html" "$PREV_DIR/$LBASE.png" "$RELEASE_SERVER:${RELEASE_DL%/*}/dl-preview/" 2>&1 | grep -v Warning
 $SSH "$RELEASE_SERVER" "chown --reference=$RELEASE_DL/$RELEASE_LATEST_PROD ${RELEASE_DL%/*}/dl-preview/$NAME.* ${RELEASE_DL%/*}/dl-preview/$LBASE.* 2>/dev/null" 2>&1 | grep -v Warning
-say "карточка: ${RELEASE_URL%/*}/dl-preview/$NAME.html"
+PAGE="${RELEASE_URL%/*}/build/$NAME"
+say "страница сборки: $PAGE (она же ${RELEASE_URL%/*}/build/$LBASE)"
 
 SUM=$(shasum -a 256 "$OUT" | cut -c1-16)
 echo "$(date '+%Y-%m-%d %H:%M') $CH $SHA $NAME.apk $PKG sha256:$SUM" >> "$HOME/ominis/builds/releases.log"
-say "ГОТОВО $CH · коммит $SHA · $RELEASE_URL/$NAME.apk (она же $RELEASE_URL/$LATEST)"
+say "ГОТОВО $CH · коммит $SHA · делиться: $PAGE · файл: $RELEASE_URL/$NAME.apk (она же $RELEASE_URL/$LATEST)"

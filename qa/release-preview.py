@@ -70,7 +70,7 @@ def main():
     desc = a.check.strip() if a.check.strip() else " · ".join(shown[:3])
     esc = lambda s: html.escape(s, quote=True)
     page = f"""<!doctype html><html lang="ru"><head><meta charset="utf-8">
-<title>{esc(a.title)} — {esc(a.subtitle)}</title>
+<title>{esc(a.title)}</title>
 <meta property="og:type" content="website">
 <meta property="og:title" content="{esc(a.title)}">
 <meta property="og:description" content="{esc(desc)}">
@@ -79,13 +79,23 @@ def main():
 <meta property="og:url" content="{esc(a.page)}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<style>body{{background:#12121a;color:#e6e6ec;font:18px/1.5 -apple-system,Arial,sans-serif;margin:0;padding:32px}}
-h1{{color:#e8dcbe;font-size:28px;margin:0 0 4px}}p.sub{{color:#a0a0b0;margin:0 0 20px}}ul{{padding-left:22px}}
-a.btn{{display:inline-block;margin-top:20px;padding:14px 28px;background:#d4af37;color:#12121a;border-radius:10px;text-decoration:none;font-weight:bold}}</style>
-</head><body><h1>{esc(a.title)}</h1><p class="sub">{esc(a.subtitle)}</p>
-{f'<p><b>Проверить:</b> {esc(a.check.strip())}</p>' if a.check.strip() else ''}
+<style>
+body{{background:#12121a;color:#e6e6ec;font:17px/1.55 -apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;padding:28px 22px 48px;max-width:720px;margin:0 auto}}
+h1{{color:#e8dcbe;font-size:26px;margin:0 0 6px;line-height:1.25}}
+p.sub{{color:#a0a0b0;margin:0 0 22px;font-size:15px}}
+a.btn{{display:block;text-align:center;padding:16px 24px;background:#d4af37;color:#12121a;border-radius:12px;text-decoration:none;font-weight:700;font-size:18px;margin:0 0 26px}}
+h2{{color:#e8dcbe;font-size:16px;letter-spacing:.04em;text-transform:uppercase;margin:24px 0 8px}}
+ul{{padding-left:22px;margin:0}} li{{margin:6px 0}}
+.check{{background:#1b1b26;border-left:3px solid #d4af37;padding:12px 16px;border-radius:0 10px 10px 0}}
+.foot{{color:#6f6f80;font-size:13px;margin-top:30px}}
+</style></head><body>
+<h1>{esc(a.title)}</h1><p class="sub">{esc(a.subtitle)}</p>
+<a class="btn" href="{esc(a.apk)}">Скачать APK</a>
+{f'<h2>Как проверить</h2><div class="check">{esc(a.check.strip())}</div>' if a.check.strip() else ''}
+<h2>Что изменилось</h2>
 <ul>{''.join(f'<li>{esc(l)}</li>' for l in lines)}</ul>
-<a class="btn" href="{esc(a.apk)}">Скачать APK</a></body></html>
+<p class="foot">{esc(a.apk.rsplit("/",1)[-1])}</p>
+</body></html>
 """
     with open(os.path.join(a.out, a.name + ".html"), "w", encoding="utf-8") as f: f.write(page)
     print(png)
