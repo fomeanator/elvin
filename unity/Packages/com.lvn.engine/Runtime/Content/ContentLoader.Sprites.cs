@@ -308,6 +308,9 @@ namespace Lvn.Content
                 }
             }
             long decodeMs = sw.ElapsedMilliseconds;
+            // Only the synchronous tail belongs to this frame. The decode
+            // above can await worker/network work and is measured as wall time.
+            using var perf = LvnPerf.Measure(LvnPerf.Part.SpriteCreate);
             // No platform pays full price for oversized art: phones must not
             // hold 33 MB of RGBA for a 4K background shown at ~1080p, and
             // even desktop/WebGL must not upload a raw 8K Spine page. Cap

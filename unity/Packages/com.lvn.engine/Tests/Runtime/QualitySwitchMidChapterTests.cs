@@ -32,11 +32,12 @@ namespace Lvn.Tests.Runtime
     {
         private sealed class UrlSpy : ILvnAssets
         {
+            public Sprite Image;
             public readonly List<string> Asked = new List<string>();
             public Task<Sprite> LoadSpriteAsync(string url, CancellationToken ct)
             {
                 lock (Asked) Asked.Add(url);
-                return Task.FromResult<Sprite>(null);
+                return Task.FromResult(Image);
             }
             public Task<AudioClip> LoadAudioAsync(string url, CancellationToken ct) => Task.FromResult<AudioClip>(null);
             public Task PreloadAsync(IReadOnlyList<string> urls, string kind, CancellationToken ct)
@@ -60,6 +61,7 @@ namespace Lvn.Tests.Runtime
         private VnStage _stage;
         private UrlSpy _spy;
         private string _suffixWas;
+        private Texture2D _texture;
 
         [SetUp]
         public void SetUp()
@@ -67,7 +69,10 @@ namespace Lvn.Tests.Runtime
             _suffixWas = DownloadPolicy.PreferredSuffix;
             _go = new GameObject("quality-stage", typeof(UIDocument));
             _go.GetComponent<UIDocument>().panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
-            _spy = new UrlSpy();
+            // The scene must have displayed art, not be inside the missing-art retry delay.
+            _texture = new Texture2D(8, 8);
+            _texture.Apply();
+            _spy = new UrlSpy { Image = Sprite.Create(_texture, new Rect(0, 0, 8, 8), Vector2.one * 0.5f) };
             _stage = _go.AddComponent<VnStage>();
             _stage.Assets = _spy;
         }
@@ -76,7 +81,8 @@ namespace Lvn.Tests.Runtime
         public void TearDown()
         {
             DownloadPolicy.PreferredSuffix = _suffixWas;
-            if (_go != null) Object.Destroy(_go);
+            if (_go != null) { Object.Destroy(_go.GetComponent<UIDocument>().panelSettings); Object.Destroy(_go); }
+            Object.Destroy(_spy.Image); Object.Destroy(_texture);
         }
 
         private List<string> Спрошено()

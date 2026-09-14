@@ -130,6 +130,33 @@ namespace Lvn.Tests
             Assert.Throws<LvnsCompileException>(() => LvnsCompiler.Compile("scene t\nfor x { }"));
         }
 
+        // Same rejected inputs as Go's TestConvertAnimRejectsUnknownPositionalToken.
+        // Successful-output goldens alone cannot catch one compiler accepting
+        // invalid input that the other rejects.
+        [TestCase("anim target scale [1 2] 2s loopp", "loopp")]
+        [TestCase("anim target scale [1 2] unexpected_token 2s", "unexpected_token")]
+        [TestCase("anim target scale 0:1 2:2 yoyoo", "yoyoo")]
+        [TestCase("anim target stop unexpected_token", "unexpected_token")]
+        [TestCase("anim target scale [1 2] 2", "2")]
+        public void AnimationPositionalTyposAreRejectedLikeGo(string command, string token)
+        {
+            var error = Assert.Throws<LvnsCompileException>(() => LvnsCompiler.Compile("scene t\n" + command));
+            StringAssert.Contains("line 2: anim:", error.Message);
+            StringAssert.Contains("unknown positional token \"" + token + "\"", error.Message);
+            StringAssert.Contains("yoyo|loop|pingpong|stop", error.Message);
+        }
+
+        [TestCase("loop", false)]
+        [TestCase("yoyo", true)]
+        [TestCase("pingpong", true)]
+        public void CorrectAnimationLoopWordsRetainTheirMeaning(string word, bool yoyo)
+        {
+            var cmd = FirstCmd("scene t\nanim target scale [1 2] 2s " + word);
+            Assert.IsTrue((bool)cmd["anim"]["loop"]);
+            Assert.AreEqual(yoyo, (bool?)cmd["anim"]["yoyo"] ?? false);
+            Assert.AreEqual(2, (double)cmd["anim"]["duration"]);
+        }
+
         // ── helpers ──────────────────────────────────────────────────────────
 
         static JObject FirstCmd(string src)

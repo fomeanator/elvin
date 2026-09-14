@@ -223,6 +223,9 @@ namespace Lvn.UI
         /// сразу в историю.</summary>
         public void OpenQuickMenu(string pane = null) => _menu?.Open(pane);
 
+        /// <summary>«Авто» извне (ряд кнопок единого навбара).</summary>
+        public void ToggleAuto() => _menu?.ToggleAuto();
+
         private readonly List<(string who, string text, string style)> _backlog
             = new List<(string, string, string)>();
 
@@ -273,12 +276,14 @@ namespace Lvn.UI
         // per-frame guard until the chrome exists.
         private void Update()
         {
+            using var perf = LvnPerf.Measure(LvnPerf.Part.StageUpdate);
             if (!_built) Build();
             // The platform BACK (Android back = Escape in Unity): closes the
             // TOPMOST surface. Кто именно наверху — не дело сцены: у неё была
             // своя лесенка условий, а теперь есть Режиссёр. Сама сцена никогда
             // не выходит из главы по «назад», а модаль оболочки (магазин из
             // гейта) забирает «назад» себе — её стек ведёт NovelShell.
+            using (LvnPerf.Measure(LvnPerf.Part.StageInput))
             if (Input.GetKeyDown(KeyCode.Escape))
             {
                 // Кто наверху — знает Режиссёр; сцена лишь исполняет «назад»
@@ -292,6 +297,8 @@ namespace Lvn.UI
             }
             if (_renderer is CanvasSceneRenderer csr)
             {
+                // Экран встал или повернулся — фигуры догоняют кадр.
+                csr.RefitToFrame();
                 // Переход полотна в «пусто и бело» логируем СОБЫТИЕМ, а не
                 // каждый кадр: в логе должно быть видно, что случилось прямо
                 // перед ним. Лечит это Лекарь (см. HireHealer).
@@ -302,11 +309,11 @@ namespace Lvn.UI
                     LvnLog.Trace($"[lvn-bg] полотно {(blank ? "СТАЛО ПУСТЫМ И БЕЛЫМ" : "снова с картинкой")}: "
                               + $"{csr.BackdropState}, HasBackdrop={HasBackdrop}, epoch={_stageEpoch}, кадр {Time.frameCount}");
                 }
-                Healer.Tick(LvnClock.Now());
+                using (LvnPerf.Measure(LvnPerf.Part.StageHealer)) Healer.Tick(LvnClock.Now());
                 if (LvnClock.Now() >= _nextDriftCheck)
                 {
                     _nextDriftCheck = LvnClock.Now() + 0.5f;
-                    CompareFrameToScreen();
+                    using (LvnPerf.Measure(LvnPerf.Part.StageDriftCheck)) CompareFrameToScreen();
                 }
             }
         }

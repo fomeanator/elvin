@@ -64,6 +64,7 @@ namespace Lvn.UI
         private void ApplyCutscene(JObject cmd)
         {
             bool on = !(BoolOr(cmd["off"], false) || !BoolOr(cmd["on"], true));
+            LvnPerf.Event("cutscene-command", on ? "on" : "off");
             if (on) HideChrome(LvnScreenDirector.CutsceneReason);
             else ShowChrome(LvnScreenDirector.CutsceneReason);
 
@@ -270,7 +271,7 @@ namespace Lvn.UI
         /// время катсцены, просто пропадала бы — сценарий её второй раз не
         /// отдаст.</summary>
         private LvnStageManager NewStageManager()
-            => new LvnStageManager { Apply = (cmd, sender) => ApplyDispatch(cmd, sender) };
+            => new LvnStageManager { Apply = ApplyAdmitted };
 
         /// <summary>Дверь на сцену БЕЗ ПОДПИСИ — значит от истории: так писал
         /// сценарий с первого дня, и менять его смысла нет. Все остальные
@@ -291,6 +292,11 @@ namespace Lvn.UI
         {
             if (command == null) return;
             if (!Commands.Admit(command, sender, out _)) return;
+            ApplyAdmitted(command, sender);
+        }
+
+        private void ApplyAdmitted(JObject command, LvnSender sender)
+        {
             // Кадр истории ведётся ЗДЕСЬ, у единственной двери: любая другая
             // точка записи однажды осталась бы без обновления, и модель начала
             // бы расходиться с экраном — а расходящаяся модель хуже, чем её
@@ -305,6 +311,9 @@ namespace Lvn.UI
         /// иначе отложенное упёрлось бы в то же держание.</summary>
         private void ApplyDispatch(JObject command, LvnSender sender)
         {
+            // Direct cutscene commands also change the screen. Otherwise a
+            // later menu reconciliation compares against an obsolete position.
+            _onScreen.Absorb(command);
             switch ((string)command["op"])
             {
                 case "bg": LvnAsync.Fire(ApplyBgAsync(command), "ApplyBg"); break;

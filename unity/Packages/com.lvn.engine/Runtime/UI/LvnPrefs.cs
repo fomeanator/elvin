@@ -394,7 +394,18 @@ namespace Lvn.UI
         public static string Locale
         {
             get { EnsureLoaded(); return _locale; }
-            set { EnsureLoaded(); Set(ref _locale, "locale", value ?? ""); }
+            set
+            {
+                EnsureLoaded();
+                value ??= "";
+                // The untouched default is also "". Choosing the original
+                // must persist it, otherwise an English device stays on Auto.
+                if (_locale == value && LocaleChosen) return;
+                _locale = value;
+                LvnKeep.Put(P + "locale", value);
+                LvnPerf.Event("locale-choice", "chosen=" + (value.Length == 0 ? "original" : value));
+                Changed?.Invoke();
+            }
         }
         private static string _locale;
 

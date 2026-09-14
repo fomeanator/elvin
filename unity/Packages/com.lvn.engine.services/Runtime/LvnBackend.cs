@@ -59,6 +59,10 @@ namespace Lvn.Services
             if (string.IsNullOrEmpty(BaseUrl)) return SignedIn;
             if (SignedIn)
             {
+                // The persisted identity is already known on an offline boot.
+                // Do not expose the first owner's local data while auth/me waits.
+                Lvn.LvnKeep.NoteOwner(UserId);
+                LvnWallet.NoteUser(UserId);
                 var (mine, _) = await GetAsync("/v1/auth/me");
                 if (Ok(mine))
                 {
@@ -69,7 +73,7 @@ namespace Lvn.Services
                     LvnWallet.NoteUser(UserId);
                     return true;
                 }
-                if (mine == 0) return SignedIn; // сети нет — пропуск остаётся нашим
+                if (mine != 401) return SignedIn; // outages/rate limits must not silently switch accounts
             }
             // Метка устройства — у ПАСПОРТИСТА: её потеря регистрирует НОВУЮ
             // учётку, то есть отнимает кошелёк и покупки, поэтому дома два.

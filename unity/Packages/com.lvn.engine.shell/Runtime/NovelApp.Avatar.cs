@@ -12,16 +12,18 @@ namespace Lvn.UI.Screens
     /// </summary>
     public partial class NovelApp
     {
+        private bool _avatarOpen;
         private async Task OpenAvatarPickAsync()
         {
             var root = _shell?.Document?.rootVisualElement;
-            if (root == null || _assets == null) return;
+            if (root == null || _assets == null || _avatarOpen) return;
+            _avatarOpen = true;
             var screen = new AvatarPickScreen(_assets);
             screen.SetContent(_manifest);
             screen.Changed = ApplyAvatar;
             root.Add(screen);
             try { await screen.ShowAsync(); }
-            finally { screen.RemoveFromHierarchy(); }
+            finally { screen.RemoveFromHierarchy(); _avatarOpen = false; }
         }
 
         /// <summary>Показать выбранное лицо там, где игрок его видит: в шапке

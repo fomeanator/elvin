@@ -1,57 +1,67 @@
 using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using Lvn.Content;
+using Lvn.Services;
 using Lvn.UI;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Lvn.UI.Screens
 {
-    /// <summary>
-    /// ВЫБОР АВАТАРКИ (TR-79) — небольшой экран поверх профиля.
-    ///
-    /// <para>Сетка лиц: бесплатные выбираются сразу, платные сперва покупаются
-    /// — механика та же, что у фонов меню в гардеробе, и цена написана на самой
-    /// плитке, а не открывается вторым нажатием.</para>
-    ///
-    /// <para>Выбор применяется немедленно и виден в шапке: аватар — это то,
-    /// чем игрок себя показывает, и ждать «Сохранить» здесь не за чем.</para>
-    /// </summary>
+    /// <summary>Preview a face, then explicitly buy/set it. The wallet owns
+    /// purchases; LvnAvatars owns the durable selection for this account.</summary>
     public sealed class AvatarPickScreen : LvnOverlayScreen, ILvnContentAware
     {
         private readonly ILvnAssets _assets;
         private readonly VisualElement _sheet;
-        private readonly Label _title;
+        private readonly Label _title, _message;
         private readonly ScrollView _grid;
+        private readonly Button _apply;
         private LvnManifest _manifest;
-        private string _skin;
-        private bool _stageGlass;
-        private bool StageDressed => !string.IsNullOrEmpty(_skin);
-
-        /// <summary>Игрок сменил аватар — хозяин перерисовывает шапку.</summary>
+        private string _skin, _selected;
+        private bool _stageGlass, _busy;
         public Action Changed;
 
         public AvatarPickScreen(ILvnAssets assets)
         {
             _assets = assets;
-            var sheet = _sheet = Sheet(sideInset: 7f, topInset: 16f);
-            AdoptSheet(sheet);
-
-            _title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("avatar.title", "Your picture"));
-            sheet.Add(ScreenUi.GalleryHeader(Cancel, _title, out var counter));
+            name = "avatar-screen";
+            _sheet = Sheet(sideInset: 6f, topInset: 10f);
+            AdoptSheet(_sheet);
+            _title = LvnRedress.Bind(new Label(), () => LvnWords.Of("avatar.title", "Your picture"));
+            var header = ScreenUi.GalleryHeader(Cancel, _title, out var counter);
             counter.style.display = DisplayStyle.None;
-
-            _grid = Lvn.UI.LvnScroll.Vertical();
+            LvnStyler.IconSlot(header.Q<Button>(), LvnStageKit.D(44f));
+            _title.style.fontSize = LvnTokens.TextDisplay;
+            _sheet.Add(header);
+            _grid = LvnScroll.Vertical();
             _grid.style.flexGrow = 1;
+            _grid.style.minHeight = 0;
             LvnFlow.Wrap(_grid.contentContainer, Justify.FlexStart);
-            sheet.Add(_grid);
+            _sheet.Add(_grid);
+            _message = new Label { name = "avatar-message", pickingMode = PickingMode.Ignore };
+            _message.style.whiteSpace = WhiteSpace.Normal;
+            _message.style.color = LvnTokens.Gold;
+            _message.style.fontSize = LvnTokens.TextBase;
+            _message.style.unityTextAlign = TextAnchor.MiddleCenter;
+            _message.style.marginTop = LvnTokens.Space2;
+            _sheet.Add(_message);
+            _apply = new Button(() => LvnAsync.Fire(ApplyAsync(), "AvatarPick")) { name = "avatar-apply" };
+            LvnStageKit.PlateButton(_apply, primary: true);
+            _apply.style.minHeight = LvnStageKit.D(52f);
+            _apply.style.flexShrink = 0;
+            _apply.style.fontSize = LvnTokens.TextLg;
+            _apply.style.whiteSpace = WhiteSpace.Normal;
+            LvnAir.Pad(_apply, LvnTokens.Space3, LvnTokens.Space2);
+            _sheet.Add(_apply);
+            LvnLeash.WhileOnScreen(this, () => LvnWallet.Changed += WalletChanged,
+                () => LvnWallet.Changed -= WalletChanged);
         }
 
-        /// <inheritdoc cref="ILvnContentAware.SetContent"/>
         public void SetContent(LvnManifest manifest)
         {
             _manifest = manifest;
+            _selected = LvnAvatars.Picked;
             LvnStageKit.TakeSkin(manifest, ref _skin, StageDress);
             Rebuild();
         }
@@ -59,138 +69,100 @@ namespace Lvn.UI.Screens
         private void StageDress()
             => _stageGlass = LvnStageKit.DressSheet(_sheet, _skin, _assets, _stageGlass, _title);
 
+        private void WalletChanged() { Rebuild(); Changed?.Invoke(); }
+
         public override void Rebuild()
         {
             if (_grid == null) return;
+            var offset = _grid.scrollOffset;
             _grid.Clear();
-            // СВОЁ ЛИЦО ПЕРВЫМ (TR-68): герой, которого игрок собрал сам,
-            // важнее готовых картинок — его и предлагаем раньше.
-            _grid.Add(SelfTile());
-            foreach (var choice in LvnAvatars.Offered(_manifest)) _grid.Add(Tile(choice));
+            if (LvnHeroPortrait.Layers(_manifest) != null)
+                _grid.Add(Tile(LvnAvatars.SelfId, null, null));
+            foreach (var choice in LvnAvatars.Offered(_manifest))
+                _grid.Add(Tile(choice.Id, choice.Url, choice));
+            _grid.scrollOffset = offset;
+            PaintAction();
         }
 
-        /// <summary>Плитка «мой облик» — живой портрет героя. Пока портрет не
-        /// снят, плитка объясняет это словом, а не показывает пустоту: снимок
-        /// делается в гардеробе, и игрока туда надо позвать.</summary>
-        private VisualElement SelfTile()
+        private VisualElement Tile(string id, string url, LvnAvatars.Choice choice)
         {
-            bool picked = LvnAvatars.Picked == LvnAvatars.SelfId;
-            var cell = Cell(picked);
-
-            var art = ScreenUi.Stretch(new VisualElement());
-            art.pickingMode = PickingMode.Ignore;
-            cell.Add(art);
-            // На плитке лицо показываем ВСЕГДА, даже когда выбрана картинка из
-            // набора: иначе игрок не видит, на что меняет.
-            if (!LvnPortraitFace.Wear(art, _manifest, _assets, force: true))
-            {
-                art.style.backgroundColor = LvnTokens.SurfaceHi;
-                var hint = Lvn.UI.LvnRedress.Bind(new Label(),
-                    () => LvnWords.Of("avatar.self_hint", "This novel has no hero to dress"));
-                hint.style.whiteSpace = WhiteSpace.Normal;
-                hint.style.color = LvnTokens.TextDim;
-                hint.style.fontSize = LvnTokens.TextXs;
-                hint.style.unityTextAlign = TextAnchor.MiddleCenter;
-                hint.style.marginTop = LvnTokens.Space4;
-                hint.pickingMode = PickingMode.Ignore;
-                cell.Add(hint);
-            }
-
-            var caption = Lvn.UI.LvnRedress.Bind(new Label(),
-                () => LvnWords.Of("avatar.self", "My look"));
-            caption.style.position = Position.Absolute;
-            caption.style.left = 0; caption.style.right = 0; caption.style.bottom = 0;
-            caption.style.unityTextAlign = TextAnchor.MiddleCenter;
-            caption.style.color = LvnTokens.Text;
-            caption.style.fontSize = LvnTokens.TextXs;
-            caption.style.backgroundColor = LvnTokens.Veil(0.6f);
-            LvnAir.PadY(caption, LvnTokens.Hair);
-            caption.pickingMode = PickingMode.Ignore;
-            cell.Add(caption);
-
-            cell.AddManipulator(new Clickable(() =>
-            {
-                LvnAvatars.Picked = LvnAvatars.SelfId;
-                Changed?.Invoke();
-                Rebuild();
-            }));
-            LvnMotion.Tappable(cell);
-            return cell;
-        }
-
-        /// <summary>Пустая плитка набора: размер, углы и отметка выбранной.
-        /// Общая у своего лица и у картинок — иначе они разъедутся видом.</summary>
-        private VisualElement Cell(bool picked)
-        {
-            var cell = new VisualElement();
+            var cell = new Button(() => Select(id)) { name = "avatar-" + id };
             cell.style.width = Length.Percent(31f);
             cell.style.marginRight = Length.Percent(2f);
             cell.style.marginBottom = LvnTokens.Space2;
+            LvnAir.Pad(cell, 0f, 0f);
+            cell.style.flexShrink = 0;
+            cell.style.overflow = Overflow.Hidden;
             float last = 0f;
             cell.RegisterCallback<GeometryChangedEvent>(evt =>
             {
-                float w = evt.newRect.width;
-                if (w <= 0f || Mathf.Approximately(w, last)) return;
-                last = w;
-                cell.style.height = w * 1.25f;   // портрет, а не квадрат
+                float width = evt.newRect.width;
+                if (width <= 0 || Mathf.Approximately(width, last)) return;
+                last = width;
+                cell.style.height = width + LvnStageKit.D(26f);
             });
-            cell.style.backgroundColor = LvnTokens.Surface;
-            cell.style.overflow = Overflow.Hidden;
             LvnChrome.Round(cell, LvnTokens.RadiusSm);
-            LvnStyler.Chosen(cell, picked, StageDressed ? LvnTokens.Gold : LvnTokens.Accent);
-            return cell;
-        }
-
-        /// <summary>Плитка лица: картинка, отметка выбранной и цена у платной.</summary>
-        private VisualElement Tile(LvnAvatars.Choice c)
-        {
-            bool owned = LvnAvatars.Owned(c);
-            bool picked = LvnAvatars.Picked == c.Id;
-
-            var cell = Cell(picked);
-
-            var art = ScreenUi.Stretch(new VisualElement());
-            art.pickingMode = PickingMode.Ignore;
-            LvnPicture.Photo(art, c.Url, _assets, cover: true);
-            // Некупленное показываем приглушённым: видно, что есть, и видно,
-            // что пока не твоё.
-            art.style.opacity = owned ? 1f : 0.55f;
+            LvnStyler.Chosen(cell, _selected == id, LvnTokens.Gold);
+            var art = new VisualElement { name = "avatar-art", pickingMode = PickingMode.Ignore };
+            art.style.flexGrow = 1;
+            art.style.minHeight = 0;
+            art.style.alignSelf = Align.Stretch;
+            LvnPortraitFace.Show(art, url, _manifest, _assets,
+                forceSelf: id == LvnAvatars.SelfId, staticOnly: choice != null);
             cell.Add(art);
-
-            if (!owned)
-            {
-                var price = new Label(c.Price + " " + LvnPriceTag.Of(c.Currency).Unit);
-                price.style.position = Position.Absolute;
-                price.style.left = 0; price.style.right = 0; price.style.bottom = 0;
-                price.style.unityTextAlign = TextAnchor.MiddleCenter;
-                price.style.color = LvnTokens.Gold;
-                price.style.fontSize = LvnTokens.TextXs;
-                price.style.backgroundColor = LvnTokens.Veil(0.6f);
-                LvnAir.PadY(price, LvnTokens.Hair);
-                price.pickingMode = PickingMode.Ignore;
-                cell.Add(price);
-            }
-
-            cell.AddManipulator(new Clickable(() => LvnAsync.Fire(PickAsync(c), "AvatarPick")));
-            LvnMotion.Tappable(cell);
+            bool current = LvnAvatars.Picked == id && (choice == null || LvnAvatars.Owned(choice));
+            string caption = current ? LvnWords.Of("avatar.current", "Selected")
+                : choice == null ? LvnWords.Of("avatar.self", "My look")
+                : LvnAvatars.Owned(choice) ? LvnWords.Of("avatar.owned", "Available")
+                : LvnPriceTag.Full(choice.Currency, choice.Price);
+            var label = new Label(caption) { pickingMode = PickingMode.Ignore };
+            label.style.color = LvnTokens.Gold;
+            label.style.fontSize = LvnTokens.TextSm;
+            label.style.height = LvnStageKit.D(26f);
+            label.style.flexShrink = 0;
+            label.style.unityTextAlign = TextAnchor.MiddleCenter;
+            label.style.backgroundColor = LvnTokens.Surface;
+            cell.Add(label);
+            cell.SetEnabled(!_busy);
             return cell;
         }
 
-        /// <summary>Выбрать лицо: бесплатное — сразу, платное — после покупки.
-        /// Отказ кошелька ничего не меняет: сказать «не хватает» должен он, а
-        /// не молчаливо не сработавшая плитка.</summary>
-        private async Task PickAsync(LvnAvatars.Choice c)
+        private void Select(string id)
         {
-            if (c == null) return;
-            if (!LvnAvatars.Owned(c))
-            {
-                bool bought = await Lvn.Services.LvnWallet.SpendAsync(
-                    c.Currency, c.Price, "avatar", c.Item);
-                if (!bought) return;
-            }
-            LvnAvatars.Picked = c.Id;
-            Changed?.Invoke();
+            if (_busy) return;
+            _selected = id;
+            _message.text = "";
+            foreach (var cell in _grid.Children())
+                LvnStyler.Chosen(cell, cell.name == "avatar-" + id, LvnTokens.Gold);
+            PaintAction();
+        }
+
+        private void PaintAction()
+        {
+            var choice = LvnAvatars.Offered(_manifest).Find(c => c.Id == _selected);
+            bool valid = choice != null || (_selected == LvnAvatars.SelfId && LvnHeroPortrait.Layers(_manifest) != null);
+            bool owned = choice == null || LvnAvatars.Owned(choice);
+            bool current = valid && owned && _selected == LvnAvatars.Picked;
+            _apply.text = _busy ? LvnWords.Of("avatar.applying", "Applying…")
+                : current ? LvnWords.Of("avatar.current", "Selected")
+                : owned ? LvnWords.Of("avatar.apply", "Set picture")
+                : LvnWords.Of("avatar.buy", "Buy and set · {0}", LvnPriceTag.Full(choice.Currency, choice.Price));
+            _apply.SetEnabled(valid && !current && !_busy);
+        }
+
+        internal async Task ApplyAsync()
+        {
+            if (_busy || string.IsNullOrEmpty(_selected)) return;
+            _busy = true;
             Rebuild();
+            try
+            {
+                bool applied = await LvnAvatars.ChooseAsync(_manifest, _selected);
+                _message.text = applied ? ""
+                    : LvnWords.Of("avatar.failed", "Picture not set. Check your balance and try again.");
+                if (applied) Changed?.Invoke();
+            }
+            finally { _busy = false; Rebuild(); }
         }
     }
 }

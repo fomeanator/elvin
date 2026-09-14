@@ -180,6 +180,7 @@ namespace Lvn.Tests
                 // ── онлайн: сотня на счету ──────────────────────────────────
                 var earn = LvnWallet.EarnAsync("gold", 100, "стенд");
                 yield return Await(earn);
+                yield return Await(LvnWallet.FlushAsync());
                 JObject сервер = null;
                 yield return ServerWallet(v => сервер = v);
                 Assert.AreEqual(100, Gold(сервер), "стенд: начисление не доехало, проверять нечего");

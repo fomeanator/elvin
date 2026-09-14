@@ -127,7 +127,7 @@ namespace Lvn.Tests
                 // ноль запросов при живой сети и работающей дороге. Дефект был
                 // в стенде, а не в движке — в игре ключ выдаёт устройство, и он
                 // шестнадцатеричный.
-                var store = new HttpStateStore($"http://127.0.0.1:{port}", "player-1", "device-key-1");
+                using var store = new HttpStateStore($"http://127.0.0.1:{port}", "player-1", "device-key-1");
                 var прогресс = new JObject { ["глава"] = 3, ["дружба"] = 7, ["имя"] = "Спутник" };
 
                 TestContext.WriteLine($"перед сохранением сеть: {(LvnNetworkStatus.IsOnline ? "живая" : "мёртвая")}");
@@ -152,7 +152,7 @@ namespace Lvn.Tests
                 // «мёртвая», хранилище честно не пошло, замер снова мерил
                 // тишину.
                 LvnNetworkStatus.MarkOnline("проверка отказа: сеть жива");
-                var чтение = store.LoadVarsAsync(Новелла, CancellationToken.None);
+                var чтение = store.RefreshVarsAsync(Новелла, CancellationToken.None);
                 float срокЧтения = Time.realtimeSinceStartup + 20f;
                 while (!чтение.IsCompleted && Time.realtimeSinceStartup < срокЧтения) yield return null;
                 int послеЧтения = File.Exists(_журнал) ? File.ReadAllLines(_журнал).Length : 0;
@@ -162,8 +162,10 @@ namespace Lvn.Tests
 
                 LvnNetworkStatus.MarkOnline("проверка отказа: сеть жива");
                 var сохранение = store.SaveVarsAsync(Новелла, прогресс, CancellationToken.None);
+                Assert.IsTrue(сохранение.IsCompleted, "local save must not wait for HTTP");
+                var отправка = store.FlushAsync();
                 float срок = Time.realtimeSinceStartup + 20f;
-                while (!сохранение.IsCompleted && Time.realtimeSinceStartup < срок) yield return null;
+                while (!отправка.IsCompleted && Time.realtimeSinceStartup < срок) yield return null;
 
                 // СНАЧАЛА УБЕДИТЬСЯ, ЧТО ЗАПРОС БЫЛ. Клиент шлёт состояние только
                 // когда сеть считается живой; проверка, не глянувшая на журнал
@@ -176,6 +178,7 @@ namespace Lvn.Tests
                                     + $"запросов от хранилища={ушло} (в журнале было {доСохранения}, стало {послеСохранения})");
                 Assert.Greater(ушло, 0,
                     "хранилище не постучалось на сервер вовсе — замер про отказ ничего не значит");
+                Assert.AreEqual(1, store.PendingCount, "server refusal must retain the durable outbox");
                 Assert.IsTrue(сохранение.IsCompleted, "сохранение зависло — игра будет ждать сервер вечно");
                 Assert.IsFalse(сохранение.IsFaulted,
                     "отказ сервера прилетел игре исключением — уронит того, кто просто сохранял прогресс");

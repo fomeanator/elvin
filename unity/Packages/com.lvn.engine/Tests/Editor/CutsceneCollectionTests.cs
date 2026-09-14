@@ -1,148 +1,106 @@
 using System.Collections.Generic;
 using Lvn.UI;
+using Newtonsoft.Json;
 using NUnit.Framework;
-using UnityEngine;
 
 namespace Lvn.Tests
 {
-    /// <summary>
-    /// КОЛЛЕКЦИЯ ПРОЖИТЫХ СЦЕН — правило «запись это прохождение, а не сцена».
-    ///
-    /// <para>Держим его стражем, потому что склеить два прохождения в одну
-    /// запись — ровно то, что хранилище делало раньше и что выглядит
-    /// «оптимизацией»: id один, имя одно, зачем плодить. Затем, что в галерею
-    /// смотрят не за списком сцен, а за тем, КАК они прошли: наряд, выбор и
-    /// кадр у второго раза другие.</para>
-    /// </summary>
     public class CutsceneCollectionTests
     {
         private const string Title = "test-cutscene-title";
+        private const string OtherTitle = "test-cutscene-other";
+        private long _now;
 
         [SetUp]
+        public void SetUp()
+        {
+            LvnCutsceneStore.Clear(Title);
+            LvnCutsceneStore.Clear(OtherTitle);
+            _now = 10000;
+            LvnCutsceneStore.Now = () => _now;
+        }
+
         [TearDown]
         public void Clean()
         {
             LvnCutsceneStore.Clear(Title);
-            // ЧАСЫ ВОЗВРАЩАЕМ. Сдвинутое время — состояние, общее на весь
-            // прогон: утёкшее из одного теста, оно ломает соседний, и виноватым
-            // выглядит соседний.
+            LvnCutsceneStore.Clear(OtherTitle);
             LvnCutsceneStore.Now = () => System.DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         }
 
-        [Test]
-        public void ПовторВОдинПрисестНеПлодитКарточки()
+        [TestCase(0)]
+        [TestCase(1801)]
+        [TestCase(86400)]
+        [TestCase(-5000)]
+        public void RevisitingSceneReusesCardAcrossTimeAndReload(int seconds)
         {
-            // TR-70: игрок откатился, перечитал место, вернулся из меню — это
-            // ТОТ ЖЕ проход. Новая карточка на каждый повтор дублировала
-            // галерею; теперь повтор лишь обновляет кадр существующей.
-            var first = LvnCutsceneStore.Lived(Title, "meet", "Знакомство", "ch0");
-            var again = LvnCutsceneStore.Lived(Title, "meet", "Знакомство", "ch0");
-
-            Assert.AreEqual(first, again, "повтор в один присест — та же карточка");
-            Assert.AreEqual(1, LvnCutsceneStore.Seens(Title).Count);
+            var first = LvnCutsceneStore.Lived(Title, "meet", "Meeting", "ch0", "old.jpg");
+            _now += seconds;
+            LvnCutsceneStore.Seens(OtherTitle);
+            var again = LvnCutsceneStore.Lived(Title, "meet", "Meeting", "ch0", "new.jpg");
+            Assert.AreEqual(first, again);
+            LvnCutsceneStore.Seens(OtherTitle);
+            var cards = LvnCutsceneStore.Seens(Title);
+            Assert.AreEqual(1, cards.Count);
+            Assert.AreEqual("new.jpg", cards[0].Poster);
         }
 
         [Test]
-        public void НовоеПрохождениеЗаводитСвоюКарточку()
+        public void DistinctChaptersAndTitlesKeepTheirScenes()
         {
-            var first = LvnCutsceneStore.Lived(Title, "meet", "Знакомство", "ch0");
-            // Отодвигаем прошлый проход за окно «того же присеста».
-            foreach (var seen in LvnCutsceneStore.Seens(Title))
-                seen.At -= LvnCutsceneStore.SameRunSeconds + 60;
-            LvnCutsceneStore.Remember(Title);
-
-            var second = LvnCutsceneStore.Lived(Title, "meet", "Знакомство", "ch0");
-            Assert.AreNotEqual(first, second, "у нового прохождения свой адрес");
-            var seens = LvnCutsceneStore.Seens(Title);
-            Assert.AreEqual(2, seens.Count, "новый проход ложится рядом, а не поверх");
-            foreach (var seen in seens)
-                Assert.AreEqual("meet", seen.Id, "метка сцены у обеих карточек одна — с неё их играют");
+            var first = LvnCutsceneStore.Lived(Title, "meet", "First", "ch0");
+            var second = LvnCutsceneStore.Lived(Title, "meet", "Second", "ch1");
+            LvnCutsceneStore.Lived(OtherTitle, "meet", "Other", "ch0");
+            LvnCutsceneStore.Dress(Title, second, "second.jpg");
+            var cards = LvnCutsceneStore.Seens(Title);
+            Assert.AreEqual(2, cards.Count);
+            Assert.AreEqual("second.jpg", cards.Find(c => c.Key == second).Poster);
+            Assert.IsNull(cards.Find(c => c.Key == first).Poster);
+            Assert.AreEqual(1, LvnCutsceneStore.Seens(OtherTitle).Count);
         }
 
         [Test]
-        public void СвежееПрохождениеИдётПервым()
+        public void UnlockingMoreThanSixtyScenesNeverEvictsMemories()
         {
-            LvnCutsceneStore.Lived(Title, "a", "Первая", "ch0");
-            LvnCutsceneStore.Lived(Title, "b", "Вторая", "ch0");
-
-            var seens = LvnCutsceneStore.Seens(Title);
-            Assert.AreEqual(2, seens.Count);
-            Assert.GreaterOrEqual(seens[0].At, seens[1].At, "только что прожитое стоит на виду");
-        }
-
-        [Test]
-        public void ПревьеЛожитсяВСвоюКарточку()
-        {
-            // Два РАЗНЫХ прохождения: повтор в один присест новой карточки не
-            // заводит (TR-70), и проверять «свою карточку» было бы не на чем.
-            var first = LvnCutsceneStore.Lived(Title, "meet", "Знакомство", "ch0");
-            ЧасыВперёд(LvnCutsceneStore.SameRunSeconds + 60);
-            var second = LvnCutsceneStore.Lived(Title, "meet", "Знакомство", "ch0");
-            LvnCutsceneStore.Dress(Title, second, "/content/bg/second.jpg");
-
-            var byKey = new Dictionary<string, LvnCutsceneStore.Seen>();
-            foreach (var seen in LvnCutsceneStore.Seens(Title)) byKey[seen.Key] = seen;
-            Assert.AreEqual("/content/bg/second.jpg", byKey[second].Poster);
-            Assert.IsTrue(string.IsNullOrEmpty(byKey[first].Poster),
-                          "кадр второго показа не смеет попасть в карточку первого");
-        }
-
-        [Test]
-        public void КорзинаУбираетТолькоСвоюКарточку()
-        {
-            // ДВА РАЗНЫХ ПРОХОЖДЕНИЯ, а не два повтора подряд: с TR-70 повтор в
-            // пределах получаса считается ТЕМ ЖЕ проходом и новой карточки не
-            // заводит (Илья: «задублировалась кат-сцена»). Чтобы проверить
-            // корзину, нужны именно две записи — разводим их по времени.
-            var first = LvnCutsceneStore.Lived(Title, "meet", "Знакомство", "ch0");
-            ЧасыВперёд(LvnCutsceneStore.SameRunSeconds + 60);
-            var second = LvnCutsceneStore.Lived(Title, "meet", "Знакомство", "ch0");
-
-            Assert.IsTrue(LvnCutsceneStore.Drop(Title, first));
-            var seens = LvnCutsceneStore.Seens(Title);
-            Assert.AreEqual(1, seens.Count);
-            Assert.AreEqual(second, seens[0].Key, "уйти должно ровно то прохождение, где нажали");
-            Assert.IsFalse(LvnCutsceneStore.Drop(Title, first), "выброшенного второй раз нет");
-        }
-
-        [Test]
-        public void КоллекцияНеРастётБезКонца()
-        {
-            // Каждый проход — свой присест: иначе все повторы схлопнутся в одну
-            // карточку и предел проверять будет нечем (см. TR-70).
-            for (int i = 0; i < LvnCutsceneStore.Keep + 5; i++)
+            for (int i = 0; i < 100; i++)
             {
-                LvnCutsceneStore.Lived(Title, "meet", "Знакомство", "ch0");
-                ЧасыВперёд(LvnCutsceneStore.SameRunSeconds + 60);
+                LvnCutsceneStore.Lived(Title, "scene-" + i, "Scene " + i, "ch0");
+                _now += 86400;
             }
-
-            Assert.AreEqual(LvnCutsceneStore.Keep, LvnCutsceneStore.Seens(Title).Count,
-                            "предел держит галерею и место на диске");
+            LvnCutsceneStore.Seens(OtherTitle);
+            var cards = LvnCutsceneStore.Seens(Title);
+            Assert.AreEqual(100, cards.Count);
+            Assert.AreEqual("scene-99", cards[0].Id);
+            Assert.IsTrue(cards.Exists(c => c.Id == "scene-0"));
         }
 
         [Test]
-        public void ЗаписьПрежнегоОбразцаЧитаетсяКакПрохождение()
+        public void ExistingDuplicateCardsCollapseWithoutDeletingSavedRecords()
         {
-            // Так выглядела коллекция до 09.09: ключ словаря = id сцены,
-            // адреса прохождения в записи нет. Такие карточки обязаны
-            // открываться и показываться, а не пропадать при обновлении.
-            // Clean() в [SetUp] уже сбросил разобранное в памяти — читать
-            // хранилище будет с диска.
-            LvnKeep.Put(LvnKeep.Scoped("lvn.cutscenes.", Title),
-                        "{\"meet\":{\"Id\":\"meet\",\"Name\":\"Знакомство\",\"Chapter\":\"ch0\"}}");
-
-            var seens = LvnCutsceneStore.Seens(Title);
-            Assert.AreEqual(1, seens.Count);
-            Assert.AreEqual("meet", seens[0].Key, "адресом старой записи служит её ключ");
-            Assert.AreEqual("meet", seens[0].Id);
+            var records = new Dictionary<string, LvnCutsceneStore.Seen>
+            {
+                ["meet#1"] = new LvnCutsceneStore.Seen { Id = "meet", Chapter = "ch0", At = 1, Poster = "first.jpg" },
+                ["meet#2"] = new LvnCutsceneStore.Seen { Id = "meet", Chapter = "ch0", At = 2, Poster = "second.jpg" },
+                ["other"] = new LvnCutsceneStore.Seen { Id = "other", Chapter = "ch0", At = 3 },
+            };
+            var storage = LvnKeep.Scoped("lvn.cutscenes.", Title);
+            LvnKeep.Put(storage, JsonConvert.SerializeObject(records));
+            var cards = LvnCutsceneStore.Seens(Title);
+            Assert.AreEqual(2, cards.Count);
+            Assert.AreEqual("meet#2", cards.Find(c => c.Id == "meet").Key);
+            Assert.AreEqual("meet#2", LvnCutsceneStore.Lived(Title, "meet", "Meeting", "ch0"));
+            var saved = JsonConvert.DeserializeObject<Dictionary<string, LvnCutsceneStore.Seen>>(LvnKeep.Get(storage, ""));
+            Assert.AreEqual(3, saved.Count, "Old records are retained; no destructive migration.");
+            Assert.AreEqual("first.jpg", saved["meet#1"].Poster);
         }
 
-        /// <summary>Подвинуть часы дома вперёд: «того же присеста» больше нет,
-        /// следующий проход считается новым прохождением.</summary>
-        private static void ЧасыВперёд(long секунд)
+        [Test]
+        public void LegacyCardWithoutKeySurvivesAndIsReused()
         {
-            long было = LvnCutsceneStore.Now();
-            LvnCutsceneStore.Now = () => было + секунд;
+            LvnKeep.Put(LvnKeep.Scoped("lvn.cutscenes.", Title),
+                "{\"meet\":{\"Id\":\"meet\",\"Name\":\"Meeting\",\"Chapter\":\"ch0\"}}");
+            Assert.AreEqual("meet", LvnCutsceneStore.Lived(Title, "meet", "Meeting", "ch0"));
+            Assert.AreEqual(1, LvnCutsceneStore.Seens(Title).Count);
         }
     }
 }

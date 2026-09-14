@@ -37,6 +37,25 @@ namespace Lvn.UI.Screens
         // складываются, модали не просвечивают.
         private readonly List<LvnOverlayScreen> _modals = new List<LvnOverlayScreen>();
 
+        private VisualElement _perfScreen;
+        private string _perfScreenName;
+        internal string PerformanceScreen
+        {
+            get
+            {
+                var top = LvnScreenDirector.Current.Top;
+                if (top != null && top != LvnScreenDirector.ShellModal) return top;
+                if (_modals.Count == 0 && InChapter) return "story";
+                VisualElement screen = _modals.Count > 0 ? _modals[_modals.Count - 1] : TabPage(_tab).el;
+                if (!ReferenceEquals(screen, _perfScreen) || _perfScreenName == null)
+                {
+                    _perfScreen = screen;
+                    _perfScreenName = screen?.GetType().Name ?? "home";
+                }
+                return _perfScreenName;
+            }
+        }
+
         /// <summary>Единственная дверь модалей: ведёт стек (системная «назад»
         /// закрывает верхнюю) и глушит Escape-обработчик сцены на время показа.</summary>
         public async Task<bool> ShowModalAsync(LvnOverlayScreen screen, CancellationToken ct = default)

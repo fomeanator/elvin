@@ -34,6 +34,7 @@ namespace Lvn.UI
         /// Cyrillic/CJK still renders those runs instead of tofu.</summary>
         public static FontAsset From(Font font)
         {
+            using var perf = LvnPerf.Measure(LvnPerf.Part.FontBuild);
             if (font == null) return null;
             if (_wrapped.TryGetValue(font, out var fa)) return fa;
             try { fa = FontAsset.CreateFontAsset(font); }
@@ -133,12 +134,20 @@ namespace Lvn.UI
             {
                 var chunk = sb.ToString(i, System.Math.Min(charsPerFrame, sb.Length - i));
                 string missing;
-                try { fa.TryAddCharacters(chunk, out missing); }
+                try
+                {
+                    using var perf = LvnPerf.Measure(LvnPerf.Part.FontGlyphs);
+                    fa.TryAddCharacters(chunk, out missing);
+                }
                 catch { return; /* atlas full / dynamic-OS font — render-time fallback covers it */ }
                 if (!string.IsNullOrEmpty(missing) && _osFallbacks != null)
                     foreach (var fb in _osFallbacks)
                     {
-                        try { fb.TryAddCharacters(missing, out missing); }
+                        try
+                        {
+                            using var perf = LvnPerf.Measure(LvnPerf.Part.FontGlyphs);
+                            fb.TryAddCharacters(missing, out missing);
+                        }
                         catch { break; }
                         if (string.IsNullOrEmpty(missing)) break;
                     }

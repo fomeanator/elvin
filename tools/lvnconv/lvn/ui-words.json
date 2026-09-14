@@ -108,12 +108,32 @@
   "default": "Autosave"
  },
  {
-  "key": "avatar.self",
-  "default": "My look"
+  "key": "avatar.apply",
+  "default": "Set picture"
  },
  {
-  "key": "avatar.self_hint",
-  "default": "This novel has no hero to dress"
+  "key": "avatar.applying",
+  "default": "Applying…"
+ },
+ {
+  "key": "avatar.buy",
+  "default": "Buy and set · {0}"
+ },
+ {
+  "key": "avatar.current",
+  "default": "Selected"
+ },
+ {
+  "key": "avatar.failed",
+  "default": "Picture not set. Check your balance and try again."
+ },
+ {
+  "key": "avatar.owned",
+  "default": "Available"
+ },
+ {
+  "key": "avatar.self",
+  "default": "My look"
  },
  {
   "key": "avatar.title",
@@ -660,6 +680,10 @@
   "default": "{0} unlocked"
  },
  {
+  "key": "game.auto",
+  "default": "Auto"
+ },
+ {
   "key": "game.exit",
   "default": "Menu"
  },
@@ -861,6 +885,14 @@
  {
   "key": "save_occupied",
   "default": "Saved data"
+ },
+ {
+  "key": "save_recovery_required",
+  "default": "Saved data could not be read. The original data has been kept, and saving is disabled to protect it. Please contact support for recovery."
+ },
+ {
+  "key": "save_recovery_title",
+  "default": "Save recovery required"
  },
  {
   "key": "saves.auto",

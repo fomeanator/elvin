@@ -865,12 +865,13 @@ namespace Lvn.Content
 
         /// <summary>Удалить один закэшированный ассет (и его ktx2-транскод) с
         /// диска — чистка противоположного бокса при смене «Качества арта».</summary>
-        public bool DeleteCachedAsset(string url)
+        public bool DeleteCachedAsset(string url, bool preserveOffline = false)
         {
             if (string.IsNullOrEmpty(url)) return false;
             bool any = false;
             try
             {
+                if (preserveOffline && IsOfflinePinned(url)) return false;
                 var path = CachePath(_assetCacheDir, url, ".bin");
                 if (File.Exists(path)) { File.Delete(path); any = true; }
                 var k = Ktx2UrlFor(url);
@@ -902,6 +903,7 @@ namespace Lvn.Content
         /// пересоберёт нужное. На пуле потоков.</summary>
         public Task<long> ClearAssetCacheAsync() => Task.Run(() =>
         {
+            ClearOfflinePins();
             long freed = 0;
             try
             {
@@ -926,6 +928,9 @@ namespace Lvn.Content
                 int removed = 0; long freed = 0;
                 try
                 {
+                    liveKeys = liveKeys == null ? new HashSet<string>() : new HashSet<string>(liveKeys);
+                    protectedKeys = protectedKeys == null ? new HashSet<string>() : new HashSet<string>(protectedKeys);
+                    AddOfflinePins(liveKeys, protectedKeys);
                     var files = new DirectoryInfo(_assetCacheDir).GetFiles("*.bin");
                     var list = new List<(string key, long size, double mtime)>(files.Length);
                     var byKey = new Dictionary<string, FileInfo>(files.Length);

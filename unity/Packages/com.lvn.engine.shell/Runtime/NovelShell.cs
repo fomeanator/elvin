@@ -383,6 +383,7 @@ namespace Lvn.UI.Screens
                 DownloadHud = new Lvn.UI.Screens.DownloadHud();
                 // Кружок садится на циферблат логотипа, когда логотип на
                 // экране: шапка знает, где он, — кружок только спрашивает.
+                DownloadHud.MiniAnchor = () => TopBar?.LogoDialRect();
                 AddChrome(DownloadHud);
                 // Лист кружка носит облик витрины (рамка-арт, золото), а в
                 // набор экранов кружок не входит — манифест ему здесь.

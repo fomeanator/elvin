@@ -130,32 +130,40 @@ namespace Lvn.UI.Screens
         private VisualElement SocialRow()
         {
             if (_cfg.social == null || _cfg.social.Count == 0) return null;
-            var row = new VisualElement();
+            var row = new VisualElement { name = "settings-social" };
             row.style.flexDirection = FlexDirection.Row;
             row.style.justifyContent = Justify.Center;
             row.style.marginTop = LvnTokens.Space2;
             foreach (var s in _cfg.social)
             {
                 if (s == null || string.IsNullOrEmpty(s.url)) continue;
-                VisualElement el;
+                var button = new Button { tooltip = s.name ?? s.url };
+                StyleValueButton(button, false);
+                button.style.minWidth = Mathf.Max(LvnTokens.Touch, 112f);
+                button.style.minHeight = Mathf.Max(LvnTokens.Touch, 112f);
+                button.style.alignItems = Align.Center;
+                button.style.justifyContent = Justify.Center;
+                var known = LvnIcons.ForSocial(s.url);
                 if (!string.IsNullOrEmpty(s.icon))
                 {
                     var icon = new VisualElement();
                     icon.style.width = 44; icon.style.height = 44;
                     LvnPicture.Photo(icon, s.icon, _assets, cover: false);
-                    el = icon;
+                    icon.pickingMode = PickingMode.Ignore;
+                    button.Add(icon);
+                }
+                else if (known != LvnIcon.None)
+                {
+                    button.Add(LvnIcons.Make(known, 64, _accent, stroke: 5, glow: 0));
                 }
                 else
                 {
-                    var lbl = new Label(s.name ?? "link");
-                    lbl.style.color = _accent;
-                    lbl.style.fontSize = LvnTokens.TextSm;
-                    el = lbl;
+                    button.text = s.name ?? "link";
                 }
-                LvnAir.MarginX(el, LvnTokens.Space2);
+                LvnAir.MarginX(button, LvnTokens.Space2);
                 var url = s.url;
-                el.RegisterCallback<ClickEvent>(_ => LvnWebView.Open(url));
-                row.Add(el);
+                button.clicked += () => LvnWebView.Open(url);
+                row.Add(button);
             }
             return row;
         }

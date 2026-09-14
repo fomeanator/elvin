@@ -2,74 +2,66 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Lvn.Content;
+using Lvn.Services;
 using Lvn.UI;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Lvn.UI.Screens
 {
-    /// <summary>
-    /// КРУТКИ (TR-47) — лента призов, которая едет мимо указателя.
-    ///
-    /// <para>Устройство взято у оружейных кейсов: полоса секторов уезжает
-    /// влево, замедляется и останавливается так, чтобы под указателем оказался
-    /// тот сектор, который НАЗВАЛ СЕРВЕР. Анимация ничего не решает — она
-    /// показывает уже случившееся; тап по экрану её пропускает.</para>
-    ///
-    /// <para>Поэтому и честно: приз начислен ещё до первого кадра прокрутки, и
-    /// закрытая на середине игра не отнимает выигрыш.</para>
-    /// </summary>
-    public sealed class GachaScreen : LvnOverlayScreen, ILvnContentAware
+    /// <summary>Server-authoritative reel: payment and inventory land before
+    /// the animation. Tapping the reel skips directly to the awarded prize.</summary>
+    public sealed partial class GachaScreen : LvnOverlayScreen, ILvnContentAware
     {
         private readonly ILvnAssets _assets;
-        private readonly VisualElement _sheet;
-        private readonly Label _title;
-        private readonly VisualElement _window;    // окно ленты с указателем
-        private readonly VisualElement _strip;     // сама лента секторов
-        private readonly Label _status;
-        private readonly VisualElement _actions;
-
-        private Lvn.Services.LvnGacha.Status _state;
+        private readonly VisualElement _sheet, _window, _strip, _actions;
+        private readonly Label _title, _status;
+        private readonly ScrollView _content;
+        private readonly List<LvnGacha.Sector> _cells = new List<LvnGacha.Sector>();
+        private LvnGacha.Status _state;
+        private LvnManifest _manifest;
         private string _skin;
-        private bool _stageGlass;
-        private bool _spinning;
-        private bool _skipAsked;
-        private bool StageDressed => !string.IsNullOrEmpty(_skin);
-
-        /// <summary>Сколько секторов видно в окне разом (по задаче — четыре).</summary>
+        private bool _stageGlass, _spinning, _skipAsked, _closed;
+        private int _landing = -1;
         private const int Visible = 4;
-
-        /// <summary>Сколько длится прокрутка и сколько секторов пролетает.
-        /// Семь секунд — по задаче; оборотов столько, чтобы лента успела
-        /// разогнаться и осесть, а не дёрнуться на место.</summary>
         private const float SpinSeconds = 7f;
         private const int SpinLaps = 6;
 
         public GachaScreen(ILvnAssets assets)
         {
             _assets = assets;
-            var sheet = _sheet = Sheet(sideInset: 6f, topInset: 18f);
-            AdoptSheet(sheet);
-
-            _title = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("gacha.title", "Spin"));
-            sheet.Add(ScreenUi.GalleryHeader(Cancel, _title, out var counter));
+            name = "gacha-screen";
+            _sheet = Sheet(sideInset: 6f, topInset: 10f);
+            _title = LvnRedress.Bind(new Label(), () => LvnWords.Of("gacha.title", "Spin"));
+            var header = ScreenUi.GalleryHeader(Cancel, _title, out var counter);
+            _sheet.Add(header);
+            var back = header.Q<Button>();
+            LvnStyler.IconSlot(back, LvnStageKit.D(44f));
+            back.style.fontSize = LvnTokens.TextXl;
             counter.style.display = DisplayStyle.None;
+            _title.style.fontSize = LvnTokens.TextDisplay;
+            _title.style.whiteSpace = WhiteSpace.Normal;
+            _title.style.minWidth = 0;
 
-            // ОКНО С УКАЗАТЕЛЕМ: лента едет внутри, указатель стоит.
+            var content = _content = LvnScroll.Vertical();
+            content.style.flexGrow = 1;
+            content.style.minHeight = 0;
+            content.contentContainer.style.flexGrow = 1;
+            content.contentContainer.style.justifyContent = Justify.Center;
+            _sheet.Add(content);
             _window = new VisualElement { name = "gacha-window" };
             _window.style.overflow = Overflow.Hidden;
-            _window.style.marginTop = LvnTokens.Space3;
-            _window.style.height = 150f;
+            _window.style.height = LvnStageKit.D(144f);
+            _window.style.flexShrink = 0;
             LvnChrome.Round(_window, LvnTokens.RadiusSm);
             _window.style.backgroundColor = LvnTokens.Veil(0.35f);
-            sheet.Add(_window);
+            content.Add(_window);
 
             _strip = new VisualElement { name = "gacha-strip", pickingMode = PickingMode.Ignore };
             _strip.style.position = Position.Absolute;
             _strip.style.left = 0; _strip.style.top = 0; _strip.style.bottom = 0;
             _strip.style.flexDirection = FlexDirection.Row;
             _window.Add(_strip);
-
             var needle = new VisualElement { pickingMode = PickingMode.Ignore };
             needle.style.position = Position.Absolute;
             needle.style.top = 0; needle.style.bottom = 0;
@@ -77,55 +69,93 @@ namespace Lvn.UI.Screens
             needle.style.width = 2f;
             needle.style.backgroundColor = LvnTokens.Gold;
             _window.Add(needle);
+            _window.RegisterCallback<GeometryChangedEvent>(_ => LayoutStrip());
+            _sheet.RegisterCallback<ClickEvent>(_ => { if (_spinning) _skipAsked = true; });
 
-            _status = new Label();
+            BuildReward(content);
+            _status = new Label { name = "gacha-status" };
             _status.style.color = LvnTokens.TextDim;
-            _status.style.fontSize = LvnTokens.TextSm;
+            _status.style.fontSize = LvnTokens.TextBase;
             _status.style.unityTextAlign = TextAnchor.MiddleCenter;
             _status.style.whiteSpace = WhiteSpace.Normal;
             _status.style.marginTop = LvnTokens.Space3;
-            sheet.Add(_status);
-
-            _actions = new VisualElement();
+            content.Add(_status);
+            _actions = new VisualElement { name = "gacha-actions" };
+            _actions.style.flexShrink = 0;
             _actions.style.marginTop = LvnTokens.Space3;
-            sheet.Add(_actions);
-
-            // Тап по листу пропускает анимацию — обещание задачи «если юзер
-            // тапает по экрану, то скип».
-            sheet.RegisterCallback<ClickEvent>(_ => { if (_spinning) _skipAsked = true; });
+            _sheet.Add(_actions);
+            RegisterCallback<DetachFromPanelEvent>(_ => StopPresentation());
         }
 
-        /// <inheritdoc cref="ILvnContentAware.SetContent"/>
         public void SetContent(LvnManifest manifest)
-            => LvnStageKit.TakeSkin(manifest, ref _skin, StageDress);
-
+        {
+            _manifest = manifest;
+            LvnStageKit.TakeSkin(manifest, ref _skin, StageDress);
+        }
         private void StageDress()
             => _stageGlass = LvnStageKit.DressSheet(_sheet, _skin, _assets, _stageGlass, _title);
 
-        /// <summary>Открыть экран: спросить состояние и ждать, пока игрок
-        /// крутит или уходит.</summary>
         public async Task RunAsync()
         {
-            _state = await Lvn.Services.LvnGacha.GetAsync();
-            BuildStrip();
-            PaintIdle();
-            await ShowAsync();
+            _status.text = LvnWords.Of("boot.loading_data", "loading data…");
+            var shown = ShowAsync();
+            _state = await LvnGacha.GetAsync();
+            if (!_closed) Present(_state);
+            await shown;
         }
 
-        // ── лента ────────────────────────────────────────────────────────────
+        internal void Present(LvnGacha.Status state)
+        {
+            _state = state;
+            BuildStrip();
+            PaintIdle();
+        }
 
-        private readonly List<Lvn.Services.LvnGacha.Sector> _cells = new List<Lvn.Services.LvnGacha.Sector>();
+        protected override void OnClosed() => StopPresentation();
+        public override void Hide() { StopPresentation(); base.Hide(); }
+        private void StopPresentation()
+        {
+            if (_closed) return;
+            _closed = true; _skipAsked = true;
+            LvnCancel.Retire(_artCancel);
+        }
 
-        /// <summary>Набить ленту повторами секторов: она должна быть длиннее
-        /// окна настолько, чтобы прокрутка выглядела дорогой, а не рывком.</summary>
+        // The home entry is a plate with its own size, not a full card frame
+        // squeezed around an unconstrained word.
+        internal static Button LaunchButton(Action open)
+        {
+            var button = new Button(open) { name = "stage-spin" };
+            LvnStageKit.PlateButton(button, primary: true);
+            button.style.width = LvnStageKit.D(146f);
+            button.style.minHeight = LvnStageKit.D(44f);
+            button.style.flexShrink = 0;
+            ScreenUi.Row(button);
+            button.style.justifyContent = Justify.Center;
+            LvnAir.Pad(button, LvnStageKit.D(12f), LvnStageKit.D(8f));
+            var gift = LvnIcons.Make(LvnIcon.Gift, LvnStageKit.D(20f), LvnTokens.Gold);
+            gift.style.flexShrink = 0;
+            gift.style.marginRight = LvnStageKit.D(8f);
+            button.Add(gift);
+            var label = LvnRedress.Bind(new Label { name = "gacha-launch-label", pickingMode = PickingMode.Ignore },
+                () => LvnWords.Of("gacha.title", "Spin"));
+            label.style.fontSize = LvnTokens.TextLg;
+            label.style.color = LvnTokens.Gold;
+            label.style.whiteSpace = WhiteSpace.Normal;
+            label.style.flexShrink = 1;
+            label.style.minWidth = 0;
+            label.style.unityTextAlign = TextAnchor.MiddleCenter;
+            button.Add(label);
+            LvnMotion.Tappable(button);
+            return button;
+        }
+
         private void BuildStrip()
         {
-            _strip.Clear();
-            _cells.Clear();
+            _strip.Clear(); _cells.Clear(); _landing = -1;
+            _strip.style.left = 0;
             var sectors = _state?.Sectors;
             if (sectors == null || sectors.Count == 0) return;
-            int need = sectors.Count * (SpinLaps + 2);
-            for (int i = 0; i < need; i++)
+            for (int i = 0; i < sectors.Count * (SpinLaps + 2); i++)
             {
                 var sector = sectors[i % sectors.Count];
                 _cells.Add(sector);
@@ -133,35 +163,59 @@ namespace Lvn.UI.Screens
             }
         }
 
-        private VisualElement Cell(Lvn.Services.LvnGacha.Sector s)
+        private VisualElement Cell(LvnGacha.Sector sector)
         {
             var cell = new VisualElement { pickingMode = PickingMode.Ignore };
             cell.style.width = CellWidth;
+            cell.style.flexShrink = 0;
             cell.style.marginRight = LvnTokens.Space1;
             cell.style.alignItems = Align.Center;
             cell.style.justifyContent = Justify.Center;
-            cell.style.backgroundColor = s.Super ? LvnTokens.Veil(0.7f) : LvnTokens.Surface;
+            cell.style.backgroundColor = LvnTokens.Surface;
             LvnChrome.Round(cell, LvnTokens.RadiusSm);
-            if (s.Super) LvnChrome.Frame(cell, LvnTokens.RadiusSm, LvnTokens.Gold, 2f);
-
-            var label = new Label(s.Super
-                ? LvnWords.Of("gacha.super", "Rare")
-                : s.Amount + " " + LvnPriceTag.Of(s.Currency).Unit);
-            label.style.color = s.Super ? LvnTokens.Gold : LvnTokens.Text;
-            label.style.fontSize = LvnTokens.TextSm;
-            label.style.unityFontStyleAndWeight = FontStyle.Bold;
-            label.pickingMode = PickingMode.Ignore;
+            if (sector.Super) LvnChrome.Frame(cell, LvnTokens.RadiusSm, LvnTokens.Gold, 2f);
+            cell.Add(sector.Super ? LvnIcons.Make(LvnIcon.Gift, LvnStageKit.D(32f), LvnTokens.Gold)
+                : LvnIcons.MakeCurrency(sector.Currency, LvnStageKit.D(32f)));
+            var label = new Label(sector.Super ? LvnWords.Of("gacha.super", "Rare") : LvnPriceTag.Amount(sector.Amount));
+            label.style.color = sector.Super ? LvnTokens.Gold : LvnTokens.Text;
+            label.style.fontSize = LvnTokens.TextLg;
+            label.style.whiteSpace = WhiteSpace.Normal;
+            label.style.unityTextAlign = TextAnchor.MiddleCenter;
+            label.style.marginTop = LvnTokens.Space1;
             cell.Add(label);
             return cell;
         }
 
-        private float CellWidth => Mathf.Max(64f, (_window.resolvedStyle.width - LvnTokens.Space1 * Visible) / Visible);
+        private float WindowWidth => float.IsNaN(_window.resolvedStyle.width) || _window.resolvedStyle.width <= 0
+            ? 640f : _window.resolvedStyle.width;
+        private float CellWidth => Mathf.Max(1f, (WindowWidth - LvnTokens.Space1 * Visible) / Visible);
+        private float LandingOffset => _landing * (CellWidth + LvnTokens.Space1) - WindowWidth * 0.5f + CellWidth * 0.5f;
+        private void LayoutStrip()
+        {
+            foreach (var cell in _strip.Children()) cell.style.width = CellWidth;
+            if (!_spinning && _landing >= 0) _strip.style.left = -LandingOffset;
+        }
 
-        // ── кнопки и подписи ─────────────────────────────────────────────────
+        private Button ActionButton(string name, Func<string> caption, Action action)
+        {
+            var button = LvnRedress.Bind(new Button(action) { name = name }, caption);
+            LvnStageKit.PlateButton(button, primary: true);
+            button.style.fontSize = LvnTokens.TextXl;
+            button.style.whiteSpace = WhiteSpace.Normal;
+            button.style.minHeight = LvnStageKit.D(52f);
+            button.style.flexShrink = 0;
+            LvnAir.Pad(button, LvnTokens.Space3, LvnTokens.Space2);
+            // The initiating tap must not bubble into the sheet's skip handler.
+            button.RegisterCallback<ClickEvent>(evt => evt.StopPropagation());
+            _actions.Add(button);
+            return button;
+        }
 
         private void PaintIdle()
         {
             _actions.Clear();
+            _reward.style.display = DisplayStyle.None;
+            _window.style.display = DisplayStyle.Flex;
             if (_state == null)
             {
                 _status.text = LvnWords.Of("gacha.offline", "Spins need a connection.");
@@ -170,106 +224,85 @@ namespace Lvn.UI.Screens
             _status.text = _state.FreeToday
                 ? LvnWords.Of("gacha.free_ready", "Today's free spin is waiting")
                 : _state.SpinPrice > 0
-                    ? LvnWords.Of("gacha.price", "Next spin: {0}",
-                                  _state.SpinPrice + " " + LvnPriceTag.Of(_state.SpinCurrency).Unit)
+                    ? LvnWords.Of("gacha.price", "Next spin: {0}", LvnPriceTag.Full(_state.SpinCurrency, _state.SpinPrice))
                     : LvnWords.Of("gacha.come_back", "Come back tomorrow for a free spin");
-
-            bool can = _state.FreeToday || _state.SpinPrice > 0;
-            if (!can) return;
-            var btn = Lvn.UI.LvnRedress.Bind(new Button(() => LvnAsync.Fire(SpinAsync(), "GachaSpin")),
-                () => LvnWords.Of("gacha.spin", "Spin"));
-            btn.style.fontSize = LvnTokens.TextBase;
-            btn.style.unityFontStyleAndWeight = FontStyle.Bold;
-            LvnAir.PadY(btn, LvnTokens.Space3);
-            LvnStyler.Primary(btn, LvnTokens.RadiusSm);
-            _actions.Add(btn);
+            if (_state.Sectors.Count == 0 || (!_state.FreeToday && _state.SpinPrice <= 0)) return;
+            var button = ActionButton("gacha-spin", () => _state.FreeToday ? LvnWords.Of("gacha.spin", "Spin") : "",
+                () => LvnAsync.Fire(SpinAsync(), "GachaSpin"));
+            if (!_state.FreeToday)
+            {
+                // The currency icon carries the unit; long currency names no
+                // longer compete with the action for the same line of text.
+                button.text = "";
+                LvnFlow.Wrap(ScreenUi.Row(button), Justify.Center);
+                var label = LvnRedress.Bind(new Label { pickingMode = PickingMode.Ignore }, () => LvnWords.Of("gacha.spin", "Spin"));
+                label.style.whiteSpace = WhiteSpace.Normal;
+                label.style.flexShrink = 0;
+                label.style.maxWidth = Length.Percent(100f);
+                label.style.color = LvnTokens.Gold;
+                label.style.marginRight = LvnTokens.Space3;
+                button.Add(label);
+                var price = ScreenUi.Row();
+                price.pickingMode = PickingMode.Ignore;
+                var amount = new Label(LvnPriceTag.Amount(_state.SpinPrice));
+                amount.style.color = LvnTokens.Gold;
+                price.Add(amount);
+                price.Add(LvnIcons.MakeCurrency(_state.SpinCurrency, LvnStageKit.D(20f)));
+                button.Add(price);
+            }
         }
 
-        // ── прокрутка ────────────────────────────────────────────────────────
-
-        private async Task SpinAsync()
+        internal async Task SpinAsync()
         {
-            if (_spinning) return;
-            _spinning = true;
-            _skipAsked = false;
+            if (_spinning || _closed || _state == null) return;
+            _spinning = true; _skipAsked = false;
             _actions.Clear();
+            _reward.style.display = DisplayStyle.None;
             _status.text = LvnWords.Of("gacha.spinning", "Spinning…");
-
-            var spin = await Lvn.Services.LvnGacha.SpinAsync();
-            if (!string.IsNullOrEmpty(spin.Error))
+            try
             {
-                _spinning = false;
-                _status.text = spin.Error == "insufficient_funds"
-                    ? LvnWords.Of("gacha.no_funds", "Not enough for a spin")
-                    : LvnWords.Of("gacha.failed", "The spin did not go through. Try again.");
-                PaintIdle();
-                return;
-            }
-
-            int landing = LandingCell(spin.SectorId);
-            await RollAsync(landing);
-            _spinning = false;
-            ShowResult(spin);
-        }
-
-        /// <summary>Какая ячейка ленты остановится под указателем. Берём
-        /// ПОСЛЕДНИЙ круг: лента к тому времени уже разогналась, и торможение
-        /// видно целиком.</summary>
-        private int LandingCell(string sectorId)
-        {
-            if (_cells.Count == 0) return 0;
-            int from = Mathf.Max(0, _cells.Count - (_state?.Sectors?.Count ?? 1) * 2);
-            for (int i = from; i < _cells.Count; i++)
-                if (_cells[i].Id == sectorId) return i;
-            return _cells.Count - 1;
-        }
-
-        private async Task RollAsync(int landing)
-        {
-            float step = CellWidth + LvnTokens.Space1;
-            float target = landing * step - _window.resolvedStyle.width * 0.5f + step * 0.5f;
-            float from = 0f;
-            float t = 0f;
-            while (t < SpinSeconds && !_skipAsked)
-            {
-                t += Time.unscaledDeltaTime;
-                // Торможение к концу: быстрый разгон, долгая осадка — так
-                // читается «повезло или нет» на последних сантиметрах. Кривая
-                // берётся у движения оболочки, а не пишется числом: почерк у
-                // всех приходов один, и своя копия однажды разошлась бы с ним.
-                float k = Mathf.Clamp01(t / SpinSeconds);
-                float eased = LvnMotion.Settle(k);
-                _strip.style.left = Mathf.Lerp(from, -target, eased);
-                await Task.Yield();
-            }
-            _strip.style.left = -target;   // пропуск ставит ленту ровно на место
-        }
-
-        private void ShowResult(Lvn.Services.LvnGacha.Spin spin)
-        {
-            if (_state != null)
-            {
+                var spin = await LvnGacha.SpinAsync();
+                if (_closed) return;
+                if (!string.IsNullOrEmpty(spin.Error))
+                {
+                    PaintIdle();
+                    // Paint buttons first so it cannot overwrite the failure.
+                    _status.text = spin.Error == "insufficient_funds"
+                        ? LvnWords.Of("gacha.no_funds", "Not enough for a spin")
+                        : LvnWords.Of("gacha.failed", "The spin did not go through. Try again.");
+                    return;
+                }
+                _landing = LandingCell(spin.SectorId);
+                await RollAsync();
+                if (_closed) return;
                 _state.FreeToday = spin.FreeToday;
                 _state.PrizesLeft = spin.PrizesLeft;
-                // Опустевший супер-сектор уходит из рулетки: сервер его уже не
-                // прислал бы, но лента живёт до перестройки.
-                if (spin.PrizesLeft.Count == 0)
-                    _state.Sectors.RemoveAll(s => s.Super);
-                BuildStrip();
+                _state.Spins++;
+                // Keep the landed rare cell until the player acknowledges it.
+                if (spin.PrizesLeft.Count == 0) _state.Sectors.RemoveAll(s => s.Super);
+                await RevealPrizeAsync(spin);
             }
-            _status.text = spin.Super && spin.Prize != null
-                ? LvnWords.Of("gacha.won_prize", "You got: {0}", spin.Prize.Label ?? spin.Prize.Sku)
-                : LvnWords.Of("gacha.won_currency", "You got: {0}",
-                              spin.Amount + " " + LvnPriceTag.Of(spin.Currency).Unit);
+            finally { _spinning = false; }
+        }
 
-            _actions.Clear();
-            var take = Lvn.UI.LvnRedress.Bind(new Button(() => { LvnAsync.Fire(Lvn.Services.LvnWallet.NudgeAsync(), "GachaWallet"); PaintIdle(); }),
-                () => LvnWords.Of("gacha.take", "Take the prize"));
-            take.style.fontSize = LvnTokens.TextBase;
-            take.style.unityFontStyleAndWeight = FontStyle.Bold;
-            LvnAir.PadY(take, LvnTokens.Space3);
-            LvnStyler.Primary(take, LvnTokens.RadiusSm);
-            _actions.Add(take);
+        private int LandingCell(string id)
+        {
+            int from = Mathf.Max(0, _cells.Count - (_state?.Sectors?.Count ?? 1) * 2);
+            for (int i = from; i < _cells.Count; i++) if (_cells[i].Id == id) return i;
+            return Mathf.Max(0, _cells.Count - 1);
+        }
+
+        private async Task RollAsync()
+        {
+            float start = Time.realtimeSinceStartup;
+            while (!_closed && !_skipAsked && !LvnPrefs.ReduceMotion)
+            {
+                float progress = Mathf.Clamp01((Time.realtimeSinceStartup - start) / SpinSeconds);
+                _strip.style.left = -LandingOffset * LvnMotion.Settle(progress);
+                if (progress >= 1f) break;
+                await Task.Yield();
+            }
+            _strip.style.left = -LandingOffset;
         }
     }
 }

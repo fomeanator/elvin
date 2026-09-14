@@ -180,20 +180,32 @@ namespace Lvn.UI.Screens
             // многоточие, кончилось → «Готово». Назначь её руками — и смена
             // языка на открытых настройках вернула бы «Восстановить» кнопке,
             // которая уже отработала.
-            int step = 0; // 0 покой, 1 ждём, 2 готово
-            var btn = Lvn.UI.LvnRedress.Bind(new Button(), () =>
+            int step = 0; // idle, waiting, restored, failed
+            var btn = Lvn.UI.LvnRedress.Bind(new Button { name = "restore-purchases" }, () =>
                 step == 1 ? "…"
               : step == 2 ? LvnWords.Of("common.done", "Done")
+              : step == 3 ? LvnWords.Of("network.title", "No connection")
               : LvnWords.Of("device.restore", "Restore"));
             StyleValueButton(btn, false);
             btn.clicked += () =>
             {
-                LvnAsync.Fire(Lvn.Services.LvnWallet.RefreshAsync(), "Refresh");
+                if (step == 1) return;
                 step = 1;
+                btn.SetEnabled(false);
                 Lvn.UI.LvnRedress.Refresh(btn);
-                btn.schedule.Execute(() => { step = 2; Lvn.UI.LvnRedress.Refresh(btn); })
-                   .ExecuteLater(LvnMotion.Ms(LvnMotion.Notice));
+                LvnAsync.Fire(RestoreAsync(), "RestorePurchases");
             };
+            async Task RestoreAsync()
+            {
+                bool restored = false;
+                try { restored = await LvnWallet.RefreshAsync(); }
+                finally
+                {
+                    step = restored ? 2 : 3;
+                    btn.SetEnabled(true);
+                    Lvn.UI.LvnRedress.Refresh(btn);
+                }
+            }
             row.Add(btn);
             return row;
         }

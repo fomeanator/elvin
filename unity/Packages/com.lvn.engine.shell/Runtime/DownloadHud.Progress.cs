@@ -38,6 +38,7 @@ namespace Lvn.UI.Screens
         {
             float now = Lvn.LvnClock.Wall();
             WatchCenter();
+            PlaceCapsule(_morph);   // шапка могла перестроиться — часы там же?
             bool off = Offline?.Invoke() ?? false;
             int pend = PendingOps?.Invoke() ?? 0;
             bool queued = Center != null && (Center.Running || Center.Queue.Count > 0);

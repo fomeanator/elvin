@@ -33,17 +33,20 @@ namespace Lvn.Content
     public sealed class LocalStateStore : ILvnStateStore
     {
         internal static string Key(string titleId) => Lvn.LvnKeep.Scoped("lvn_state_", titleId);
+        internal static event Action<string> Forgotten;
 
         /// <summary>Забыть переменные новеллы вместе с базой синхронизации.
         /// База уходит обязательно: оставшись, она объявила бы стёртые значения
         /// «нашей правкой» и вернула бы их с ближайшего слияния с сервером.</summary>
         public static void Forget(string titleId)
         {
+            var key = Key(titleId);
             using (LvnKeep.Batch())
             {
-                LvnKeep.Drop(Key(titleId));
+                LvnKeep.Drop(key);
                 LvnKeep.Drop(BaseKey(titleId));
             }
+            Forgotten?.Invoke(key);
         }
 
         public Task<JObject> LoadVarsAsync(string titleId, CancellationToken ct)
@@ -112,20 +115,12 @@ namespace Lvn.Content
     }
 
     /// <summary>
-    /// Local-first store that syncs to the LVN server's <c>/v1/state</c> — the
-    /// offline-first model proven in the Liminal client:
-    /// <list type="bullet">
-    ///   <item>Save writes the local cache FIRST (instant, survives a dead network),
-    ///   then PUTs to the server when online. A failed PUT just stays local; the next
-    ///   online save/load reconciles it.</item>
-    ///   <item>Load, when online, GETs the server copy and reconciles with local by
-    ///   <c>updatedAt</c> (newer wins) so an app killed after a local write but before
-    ///   the PUT doesn't roll the player back; offline, it returns the local copy.</item>
-    /// </list>
-    /// Each (user, title) is its own server blob (<c>?user=&lt;uid&gt;__&lt;title&gt;</c>),
-    /// so a PUT never has to merge other titles. Never throws on network errors.
+    /// Local reads and durable writes never wait for HTTP. A background worker
+    /// reconciles the persisted pending scopes, including after restart/reconnect.
+    /// Explicit cloud restore tools may await RefreshVarsAsync/FlushAsync;
+    /// gameplay uses the immediate ILvnStateStore methods.
     /// </summary>
-    public sealed class HttpStateStore : ILvnStateStore
+    public sealed partial class HttpStateStore : ILvnStateStore, IDisposable
     {
         private readonly string _base;
         private readonly string _user;
@@ -133,15 +128,6 @@ namespace Lvn.Content
         // секунды без причины. Состояние тянут таким же коротким запросом, что и
         // манифест, значит и терпение у них одно.
         private const int TimeoutSeconds = Lvn.LvnNetPatience.RequestSeconds;
-
-        // Last server version seen per title (the OCC token): echoed on PUT so the
-        // server can detect that another device wrote in between. A conflict comes
-        // back as a 409 with the winning doc — we merge (newer updatedAt wins) and
-        // retry once, instead of silently clobbering the other device's progress.
-        private readonly System.Collections.Generic.Dictionary<string, long> _versions
-            = new System.Collections.Generic.Dictionary<string, long>();
-
-        private string VKey(string titleId) => titleId ?? "";
 
         // The per-blob secret (X-State-Key header). The user id travels in the
         // URL, which proxies and access logs record — the key is what actually
@@ -163,37 +149,35 @@ namespace Lvn.Content
             _base = LvnUrl.Base(baseUrl);
             _user = string.IsNullOrEmpty(userId) ? "anon" : userId;
             _key = string.IsNullOrEmpty(stateKey) ? DeviceKey() : stateKey;
+            InitializeSync();
         }
 
-        private string Url(string titleId) =>
-            _base + "/v1/state?user=" + UnityWebRequest.EscapeURL(_user + "__" + (titleId ?? ""));
-
-        public async Task<JObject> LoadVarsAsync(string titleId, CancellationToken ct)
+        public Task<JObject> LoadVarsAsync(string titleId, CancellationToken ct)
         {
-            var local = LocalStateStore.ReadDoc(titleId);
-            if (!LvnNetworkStatus.IsOffline)
+            ct.ThrowIfCancellationRequested();
+            SyncScope scope;
+            try { scope = Track(titleId, refresh: true); }
+            catch (ObjectDisposedException) { throw; }
+            catch (Exception e)
             {
-                var server = await TryGet(titleId, ct);
-                if (server != null)
-                {
-                    var pick = Reconcile(server, local, LocalStateStore.ReadBase(titleId), Rule(titleId));
-                    LocalStateStore.WriteDoc(titleId, pick); // локальная копия — уже сведённая
-                    // База — то, на чём мы в последний раз СОШЛИСЬ С СЕРВЕРОМ,
-                    // а не то, что получилось после сведения: иначе следующая
-                    // запись сочтёт свои же непосланные правки чужими.
-                    LocalStateStore.WriteBase(titleId, LocalStateStore.Vars(server));
-                    return LocalStateStore.Vars(pick);
-                }
+                // A damaged sync index must not hide an intact local save.
+                Debug.LogWarning("[lvn-state] local read without sync: " + e.Message);
+                scope = Scope(titleId);
             }
-            return LocalStateStore.Vars(local);
+            return Task.FromResult((JObject)LocalStateStore.Vars(Read(scope.LocalKey)).DeepClone());
         }
 
-        public async Task SaveVarsAsync(string titleId, JObject vars, CancellationToken ct)
+        public Task SaveVarsAsync(string titleId, JObject vars, CancellationToken ct)
         {
-            var doc = LocalStateStore.MakeDoc(vars);
-            LocalStateStore.WriteDoc(titleId, doc); // local first — instant, offline-safe
-            if (!LvnNetworkStatus.IsOffline)
-                try { await Put(titleId, doc, ct); } catch { /* stays local; reconciles later */ }
+            ct.ThrowIfCancellationRequested();
+            // Index first: a crash between index and document leaves harmless
+            // extra work, never a durable save that the worker cannot discover.
+            var scope = Track(titleId, refresh: false);
+            var doc = LocalStateStore.MakeDoc((JObject)(vars ?? new JObject()).DeepClone());
+            doc[PendingField] = LvnMark.Once();
+            Write(scope.LocalKey, doc); // local write failures must not look like success
+            Wake();
+            return Task.CompletedTask;
         }
 
         /// <summary>Field-level conflict merge: start from the OTHER device's doc
@@ -212,6 +196,9 @@ namespace Lvn.Content
                 if (baseVal != null && JToken.DeepEquals(baseVal, p.Value)) continue; // untouched here — theirs wins
                 merged[p.Name] = p.Value.DeepClone();
             }
+            if (baseVars != null)
+                foreach (var p in baseVars.Properties())
+                    if (localVars.Property(p.Name) == null) merged.Remove(p.Name);
             return merged;
         }
 
@@ -294,92 +281,45 @@ namespace Lvn.Content
                              "Playing on local state.");
         }
 
-        private async Task<JObject> TryGet(string titleId, CancellationToken ct)
+        private async Task Put(SyncScope scope, JObject local, JObject server, long version,
+                               CancellationToken ct)
         {
-            try
-            {
-                using var req = UnityWebRequest.Get(Url(titleId));
-                req.SetRequestHeader("X-State-Key", _key);
-                req.timeout = TimeoutSeconds;
-                var op = req.SendWebRequest();
-                // Ждёт дом: он же обрывает запрос по МОЛЧАНИЮ. Здесь этой
-                // защиты не было вовсе — висели до срока UnityWebRequest, а он
-                // про весь ответ, а не про замерший счётчик байтов.
-                if (!await LvnNetWait.AwaitAsync(req, op, ct)) return null;
-                if (LvnNetWait.Failed(req))
-                {
-                    LvnNetworkStatus.MarkOffline("state GET network error");
-                    return null;
-                }
-                // A real HTTP response (even a 404) proves the wire is back —
-                // recover the global flag so other subsystems resume too.
-                LvnNetworkStatus.MarkOnline("state GET ok");
-                if (req.responseCode == 401) { WarnKeyRejected("load"); return null; }
-                if (req.responseCode < 200 || req.responseCode >= 300) return null; // 404 = no save yet
-                var doc = JObject.Parse(req.downloadHandler.text);
-                if (doc["_version"] != null) // remember the OCC token for the next PUT
-                    _versions[VKey(titleId)] = (long)doc["_version"];
-                return doc;
-            }
-            catch { return null; }
-        }
-
-        private async Task Put(string titleId, JObject doc, CancellationToken ct)
-        {
-            // Up to one merge-retry: attempt 1 with our last-seen version; on a 409
-            // (another device wrote) merge newer-wins and retry with the fresh token.
+            var baseline = Read(scope.BaseKey);
+            var rule = Rule(scope.Title);
+            // With no baseline Save remains a replacement (including explicit
+            // reset to {}), preserving the existing state-store contract.
+            var vars = rule != null && server != null
+                ? rule(LocalStateStore.Vars(local), LocalStateStore.Vars(server))
+                : baseline == null || LocalStateStore.Vars(local).Count == 0 ? LocalStateStore.Vars(local)
+                : MergeVars(LocalStateStore.Vars(server), LocalStateStore.Vars(local), baseline);
             for (int attempt = 0; attempt < 2; attempt++)
             {
-                var send = (JObject)doc.DeepClone();
-                if (_versions.TryGetValue(VKey(titleId), out var known))
-                    send["_version"] = known;
-
-                using var req = new UnityWebRequest(Url(titleId), "PUT");
-                var body = System.Text.Encoding.UTF8.GetBytes(send.ToString(Newtonsoft.Json.Formatting.None));
-                req.uploadHandler = new UploadHandlerRaw(body);
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.SetRequestHeader("Content-Type", "application/json");
-                req.SetRequestHeader("X-State-Key", _key);
-                req.timeout = TimeoutSeconds;
-                var op = req.SendWebRequest();
-                if (!await LvnNetWait.AwaitAsync(req, op, ct)) return;
-                if (LvnNetWait.Failed(req))
+                if (!Current(scope) || !JToken.DeepEquals(Read(scope.LocalKey), local)) return;
+                // A lost successful response must not cause another write when
+                // GET already proves the exact state is on the server.
+                if (server != null && JToken.DeepEquals(vars, LocalStateStore.Vars(server)))
                 {
-                    LvnNetworkStatus.MarkOffline("state PUT network error");
+                    Acknowledge(scope, local, vars);
                     return;
                 }
-                LvnNetworkStatus.MarkOnline("state PUT ok"); // the sync reached the server → we're online
-
-                if (req.responseCode == 401) { WarnKeyRejected("save"); return; } // stays local
-
-                if (req.responseCode == 409)
+                var send = LocalStateStore.MakeDoc((JObject)vars.DeepClone());
+                send["_version"] = version;
+                var response = await ExchangeAsync("PUT", scope, send, ct);
+                if (!Current(scope)) return;
+                if (response.Code == 409)
                 {
-                    try
-                    {
-                        var resp = JObject.Parse(req.downloadHandler.text);
-                        _versions[VKey(titleId)] = (long?)resp["version"] ?? 0;
-                        // Field-level merge: the other device's doc wins by default;
-                        // only the keys WE changed since the last agreed sync overlay it.
-                        var serverVars = LocalStateStore.Vars(resp["doc"] as JObject);
-                        var merged = LocalStateStore.MakeDoc(MergeVars(
-                            serverVars, LocalStateStore.Vars(doc), LocalStateStore.ReadBase(titleId)));
-                        LocalStateStore.WriteDoc(titleId, merged); // local mirrors the merge outcome
-                        doc = merged;
-                        continue; // one retry with the fresh version
-                    }
-                    catch { return; } // unparseable conflict — leave it local, reconcile next load
+                    server = response.Doc?["doc"] as JObject;
+                    var nextVersion = (long?)response.Doc?["version"];
+                    if (server == null || !nextVersion.HasValue) return;
+                    version = nextVersion.Value;
+                    vars = rule != null
+                        ? rule(LocalStateStore.Vars(local), LocalStateStore.Vars(server))
+                        : LocalStateStore.Vars(local).Count == 0 ? new JObject()
+                        : MergeVars(LocalStateStore.Vars(server), LocalStateStore.Vars(local), baseline);
+                    continue;
                 }
-                if (req.responseCode >= 200 && req.responseCode < 300)
-                {
-                    try
-                    {
-                        var resp = JObject.Parse(req.downloadHandler.text);
-                        if (resp["version"] != null) _versions[VKey(titleId)] = (long)resp["version"];
-                    }
-                    catch { /* legacy server without versions — LWW as before */ }
-                    // The server accepted this doc — it IS the agreed state now.
-                    LocalStateStore.WriteBase(titleId, LocalStateStore.Vars(doc));
-                }
+                if (response.Code >= 200 && response.Code < 300)
+                    Acknowledge(scope, local, vars);
                 return;
             }
         }

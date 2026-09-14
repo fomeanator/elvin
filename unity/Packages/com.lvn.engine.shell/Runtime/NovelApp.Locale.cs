@@ -28,6 +28,7 @@ namespace Lvn.UI.Screens
         {
             var want = CurrentLocale;
             if (want == _localeApplied) return;
+            var timer = System.Diagnostics.Stopwatch.StartNew();
 
             // СЛОВА ОБОЛОЧКИ ТОЖЕ ПЕРЕВОДЯТСЯ. Раньше переводился только текст
             // главы, а подписи движка оставались авторскими: игрок переключал
@@ -44,19 +45,25 @@ namespace Lvn.UI.Screens
             // повторное переключение туда-обратно его не чинило.
             if (CurrentLocale != want) return;
             _localeApplied = want;
-            Lvn.Content.LvnWords.Translate(words);
+            using (LvnPerf.Measure(LvnPerf.Part.LocaleApply)) Lvn.Content.LvnWords.Translate(words);
+            LvnPerf.Event("locale-ui-applied", "locale=" + (string.IsNullOrEmpty(want) ? "original" : want)
+                + " words=" + (words?.Count ?? 0) + " wall_ms=" + timer.ElapsedMilliseconds);
 
             if (_currentChapter != null && Stage != null)
             {
+                var chapter = _currentChapter;
+                var stage = Stage;
                 System.Collections.Generic.IReadOnlyDictionary<string, string> strings;
-                try { strings = await LoadCatalogAsync(_currentChapter.script_url); }
+                try { strings = await LoadCatalogAsync(chapter.script_url); }
                 catch { strings = null; } // no catalog → the inline original
-                if (CurrentLocale != want) return;   // и здесь: каталог главы тоже едет сетью
+                if (CurrentLocale != want || _currentChapter != chapter || Stage != stage) return;
                 Stage.Strings = strings;
                 // РЕАЛТАЙМ: реплика, уже стоящая на экране, перерисовывается
                 // новым языком сразу (штатный RerenderCurrent — тот же вариант
                 // текста, без сдвига {a|b|c}), а не со следующей строки.
-                Stage.Player?.RerenderCurrent();
+                using (LvnPerf.Measure(LvnPerf.Part.LocaleApply)) Stage.Player?.RerenderCurrent();
+                LvnPerf.Event("locale-chapter-applied", "strings=" + (strings?.Count ?? 0)
+                    + " wall_ms=" + timer.ElapsedMilliseconds);
             }
         }
         /// <summary>Прогреть словари объявленных языков. Тишина при отказе:

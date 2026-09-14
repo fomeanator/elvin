@@ -77,6 +77,27 @@ namespace Lvn.Tests
             Assert.IsNotNull(LvnSaveStore.Get(TitleA, "slot1"), "other slots untouched");
         }
 
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase(TitleA)]
+        public void ForgettingThePlayerCannotResurrectABackup(string titleId)
+        {
+            try
+            {
+                Assert.IsTrue(LvnSaveStore.Put(titleId, "slot1", Slot(42)));
+                var key = LvnKeep.Scoped("lvn_slots_", titleId);
+                Assert.IsTrue(LvnKeep.Has(key + ".bak"));
+
+                LvnKeep.ForgetPlayerData();
+
+                Assert.IsFalse(LvnKeep.Has(key), "primary was forgotten");
+                Assert.IsFalse(LvnKeep.Has(key + ".bak"), "backup is personal data too");
+                Assert.IsNull(LvnSaveStore.Get(titleId, "slot1"), "recovery must not undo account deletion");
+                Assert.AreEqual(LvnSaveSlotState.Empty, LvnSaveStore.GetState(titleId, "slot1"));
+            }
+            finally { LvnSaveStore.DeleteAll(titleId); }
+        }
+
         [Test]
         public void SlotStateDistinguishesStoredDataFromAnEmptySlot()
         {
@@ -88,6 +109,24 @@ namespace Lvn.Tests
 
             LvnSaveStore.Delete(TitleA, "slot1");
             Assert.AreEqual(LvnSaveSlotState.Empty, LvnSaveStore.GetState(TitleA, "slot1"));
+        }
+
+        [Test]
+        public void ForgettingThePlayerDropsLegacyUnregisteredBackupKeys()
+        {
+            const string titleId = "test-save-legacy-registry";
+            var key = LvnKeep.Scoped("lvn_slots_", titleId);
+            try
+            {
+                // Simulate a previous release: only the primary is registered.
+                // Do not read through LvnSaveStore before deleting the account.
+                LvnKeep.Put(key, "{broken");
+                LvnKeep.Put(key + ".bak", "{}");
+                LvnKeep.ForgetPlayerData();
+                Assert.IsFalse(LvnKeep.Has(key));
+                Assert.IsFalse(LvnKeep.Has(key + ".bak"));
+            }
+            finally { LvnKeep.Drop(key); LvnKeep.Drop(key + ".bak"); }
         }
 
         [TestCase(false)]
@@ -147,6 +186,41 @@ namespace Lvn.Tests
             Assert.AreEqual(LvnSaveSlotState.Occupied, LvnSaveStore.GetState(TitleA, "slot1"));
             Assert.AreEqual(7, LvnSaveStore.Get(TitleA, "slot1").Snap.Index,
                 "keeping future data opaque must not bypass recovery of corrupt known data");
+        }
+
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase("null")]
+        public void MissingOrTruncatedMainBlockStillRecoversItsBackup(string damaged)
+        {
+            Assert.IsTrue(LvnSaveStore.Put(TitleA, "slot1", Slot(7)));
+            var key = LvnKeep.Scoped("lvn_slots_", TitleA);
+            if (damaged == null) LvnKeep.Drop(key);
+            else LvnKeep.Put(key, damaged);
+
+            Assert.AreEqual(7, LvnSaveStore.Get(TitleA, "slot1")?.Snap.Index,
+                "A missing/empty main block must not bypass the readable backup");
+            Assert.IsTrue(LvnSaveStore.Put(TitleA, "slot2", Slot(9)));
+            Assert.AreEqual(7, LvnSaveStore.Get(TitleA, "slot1")?.Snap.Index,
+                "Writing another slot must preserve the recovered save");
+        }
+
+        [TestCase("{broken", "{also broken")]
+        [TestCase("", "")]
+        [TestCase("null", "null")]
+        public void UnreadableBlocksAreNeverReplacedByANewSave(string main, string backup)
+        {
+            var key = LvnKeep.Scoped("lvn_slots_", TitleA);
+            LvnKeep.Put(key, main);
+            LvnKeep.Put(key + ".bak", backup);
+
+            Assert.IsFalse(LvnSaveStore.Put(TitleA, "auto", Slot(9)),
+                "An autosave must not replace unreadable player data with an empty map");
+            LvnSaveStore.Delete(TitleA, "slot1");
+            Assert.AreEqual(main, LvnKeep.Get(key));
+            Assert.AreEqual(backup, LvnKeep.Get(key + ".bak"));
+            Assert.AreNotEqual(LvnSaveSlotState.Empty, LvnSaveStore.GetState(TitleA, "slot1"),
+                "Unreadable data is not permission to overwrite without recovery");
         }
 
         // СЕЙВ С УСТРОЙСТВА, А НЕ СЛОТ, СОБРАННЫЙ В C#.
@@ -259,19 +333,23 @@ namespace Lvn.Tests
         }
 
         [Test]
-        public void MissingAndCorruptDataDegradeToEmpty()
+        public void MissingIsWritableButCorruptDataRequiresExplicitReset()
         {
             Assert.IsNull(LvnSaveStore.Get(TitleA, "nope"));
             Assert.AreEqual(0, LvnSaveStore.Slots(TitleA).Count);
 
-            // Битый блок И НИ ОДНОЙ ЗАПИСИ ДО НЕГО: спасать нечем, и это
-            // законная пустота, а не потеря. Случай «было что спасать»
-            // проверяет ПорчаБлокаНеУноситВсеСохранения.
+            // Corrupt bytes alone cannot tell us whether this was a fresh
+            // install or the player's only remaining copy. Do not overwrite it.
             PlayerPrefs.SetString(Lvn.LvnKeep.Scoped("lvn_slots_", TitleA), "{не json вовсе");
             Assert.AreEqual(0, LvnSaveStore.Slots(TitleA).Count, "corrupt store reads as empty, never throws");
 
-            // And a write recovers it.
-            LvnSaveStore.Put(TitleA, "slot1", Slot(3));
+            Assert.AreEqual(LvnSaveSlotState.Unreadable, LvnSaveStore.GetState(TitleA, "slot1"));
+            Assert.IsFalse(LvnSaveStore.Put(TitleA, "slot1", Slot(3)));
+            // Explicitly forgetting a title is still authorized to remove both
+            // unreadable copies, after which ordinary saves work again.
+            LvnSaveStore.DeleteAll(TitleA);
+            Assert.AreEqual(LvnSaveSlotState.Empty, LvnSaveStore.GetState(TitleA, "slot1"));
+            Assert.IsTrue(LvnSaveStore.Put(TitleA, "slot1", Slot(3)));
             Assert.AreEqual(3, LvnSaveStore.Get(TitleA, "slot1").Snap.Index);
         }
     }

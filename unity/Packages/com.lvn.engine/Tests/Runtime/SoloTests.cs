@@ -21,7 +21,7 @@ namespace Lvn.Tests.Runtime
     /// симптома — одна причина: убирать умели все, а возвращать и ждать
     /// летящего не умел никто.</para>
     /// </summary>
-    public class SoloTests
+    public partial class SoloTests
     {
         /// <summary>
         /// АРТ У КУКЛЫ ДОЛЖЕН БЫТЬ — иначе её вообще не выпустят в кадр.
@@ -100,6 +100,45 @@ namespace Lvn.Tests.Runtime
 
         // Ровно тот отказ: агента увели ради катсцены, и он пропал до конца
         // сцены — история про уход не знает и ставить заново не собирается.
+        [UnityTest]
+        public IEnumerator ReturningFromMenuRestoresChapterActorsAcrossTwoVisits()
+        {
+            var script = new JObject { ["script"] = new JArray(
+                Show("agent"), Show("hero"),
+                new JObject { ["op"] = "say", ["text"] = "Saved line" },
+                new JObject { ["op"] = "say", ["text"] = "Next line" }) }.ToString();
+            _stage.KeepActorAlive = "hero";
+            _stage.Play(script);
+            yield return null;
+            var snapshot = _stage.Player.Save();
+
+            for (int visit = 0; visit < 2; visit++)
+            {
+                var leave = _stage.BeginSoloAsync("hero");
+                while (!leave.IsCompleted) yield return null;
+                _stage.DropSolo();
+                _stage.ClearStage();
+                _stage.ShowMenuDoll("hero", Show("hero"));
+                yield return null;
+
+                _stage.Play(script);
+                _stage.RestoreSnapshot(snapshot);
+                float deadline = Time.realtimeSinceStartup + 3f;
+                while (!_stage.DialogueOnScreen && Time.realtimeSinceStartup < deadline) yield return null;
+                yield return null;
+                Assert.IsFalse(_stage.Score.HasLayer(LvnSender.Menu),
+                    "TR-60: a menu layer must not hide the resumed chapter");
+
+                var arrival = _stage.BeginSoloAsync("hero", clearFrame: false);
+                while (!arrival.IsCompleted) yield return null;
+                _stage.EndSolo();
+                yield return null;
+                Assert.IsTrue(Doll("agent")?.activeInHierarchy ?? false,
+                    "TR-60: actor must be visible before another story command, visit " + visit);
+                Assert.IsTrue(Doll("hero")?.activeInHierarchy ?? false);
+            }
+        }
+
         [UnityTest]
         public IEnumerator AsideActorsComeBackWithTheirOwnCommand()
         {

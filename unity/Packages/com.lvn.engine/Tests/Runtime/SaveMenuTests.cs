@@ -91,6 +91,41 @@ namespace Lvn.Tests
             return json;
         }
 
+        [TestCase(true)]
+        [TestCase(false)]
+        public void UnreadableDataShowsRecoveryInsteadOfEmptySlots(bool saveMode)
+        {
+            LvnKeep.Put(Key, "{broken");
+            LvnKeep.Put(Key + ".bak", "{also broken");
+            ShowSlots(saveMode);
+
+            Assert.That(_menu.Query<Label>().ToList().Select(l => l.text), Does.Contain(
+                _stage.Theme.Word("save_recovery_title", "Save recovery required")));
+            Assert.IsNull(ActionButton("overwrite", "Overwrite"));
+            Assert.IsFalse(_menu.Query<Label>().ToList().Any(l =>
+                l.text.Contains(_stage.Theme.Word("empty", "— empty —"))));
+            Assert.AreEqual(0, _saves);
+            Assert.AreEqual("{broken", LvnKeep.Get(Key));
+            Assert.AreEqual("{also broken", LvnKeep.Get(Key + ".bak"));
+        }
+
+        [Test]
+        public void CorruptionAfterOpeningTheListCannotBecomeAnOverwritePrompt()
+        {
+            ShowSlots(true);
+            var slot = SlotButton();
+            LvnKeep.Put(Key, "{broken");
+            LvnKeep.Put(Key + ".bak", "{also broken");
+            Press(slot);
+
+            Assert.IsNull(ActionButton("overwrite", "Overwrite"));
+            Assert.That(_menu.Query<Label>().ToList().Select(l => l.text), Does.Contain(
+                _stage.Theme.Word("save_recovery_title", "Save recovery required")));
+            Assert.AreEqual(0, _saves);
+            Assert.AreEqual("{broken", LvnKeep.Get(Key));
+            Assert.AreEqual("{also broken", LvnKeep.Get(Key + ".bak"));
+        }
+
         private void AssertFutureUnchanged(string json)
         {
             Assert.AreEqual(0, _saves, "the first tap must not save over future data");

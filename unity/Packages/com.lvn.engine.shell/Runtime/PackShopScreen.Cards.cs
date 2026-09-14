@@ -62,6 +62,7 @@ namespace Lvn.UI.Screens
 
             void Paint()
             {
+                LvnAsync.Fire(Lvn.Services.LvnAds.RefreshDueAsync(), "AdRecharge");
                 var now = Lvn.Services.LvnAds.StateOf(AdPlacement) ?? st;
                 long wait = now.WaitSeconds;
                 bool ready = now.Ready;

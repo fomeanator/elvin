@@ -86,7 +86,8 @@ namespace Lvn.UI.Screens
                     url => _assets.LoadTextAsync(url, default),
                     url => _assets.LoadSpriteAsync(url, default),
                     (_assets as CachingAssets)?.Loader,
-                    onPoster: rt => { _spineRt = rt; ShareSpine(); });
+                    onPoster: rt => { _spineRt = rt; ShareSpine(); },
+                    visibilityTarget: _sheet);
             }
             void WhenLaidOut()
             {

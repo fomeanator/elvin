@@ -37,6 +37,7 @@ after every change:
 ```sh
 qa/run-all.sh              # EditMode (unit + contract + soak) AND PlayMode (scene, boot)
 qa/run-all.sh --editmode   # quick iteration while writing
+qa/prebuild.sh             # before an APK: the same, with graphics, panel frames and golden frames
 ```
 
 EditMode never brings up a scene or a UI panel, so a whole class of regressions

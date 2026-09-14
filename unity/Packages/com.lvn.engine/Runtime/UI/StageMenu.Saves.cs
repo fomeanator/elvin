@@ -15,6 +15,11 @@ namespace Lvn.UI
     {
         private void ShowSlots(bool saveMode)
         {
+            if (LvnSaveStore.GetState(_stage.SaveTitleId, LvnSaveStore.AutoSlot) == LvnSaveSlotState.Unreadable)
+            {
+                SaveRecoveryNotice();
+                return;
+            }
             _pane = () => ShowSlots(saveMode);
             var p = Panel(saveMode ? L("save", "Save") : L("load", "Load"));
             var scroll = LvnScroll.Vertical();
@@ -47,7 +52,8 @@ namespace Lvn.UI
                         // Recheck on tap: a save may have arrived while this
                         // list was open. Hidden from loading does not mean empty.
                         var current = LvnSaveStore.GetState(_stage.SaveTitleId, name);
-                        if (current != LvnSaveSlotState.Empty)
+                        if (current == LvnSaveSlotState.Unreadable) SaveRecoveryNotice();
+                        else if (current != LvnSaveSlotState.Empty)
                             ConfirmOverwrite(label, name, current == LvnSaveSlotState.NewerVersion);
                         // Успех — обновляем список; отказ хранилища сообщаем:
                         // «нажал и ничего не произошло» неотличимо от «сохранено».
@@ -81,6 +87,18 @@ namespace Lvn.UI
         }
 
         private void TryLoad(string slot) => LvnAsync.Fire(TryLoadAsync(slot), "TryLoad");
+
+        private void SaveRecoveryNotice()
+        {
+            _pane = SaveRecoveryNotice;
+            var p = Panel(L("save_recovery_title", "Save recovery required"));
+            var msg = Text(L("save_recovery_required",
+                "Saved data could not be read. The original data has been kept, and saving is disabled to protect it. Please contact support for recovery."),
+                26, FontStyle.Normal);
+            msg.style.marginBottom = LvnTokens.Space2;
+            p.Add(msg);
+            p.Add(Item(L("close", "Close"), Close));
+        }
 
         private async Task TryLoadAsync(string slot)
         {

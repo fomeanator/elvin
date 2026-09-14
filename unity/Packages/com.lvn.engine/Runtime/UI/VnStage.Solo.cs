@@ -85,6 +85,7 @@ namespace Lvn.UI
         /// </summary>
         public void Reconcile(string why)
         {
+            using var perf = LvnPerf.Measure(LvnPerf.Part.StageReconcile);
             var changes = Score.DiffAgainst(_onScreen);
             if (changes.Count == 0) return;
             LvnLog.Trace($"[lvn-frame] {why}: приводим кадр — {changes.Count} изменени(й)");
@@ -102,8 +103,13 @@ namespace Lvn.UI
                 if (ch.Pose == null) continue;      // показывать нечем — команды не было
                 var pose = (JObject)ch.Pose.DeepClone();
                 pose["show"] = true;
-                ApplyDispatch(pose, LvnSender.Story);
-                if (ch.Fx != null) ApplyDispatch((JObject)ch.Fx.DeepClone(), LvnSender.Story);
+                // Remove an overlay's effects before starting the restored
+                // actor's own entrance (which may itself use dissolve).
+                if (ch.Fx == null && _onScreen.Actors.TryGetValue(ch.Id, out var previous)
+                    && previous.Fx != null)
+                    ApplyDispatch(new JObject { ["op"] = "sfx", ["id"] = ch.Id, ["off"] = 1 }, ch.Sender);
+                ApplyDispatch(pose, ch.Sender);
+                if (ch.Fx != null) ApplyDispatch((JObject)ch.Fx.DeepClone(), ch.Sender);
                 _onScreen.Actors[ch.Id] = new LvnFrame.Actor
                 {
                     Pose = (JObject)ch.Pose.DeepClone(),
@@ -283,17 +289,20 @@ namespace Lvn.UI
         /// </summary>
         public async Task WaitForActorArtAsync(string id, float timeoutSeconds = 2.5f)
         {
-            if (string.IsNullOrEmpty(id) || !(_renderer is CanvasSceneRenderer csr)) return;
+            if (string.IsNullOrEmpty(id) || !(_renderer is CanvasSceneRenderer)) return;
+            int epoch = _stageEpoch;
+            var ct = _cts?.Token ?? default;
             float until = LvnClock.Now() + Mathf.Max(0.1f, timeoutSeconds);
-            while (LvnClock.Now() < until)
+            while (StageCurrent(epoch) && !ct.IsCancellationRequested && LvnClock.Now() < until)
             {
-                bool pending = !ActorVisibleOrPending(id);
-                var dead = csr.ActorsWithDeadLayers();
-                bool empty = dead != null && dead.Contains(id);
-                if (!pending && !empty) return;      // арт на месте
+                // Targets include empty slots and silhouettes. Only the applied
+                // placement plus live layers confirms that the reveal can start.
+                if (_memory.TryWhere(id, out var shown) && shown.Show
+                    && !shown.Silhouette && ActorArtAlive(id)) return;
                 await Task.Yield();
             }
-            LvnLog.Trace($"[lvn-frame] {id}: арт не приехал за {timeoutSeconds:0.0}с — играем без него");
+            if (StageCurrent(epoch) && !ct.IsCancellationRequested)
+                LvnLog.Warn($"[lvn-frame] {id}: арт не приехал за {timeoutSeconds:0.0}с — играем без него");
         }
 
         /// <summary>

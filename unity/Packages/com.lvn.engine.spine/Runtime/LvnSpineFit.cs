@@ -105,6 +105,7 @@ namespace Lvn.Spine
 
         private void LateUpdate()
         {
+            using var perf = Lvn.LvnPerf.Measure(Lvn.LvnPerf.Part.SpineFit);
             if (_g == null || !_shown) { enabled = false; return; }
             if (_fitted)
             {

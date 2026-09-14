@@ -130,6 +130,7 @@ namespace Lvn
         public struct Change
         {
             public string Id;
+            public LvnSender Sender;
             public JObject Pose;    // чем поставить (null — только скрыть)
             public JObject Fx;      // и каким гримом покрыть
             public bool Show;
@@ -152,6 +153,7 @@ namespace Lvn
                 changes.Add(new Change
                 {
                     Id = kv.Key,
+                    Sender = PoseSender(kv.Key),
                     Pose = w.Visible ? w.Pose : null,
                     Fx = w.Visible ? w.Fx : null,
                     Show = w.Visible,
@@ -165,6 +167,15 @@ namespace Lvn
                 changes.Add(new Change { Id = kv.Key, Show = false });
             }
             return changes;
+        }
+
+        private LvnSender PoseSender(string id)
+        {
+            for (int i = Order.Length - 1; i >= 0; i--)
+                if (_layers.TryGetValue(Order[i], out var layer)
+                    && layer.Actors.TryGetValue(id, out var actor) && actor.Pose != null)
+                    return Order[i];
+            return LvnSender.Story;
         }
     }
 }

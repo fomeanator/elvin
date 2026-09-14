@@ -15,11 +15,10 @@ namespace Lvn.UI.Screens
     /// behind it (the shell's boot splash is suppressed) — the user sees one
     /// bar that only moves forward, then one cross-fade into the app.
     ///
-    /// It is manifest-independent by design, so it carries the ENGINE's
-    /// identity: a steel ELVIN wordmark and the engine version at the bottom.
-    /// A game's own branding takes over on the themed shell screens after it.
+    /// Available before the manifest: the product title comes from the build,
+    /// then the cached catalogue. A quiet ELVIN signature stays at the bottom.
     /// </summary>
-    internal static class BootVeil
+    internal static partial class BootVeil
     {
         private static GameObject _go;
         private static VisualElement _root;
@@ -41,6 +40,7 @@ namespace Lvn.UI.Screens
                 _gen++;
                 _target = 0f;
                 _model.Reset();
+                ResetPresentation();
                 if (_root != null) _root.style.opacity = 1f;
                 Status("");
                 return;
@@ -48,7 +48,6 @@ namespace Lvn.UI.Screens
             _gen++;
             _target = 0f;
             _model.Reset();
-            _splashAt = -1f; _barBack = false;
             // The empty boot scene's camera clears to the DEFAULT SKYBOX — a
             // grey wash for any pixel the UI hasn't covered. Pin it to our own
             // dark so even frame 0's uncovered edges are the right colour.
@@ -64,62 +63,12 @@ namespace Lvn.UI.Screens
 
             (_go, _root) = LvnFloor.Open("LvnBootVeil", LvnFloor.BootVeil);
             _root.style.backgroundColor = LvnDawn.Ground;
-            _root.style.alignItems = Align.Center;
-            _root.style.justifyContent = Justify.Center;
             // A UIDocument root defaults to PickingMode.Ignore — without this
             // the "opaque" veil lets taps fall through to the screens under it.
             _root.pickingMode = PickingMode.Position;
 
-            _pct = new Label("0%");
-            _pct.style.fontSize = LvnTokens.TextBase;
-            _pct.style.color = LvnDawn.Ink;
-            _pct.style.unityFontStyleAndWeight = FontStyle.Bold;
-            _root.Add(_pct);
-
-            // A thin steel progress track — the one indicator of the whole boot.
-            var track = new VisualElement();
-            track.style.width = 300; track.style.height = 3;
-            track.style.marginTop = LvnTokens.Space2;
-            track.style.backgroundColor = LvnDawn.Track;
-            _fill = new VisualElement();
-            _fill.style.height = Length.Percent(100);
-            _fill.style.width = Length.Percent(0);
-            _fill.style.backgroundColor = LvnDawn.Brand;
-            track.Add(_fill);
-            _root.Add(track);
-
-            _status = new Label("");
-            _status.style.fontSize = LvnTokens.TextMicro;
-            _status.style.marginTop = LvnTokens.Space2;
-            _status.style.color = LvnDawn.InkDim;
-            _root.Add(_status);
-
-            // The engine brand: steel ELVIN + dimmed version, pinned to the bottom.
-            var brand = new VisualElement();
-            LvnChrome.BottomStrip(brand, 0f, 46f);
-            brand.style.alignItems = Align.Center;
-            brand.pickingMode = PickingMode.Ignore;
-
-            var word = new Label(Lvn.LvnEngine.Name);
-            word.style.fontSize = LvnTokens.TextBase;
-            word.style.unityFontStyleAndWeight = FontStyle.Bold;
-            word.style.letterSpacing = 9;
-            word.style.color = LvnDawn.Brand;
-            word.style.textShadow = new TextShadow
-            {
-                offset = new Vector2(0f, 2f),
-                blurRadius = 5f,
-                color = LvnDawn.TextShadow,
-            };
-            brand.Add(word);
-
-            var ver = new Label("v" + Lvn.LvnEngine.Version);
-            ver.style.fontSize = LvnTokens.TextMicro;
-            ver.style.marginTop = LvnTokens.Hair;
-            ver.style.letterSpacing = 3;
-            ver.style.color = LvnDawn.InkFaint;
-            brand.Add(ver);
-            _root.Add(brand);
+            BuildLayout();
+            ResetPresentation();
 
             // The glide: the shown percent approaches the milestone/byte target
             // smoothly and NEVER goes backwards — no lurching numbers. Text and
@@ -129,6 +78,9 @@ namespace Lvn.UI.Screens
             _root.schedule.Execute(ts =>
             {
                 if (_pct == null) return;
+                // A stalled network request may report no milestones at all.
+                // The wait indicator still needs to appear on its own timer.
+                RevealIfWaiting();
                 _model.TickToward(CreepTarget(), ts.deltaTime / 1000f);
                 int p = _model.Percent;
                 if (p == lastShown) return;
@@ -161,8 +113,7 @@ namespace Lvn.UI.Screens
             // ЗАТЯНУЛОСЬ — ПОКАЗЫВАЕМ РАБОТУ. Молчаливое имя дольше трёх секунд
             // читается как зависание: на первой установке качается содержимое, и
             // там полоса нужна. Обычный запуск до этого места не доживает.
-            if (_splashAt > 0f && !_barBack
-                && Lvn.LvnClock.Wall() - _splashAt > BarAfterSeconds) RevealBar();
+            RevealIfWaiting();
         }
 
         // Насколько полоса вправе уползти за веху и как быстро. Треть пути до
@@ -208,7 +159,7 @@ namespace Lvn.UI.Screens
 
         /// <summary>Имя ещё держит свой срок — гасить рано.</summary>
         public static bool BrandHolding =>
-            _splashAt > 0f && Lvn.LvnClock.Wall() - _splashAt < BrandHoldSeconds;
+            _splashAt >= 0f && Lvn.LvnClock.Wall() - _splashAt < BrandHoldSeconds;
 
         /// <summary>
         /// ЗАСТАВКА С ПЕРВОГО КАДРА: тёмный экран и имя игры вместо процентов.
@@ -228,21 +179,21 @@ namespace Lvn.UI.Screens
 
         private static void HideBar()
         {
-            if (_pct != null) _pct.style.display = DisplayStyle.None;
-            if (_fill?.parent != null) _fill.parent.style.display = DisplayStyle.None;
-            if (_status != null) _status.style.display = DisplayStyle.None;
+            if (_progress != null) _progress.style.visibility = Visibility.Hidden;
         }
 
         private static void RevealBar()
         {
             if (_barBack) return;
             _barBack = true;
-            if (_pct != null) _pct.style.display = DisplayStyle.Flex;
-            if (_fill?.parent != null) _fill.parent.style.display = DisplayStyle.Flex;
-            if (_status != null) _status.style.display = DisplayStyle.Flex;
+            if (_progress != null) _progress.style.visibility = Visibility.Visible;
         }
 
-
+        private static void RevealIfWaiting()
+        {
+            if (_splashAt >= 0f && !_barBack && _target < 1f
+                && Lvn.LvnClock.Wall() - _splashAt > BarAfterSeconds) RevealBar();
+        }
 
         /// <summary>Брендовый режим первого входа: ни процентов, ни полосы —
         /// только имя продукта, проявляющееся фейдом. Загрузка идёт под вуалью;
@@ -262,25 +213,13 @@ namespace Lvn.UI.Screens
         /// иначе «как выглядит имя» пришлось бы описывать дважды.</summary>
         private static void ShowBrandLabel(string title)
         {
-            if (_brandTitle == null)
+            if (_brandTitle == null) return;
+            if (!_brandShown)
             {
-                _brandTitle = new Label(title ?? "")
-                {
-                    pickingMode = PickingMode.Ignore,
-                };
-                _brandTitle.style.fontSize = LvnTokens.TextLg;
-                _brandTitle.style.unityFontStyleAndWeight = FontStyle.Bold;
-                _brandTitle.style.letterSpacing = 6;
-                _brandTitle.style.unityTextAlign = TextAnchor.MiddleCenter;
-                _brandTitle.style.color = LvnDawn.Ink;
-                _brandTitle.style.opacity = 0f;
-                _brandTitle.style.textShadow = new TextShadow
-                {
-                    offset = new Vector2(0f, 2f),
-                    blurRadius = 6f,
-                    color = LvnDawn.TextShadow,
-                };
-                _root.Insert(0, _brandTitle);
+                _brandShown = true;
+                // Legible on the first painted frame, then a single quiet
+                // reveal. No movement, pulsing or extra minimum boot delay.
+                _identity.style.opacity = LvnPrefs.ReduceMotion ? 1f : 0.35f;
                 // ВЕСЬ ЭТОТ ФАЙЛ считает время реальным, а не часами интерфейса
                 // (Lvn.LvnClock). Бут — единственное место, где кадры рвутся
                 // и подолгу стоят: загрузка манифеста, разбор атласов, первый
@@ -288,15 +227,23 @@ namespace Lvn.UI.Screens
                 // ними висит — а она обязана уйти по часам, а не по кадрам.
                 float t0 = Lvn.LvnClock.Wall();
                 int gen = _gen;
-                _root.schedule.Execute(() =>
+                IVisualElementScheduledItem reveal = null;
+                reveal = _root.schedule.Execute(() =>
                 {
-                    if (_brandTitle == null || _gen != gen) return;
-                    float k = Mathf.Clamp01((Lvn.LvnClock.Wall() - t0) / 1.4f);
-                    _brandTitle.style.opacity = k * k * (3f - 2f * k);
-                }).Every(16).Until(() => _brandTitle == null || _gen != gen
-                    || Lvn.LvnClock.Wall() - t0 > 1.6f);
+                    if (_brandTitle == null || _gen != gen)
+                    {
+                        reveal.Pause();
+                        return;
+                    }
+                    float k = LvnPrefs.ReduceMotion ? 1f
+                        : Mathf.Clamp01((Lvn.LvnClock.Wall() - t0) / 0.65f);
+                    _identity.style.opacity = Mathf.Lerp(0.35f, 1f, k * k * (3f - 2f * k));
+                    // Complete the last paint BEFORE stopping, even if boot
+                    // blocked the main thread past the entire reveal duration.
+                    if (k >= 1f) reveal.Pause();
+                }).Every(16);
             }
-            _brandTitle.text = title ?? "";
+            _brandTitle.text = string.IsNullOrWhiteSpace(title) ? Lvn.LvnEngine.Name : title;
         }
 
         /// <summary>Glide to 100%, hold it one beat, then cross-fade out and
@@ -309,7 +256,7 @@ namespace Lvn.UI.Screens
             int gen = _gen;
             _target = 1f;
             // Заставка без полосы: ждать её «доезда» не на чем — снимаем сразу.
-            if (_splashAt > 0f && !_barBack) _model.SnapToFull();
+            if (_splashAt >= 0f && !_barBack) _model.SnapToFull();
             // Let the bar glide most of the way, then SNAP so the user actually
             // sees "100%" (the asymptote alone never reaches it in time).
             // Страховка по РЕАЛЬНОМУ времени: она на то и страховка, чтобы
@@ -343,6 +290,7 @@ namespace Lvn.UI.Screens
             if (_go != null) Object.Destroy(_go);
             _go = null; _root = null; _pct = null; _status = null; _fill = null;
             _brandTitle = null;
+            _identity = null; _progress = null;
             _target = 0f;
             _model.Reset();
         }

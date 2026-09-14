@@ -151,6 +151,7 @@ namespace Lvn.Services
         /// аналитика, ни диагностика не имеют права мешать игре.</summary>
         public void Persist()
         {
+            using var perf = Lvn.LvnPerf.Measure(Lvn.LvnPerf.Part.OutboxPersist);
             try
             {
                 lock (_queue)

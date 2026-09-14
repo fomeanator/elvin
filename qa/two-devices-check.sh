@@ -109,22 +109,24 @@ public class TwoDevicesTests
     {
         Assert.That(Base, Is.Not.Null.And.Not.Empty, "адрес сервера не передан — мерить нечего");
 
-        var a = FreshDevice("player1");
+        using var a = FreshDevice("player1");
         yield return Await(a.SaveVarsAsync(Title, new JObject { ["золото"] = 100 }, CancellationToken.None));
+        yield return Await(a.FlushAsync());
 
         // Второе устройство делает то, что делает оболочка при открытии новеллы:
         // сперва ЧИТАЕТ (это и запоминает токен версии), потом пишет своё.
-        var b = FreshDevice("player1");
-        var load = b.LoadVarsAsync(Title, CancellationToken.None);
+        using var b = FreshDevice("player1");
+        var load = b.RefreshVarsAsync(Title, CancellationToken.None);
         yield return Await(load);
         Assert.That((int?)load.Result?["золото"], Is.EqualTo(100),
                     "прогресс первого устройства не доехал до второго");
 
         var merged = new JObject { ["золото"] = 100, ["глава"] = 5 };
         yield return Await(b.SaveVarsAsync(Title, merged, CancellationToken.None));
+        yield return Await(b.FlushAsync());
 
-        var c = FreshDevice("player1");
-        var back = c.LoadVarsAsync(Title, CancellationToken.None);
+        using var c = FreshDevice("player1");
+        var back = c.RefreshVarsAsync(Title, CancellationToken.None);
         yield return Await(back);
         Assert.That((int?)back.Result?["золото"], Is.EqualTo(100), "золото первого устройства стёрто");
         Assert.That((int?)back.Result?["глава"], Is.EqualTo(5), "правка второго устройства не сохранилась");
@@ -136,19 +138,21 @@ public class TwoDevicesTests
         Assert.That(Base, Is.Not.Null.And.Not.Empty);
         const string T2 = "race-title";
 
-        var a = new HttpStateStore(Base, "player2");
+        using var a = new HttpStateStore(Base, "player2");
         LocalStateStore.Forget(T2);
         yield return Await(a.SaveVarsAsync(T2, new JObject { ["золото"] = 100 }, CancellationToken.None));
+        yield return Await(a.FlushAsync());
 
         // Устройство, которое НЕ читало: ровно так выглядит синхронизация,
         // выстрелившая раньше загрузки.
         LocalStateStore.Forget(T2);
-        var b = new HttpStateStore(Base, "player2");
+        using var b = new HttpStateStore(Base, "player2");
         yield return Await(b.SaveVarsAsync(T2, new JObject { ["глава"] = 9 }, CancellationToken.None));
+        yield return Await(b.FlushAsync());
 
         LocalStateStore.Forget(T2);
-        var c = new HttpStateStore(Base, "player2");
-        var back = c.LoadVarsAsync(T2, CancellationToken.None);
+        using var c = new HttpStateStore(Base, "player2");
+        var back = c.RefreshVarsAsync(T2, CancellationToken.None);
         yield return Await(back);
 
         bool survived = (int?)back.Result?["золото"] == 100;

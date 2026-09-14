@@ -2,6 +2,7 @@ using System.Threading.Tasks;
 using Lvn.Services;
 using Lvn.UI.Screens;
 using NUnit.Framework;
+using UnityEngine.UIElements;
 
 namespace Lvn.Tests
 {
@@ -38,6 +39,29 @@ namespace Lvn.Tests
         {
             Assert.AreEqual("0", LvnWallet.Display("nope"));
             Assert.AreEqual("0", LvnWallet.Display(null));
+        }
+
+        [Test] public void CompactPillRequestsDueEnergyWithoutShowingATimer()
+        {
+            var clock = LvnClock.Wall;
+            bool offline = LvnNetworkStatus.ForceOffline;
+            int reads = 0;
+            try
+            {
+                LvnNetworkStatus.ForceOffline = false;
+                LvnClock.Wall = () => 50000f;
+                LvnWallet.Apply(@"{""now"":1000,""balances"":{""energy"":2},""inventory"":{},
+                    ""regen"":{""energy"":{""balance"":2,""cap"":5,""next_refill_unix"":1001}}}");
+                LvnClock.Wall = () => 50002f;
+                LvnWallet.SyncGet = _ => { reads++; return Task.FromResult((200L,
+                    @"{""balances"":{""energy"":3},""inventory"":{},""regen"":{""energy"":{""balance"":3,""cap"":5,""next_refill_unix"":2000}}}")); };
+                var pill = new LvnWalletPill("energy", new LvnWalletPill.Look { ShowTimer = false });
+                Assert.AreEqual(1, reads);
+                pill.Refresh();
+                Assert.AreEqual("3/5", pill.Q<Label>().text);
+                Assert.AreEqual(1, pill.Query<Label>().ToList().Count, "the hidden timer stays hidden");
+            }
+            finally { LvnWallet.SyncGet = null; LvnClock.Wall = clock; LvnNetworkStatus.ForceOffline = offline; }
         }
 
         // Отсчёт до восполнения — часть той же плашки, и формат у него один:
