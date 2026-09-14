@@ -213,6 +213,7 @@ namespace Lvn.UI.Screens
 
         private void PaintIdle()
         {
+            DismissCeremony();
             _actions.Clear();
             _reward.style.display = DisplayStyle.None;
             _window.style.display = DisplayStyle.Flex;
