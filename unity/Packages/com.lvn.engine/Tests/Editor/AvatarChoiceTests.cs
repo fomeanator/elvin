@@ -32,6 +32,18 @@ namespace Lvn.Tests
             LvnWallet.SyncPost = null; LvnWallet.ResetLocal();
             LvnBackend.BaseUrl = _url; LvnNetworkStatus.ForceOffline = _offline;
         }
+        /// <summary>Пустой выбор показывает живой портрет («мой облик»), явный
+        /// выбор картинки из набора — нет; «self» — тоже живой.</summary>
+        [Test] public void EmptyChoiceMeansSelf()
+        {
+            LvnAvatars.Picked = "";
+            Assert.IsTrue(LvnAvatars.ShowsSelf, "не выбрал — значит «мой облик»");
+            LvnAvatars.Picked = LvnAvatars.SelfId;
+            Assert.IsTrue(LvnAvatars.ShowsSelf);
+            LvnAvatars.Picked = "free";
+            Assert.IsFalse(LvnAvatars.ShowsSelf, "картинка из набора — явный выбор, портрет уступает");
+        }
+
         [Test] public async Task PurchasedSelectionSurvivesReloadAndDoesNotChargeTwice()
         {
             LvnWallet.Apply(@"{""balances"":{""crystals"":200},""inventory"":{}}");

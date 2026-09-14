@@ -49,7 +49,7 @@ namespace Lvn.UI.Screens
         /// </summary>
         private void SchedulePortrait()
         {
-            if (LvnAvatars.Picked != LvnAvatars.SelfId) return;
+            if (!LvnAvatars.ShowsSelf) return;
             _portraitDue = true;
             if (_portraitWaiting) return;
             _portraitWaiting = true;

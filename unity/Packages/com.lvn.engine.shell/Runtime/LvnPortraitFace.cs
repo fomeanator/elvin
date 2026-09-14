@@ -60,7 +60,7 @@ namespace Lvn.UI.Screens
             if (circle == null) return false;
             circle.Q<VisualElement>(FaceName)?.RemoveFromHierarchy();
             if (manifest == null || assets == null) return false;
-            if (!force && LvnAvatars.Picked != LvnAvatars.SelfId) return false;
+            if (!force && !LvnAvatars.ShowsSelf) return false;
             var face = LvnHeroPortrait.Face(manifest, assets,
                                             EmotionOf?.Invoke(LvnHeroPortrait.HeroOf(manifest)));
             if (face == null) return false;
