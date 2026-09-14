@@ -111,6 +111,15 @@ namespace Lvn.UI.Screens
             _status.style.marginTop = LvnTokens.Space3;
             _status.style.minHeight = LvnTokens.TextBase * 2.9f;
             content.Add(_status);
+            // «ЧТО ВНУТРИ» (TR-109): пул призов с редкостью, ценой и шансом.
+            var contents = LvnRedress.Bind(new Label { name = "gacha-contents" }, () => LvnWords.Of("gacha.contents", "What's inside"));
+            contents.style.color = LvnTokens.Gold;
+            contents.style.fontSize = LvnTokens.TextSm;
+            contents.style.unityTextAlign = TextAnchor.MiddleCenter;
+            contents.style.marginTop = LvnTokens.Space1;
+            contents.AddManipulator(new Clickable(ShowContents));
+            LvnMotion.Tappable(contents);
+            content.Add(contents);
             _actions = new VisualElement { name = "gacha-actions" };
             _actions.style.flexShrink = 0;
             _actions.style.marginTop = LvnTokens.Space3;
@@ -223,16 +232,151 @@ namespace Lvn.UI.Screens
             cell.style.backgroundColor = LvnTokens.Surface;
             LvnChrome.Round(cell, LvnTokens.RadiusSm);
             if (sector.Super) LvnChrome.Frame(cell, LvnTokens.RadiusSm, LvnTokens.Gold, 2f);
-            cell.Add(sector.Super ? LvnIcons.Make(LvnIcon.Gift, LvnStageKit.D(32f), LvnTokens.Gold)
-                : LvnIcons.MakeCurrency(sector.Currency, LvnStageKit.D(32f)));
-            var label = new Label(sector.Super ? LvnWords.Of("gacha.super", "Rare") : LvnPriceTag.Amount(sector.Amount));
-            label.style.color = sector.Super ? LvnTokens.Gold : LvnTokens.Text;
+            if (sector.Super)
+            {
+                // КЛЕТКА-ПРИЗ «КАК НА РУЛЕТКАХ» (TR-109): вместо безликого
+                // «Редкое» — конкретный приз из пула в цвете своей редкости;
+                // клетка, на которую сядет лента, получает выпавший приз.
+                var left = _state?.PrizesLeft;
+                var prize = left != null && left.Count > 0 ? left[_superCellNo++ % left.Count] : null;
+                DressPrizeCell(cell, prize);
+                return cell;
+            }
+            cell.Add(LvnIcons.MakeCurrency(sector.Currency, LvnStageKit.D(32f)));
+            var label = new Label(LvnPriceTag.Amount(sector.Amount));
+            label.style.color = LvnTokens.Text;
             label.style.fontSize = LvnTokens.TextLg;
             label.style.whiteSpace = WhiteSpace.Normal;
             label.style.unityTextAlign = TextAnchor.MiddleCenter;
             label.style.marginTop = LvnTokens.Space1;
             cell.Add(label);
             return cell;
+        }
+
+        private int _superCellNo;
+
+        private VisualElement _contentsSheet;
+
+        /// <summary>Лист с содержимым крутки: призы (цвет редкости, название,
+        /// цена, шанс, «уже есть») и валютные сектора с шансами. Шанс сектора —
+        /// его вес к сумме весов; приз внутри «Редкого» — поровну между
+        /// оставшимися (так делит сервер).</summary>
+        private void ShowContents()
+        {
+            if (_state == null || _contentsSheet != null) return;
+            var sheet = new VisualElement { name = "gacha-contents-sheet" };
+            LvnChrome.Stretch(sheet);
+            sheet.style.backgroundColor = UiColor.WithAlpha(Color.black, 0.92f);
+            sheet.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
+            sheet.RegisterCallback<ClickEvent>(e => e.StopPropagation());
+            LvnAir.Pad(sheet, LvnTokens.Space3, LvnTokens.Space4);
+            var title = LvnRedress.Bind(new Label(), () => LvnWords.Of("gacha.contents", "What's inside"));
+            LvnFonts.Apply(title, LvnFonts.Display);
+            title.style.color = LvnTokens.Gold; title.style.fontSize = LvnTokens.TextXl;
+            title.style.marginBottom = LvnTokens.Space2;
+            sheet.Add(title);
+            var list = LvnScroll.Vertical();
+            list.style.flexGrow = 1;
+            double total = 0; double superW = 0;
+            foreach (var s in _state.Sectors) { total += s.Weight; if (s.Super) superW += s.Weight; }
+            var palette = _manifest?.ui?.wardrobe?.rarity_colors;
+            var left = _state.PrizesLeft ?? new List<LvnGacha.Prize>();
+            double perPrize = total > 0 && left.Count > 0 ? superW / total / left.Count * 100.0 : 0;
+            var prizes = new List<LvnGacha.Prize>();
+            foreach (var p in left) prizes.Add(DescribePrize(p));
+            prizes.Sort((a, b) => LvnRarity.Rank(b.Rarity).CompareTo(LvnRarity.Rank(a.Rarity)));
+            foreach (var p in prizes)
+            {
+                var color = LvnRarity.ColorOf(p.Rarity, palette);
+                var row = ScreenUi.Row(spread: true);
+                LvnAir.PadY(row, LvnTokens.Space1);
+                var dot = new VisualElement(); LvnChrome.Circle(dot, 12f); dot.style.backgroundColor = color; dot.style.marginRight = LvnTokens.Space2; dot.style.flexShrink = 0;
+                var name = new Label((p.Label ?? p.Sku) + (LvnRarity.Rank(p.Rarity) >= 0 ? " · " + LvnRarity.Word(p.Rarity) : ""));
+                name.style.color = color; name.style.fontSize = LvnTokens.TextBase; name.style.whiteSpace = WhiteSpace.Normal; name.style.flexGrow = 1; name.style.flexShrink = 1;
+                var meta = new Label((p.Price > 0 ? LvnPriceTag.Amount(p.Price) + " · " : "") + perPrize.ToString("0.##") + " %"
+                    + (LvnWallet.Has(p.Sku) ? " · " + LvnWords.Of("gacha.owned", "owned") : ""));
+                meta.style.color = LvnTokens.TextDim; meta.style.fontSize = LvnTokens.TextSm; meta.style.flexShrink = 0; meta.style.marginLeft = LvnTokens.Space2;
+                var lead = ScreenUi.Row(); lead.style.flexGrow = 1; lead.style.flexShrink = 1; lead.Add(dot); lead.Add(name);
+                row.Add(lead); row.Add(meta);
+                list.Add(row);
+            }
+            foreach (var s in _state.Sectors)
+            {
+                if (s.Super) continue;
+                var row = ScreenUi.Row(spread: true);
+                LvnAir.PadY(row, LvnTokens.Space1);
+                var lead = ScreenUi.Row(); lead.Add(LvnIcons.MakeCurrency(s.Currency, LvnStageKit.D(18f)));
+                var name = new Label("+" + LvnPriceTag.Amount(s.Amount)); name.style.color = LvnTokens.Text; name.style.marginLeft = LvnTokens.Space1;
+                lead.Add(name);
+                var meta = new Label((total > 0 ? s.Weight / total * 100.0 : 0).ToString("0.#") + " %");
+                meta.style.color = LvnTokens.TextDim; meta.style.fontSize = LvnTokens.TextSm;
+                row.Add(lead); row.Add(meta);
+                list.Add(row);
+            }
+            sheet.Add(list);
+            var close = new Button(() => { sheet.RemoveFromHierarchy(); _contentsSheet = null; }) { text = LvnWords.Of("gacha.close", "Close") };
+            LvnStageKit.PlateButton(close, primary: false);
+            close.style.marginTop = LvnTokens.Space2;
+            sheet.Add(close);
+            Add(sheet);
+            sheet.BringToFront();
+            _contentsSheet = sheet;
+        }
+
+        /// <summary>Одеть клетку призом: фон и рамка цветом редкости, картинка
+        /// приза (приезжает), название и цена, если продаётся.</summary>
+        private void DressPrizeCell(VisualElement cell, LvnGacha.Prize raw)
+        {
+            cell.Clear();
+            var prize = raw != null ? DescribePrize(raw) : null;
+            var palette = _manifest?.ui?.wardrobe?.rarity_colors;
+            var color = prize != null && LvnRarity.Rank(prize.Rarity) >= 0 ? LvnRarity.ColorOf(prize.Rarity, palette) : LvnTokens.Gold;
+            cell.style.backgroundColor = UiColor.WithAlpha(color, 0.22f);
+            LvnChrome.Frame(cell, LvnTokens.RadiusSm, color, 2f);
+            var art = new VisualElement { pickingMode = PickingMode.Ignore };
+            art.style.width = Length.Percent(100f); art.style.flexGrow = 1; art.style.minHeight = LvnStageKit.D(40f);
+            art.style.alignItems = Align.Center; art.style.justifyContent = Justify.Center;
+            LvnPicture.Fit(art, cover: false);
+            art.Add(LvnIcons.Make(LvnIcon.Gift, LvnStageKit.D(28f), color));
+            cell.Add(art);
+            var label = new Label(prize?.Label ?? LvnWords.Of("gacha.super", "Rare"));
+            label.style.color = color;
+            label.style.fontSize = LvnTokens.TextSm;
+            label.style.whiteSpace = WhiteSpace.Normal;
+            label.style.unityTextAlign = TextAnchor.MiddleCenter;
+            label.style.marginTop = LvnTokens.Hair;
+            cell.Add(label);
+            if (prize != null && prize.Price > 0)
+            {
+                var price = new Label(LvnPriceTag.Amount(prize.Price)) { pickingMode = PickingMode.Ignore };
+                price.style.color = LvnTokens.TextDim; price.style.fontSize = LvnTokens.TextMicro;
+                price.style.unityTextAlign = TextAnchor.MiddleCenter;
+                cell.Add(price);
+            }
+            if (prize != null && !string.IsNullOrEmpty(prize.Art) && _assets != null)
+                LvnAsync.Fire(PaintCellArtAsync(art, prize.Art), "GachaCellArt");
+        }
+
+        private async Task PaintCellArtAsync(VisualElement art, string url)
+        {
+            try
+            {
+                var sprite = await _assets.LoadSpriteAsync(url, _artCancel.Token);
+                if (_closed || sprite == null) return;
+                art.Clear();
+                LvnPicture.Paint(art, sprite, slice: 0);
+            }
+            catch (System.OperationCanceledException) { /* экран закрыт — рисовать некуда */ }
+            catch (System.Exception) { /* клетка останется со значком */ }
+        }
+
+        /// <summary>Клетка среднего круга под сектором — та, на которую сядет
+        /// лента; перед прокруткой её одевают выпавшим призом.</summary>
+        private void DressLanding(Lane lane, int sector, LvnGacha.Prize prize)
+        {
+            if (lane?.Strip == null || prize == null) return;
+            int idx = SectorCount + sector;
+            if (idx >= 0 && idx < lane.Strip.childCount) DressPrizeCell(lane.Strip[idx], prize);
         }
 
         private float WindowWidth => float.IsNaN(_window.resolvedStyle.width) || _window.resolvedStyle.width <= 0
@@ -489,7 +633,9 @@ namespace Lvn.UI.Screens
                     for (int i = 0; i < ok.Count; i++)
                     {
                         var lane = i == 0 ? _main : (i - 1 < _extraLanes.Count ? _extraLanes[i - 1] : null);
-                        if (lane != null) rolls.Add(RollLaneAsync(lane, SectorIndex(ok[i].SectorId), 1, FastSpinSeconds));
+                        if (lane == null) continue;
+                        if (ok[i].Super) DressLanding(lane, SectorIndex(ok[i].SectorId), ok[i].Prize);
+                        rolls.Add(RollLaneAsync(lane, SectorIndex(ok[i].SectorId), 1, FastSpinSeconds));
                     }
                     await Task.WhenAll(rolls);
                     if (_closed) return;
@@ -546,6 +692,7 @@ namespace Lvn.UI.Screens
                         : LvnWords.Of("gacha.failed", "The spin did not go through. Try again.");
                     return;
                 }
+                if (spin.Super) DressLanding(_main, SectorIndex(spin.SectorId), spin.Prize);
                 await RollLaneAsync(_main, SectorIndex(spin.SectorId), SpinLaps, SpinSeconds);
                 if (_closed) return;
                 _state.FreeToday = spin.FreeToday;

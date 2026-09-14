@@ -12,7 +12,8 @@ namespace Lvn.UI.Screens
     public sealed partial class GachaScreen
     {
         private VisualElement _reward, _rewardArt;
-        private Label _rewardName;
+        private Label _rewardName, _rewardRarity;
+        private IReadOnlyDictionary<string, string> RarityPalette => _manifest?.ui?.wardrobe?.rarity_colors;
         private int _prizeVersion;
         private readonly CancellationTokenSource _artCancel = new CancellationTokenSource();
 
@@ -39,6 +40,13 @@ namespace Lvn.UI.Screens
             _rewardName.style.alignSelf = Align.Stretch;
             _rewardName.style.marginTop = LvnTokens.Space2;
             _reward.Add(_rewardName);
+            _rewardRarity = new Label { name = "gacha-reward-rarity", pickingMode = PickingMode.Ignore };
+            _rewardRarity.style.fontSize = LvnTokens.TextBase;
+            _rewardRarity.style.unityTextAlign = TextAnchor.MiddleCenter;
+            _rewardRarity.style.alignSelf = Align.Stretch;
+            _rewardRarity.style.marginTop = LvnTokens.Hair;
+            _rewardRarity.style.display = DisplayStyle.None;
+            _reward.Add(_rewardRarity);
             content.Add(_reward);
         }
 
@@ -143,6 +151,18 @@ namespace Lvn.UI.Screens
             _rewardArt.style.opacity = 0f;
             _rewardArt.style.height = LvnStageKit.D(280f);
             _rewardName.style.opacity = 0f;
+            // РЕДКОСТЬ В ЦЕРЕМОНИИ (TR-109): имя в цвете ступени, под ним —
+            // её слово; чем выше ступень, тем громче эйфория (волны искр).
+            var prize = DescribePrize(spin.Prize);
+            var rarityColor = LvnRarity.ColorOf(prize.Rarity, RarityPalette);
+            int rank = LvnRarity.Rank(prize.Rarity);
+            _rewardName.style.color = rank >= 0 ? rarityColor : LvnTokens.Gold;
+            // Цена рядом с именем (Илья): «Мифический · 350 кристаллов».
+            _rewardRarity.text = LvnRarity.Word(prize.Rarity)
+                + (prize.Price > 0 ? " · " + LvnPriceTag.Full(prize.Currency ?? _state?.SpinCurrency, prize.Price) : "");
+            _rewardRarity.style.color = rarityColor;
+            _rewardRarity.style.opacity = 0f;
+            _rewardRarity.style.display = rank >= 0 ? DisplayStyle.Flex : DisplayStyle.None;
             var take = TakeButton(spin);
             take.RemoveFromHierarchy();
             take.style.marginTop = LvnTokens.Space3;
@@ -155,7 +175,7 @@ namespace Lvn.UI.Screens
             // ЗОЛОТЫЕ ИСКРЫ (Илья: «с шейдером, который золотые искры
             // разбрасывает»): шейдер на элемент интерфейса не навесить — рой
             // частиц разлетается от приза двумя волнами, пока он проявляется.
-            if (!reduce) LvnAsync.Fire(SparklesAsync(veil, version), "GachaSparkles");
+            if (!reduce) LvnAsync.Fire(SparklesAsync(veil, version, rank >= 5 ? 4 : rank == 4 ? 3 : rank == 3 ? 2 : 1, rarityColor), "GachaSparkles");
             await FadeIn(_rewardArt, 1700, reduce);          // награда проявляется 1,7 с
             if (_closed || version != _prizeVersion) return;
             await Task.Delay(2000);                           // тишина: только приз на чёрном
@@ -163,16 +183,17 @@ namespace Lvn.UI.Screens
             take.SetEnabled(true);
             ready = true;
             LvnLog.Info("[lvn-gacha] церемония: название и «Забрать» показаны");
-            await Task.WhenAll(FadeIn(_rewardName, 400, reduce), FadeIn(take, 400, reduce));
+            await Task.WhenAll(FadeIn(_rewardName, 400, reduce), FadeIn(_rewardRarity, 400, reduce), FadeIn(take, 400, reduce));
         }
 
         /// <summary>Две волны золотых искр из центра экрана: каждая частица летит
         /// по своему лучу, гаснет и исчезает. Только частицы интерфейса, без
         /// шейдеров — работает на любом телефоне.</summary>
-        private async Task SparklesAsync(VisualElement host, int version)
+        private async Task SparklesAsync(VisualElement host, int version, int waves = 2, Color? tint = null)
         {
             var rnd = new System.Random();
-            for (int wave = 0; wave < 2 && !_closed && version == _prizeVersion; wave++)
+            var gold = tint ?? LvnTokens.Gold;
+            for (int wave = 0; wave < waves && !_closed && version == _prizeVersion; wave++)
             {
                 var burst = new List<(VisualElement dot, float ang, float dist, float size)>();
                 for (int i = 0; i < 28; i++)
@@ -183,7 +204,7 @@ namespace Lvn.UI.Screens
                     dot.style.left = Length.Percent(50f); dot.style.top = Length.Percent(45f);
                     dot.style.width = size; dot.style.height = size;
                     LvnChrome.Circle(dot, size);
-                    dot.style.backgroundColor = i % 3 == 0 ? Color.white : LvnTokens.Gold;
+                    dot.style.backgroundColor = i % 3 == 0 ? Color.white : gold;
                     dot.style.opacity = 0f;
                     host.Add(dot);
                     burst.Add((dot, (float)(rnd.NextDouble() * Mathf.PI * 2), LvnStageKit.D(120f + (float)rnd.NextDouble() * 220f), size));
@@ -217,6 +238,7 @@ namespace Lvn.UI.Screens
             _reward.style.marginTop = LvnTokens.Space3;
             _rewardArt.style.opacity = 1f;
             _rewardName.style.opacity = 1f;
+            _rewardRarity.style.display = DisplayStyle.None;
             _content.Add(_reward);
             _blackout.RemoveFromHierarchy();
             _blackout = null;
@@ -237,6 +259,7 @@ namespace Lvn.UI.Screens
                     {
                         result.Label = LvnWords.Name("skin", option.id, option.title ?? result.Label);
                         if (string.IsNullOrEmpty(result.Art)) result.Art = string.IsNullOrEmpty(option.preview) ? option.url : option.preview;
+                        result.Rarity = option.rarity; result.Price = option.price; result.Currency = option.currency;
                         break;
                     }
             }
@@ -247,6 +270,7 @@ namespace Lvn.UI.Screens
                     {
                         result.Label = LvnWords.Name("skin", item.value, item.name);
                         if (string.IsNullOrEmpty(result.Art)) result.Art = item.icon;
+                        result.Rarity = item.rarity; result.Price = item.price; result.Currency = item.currency;
                         break;
                     }
             return result;
