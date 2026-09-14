@@ -127,10 +127,10 @@ namespace Lvn.UI.Screens
             // нажатию открывает набор. Пункта нет, пока новелла не назвала ни
             // одной аватарки — обещать выбор без набора не за чем.
             p.AvatarUrl = LvnAvatars.Url(_manifest);
-            // Принять чужое прохождение (TR-17): код лежит в буфере обмена,
-            // разворачивает его хозяин приложения.
-            p.OnTakeShare = code => LvnAsync.Fire(TakeShareAsync(code), "TakeShare");
-            p.OnGiveShare = () => LvnAsync.Fire(ShareLatestAsync(), "GiveShare");
+            // ПЕРЕДАЧИ ПРОХОЖДЕНИЯ В ПРОФИЛЕ НЕТ (TR-82, Арам 14.09: «лишние два
+            // пункта — вырезать»). Тракт TR-17 жив: чужой код принимает диплинк
+            // (NovelApp.cs), а экран без обработчиков пункты не строит — вернуть
+            // их можно одной строкой здесь.
             p.OnPickAvatar = LvnAvatars.Offered(_manifest).Count > 0
                 ? () => LvnAsync.Fire(OpenAvatarPickAsync(), "AvatarPick")
                 : (System.Action)null;
