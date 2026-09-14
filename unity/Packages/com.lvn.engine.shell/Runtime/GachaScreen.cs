@@ -79,10 +79,17 @@ namespace Lvn.UI.Screens
             _status.style.unityTextAlign = TextAnchor.MiddleCenter;
             _status.style.whiteSpace = WhiteSpace.Normal;
             _status.style.marginTop = LvnTokens.Space3;
+            _status.style.minHeight = LvnTokens.TextBase * 2.9f;
             content.Add(_status);
             _actions = new VisualElement { name = "gacha-actions" };
             _actions.style.flexShrink = 0;
             _actions.style.marginTop = LvnTokens.Space3;
+            // РЯД КНОПОК ДЕРЖИТ ВЫСОТУ ВСЕГДА (TR-103, Илья 15.09): лента в окне
+            // отцентрована по свободному месту, и пустой ряд (во время крутки и
+            // показа приза) отдавал ей своё место — лента прыгала вниз и
+            // обратно. Пусто — место остаётся; строка статуса тоже держит две
+            // строки, чтобы длинная подпись не сдвигала ленту.
+            _actions.style.minHeight = LvnStageKit.D(52f);
             _sheet.Add(_actions);
             RegisterCallback<DetachFromPanelEvent>(_ => StopPresentation());
         }
