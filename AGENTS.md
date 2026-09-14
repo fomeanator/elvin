@@ -25,6 +25,12 @@ To build a game (not the engine), start at [`howto/AGENTS.md`](howto/AGENTS.md).
   (see `docs/release-pipeline.md`). Never build from the working tree; never
   clone the build project. Dev builds carry the `.dev` package suffix and the
   commit hash in Settings → Version.
+- **Every piece of work starts as a tracker issue** and reports progress there
+  (what changed, which build, how to verify) — teammates must be able to see
+  what is happening without reading the code or a chat log.
+- Put a `Проверить: …` line (how a tester checks it) into the body of every
+  fix/feature commit: the release pipeline collects these lines into the
+  build's messenger snippet.
 
 ## Build & test
 
