@@ -69,7 +69,7 @@ say "Go-стражи…"
 # Стенд утечек — ворота ПЕРЕД публикацией: dev сверяется с main (что уедет
 # новым), prod — с прошлым prod-выпуском (всё в main уже опубликовано, и
 # старые коммиты с давно известным содержимым тут не судятся).
-PREV_CH=$(awk -v ch="$CH" '$2==ch {sha=$3} END{print sha}' "$HOME/ominis/builds/releases.log" 2>/dev/null)
+PREV_CH=$(awk -v ch="$CH" '$3==ch {sha=$4} END{print sha}' "$HOME/ominis/builds/releases.log" 2>/dev/null)
 if [ "$CH" = dev ]; then RANGE="origin/main..HEAD"
 elif [ -n "$PREV_CH" ] && git -C "$TREE" cat-file -e "$PREV_CH^{commit}" 2>/dev/null; then RANGE="$PREV_CH..HEAD"
 else RANGE=""; fi
@@ -120,7 +120,7 @@ $SSH "$RELEASE_SERVER" "O=\$(stat -c %U:%G $RELEASE_DL/$RELEASE_LATEST_PROD); in
 # и режет, список изменений туда не помещается (он идёт картинкой). Путь
 # собирается из строк «Проверить: …» в телах коммитов с прошлого выпуска
 # (правило для всех, кто коммитит в dev), либо из файла заметок.
-PREV=$(awk -v ch="$CH" '$2==ch {sha=$3} END{print sha}' "$HOME/ominis/builds/releases.log" 2>/dev/null)
+PREV=$(awk -v ch="$CH" '$3==ch {sha=$4} END{print sha}' "$HOME/ominis/builds/releases.log" 2>/dev/null)
 NOTES="${RELEASE_NOTES:-}"
 if [ -n "$NOTES" ] && [ -f "$NOTES" ]; then
   LINES=$(grep -v '^\s*$' "$NOTES" | grep -v '^Проверить:')
