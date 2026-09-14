@@ -567,8 +567,10 @@ namespace Lvn.UI.Screens
                     _shell.TopBar.OnGameAuto = () => Stage?.ToggleAuto();
                     _shell.TopBar.OnGameWardrobe = () =>
                     { if (Stage != null) LvnAsync.Fire(OpenWardrobeFromMenuAsync(Stage), "OpenWardrobeFromMenu"); };
-                    _shell.TopBar.OnGameStore = () =>
-                        LvnAsync.Fire(_shell.OpenPackShopAsync(), "GameBarStore");
+                    // Настройки вместо магазина в игровом ряду (TR-96): магазин
+                    // открывается тапом по валюте, настройкам двери из главы не было.
+                    _shell.TopBar.OnGameSettings = () =>
+                        LvnAsync.Fire(_shell.OpenSettingsAsync(), "GameBarSettings");
                 }
 
                 // Центр загрузок: очередь по главам + данные для попапа
