@@ -620,6 +620,18 @@
   "default": "As authored"
  },
  {
+  "key": "gacha.add_lane",
+  "default": "Add a lane"
+ },
+ {
+  "key": "gacha.auto",
+  "default": "Auto"
+ },
+ {
+  "key": "gacha.auto_stop",
+  "default": "Stop"
+ },
+ {
   "key": "gacha.come_back",
   "default": "Come back tomorrow for a free spin"
  },
