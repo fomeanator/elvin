@@ -90,6 +90,17 @@ namespace Lvn.UI.Screens
             // обратно. Пусто — место остаётся; строка статуса тоже держит две
             // строки, чтобы длинная подпись не сдвигала ленту.
             _actions.style.minHeight = LvnStageKit.D(52f);
+            // Поля кнопки высоту ряда не считают — «на 3–4 пикселя всё равно
+            // едет» (Илья). Ряд калибруется сам: с кнопкой запоминает свою
+            // фактическую высоту и держит её пустым.
+            _actions.RegisterCallback<GeometryChangedEvent>(_ =>
+            {
+                if (_actions.childCount == 0) return;
+                float h = _actions.resolvedStyle.height;
+                if (float.IsNaN(h) || h <= _actionsHeight + 0.5f) return;
+                _actionsHeight = h;
+                _actions.style.minHeight = h;
+            });
             _sheet.Add(_actions);
             RegisterCallback<DetachFromPanelEvent>(_ => StopPresentation());
         }
@@ -217,6 +228,8 @@ namespace Lvn.UI.Screens
             _actions.Add(button);
             return button;
         }
+
+        private float _actionsHeight;
 
         private void PaintIdle()
         {
