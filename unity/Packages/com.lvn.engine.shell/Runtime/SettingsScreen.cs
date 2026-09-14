@@ -205,8 +205,7 @@ namespace Lvn.UI.Screens
         {
             var head = ScreenUi.Row(spread: true);
             head.name = "settings-sec-" + id;
-            LvnAir.PadY(head, LvnTokens.Space2);
-            LvnAir.PadX(head, LvnTokens.Space2);
+            LvnAir.Pad(head, LvnTokens.Space2, LvnTokens.Space2);
             LvnAir.MarginY(head, _sections++ == 0 ? 8 : LvnTokens.Space2, LvnTokens.Space1);
             head.style.backgroundColor = LvnTokens.Faint;
             LvnChrome.Round(head, LvnTokens.RadiusSm);
