@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Lvn.Content;
@@ -65,6 +66,7 @@ namespace Lvn.UI.Screens
             // ниже появляются название и «Забрать». Валюта — как раньше.
             if (spin.Super)
             {
+                LvnLog.Info($"[lvn-gacha] редкое: {prize.Sku} «{prize.Label}», арт {(string.IsNullOrEmpty(prize.Art) ? "—" : prize.Art)}");
                 if (!string.IsNullOrEmpty(prize.Art)) LvnAsync.Fire(LoadPrizeArtAsync(prize, version), "GachaPrizeArt");
                 await CelebrateAsync(spin, version);
                 return;
@@ -89,14 +91,18 @@ namespace Lvn.UI.Screens
         }
 
         private Button TakeButton(LvnGacha.Spin spin)
-            => ActionButton("gacha-take", () => LvnWords.Of("gacha.take", "Take the prize"), () =>
-            {
-                // The prize is already owned. This tap only dismisses its reveal.
-                if (!spin.WalletSynced) LvnAsync.Fire(LvnWallet.RefreshAsync(), "GachaWalletRetry");
-                _prizeVersion++;
-                DismissCeremony();
-                PaintIdle();   // лента остаётся где стояла (TR-108)
-            });
+            => ActionButton("gacha-take", () => LvnWords.Of("gacha.take", "Take the prize"), () => TakeNow(spin));
+
+        /// <summary>Приз уже выдан сервером — этот тап только закрывает показ.</summary>
+        private void TakeNow(LvnGacha.Spin spin)
+        {
+            LvnLog.Info("[lvn-gacha] «Забрать» — закрываю показ приза");
+            if (!spin.WalletSynced) LvnAsync.Fire(LvnWallet.RefreshAsync(), "GachaWalletRetry");
+            _prizeVersion++;
+            DismissCeremony();
+            PaintIdle();   // лента остаётся где стояла (TR-108)
+            _taken?.TrySetResult(true);
+        }
 
         private VisualElement _blackout;
 
@@ -112,9 +118,17 @@ namespace Lvn.UI.Screens
             veil.style.alignItems = Align.Center;
             veil.style.justifyContent = Justify.Center;
             veil.style.opacity = 0f;
+            // Чёрный экран глушит ВСЁ под собой (касания и клики), и после
+            // появления кнопки тап по любому месту экрана — тоже «Забрать»:
+            // кнопка не имеет права запереть игрока (Илья: «забрать не работает»).
+            bool ready = false;
             veil.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
+            veil.RegisterCallback<PointerUpEvent>(e => e.StopPropagation());
+            veil.RegisterCallback<ClickEvent>(e => { e.StopPropagation(); if (ready) TakeNow(spin); });
             Add(veil);
+            veil.BringToFront();
             _blackout = veil;
+            LvnLog.Info("[lvn-gacha] церемония: чёрный экран");
             // Награда переезжает в центр чёрного экрана; кнопка — под ней, а не в нижнем ряду.
             var column = new VisualElement { name = "gacha-ceremony" };
             column.style.alignItems = Align.Center;
@@ -127,6 +141,7 @@ namespace Lvn.UI.Screens
             _reward.style.scale = new Scale(Vector2.one);
             _reward.style.marginTop = 0;
             _rewardArt.style.opacity = 0f;
+            _rewardArt.style.height = LvnStageKit.D(280f);
             _rewardName.style.opacity = 0f;
             var take = TakeButton(spin);
             take.RemoveFromHierarchy();
@@ -137,13 +152,55 @@ namespace Lvn.UI.Screens
             bool reduce = LvnPrefs.ReduceMotion;
             await FadeIn(veil, 350, reduce);
             if (_closed || version != _prizeVersion) return;
+            // ЗОЛОТЫЕ ИСКРЫ (Илья: «с шейдером, который золотые искры
+            // разбрасывает»): шейдер на элемент интерфейса не навесить — рой
+            // частиц разлетается от приза двумя волнами, пока он проявляется.
+            if (!reduce) LvnAsync.Fire(SparklesAsync(veil, version), "GachaSparkles");
             await FadeIn(_rewardArt, 1700, reduce);          // награда проявляется 1,7 с
             if (_closed || version != _prizeVersion) return;
             await Task.Delay(2000);                           // тишина: только приз на чёрном
             if (_closed || version != _prizeVersion) return;
-            await Task.WhenAll(FadeIn(_rewardName, 400, reduce), FadeIn(take, 400, reduce));
-            if (_closed || version != _prizeVersion) return;
             take.SetEnabled(true);
+            ready = true;
+            LvnLog.Info("[lvn-gacha] церемония: название и «Забрать» показаны");
+            await Task.WhenAll(FadeIn(_rewardName, 400, reduce), FadeIn(take, 400, reduce));
+        }
+
+        /// <summary>Две волны золотых искр из центра экрана: каждая частица летит
+        /// по своему лучу, гаснет и исчезает. Только частицы интерфейса, без
+        /// шейдеров — работает на любом телефоне.</summary>
+        private async Task SparklesAsync(VisualElement host, int version)
+        {
+            var rnd = new System.Random();
+            for (int wave = 0; wave < 2 && !_closed && version == _prizeVersion; wave++)
+            {
+                var burst = new List<(VisualElement dot, float ang, float dist, float size)>();
+                for (int i = 0; i < 28; i++)
+                {
+                    float size = LvnStageKit.D(3f + (float)rnd.NextDouble() * 5f);
+                    var dot = new VisualElement { pickingMode = PickingMode.Ignore };
+                    dot.style.position = Position.Absolute;
+                    dot.style.left = Length.Percent(50f); dot.style.top = Length.Percent(45f);
+                    dot.style.width = size; dot.style.height = size;
+                    LvnChrome.Circle(dot, size);
+                    dot.style.backgroundColor = i % 3 == 0 ? Color.white : LvnTokens.Gold;
+                    dot.style.opacity = 0f;
+                    host.Add(dot);
+                    burst.Add((dot, (float)(rnd.NextDouble() * Mathf.PI * 2), LvnStageKit.D(120f + (float)rnd.NextDouble() * 220f), size));
+                }
+                await LvnMotion.PlayAsync(host, 1100, (el, p) =>
+                {
+                    float k = LvnMotion.Settle(p);
+                    foreach (var b in burst)
+                    {
+                        float x = Mathf.Cos(b.ang) * b.dist * k, y = Mathf.Sin(b.ang) * b.dist * k - LvnStageKit.D(40f) * p;
+                        b.dot.style.translate = new Translate(x, y);
+                        b.dot.style.opacity = p < 0.15f ? p / 0.15f : 1f - (p - 0.15f) / 0.85f;
+                    }
+                });
+                foreach (var b in burst) b.dot.RemoveFromHierarchy();
+                if (wave == 0) await Task.Delay(250);
+            }
         }
 
         private static Task FadeIn(VisualElement el, int ms, bool instant)
@@ -201,9 +258,14 @@ namespace Lvn.UI.Screens
             try
             {
                 var sprite = await _assets.LoadSpriteAsync(prize.Art, _artCancel.Token);
-                if (_closed || version != _prizeVersion || sprite == null) return;
+                if (_closed || version != _prizeVersion || sprite == null)
+                {
+                    LvnLog.Warn($"[lvn-gacha] арт приза не лёг: closed={_closed} version={version}/{_prizeVersion} sprite={(sprite == null ? "null" : "ok")}");
+                    return;
+                }
                 _rewardArt.Clear();
                 LvnPicture.Paint(_rewardArt, sprite, slice: 0);
+                LvnLog.Info($"[lvn-gacha] арт приза показан: {prize.Art} ({sprite.rect.width:0}×{sprite.rect.height:0})");
             }
             catch (System.OperationCanceledException) { /* the reward screen was closed */ }
             catch (System.Exception ex) { LvnLog.Warn("[lvn-gacha] prize art unavailable: " + ex.Message); }
