@@ -203,6 +203,16 @@ namespace Lvn.UI.Screens
             Action<string> onLookChanged = _ => SchedulePortrait();
             _leash.Hold(() => Lvn.UI.LvnWardrobe.Changed += onLookChanged,
                         () => Lvn.UI.LvnWardrobe.Changed -= onLookChanged);
+            // ВЫБРАННОЕ ЛИЦО (TR-82): кукла витрины и кружки перечитывают его,
+            // как наряд. В главе не трогаем — там лицом командует сценарий.
+            Action<string> onFaceChosen = id =>
+            {
+                if (!InChapter && Stage != null) Stage.RefreshActor(id);
+                SchedulePortrait();
+            };
+            _leash.Hold(() => Lvn.UI.LvnFace.Changed += onFaceChosen,
+                        () => Lvn.UI.LvnFace.Changed -= onFaceChosen);
+            Lvn.UI.LvnFace.InStory = InChapter;
 
             WireMenuScene();
             var menuTrack = ResolveMenuTrackUrl(manifest);
@@ -358,9 +368,12 @@ namespace Lvn.UI.Screens
             // такой же вызов — оба идемпотентны, поэтому дубль не ломался,
             // но «кто объявляет режим» имело два ответа, а это ровно то,
             // от чего роль Режиссёра и заводилась.
-            _shell.OnChapterSessionStart += () => { _menuMusic?.Pause(); HideMenuSceneActor(); };
+            // ИСТОРИЯ ИДЁТ — ЛИЦОМ КОМАНДУЕТ СЦЕНАРИЙ: на время главы ни
+            // выбранное лицо, ни реакции витрины на актёров не ложатся.
+            _shell.OnChapterSessionStart += () => { Lvn.UI.LvnFace.InStory = true; _menuMusic?.Pause(); HideMenuSceneActor(); };
             _shell.OnChapterSessionEnd += () =>
             {
+                Lvn.UI.LvnFace.InStory = false;
                 if (_menuMusic != null && _menuMusic.clip != null) _menuMusic.UnPause();
             };
         }
