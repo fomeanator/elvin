@@ -88,6 +88,29 @@ namespace Lvn.UI.Screens
             return items;
         }
 
+        /// <summary>
+        /// ПЛАН ЛЕСТНИЦЫ — всё, что она привозит на текущей ступени качества:
+        /// каталог с главами (<see cref="CollectContentItems"/>) плюс героиня
+        /// целиком и базовый облик каста. Их лестница качает отдельными
+        /// ступенями (<c>WarmLibraryAsync</c>), а общий обход каталога не
+        /// знает: гардероб разворачивается по осям. Список один на лестницу и
+        /// уборку диска: разошлись бы — уборка стирала бы то, что лестница
+        /// везёт следующим запуском снова.
+        /// </summary>
+        private IEnumerable<(string url, string kind, long size)> LadderPlan()
+        {
+            if (_manifest == null) yield break;
+            var seen = new HashSet<string>();
+            foreach (var item in CollectContentItems())
+                if (seen.Add(item.url)) yield return item;
+            foreach (var part in LvnParts.OfHero(_manifest).Concat(LvnParts.OfCast(_manifest)))
+            {
+                if (string.IsNullOrEmpty(part.Url)) continue;
+                var eff = DownloadPolicy.Effective(part.Kind, part.Url);
+                if (seen.Add(eff)) yield return (eff, part.Kind, part.Size);
+            }
+        }
+
         private Task<(long missingBytes, int missingCount, long usedBytes)> StorageInfoAsync()
         {
             // Locale/settings are Unity state; capture on the main thread.
@@ -345,9 +368,25 @@ namespace Lvn.UI.Screens
             }
             foreach (var u in MenuArtUrls()) { Add(live, u); Add(prot, u); }
             foreach (var part in LvnParts.OfShellSound(m)) Add(live, part.Url);
+            // ЛЕСТНИЦА И УБОРКА СМОТРЯТ В ОДИН СПИСОК. Ступени «героиня
+            // целиком» и «другие герои» лестницы (NovelApp.Chapter.cs) здесь не
+            // значились: весь гардероб героини для уборки был мёртвым, стирался
+            // в конце каждой главы и ехал заново при каждом запуске. А квота
+            // стирала «давнее» из живого — то, что лестница только что
+            // привезла. Итог на телефоне Ильи 13–14.09: 499 МБ повторных
+            // закачек за день, один файл трижды, и минута лагов на всех
+            // экранах после каждого запуска. План лестницы неприкосновенен.
+            foreach (var part in LvnParts.OfHero(m).Concat(LvnParts.OfCast(m))) Add(live, part.Url);
+            long planned = 0; int plannedFiles = 0;
+            foreach (var (url, _, size) in LadderPlan())
+            {
+                loader.AddPlannedKeysFor(url, live);
+                loader.AddPlannedKeysFor(url, prot);
+                planned += size; plannedFiles++;
+            }
             var (removed, freed) = await loader.SweepAssetCacheAsync(live, prot, DiskCacheQuotaBytes);
             if (removed > 0)
-                LvnLog.Trace($"[lvn-content] уборка диска: {removed} файлов, {freed >> 20} МБ (мёртвые версии + давнее над квотой)");
+                LvnLog.Trace($"[lvn-content] уборка диска: {removed} файлов, {freed >> 20} МБ (мёртвые версии + давнее над квотой; план лестницы {plannedFiles} файлов ≈{planned >> 20} МБ не трогаем)");
         }
 
         // Every image url the MENU surfaces reference (covers, chapter loading

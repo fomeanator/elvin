@@ -212,6 +212,26 @@ namespace Lvn.Tests
         }
 
         [Test]
+        public void AddPlannedKeysFor_ExactUrlAndKtx2Twin_NoOtherTiers()
+        {
+            // Уборка защищает ровно то, что лестница привезла: адрес со ступенью
+            // и его ktx2-двойник. Другие ступени — не план, их квота вправе убрать.
+            var dir = Path.Combine(Path.GetTempPath(), "lvn-plan-" + System.Guid.NewGuid().ToString("N"));
+            try
+            {
+                using var loader = new ContentLoader("https://example.test/", dir);
+                var keys = new System.Collections.Generic.HashSet<string>();
+                const string url = "https://example.test/content/art/Hero@2k.png";
+                loader.AddPlannedKeysFor(url, keys);
+                CollectionAssert.Contains(keys, ContentLoader.HashKey(url, null));
+                CollectionAssert.Contains(keys, ContentLoader.HashKey("https://example.test/content/art/Hero@2k.ktx2", null));
+                Assert.AreEqual(2, keys.Count, "план — только адрес и его код, без разворота по ступеням");
+                CollectionAssert.DoesNotContain(keys, ContentLoader.HashKey("https://example.test/content/art/Hero@1k.png", null));
+            }
+            finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+        }
+
+        [Test]
         public void PickEvictions_UnderBudgetEvictsNothing()
         {
             const long MB = 1 << 20;
