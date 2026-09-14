@@ -95,8 +95,7 @@ namespace Lvn.UI.Screens
                 if (!spin.WalletSynced) LvnAsync.Fire(LvnWallet.RefreshAsync(), "GachaWalletRetry");
                 _prizeVersion++;
                 DismissCeremony();
-                BuildStrip();
-                PaintIdle();
+                PaintIdle();   // лента остаётся где стояла (TR-108)
             });
 
         private VisualElement _blackout;

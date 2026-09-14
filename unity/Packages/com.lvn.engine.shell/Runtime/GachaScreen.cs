@@ -40,11 +40,17 @@ namespace Lvn.UI.Screens
         private sealed class Lane
         {
             public VisualElement Window, Strip;
-            public readonly List<LvnGacha.Sector> Cells = new List<LvnGacha.Sector>();
-            public int Landing = -1;
+            public double Pos;   // позиция барабана в ячейках, только растёт
         }
         private readonly List<Lane> _extraLanes = new List<Lane>();
-        private int _landing = -1;
+        /// <summary>БЕСКОНЕЧНЫЙ БАРАБАН (TR-108, Илья 15.09): позиция ленты —
+        /// непрерывное число ячеек, только растёт; рисуется по модулю круга
+        /// секторов, в окне три круга ячеек. Лента не пересобирается ни при
+        /// открытии, ни после приза — каждая крутка едет дальше вперёд и
+        /// останавливается на нужном секторе. Остановка и есть открытие.</summary>
+        private readonly Lane _main = new Lane();
+        private bool _sectorsDirty;
+        private const int RenderLaps = 3;
         private const int Visible = 4;
         private const float SpinSeconds = 7f;
         private const int SpinLaps = 6;
@@ -84,6 +90,7 @@ namespace Lvn.UI.Screens
             _strip.style.left = 0; _strip.style.top = 0; _strip.style.bottom = 0;
             _strip.style.flexDirection = FlexDirection.Row;
             _window.Add(_strip);
+            _main.Strip = _strip;
             var needle = new VisualElement { pickingMode = PickingMode.Ignore };
             needle.style.position = Position.Absolute;
             needle.style.top = 0; needle.style.bottom = 0;
@@ -191,16 +198,17 @@ namespace Lvn.UI.Screens
 
         private void BuildStrip()
         {
-            _strip.Clear(); _cells.Clear(); _landing = -1;
-            _strip.style.left = 0;
+            _strip.Clear(); _cells.Clear();
             var sectors = _state?.Sectors;
             if (sectors == null || sectors.Count == 0) return;
-            for (int i = 0; i < sectors.Count * (SpinLaps + 2); i++)
+            for (int i = 0; i < sectors.Count * RenderLaps; i++)
             {
                 var sector = sectors[i % sectors.Count];
                 _cells.Add(sector);
                 _strip.Add(Cell(sector));
             }
+            _sectorsDirty = false;
+            Render(_main);
         }
 
         private VisualElement Cell(LvnGacha.Sector sector)
@@ -229,14 +237,28 @@ namespace Lvn.UI.Screens
         private float WindowWidth => float.IsNaN(_window.resolvedStyle.width) || _window.resolvedStyle.width <= 0
             ? 640f : _window.resolvedStyle.width;
         private float CellWidth => Mathf.Max(1f, (WindowWidth - LvnTokens.Space1 * Visible) / Visible);
-        private float LandingOffset => LandingOffsetFor(_landing);
-        private float LandingOffsetFor(int landing) => landing * (CellWidth + LvnTokens.Space1) - WindowWidth * 0.5f + CellWidth * 0.5f;
+        private int SectorCount => Mathf.Max(1, _state?.Sectors?.Count ?? 1);
+
+        /// <summary>Положить ленту по позиции барабана: под стрелкой — ячейка
+        /// среднего круга с номером (позиция mod N).</summary>
+        private void Render(Lane lane)
+        {
+            if (lane?.Strip == null) return;
+            int n = SectorCount;
+            float step = CellWidth + LvnTokens.Space1;
+            double o = ((lane.Pos % n) + n) % n * step;
+            lane.Strip.style.left = (float)(-(o + n * step) + WindowWidth * 0.5f - CellWidth * 0.5f);
+        }
+
         private void LayoutStrip()
         {
             foreach (var cell in _strip.Children()) cell.style.width = CellWidth;
-            if (!_spinning && _landing >= 0) _strip.style.left = -LandingOffset;
+            Render(_main);
             foreach (var lane in _extraLanes)
+            {
                 foreach (var cell in lane.Strip.Children()) cell.style.width = CellWidth;
+                Render(lane);
+            }
         }
 
         private Button ActionButton(string name, Func<string> caption, Action action)
@@ -260,6 +282,7 @@ namespace Lvn.UI.Screens
         {
             DismissCeremony();
             RemoveLanes();
+            if (_sectorsDirty) BuildStrip();   // секторы изменились (кончились редкие) — только тогда
             _actions.Clear();
             _reward.style.display = DisplayStyle.None;
             _window.style.display = DisplayStyle.Flex;
@@ -387,15 +410,14 @@ namespace Lvn.UI.Screens
             lane.Window.Add(needle);
             var sectors = _state?.Sectors;
             if (sectors != null && sectors.Count > 0)
-                for (int i = 0; i < sectors.Count * (SpinLaps + 2); i++)
-                {
-                    var sector = sectors[i % sectors.Count];
-                    lane.Cells.Add(sector);
-                    lane.Strip.Add(Cell(sector));
-                }
+                for (int i = 0; i < sectors.Count * RenderLaps; i++)
+                    lane.Strip.Add(Cell(sectors[i % sectors.Count]));
+            lane.Pos = _main.Pos;
             var host = _content.contentContainer;
             host.Insert(host.IndexOf(_window) + 1 + _extraLanes.Count, lane.Window);
             _extraLanes.Add(lane);
+            foreach (var cell in lane.Strip.Children()) cell.style.width = CellWidth;
+            Render(lane);
         }
 
         private void RemoveLanes()
@@ -444,18 +466,13 @@ namespace Lvn.UI.Screens
                     _state.FreeToday = last.FreeToday;
                     _state.PrizesLeft = last.PrizesLeft;
                     _state.Spins += ok.Count;
-                    if (last.PrizesLeft.Count == 0) _state.Sectors.RemoveAll(s => s.Super);
+                    if (last.PrizesLeft.Count == 0 && _state.Sectors.RemoveAll(s => s.Super) > 0) _sectorsDirty = true;
                     // Каждая лента едет к своему результату — все разом.
                     var rolls = new List<Task>();
                     for (int i = 0; i < ok.Count; i++)
                     {
-                        if (i == 0) { _landing = LandingCell(ok[0].SectorId); rolls.Add(RollLaneAsync(_strip, _landing, FastSpinSeconds)); }
-                        else if (i - 1 < _extraLanes.Count)
-                        {
-                            var lane = _extraLanes[i - 1];
-                            lane.Landing = LandingCellIn(lane.Cells, ok[i].SectorId);
-                            rolls.Add(RollLaneAsync(lane.Strip, lane.Landing, FastSpinSeconds));
-                        }
+                        var lane = i == 0 ? _main : (i - 1 < _extraLanes.Count ? _extraLanes[i - 1] : null);
+                        if (lane != null) rolls.Add(RollLaneAsync(lane, SectorIndex(ok[i].SectorId), 1, FastSpinSeconds));
                     }
                     await Task.WhenAll(rolls);
                     if (_closed) return;
@@ -504,40 +521,72 @@ namespace Lvn.UI.Screens
                         : LvnWords.Of("gacha.failed", "The spin did not go through. Try again.");
                     return;
                 }
-                _landing = LandingCell(spin.SectorId);
-                await RollLaneAsync(_strip, _landing, SpinSeconds);
+                await RollLaneAsync(_main, SectorIndex(spin.SectorId), SpinLaps, SpinSeconds);
                 if (_closed) return;
                 _state.FreeToday = spin.FreeToday;
                 _state.PrizesLeft = spin.PrizesLeft;
                 _state.Spins++;
-                // Keep the landed rare cell until the player acknowledges it.
-                if (spin.PrizesLeft.Count == 0) _state.Sectors.RemoveAll(s => s.Super);
-                await RevealPrizeAsync(spin);
+                if (spin.PrizesLeft.Count == 0 && _state.Sectors.RemoveAll(s => s.Super) > 0) _sectorsDirty = true;
+                if (spin.Super) { await RevealPrizeAsync(spin); return; }
+                // ОСТАНОВКА И ЕСТЬ ОТКРЫТИЕ (Илья): валюта не ждёт «Забрать» —
+                // ячейка под стрелкой мигает, подпись говорит выигрыш, и снова
+                // можно крутить.
+                await StopFlashAsync(_main);
+                if (!spin.WalletSynced) LvnAsync.Fire(LvnWallet.RefreshAsync(), "GachaWalletRetry");
+                _spinning = false;
+                PaintIdle();
+                _status.text = LvnWords.Of("gacha.won_currency", "You got: {0}", LvnPriceTag.Full(spin.Currency, spin.Amount));
             }
             finally { _spinning = false; }
         }
 
-        private int LandingCell(string id) => LandingCellIn(_cells, id);
-
-        private int LandingCellIn(List<LvnGacha.Sector> cells, string id)
+        private int SectorIndex(string id)
         {
-            int from = Mathf.Max(0, cells.Count - (_state?.Sectors?.Count ?? 1) * 2);
-            for (int i = from; i < cells.Count; i++) if (cells[i].Id == id) return i;
-            return Mathf.Max(0, cells.Count - 1);
+            var sectors = _state?.Sectors;
+            if (sectors == null) return 0;
+            for (int i = 0; i < sectors.Count; i++) if (sectors[i].Id == id) return i;
+            return 0;
         }
 
-        private async Task RollLaneAsync(VisualElement strip, int landing, float seconds)
+        /// <summary>Прокрутить барабан вперёд на <paramref name="laps"/> кругов до
+        /// сектора <paramref name="target"/>: позиция только растёт, лента не
+        /// перестраивается.</summary>
+        private async Task RollLaneAsync(Lane lane, int target, int laps, float seconds)
         {
+            int n = SectorCount;
+            double from = lane.Pos;
+            long at = (long)System.Math.Round(from);
+            int cur = (int)(((at % n) + n) % n);
+            int delta = ((target - cur) % n + n) % n;
+            double to = at + (long)laps * n + delta;
             float start = Time.realtimeSinceStartup;
-            float offset = LandingOffsetFor(landing);
             while (!_closed && !_skipAsked && !LvnPrefs.ReduceMotion)
             {
                 float progress = Mathf.Clamp01((Time.realtimeSinceStartup - start) / seconds);
-                strip.style.left = -offset * LvnMotion.Settle(progress);
+                lane.Pos = from + (to - from) * LvnMotion.Settle(progress);
+                Render(lane);
                 if (progress >= 1f) break;
                 await Task.Yield();
             }
-            strip.style.left = -offset;
+            lane.Pos = to;
+            Render(lane);
+        }
+
+        /// <summary>Ячейка под стрелкой коротко «вспыхивает» — момент остановки читается как открытие.</summary>
+        private async Task StopFlashAsync(Lane lane)
+        {
+            if (LvnPrefs.ReduceMotion || lane?.Strip == null) return;
+            int n = SectorCount;
+            int idx = n + (int)((((long)System.Math.Round(lane.Pos)) % n + n) % n);
+            if (idx < 0 || idx >= lane.Strip.childCount) return;
+            var cell = lane.Strip[idx];
+            await LvnMotion.PlayAsync(cell, 320, (el, p) =>
+            {
+                float k = Mathf.Sin(p * Mathf.PI);
+                float s = 1f + 0.08f * k;
+                el.style.scale = new Scale(new Vector2(s, s));
+            });
+            cell.style.scale = new Scale(Vector2.one);
         }
     }
 }
