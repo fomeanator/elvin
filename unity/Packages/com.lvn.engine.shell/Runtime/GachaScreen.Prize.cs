@@ -60,6 +60,15 @@ namespace Lvn.UI.Screens
             float available = _content.contentViewport.resolvedStyle.height;
             _rewardArt.style.height = float.IsNaN(available) ? LvnStageKit.D(280f)
                 : Mathf.Clamp(available * 0.6f, LvnStageKit.D(100f), LvnStageKit.D(360f));
+            // РЕДКИЙ ПРИЗ — С ЦЕРЕМОНИЕЙ (TR-102, Илья 15.09): экран уходит в
+            // чёрное, в центре за 1,7 с проявляется награда, ещё через 2 с
+            // ниже появляются название и «Забрать». Валюта — как раньше.
+            if (spin.Super)
+            {
+                if (!string.IsNullOrEmpty(prize.Art)) LvnAsync.Fire(LoadPrizeArtAsync(prize, version), "GachaPrizeArt");
+                await CelebrateAsync(spin, version);
+                return;
+            }
             _reward.style.display = DisplayStyle.Flex;
             _reward.style.opacity = 0f;
             // Artwork loading cannot hold the reward hostage. The gift icon
@@ -76,14 +85,86 @@ namespace Lvn.UI.Screens
             if (_closed) return;
             _reward.style.opacity = 1f;
             _reward.style.scale = new Scale(Vector2.one);
-            ActionButton("gacha-take", () => LvnWords.Of("gacha.take", "Take the prize"), () =>
+            TakeButton(spin);
+        }
+
+        private Button TakeButton(LvnGacha.Spin spin)
+            => ActionButton("gacha-take", () => LvnWords.Of("gacha.take", "Take the prize"), () =>
             {
                 // The prize is already owned. This tap only dismisses its reveal.
                 if (!spin.WalletSynced) LvnAsync.Fire(LvnWallet.RefreshAsync(), "GachaWalletRetry");
                 _prizeVersion++;
+                DismissCeremony();
                 BuildStrip();
                 PaintIdle();
             });
+
+        private VisualElement _blackout;
+
+        /// <summary>Церемония редкого приза: чёрный экран поверх круток, награда
+        /// проявляется в центре 1,7 с, через 2 с ниже — название и «Забрать».
+        /// При «уменьшить движение» — те же паузы без плавности.</summary>
+        private async Task CelebrateAsync(LvnGacha.Spin spin, int version)
+        {
+            DismissCeremony();
+            var veil = new VisualElement { name = "gacha-blackout" };
+            veil.style.position = Position.Absolute;
+            veil.style.left = 0; veil.style.right = 0; veil.style.top = 0; veil.style.bottom = 0;
+            veil.style.backgroundColor = Color.black;
+            veil.style.alignItems = Align.Center;
+            veil.style.justifyContent = Justify.Center;
+            veil.style.opacity = 0f;
+            veil.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
+            Add(veil);
+            _blackout = veil;
+            // Награда переезжает в центр чёрного экрана; кнопка — под ней, а не в нижнем ряду.
+            var column = new VisualElement { name = "gacha-ceremony" };
+            column.style.alignItems = Align.Center;
+            column.style.width = Length.Percent(88f);
+            _reward.RemoveFromHierarchy();
+            column.Add(_reward);
+            veil.Add(column);
+            _reward.style.display = DisplayStyle.Flex;
+            _reward.style.opacity = 1f;
+            _reward.style.scale = new Scale(Vector2.one);
+            _reward.style.marginTop = 0;
+            _rewardArt.style.opacity = 0f;
+            _rewardName.style.opacity = 0f;
+            var take = TakeButton(spin);
+            take.RemoveFromHierarchy();
+            take.style.marginTop = LvnTokens.Space3;
+            take.style.opacity = 0f;
+            take.SetEnabled(false);
+            column.Add(take);
+            bool reduce = LvnPrefs.ReduceMotion;
+            await FadeIn(veil, 350, reduce);
+            if (_closed || version != _prizeVersion) return;
+            await FadeIn(_rewardArt, 1700, reduce);          // награда проявляется 1,7 с
+            if (_closed || version != _prizeVersion) return;
+            await Task.Delay(2000);                           // тишина: только приз на чёрном
+            if (_closed || version != _prizeVersion) return;
+            await Task.WhenAll(FadeIn(_rewardName, 400, reduce), FadeIn(take, 400, reduce));
+            if (_closed || version != _prizeVersion) return;
+            take.SetEnabled(true);
+        }
+
+        private static Task FadeIn(VisualElement el, int ms, bool instant)
+        {
+            if (instant) { el.style.opacity = 1f; return Task.CompletedTask; }
+            return LvnMotion.PlayAsync(el, ms, (e, p) => e.style.opacity = LvnMotion.Settle(p));
+        }
+
+        /// <summary>Снять чёрный экран и вернуть блок награды на его место в списке.</summary>
+        private void DismissCeremony()
+        {
+            if (_blackout == null) return;
+            _reward.RemoveFromHierarchy();
+            _reward.style.marginTop = LvnTokens.Space3;
+            _rewardArt.style.opacity = 1f;
+            _rewardName.style.opacity = 1f;
+            _content.Add(_reward);
+            _blackout.RemoveFromHierarchy();
+            _blackout = null;
         }
 
         // Published gacha prizes may carry only a SKU and a generic label.
