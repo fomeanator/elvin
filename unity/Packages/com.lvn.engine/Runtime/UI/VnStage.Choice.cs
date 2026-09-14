@@ -52,8 +52,13 @@ namespace Lvn.UI
             (box ?? (VisualElement)_dialogue)
                 .RegisterCallback<GeometryChangedEvent>(_ => SyncChoicesBelowBox());
         }
+        /// <summary>Идёт выбор: варианты на экране. Пока так, тап по пустому
+        /// месту сцены — не такт (TR-98).</summary>
+        private bool _choicesVisible;
+
         private void OnChoicesVisibleChanged(bool visible)
         {
+            _choicesVisible = visible;
             NotifyUiStage();
             ChoicesVisibleChanged?.Invoke(visible);
         }
