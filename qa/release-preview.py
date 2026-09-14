@@ -31,6 +31,7 @@ def main():
     ap.add_argument("--apk", required=True); ap.add_argument("--page", required=True)
     ap.add_argument("--image", default=None, help="url картинки (по умолчанию <page>.png рядом)")
     ap.add_argument("--max-lines", type=int, default=12)
+    ap.add_argument("--check", default="", help="путь проверки одной строкой — идёт в текст сниппета (он обрезается после ~200 символов), список изменений остаётся картинке")
     a = ap.parse_args()
     lines = [l.strip() for l in sys.stdin.read().splitlines() if l.strip()]
     shown = lines[:a.max_lines]
@@ -63,7 +64,10 @@ def main():
 
     # ── HTML с OG-тегами ─────────────────────────────────────────────────
     img = a.image or (a.page.rsplit(".", 1)[0] + ".png")
-    desc = "\n".join(shown)
+    # ТЕКСТ СНИППЕТА КОРОТКИЙ: мессенджер показывает три-четыре строки и
+    # режет. Туда идёт путь проверки («что потыкать»), а решённые пункты
+    # целиком показывает картинка.
+    desc = a.check.strip() if a.check.strip() else " · ".join(shown[:3])
     esc = lambda s: html.escape(s, quote=True)
     page = f"""<!doctype html><html lang="ru"><head><meta charset="utf-8">
 <title>{esc(a.title)} — {esc(a.subtitle)}</title>
@@ -79,6 +83,7 @@ def main():
 h1{{color:#e8dcbe;font-size:28px;margin:0 0 4px}}p.sub{{color:#a0a0b0;margin:0 0 20px}}ul{{padding-left:22px}}
 a.btn{{display:inline-block;margin-top:20px;padding:14px 28px;background:#d4af37;color:#12121a;border-radius:10px;text-decoration:none;font-weight:bold}}</style>
 </head><body><h1>{esc(a.title)}</h1><p class="sub">{esc(a.subtitle)}</p>
+{f'<p><b>Проверить:</b> {esc(a.check.strip())}</p>' if a.check.strip() else ''}
 <ul>{''.join(f'<li>{esc(l)}</li>' for l in lines)}</ul>
 <a class="btn" href="{esc(a.apk)}">Скачать APK</a></body></html>
 """
