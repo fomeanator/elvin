@@ -155,66 +155,97 @@ namespace Lvn.UI.Screens
         {
             _list.Clear();
             _sections = 0;
+            _bodies.Clear();
 
-            Section("main", LvnWords.Of("settings.tab_main", "General"));
-            _list.Add(SoundRow());
-            // Состав громкостей — у КАТАЛОГА (он же знает про два режима:
-            // «Звуки» одним движком ведут эффекты, эмбиент и голос, когда
-            // новелла просит simple_audio). Здесь остаётся вид строки.
+            // АККОРДЕОН (TR-104, Илья 15.09): четыре раздела вместо длинного
+            // списка — Звук, Текст, Графика, Данные. Открыт один, выбор
+            // помнится до перезапуска.
+            var sound = Section("sound", LvnWords.Of("settings.sec_sound", "Sound"));
+            sound.Add(SoundRow());
             _audioSliders.Clear();
             foreach (var d in Lvn.UI.LvnSettingsCatalog.Audio(_cfg.simple_audio ?? false))
-                _list.Add(RowFor(d, audio: true));
+                sound.Add(RowFor(d, audio: true));
             ApplySoundEnabled();
-            if (Lvn.UI.LvnLocale.Offered)
-                _list.Add(LanguageRow());
             if (MenuTracks != null && MenuTracks.Count > 1)
-                _list.Add(MenuTrackRow());
+                sound.Add(MenuTrackRow());
 
-            Section("reading", LvnWords.Of("settings.tab_reading", "Reading"));
-            // Размер интерфейса — ПЕРВЫМ: он про то, попадает ли игрок пальцем
-            // и видит ли подписи вообще; остальное настраивают, когда это уже
-            // решено (Илья, 28.08).
-            _list.Add(UiScaleRow());
-            _list.Add(FontRow());
-            _list.Add(TextScaleRow());
-            foreach (var d in Lvn.UI.LvnSettingsCatalog.Reading()) _list.Add(RowFor(d));
+            var text = Section("text", LvnWords.Of("settings.sec_text", "Text"));
+            text.Add(UiScaleRow());
+            text.Add(FontRow());
+            text.Add(TextScaleRow());
+            foreach (var d in Lvn.UI.LvnSettingsCatalog.Reading()) text.Add(RowFor(d));
+            if (Lvn.UI.LvnLocale.Offered)
+                text.Add(LanguageRow());
 
-            Section("data", LvnWords.Of("settings.tab_data", "Data"));
-            _list.Add(ArtQualityRow());
-            _list.Add(FpsRow());
+            var graphics = Section("graphics", LvnWords.Of("settings.sec_graphics", "Graphics"));
+            graphics.Add(ArtQualityRow());
+            graphics.Add(FpsRow());
+
+            var data = Section("data", LvnWords.Of("settings.sec_data", "Data"));
             if (StorageInfo != null && DownloadAll != null)
-                _list.Add(StorageRow());
-
-            Section("account", LvnWords.Of("settings.tab_account", "Account"));
-            _list.Add(UidRow());
+                data.Add(StorageRow());
+            data.Add(UidRow());
             _accountRow = RowEx(LvnWords.Pick("settings.account", _cfg.account_label, "Account"),
                 LvnWords.Of("settings.account_hint", "Keeps progress and purchases on the server"));
-            _list.Add(_accountRow);
+            data.Add(_accountRow);
             SetAccountStatus(LvnWords.Of("account.checking", "Checking…"), showSignIn: false);
-            // …И СПРОСИТЬ. «Проверяем…» ставилось, а спрашивать было некому:
-            // строку статуса никто не вызывал, и раздел «Аккаунт» навсегда
-            // оставался многоточием — ни «вход выполнен», ни «прогресс живёт
-            // только на этом телефоне». Сам ответ строка обрабатывает давно,
-            // включая отказ сети.
             Lvn.LvnAsync.Fire(RefreshAccountAsync(), "SettingsAccount");
-            _list.Add(RestoreRow());
-            if (OnResetAccount != null) _list.Add(ResetRow());
-            _list.Add(VersionRow());
+            data.Add(RestoreRow());
+            if (OnResetAccount != null) data.Add(ResetRow());
+            data.Add(VersionRow());
             var links = LinksRow();
-            if (links != null) _list.Add(links);
+            if (links != null) data.Add(links);
             var socials = SocialRow();
-            if (socials != null) _list.Add(socials);
-
+            if (socials != null) data.Add(socials);
         }
 
-        // Заголовок раздела в ленте.
-        private void Section(string id, string title)
+        /// <summary>Раздел аккордеона: заголовок-кнопка с шевроном и тело.
+        /// Возвращает тело — строки кладут в него.</summary>
+        private VisualElement Section(string id, string title)
         {
-            // Ленту настроек экран пересобирает целиком при переодевании, так
-            // что готовая строка здесь живёт ровно до следующей сборки.
+            var head = ScreenUi.Row(spread: true);
+            head.name = "settings-sec-" + id;
+            LvnAir.PadY(head, LvnTokens.Space2);
+            LvnAir.PadX(head, LvnTokens.Space2);
+            LvnAir.MarginY(head, _sections++ == 0 ? 8 : LvnTokens.Space2, LvnTokens.Space1);
+            head.style.backgroundColor = LvnTokens.Faint;
+            LvnChrome.Round(head, LvnTokens.RadiusSm);
             var lbl = SectionTitle(() => title, LvnTokens.TextLg);
-            LvnAir.MarginY(lbl, _sections++ == 0 ? 8 : 26, LvnTokens.Space1);
-            _list.Add(lbl);
+            LvnAir.MarginY(lbl, 0, 0);
+            head.Add(lbl);
+            var chevron = new Label("›") { pickingMode = PickingMode.Ignore };
+            chevron.style.color = _dim;
+            chevron.style.fontSize = LvnTokens.TextXl;
+            chevron.style.unityTextAlign = TextAnchor.MiddleCenter;
+            head.Add(chevron);
+            var body = new VisualElement { name = "settings-body-" + id };
+            LvnAir.PadX(body, LvnTokens.Space1);
+            bool open = _openSection == id;
+            body.style.display = open ? DisplayStyle.Flex : DisplayStyle.None;
+            chevron.style.rotate = new Rotate(Angle.Degrees(open ? 90f : 0f));
+            head.AddManipulator(new Clickable(() => ToggleSection(id)));
+            LvnMotion.Tappable(head);
+            _list.Add(head);
+            _list.Add(body);
+            _bodies[id] = (body, chevron);
+            return body;
+        }
+
+        private static string _openSection = "sound";
+        private readonly Dictionary<string, (VisualElement body, Label chevron)> _bodies
+            = new Dictionary<string, (VisualElement, Label)>();
+
+        private void ToggleSection(string id)
+        {
+            bool willOpen = _openSection != id;
+            _openSection = willOpen ? id : "";
+            foreach (var kv in _bodies)
+            {
+                bool on = kv.Key == _openSection;
+                kv.Value.body.style.display = on ? DisplayStyle.Flex : DisplayStyle.None;
+                kv.Value.chevron.style.rotate = new Rotate(Angle.Degrees(on ? 90f : 0f));
+                if (on && !LvnPrefs.ReduceMotion) LvnMotion.FadeIn(kv.Value.body);
+            }
         }
 
         private int _sections;
