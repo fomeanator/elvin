@@ -115,7 +115,17 @@ namespace Lvn.UI
             player.ClearHistory();              // the rollback trail no longer describes the path here
             int at = player.Index;              // the anchor-relocated cursor, not the raw saved index
             at = player.ResumeRenderIndex(at);  // step back onto the say the player was reading (never skip a seen beat)
-            player.ReplayVisuals(at);           // rebuild bg / actors / FX / audio up to the saved point
+            // ЖУРНАЛ «ИСТОРИИ» — ИЗ ПРОЙДЕННЫХ РЕПЛИК (TR-85, Арам): ResetStage
+            // выше стёр его вместе со сценой, а реплей собирал всё, кроме слов.
+            // Реплика, на которую вернулись, будет показана заново — второй
+            // раз в журнал не ложится.
+            var replayed = new List<(string who, string text, string style)>();
+            System.Action<string, string, string> onSay = (w, t, s) => replayed.Add((w, t, s));
+            player.ReplayedSay += onSay;
+            try { player.ReplayVisuals(at); }   // rebuild bg / actors / FX / audio up to the saved point
+            finally { player.ReplayedSay -= onSay; }
+            _backlog.AddRange(replayed);
+            _suppressDupSay = replayed.Count > 0;
             // Veil the half-built stage: between ReplayVisuals and the settled
             // builds only the bg is up — the player saw that as a white flash
             // on resume. NOT alpha 0: the Canvas would cull the children's

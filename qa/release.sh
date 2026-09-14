@@ -137,7 +137,10 @@ PREV_DIR="$HOME/ominis/builds/preview"; mkdir -p "$PREV_DIR"
 SIZE_MB=$(( $(stat -f %z "$OUT") / 1048576 ))
 TITLE="${RELEASE_TITLE:-Сборка} · $CH · $(date '+%d.%m %H:%M') · $SHA"
 SUB="коммит $SHA · $SIZE_MB МБ$([ "$CH" = dev ] && echo ' · пакет .dev')"
-echo "$LINES" | python3 "$REPO/qa/release-preview.py" --out "$PREV_DIR" --name "$NAME" --title "$TITLE" --subtitle "$SUB" --check "${CHECK:-}" \
+# История выпусков канала — свежие сверху; страница показывает её целиком.
+HIST="$PREV_DIR/history-$CH.json"
+LINES="$LINES" CHECK="${CHECK:-}" NAME="$NAME" SHA="$SHA" PAGE="${RELEASE_URL%/*}/build/$NAME" HIST="$HIST" python3 "$REPO/qa/release-history.py"
+echo "$LINES" | python3 "$REPO/qa/release-preview.py" --out "$PREV_DIR" --name "$NAME" --title "$TITLE" --subtitle "$SUB" --check "${CHECK:-}" --history "$HIST" \
   --apk "$RELEASE_URL/$NAME.apk" --page "${RELEASE_URL%/*}/dl-preview/$NAME.html" >/dev/null || say "карточка не собралась — сниппета не будет"
 LBASE="${LATEST%.apk}"
 cp -f "$PREV_DIR/$NAME.png" "$PREV_DIR/$LBASE.png" 2>/dev/null

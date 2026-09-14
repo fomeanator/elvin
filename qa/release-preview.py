@@ -31,6 +31,7 @@ def main():
     ap.add_argument("--apk", required=True); ap.add_argument("--page", required=True)
     ap.add_argument("--image", default=None, help="url картинки (по умолчанию <page>.png рядом)")
     ap.add_argument("--max-lines", type=int, default=12)
+    ap.add_argument("--history", default="", help="json со списком выпусков канала — страница показывает историю изменений")
     ap.add_argument("--check", default="", help="путь проверки одной строкой — идёт в текст сниппета (он обрезается после ~200 символов), список изменений остаётся картинке")
     a = ap.parse_args()
     lines = [l.strip() for l in sys.stdin.read().splitlines() if l.strip()]
@@ -63,6 +64,21 @@ def main():
     png = os.path.join(a.out, a.name + ".png"); im.save(png, optimize=True)
 
     # ── HTML с OG-тегами ─────────────────────────────────────────────────
+    # ИСТОРИЯ СБОРОК (Илья 15.09: «надо, чтобы тут история хранилась
+    # изменений»): страница показывает все выпуски канала, свежие сверху.
+    history_html = ""
+    if a.history and os.path.exists(a.history):
+        try:
+            import json
+            hist = json.load(open(a.history, encoding="utf-8"))
+            prev = [h for h in hist if h.get("name") != a.name][:30]
+            if prev:
+                blocks = "".join(
+                    f'<h3>{html.escape(h.get("stamp",""))} · {html.escape(h.get("sha",""))} · <a href="{html.escape(h.get("page",""))}">{html.escape(h.get("name",""))}</a></h3>'
+                    f'<ul>{"".join(f"<li>{html.escape(l)}</li>" for l in h.get("lines", []))}</ul>' for h in prev)
+                history_html = f'<h2>История сборок</h2><div class="hist">{blocks}</div>'
+        except Exception:
+            history_html = ""
     img = a.image or (a.page.rsplit(".", 1)[0] + ".png")
     # ТЕКСТ СНИППЕТА КОРОТКИЙ: мессенджер показывает три-четыре строки и
     # режет. Туда идёт путь проверки («что потыкать»), а решённые пункты
@@ -88,12 +104,14 @@ h2{{color:#e8dcbe;font-size:16px;letter-spacing:.04em;text-transform:uppercase;m
 ul{{padding-left:22px;margin:0}} li{{margin:6px 0}}
 .check{{background:#1b1b26;border-left:3px solid #d4af37;padding:12px 16px;border-radius:0 10px 10px 0}}
 .foot{{color:#6f6f80;font-size:13px;margin-top:30px}}
+.hist h3{{color:#a0a0b0;font-size:14px;font-weight:600;margin:18px 0 4px}} .hist a{{color:#d4af37;text-decoration:none}} .hist ul{{color:#bdbdc8}}
 </style></head><body>
 <h1>{esc(a.title)}</h1><p class="sub">{esc(a.subtitle)}</p>
 <a class="btn" href="{esc(a.apk)}">Скачать APK</a>
 {f'<h2>Как проверить</h2><div class="check">{esc(a.check.strip())}</div>' if a.check.strip() else ''}
 <h2>Что изменилось</h2>
 <ul>{''.join(f'<li>{esc(l)}</li>' for l in lines)}</ul>
+{history_html}
 <p class="foot">{esc(a.apk.rsplit("/",1)[-1])}</p>
 </body></html>
 """
