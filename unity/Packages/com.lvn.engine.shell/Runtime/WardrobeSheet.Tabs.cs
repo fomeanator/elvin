@@ -223,7 +223,9 @@ namespace Lvn.UI.Screens
         /// причине).</summary>
         internal void GoTab(string axis) => SelectTab(axis);
 
-        private void SelectTab(string axis)
+        /// <param name="animate">Проиграть ли въезд карточек и свотчей. Смена
+        /// раздела — да; возврат на тот же раздел после пересборки — нет.</param>
+        private void SelectTab(string axis, bool animate = true)
         {
             _tab = axis;
             // Камера хоста едет к зоне раздела: причёска — к голове, украшения
@@ -253,7 +255,7 @@ namespace Lvn.UI.Screens
             if (items.Count == 0)
             {
                 _itemName.text = "";
-                RebuildStrip();
+                RebuildStrip(animate);
                 RefreshConfirm();
                 return;
             }
@@ -267,7 +269,7 @@ namespace Lvn.UI.Screens
                 for (int i = 0; i < items.Count; i++) if (items[i].value == current) { at = i; break; }
                 _index[_tab] = at;
             }
-            RebuildStrip();
+            RebuildStrip(animate);
             ShowItem(); // also previews it, so the carousel and the actor agree
         }
 

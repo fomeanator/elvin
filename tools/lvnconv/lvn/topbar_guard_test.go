@@ -73,6 +73,11 @@ func TestTopBarVisibilityHasOneAuthor(t *testing.T) {
 // «сколько вышло» и «сколько было данных». Разошлись бы в первый же день,
 // когда сборка начнёт что-нибудь пропускать: лента показалась бы пустой
 // полосой. Решение живёт в AdoptStripCards и спрашивает после сборки.
+//
+// Видимость выражается через visibility, а не display: пустая лента обязана
+// ДЕРЖАТЬ ВЫСОТУ — display:none ронял лист, и разделы прыгали под пальцем
+// («при смене категории строки дрожат» — Илья 14.09). display у ленты не
+// трогает никто.
 func TestWardrobeStripAsksAboutCards(t *testing.T) {
 	root := repoRoot(t)
 	path := filepath.Join(root, "unity", "Packages", "com.lvn.engine.shell", "Runtime", "WardrobeSheet.Strip.cs")
@@ -80,12 +85,16 @@ func TestWardrobeStripAsksAboutCards(t *testing.T) {
 	if !strings.Contains(src, "private void AdoptStripCards()") {
 		t.Fatal("дома AdoptStripCards нет — якорь стража промахнулся")
 	}
-	n := strings.Count(src, "_strip.style.display")
+	n := strings.Count(src, "_strip.style.visibility")
 	if n != 1 {
 		t.Errorf("решений о видимости ленты: %d (ожидалось одно, в AdoptStripCards).\n\n"+
 			"Спрашивать надо после сборки и про КАРТОЧКИ: «получилось ли что-нибудь», а не\n"+
 			"«было ли из чего». Иначе лента показывается пустой полосой там, где данные были,\n"+
 			"а карточек не вышло.", n)
+	}
+	if strings.Contains(src, "_strip.style.display") {
+		t.Errorf("лента прячется через display — пустая лента обязана держать высоту (visibility), " +
+			"иначе лист прыгает при смене раздела")
 	}
 }
 
