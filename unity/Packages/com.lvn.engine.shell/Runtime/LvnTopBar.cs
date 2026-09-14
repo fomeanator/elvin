@@ -533,9 +533,33 @@ namespace Lvn.UI.Screens
             else _stageLogo = null;
 
             // Пилюли пересобираются под облик: значки картинками, без подложки.
+            // ШЕСТОЙ ПУНКТ — НАСТРОЙКИ (TR-96, Илья 14.09). Бургер темы в
+            // облике спрятан, а двери в настройки в шапке не было вовсе.
+            // Плашка в том же облике, что аватар: тёмный квадрат с золотой
+            // кромкой и значком; дверь та же, что у бургера (OnBurger: в меню
+            // — настройки, в главе — быстрое меню).
+            _stageGear?.RemoveFromHierarchy();
+            var gear = new VisualElement { name = "stage-settings" };
+            gear.style.width = StageD(32f); gear.style.height = StageD(32f);
+            gear.style.marginLeft = StageD(8f);
+            gear.style.flexShrink = 0;
+            gear.style.alignItems = Align.Center;
+            gear.style.justifyContent = Justify.Center;
+            gear.style.backgroundColor = UiColor.WithAlpha(LvnTokens.PanelBg, 0.9f);
+            LvnChrome.Frame(gear, StageD(4f), UiColor.Darker(LvnTokens.Gold, 0.55f), StageD(1f));
+            gear.Add(LvnIcons.Make(LvnIcon.Settings, StageD(18f), LvnTokens.Gold));
+            gear.RegisterCallback<ClickEvent>(_ => OnBurger?.Invoke());
+            gear.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
+            LvnMotion.Tappable(gear);
+            _row.Insert(_row.IndexOf(_pills) + 1, gear);
+            _stageGear = gear;
+
             _pills.Clear();
             RefreshBalances();
         }
+
+        /// <summary>Кнопка настроек облика — шестой пункт шапки (TR-96).</summary>
+        private VisualElement _stageGear;
 
         // ── содержимое ────────────────────────────────────────────────────────
 
