@@ -112,11 +112,18 @@ namespace Lvn.UI.Screens
             // лист ОСТАНОВИТСЯ.
             float sheetTop = worldBound.yMin - TravelShiftY(this);
             if (float.IsNaN(sheetTop) || sheetTop <= 0f) return;
+            // ПОЛ ПОЛОК — ВЕРХ РАМКИ ПАНЕЛИ, А НЕ ВЕРХ ЛИСТА. Лист лежит внутри
+            // панели с её отступом (20 dp в облике «сцена»), а рамка-арт
+            // выступает ещё на 12 dp выше панели. Полки, считанные от листа,
+            // доходили до места, которое рамка уже закрыла: нижняя плитка
+            // героя уходила под неё («интерфейс наезжает друг на друга» —
+            // Илья 14.09). Пол берём у панели, рамку вычитаем.
+            float floor = ShelfFloor(sheetTop);
             // Нижний край шапки спрашиваем у самой шапки: складывать его из
             // безопасного верха и высоты ряда значило бы держать третью копию
             // одной суммы. Десятка сверху — воздух между панелью и листом.
             float navBottom = LvnTopBar.BottomEdge(this) + 10f;
-            float gap = Mathf.Max(0f, sheetTop - navBottom - 12f);
+            float gap = Mathf.Max(0f, floor - navBottom - 12f);
             // Отступ от навбара — десятая доля зазора (Илья 26.08: «чуть ниже
             // на 10 процентов»), высота — та же половина зазора плюс 15%.
             float top = navBottom + gap * LvnWardrobeStage.EmotionsTopFraction;
@@ -138,13 +145,26 @@ namespace Lvn.UI.Screens
                 // листа — эмоции держат долю, чтобы не лечь на лицо, а плитки
                 // стоят слева от фигуры («боковушкам высоту увеличь, они
                 // срезаются» — Илья 08.09).
-                float rosterHeight = Mathf.Max(height, sheetTop - top - 8f);
+                float rosterHeight = Mathf.Max(120f, floor - top - 8f);
                 _rosterRow.style.top = top - sheetTop;
                 _rosterRow.style.maxHeight = rosterHeight;
                 _rosterRow.style.overflow = Overflow.Hidden;
                 FitRoster(rosterHeight);
             }
             UpdateEmoScrollBar();
+        }
+
+        /// <summary>Где полкам кончаться: верх панели-хозяина (в покое, без
+        /// смещения переезда) минус выступ рамки облика; нет хозяина или он
+        /// ещё не размечен — верх самого листа.</summary>
+        private float ShelfFloor(float sheetTop)
+        {
+            var host = parent;
+            if (host == null) return sheetTop;
+            float top = host.worldBound.yMin - TravelShiftY(host);
+            if (float.IsNaN(top) || top <= 0f) return sheetTop;
+            if (StageDressed) top -= D(LvnStageSkin.Bleed);
+            return Mathf.Min(sheetTop, top);
         }
 
         /// <summary>Насколько элемент смещён переездом: сумма translate по всей
