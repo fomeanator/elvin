@@ -28,7 +28,10 @@ namespace Lvn.UI.Screens
     {
         /// <summary>Строка пузырьков в главе (процент слева, кошелёк справа):
         /// верх и высота — одни числа для пузырьков и для ряда кнопок под ними.</summary>
-        private const float MiniTop = 8f, MiniH = 42f;
+        private const float MiniTop = 8f, MiniBaseH = 42f;
+        /// <summary>Высота полосы над игровым рядом: в облике пилюли те же, что в
+        /// меню, и выше базовых — ряд обязан стоять ниже них.</summary>
+        private float MiniH => _stage != null ? Mathf.Max(MiniBaseH, StageD(24f) + 8f) : MiniBaseH;
 
         /// <summary>Высота ряда навбара — публична: экраны, встающие «под
         /// навбаром» (колонка эмоций гардероба), считают от неё. Облик «сцена»
@@ -435,7 +438,7 @@ namespace Lvn.UI.Screens
             // отступ, что пузырьки, и ложился на них сверху («загораживает
             // процент прохождения и валюту» — Арам 11.09). Ряд садится под
             // строку: её верх и высота — одни числа с ней самой.
-            if (InChapter) return _safeTop + MiniTop + MiniH + LvnTokens.Space1;
+            if (InChapter) return _safeTop + MiniTop + MiniH + LvnTokens.Space2;
             float row = BottomEdge(_safeTop);
             if (_stageLogo == null) return row;
             float logoInk = _safeTop - StageD(12f) + StageD(82f) * LogoInkBottom + StageD(6f);
@@ -557,18 +560,20 @@ namespace Lvn.UI.Screens
         private void KeepPillsOffLogo()
         {
             if (_stage == null || _stageLogo == null || _pills == null) return;
-            float rowW = _row.resolvedStyle.width, pillsW = _pills.resolvedStyle.width;
-            if (float.IsNaN(rowW) || float.IsNaN(pillsW) || rowW <= 0f || pillsW <= 0f) return;
-            // Буквы кончаются на доле LogoLettersRight ширины арта; арт — это
-            // почти вся строка (отступы StageD(3) по краям).
-            float lettersRight = _stageLogo.resolvedStyle.width * LogoLettersRight + StageD(3f);
-            float pillsLeft = _pills.worldBound.xMin - _row.worldBound.xMin;
-            float free = pillsLeft + pillsW - lettersRight - StageD(6f);   // от букв до правого края пилюль
-            float k = Mathf.Clamp(free / pillsW, 0.6f, 1f);
+            var row = _row.layout; var art = _stageLogo.layout; var pills = _pills.layout;
+            if (float.IsNaN(row.width) || float.IsNaN(art.width) || float.IsNaN(pills.width)
+                || row.width <= 0f || art.width <= 0f || pills.width <= 0f) return;
+            // Раскладка — в координатах родителя (layout), не мировых: у строки
+            // и арта разные системы после переездов экранов.
+            float lettersRight = art.xMin + art.width * LogoLettersRight;
+            float free = pills.xMax - lettersRight - StageD(6f);   // от букв до правого края пилюль
+            float k = Mathf.Clamp(free / pills.width, 0.6f, 1f);
             if (Mathf.Abs(k - _pillsScale) < 0.01f) return;
             _pillsScale = k;
             _pills.style.transformOrigin = new TransformOrigin(Length.Percent(100), Length.Percent(50));
             _pills.style.scale = new Scale(new Vector2(k, k));
+            LvnLog.Info($"[lvn-topbar] пилюли к краю: строка {row.width:0}, арт {art.xMin:0}+{art.width:0}, "
+                      + $"буквы до {lettersRight:0}, пилюли {pills.xMin:0}–{pills.xMax:0}, k={k:0.00}");
         }
 
         private float _pillsScale = 1f;
@@ -638,7 +643,10 @@ namespace Lvn.UI.Screens
                 if (_avatarKey != LvnAvatars.Picked + "|" + url) SetAvatar(url, _assets, _avatarManifest);
             }
             FillPills(_pills, compact: false);
-            FillPills(_miniPills, compact: true);
+            // В ГЛАВЕ ТЕ ЖЕ ПИЛЮЛИ, ЧТО В МЕНЮ (Илья 14.09: «чтобы были одни и
+            // те же»): в облике — бронза, значки и «+», без тёмной плашки.
+            FillPills(_miniPills, compact: _stage == null);
+            if (_stage != null) _pills.schedule.Execute(KeepPillsOffLogo);
         }
 
         private void FillPills(VisualElement host, bool compact)
