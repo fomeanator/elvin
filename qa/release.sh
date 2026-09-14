@@ -51,7 +51,9 @@ if [ ! -d "$TREE/.git" ] && [ ! -f "$TREE/.git" ]; then
 else
   git -C "$TREE" switch -q --detach "origin/$REF" || die "не переключить дерево на origin/$REF"
 fi
-[ -z "$(git -C "$TREE" status --porcelain)" ] || die "в дереве релиза есть незакоммиченное — так не бывает, разберись"
+# Только ОТСЛЕЖИВАЕМЫЕ файлы: символическая ссылка sandbox/Library (для Roslyn)
+# живёт в дереве неотслеживаемой и не считается.
+[ -z "$(git -C "$TREE" status --porcelain --untracked-files=no)" ] || die "в дереве релиза есть незакоммиченное — так не бывает, разберись"
 ln -sfn "$REPO/sandbox/Library" "$TREE/sandbox/Library"   # Roslyn-проверке нужна Library с DLL
 SHA=$(git -C "$TREE" rev-parse --short HEAD)
 STAMP=$(date +%Y%m%d-%H%M)
