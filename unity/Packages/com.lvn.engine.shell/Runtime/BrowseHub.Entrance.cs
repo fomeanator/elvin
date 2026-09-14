@@ -9,7 +9,8 @@ namespace Lvn.UI.Screens
     /// <para>Три поверхности и три разных движения: страница ПРИЕЗЖАЕТ СБОКУ
     /// (как при смене вкладки), нижнее меню ВЫЕЗЖАЕТ СНИЗУ, ряды проступают
     /// фейдом разом — без волны, потому что каскад по строкам читался как
-    /// «интерфейс скачет».</para>
+    /// «интерфейс скачет». Плитки внутри ряда — короткой волной в один срок
+    /// проявления (<see cref="RevealPlan"/>).</para>
     ///
     /// <para>ЗАРЯЖАЮТСЯ ОНИ ДО ПОКАЗА. Гасить их в момент старта движения
     /// поздно: на старте приложения хаб показывается под брендовой вуалью и
@@ -35,6 +36,45 @@ namespace Lvn.UI.Screens
                 Lvn.UI.LvnMotion.FadeIn(el);
             }
         }
+        /// <summary>
+        /// ПЛАН ВОЛНЫ ПРОЯВЛЕНИЯ ПЛИТОК: задержка каждой в миллисекундах, −1 —
+        /// плитка за кромкой и проявляется без волны.
+        ///
+        /// <para>Ряды проступают разом (Илья 26.08), а плитки ВНУТРИ ряда —
+        /// со сдвигом, но все видимые укладываются в один срок проявления
+        /// (<see cref="Lvn.UI.LvnMotion.Reveal"/>): на медленном устройстве
+        /// это читается как намерение, а не как подтормаживание. Шаг не шире
+        /// хореографии движка; длинная полка волну не растягивает — делит срок
+        /// между видимыми плитками.</para>
+        /// </summary>
+        internal static int[] RevealPlan(int count, int visible,
+                                         int reveal = Lvn.UI.LvnMotion.Reveal,
+                                         int stagger = Lvn.UI.LvnMotion.StaggerMs)
+        {
+            var plan = new int[Mathf.Max(0, count)];
+            int waved = Mathf.Min(plan.Length, Mathf.Max(1, visible));
+            int step = waved > 1 ? Mathf.Min(stagger, reveal / (waved - 1)) : 0;
+            for (int i = 0; i < plan.Length; i++)
+                plan[i] = i < waved ? i * step : -1;
+            return plan;
+        }
+
+        /// <summary>Проявить плитки полки по плану: видимые — волной, за
+        /// кромкой — сразу, без задержки.</summary>
+        private void RevealShelf(System.Collections.Generic.List<VisualElement> cards)
+        {
+            float w = resolvedStyle.width;
+            if (float.IsNaN(w) || w <= 1f) w = LvnPanel.ReferenceWidth;
+            var plan = RevealPlan(cards.Count, VisibleCardsAt(w));
+            var beyond = new System.Collections.Generic.List<VisualElement>();
+            for (int i = 0; i < cards.Count; i++)
+            {
+                if (plan[i] < 0) beyond.Add(cards[i]);
+                else Lvn.UI.LvnMotion.FadeIn(cards[i], Lvn.UI.LvnMotion.Ms(plan[i]));
+            }
+            Lvn.UI.LvnMotion.FadeInAll(beyond);   // за кромкой — разом, ждать волну незачем
+        }
+
         /// <summary>Сколько едет нижняя навигация. Общий срок с верхним баром
         /// живёт в моторике движка — полосы обязаны ехать в один такт.</summary>
         public const int NavEntranceMs = Lvn.UI.LvnMotion.Curtain;
