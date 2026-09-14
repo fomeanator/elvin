@@ -28,6 +28,7 @@ namespace Lvn.UI.Screens
         /// уходят на сервер разом и каждая лента едет к своему результату;
         /// редкое на любой ленте — церемония и стоп.</summary>
         private bool _auto;
+        private TaskCompletionSource<bool> _taken;   // «Забрать» нажали — очередь церемоний идёт дальше
         /// <summary>Дверь в магазин: при нехватке валюты вместо «Крутить» —
         /// «Пополнить» (TR-107). Вешает хозяин витрины.</summary>
         public Func<Task> OpenStore;
@@ -338,10 +339,13 @@ namespace Lvn.UI.Screens
         private async Task TopUpAsync()
         {
             if (OpenStore == null) return;
+            // МАГАЗИН ПОД КРУТКАМИ (Илья 15.09: «конфликт модалок»): магазин —
+            // модалка оболочки, а крутки — оверлей поверх корня, и магазин
+            // открывался под ними. Крутки закрываются, магазин выходит на свет;
+            // назад — кнопкой «Крутка» на главной.
+            Close();
+            await Task.Yield();
             await OpenStore();
-            if (_closed) return;
-            await LvnWallet.RefreshAsync();    // вернулись из магазина — кошелёк мог вырасти
-            if (!_closed) PaintIdle();
         }
 
         /// <summary>«Авто» рядом с основной кнопкой.</summary>
@@ -489,17 +493,25 @@ namespace Lvn.UI.Screens
                     }
                     await Task.WhenAll(rolls);
                     if (_closed) return;
-                    LvnGacha.Spin rare = null;
+                    var rares = new List<LvnGacha.Spin>();
                     long sum = 0; string cur = null;
                     foreach (var sp in ok)
                     {
-                        if (sp.Super) { rare ??= sp; continue; }
+                        if (sp.Super) { rares.Add(sp); continue; }
                         sum += sp.Amount; cur ??= sp.Currency;
                     }
-                    if (rare != null)
+                    if (rares.Count > 0)
                     {
+                        // НЕСКОЛЬКО РЕДКИХ ЗА ХОД (Илья: «что будет, если несколько
+                        // редких?»): церемонии идут по очереди, каждая ждёт «Забрать».
                         _auto = false; _spinning = false;
-                        await RevealPrizeAsync(rare);        // редкое — церемония и стоп
+                        foreach (var rare in rares)
+                        {
+                            _taken = new TaskCompletionSource<bool>();
+                            await RevealPrizeAsync(rare);
+                            await _taken.Task;
+                            if (_closed) return;
+                        }
                         return;
                     }
                     _status.text = LvnWords.Of("gacha.won_currency", "You got: {0}", LvnPriceTag.Full(cur, sum));
