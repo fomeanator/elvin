@@ -6,19 +6,18 @@ using Newtonsoft.Json.Linq;
 namespace Lvn.Services
 {
     /// <summary>
-    /// Offline-first wallet over a server-authoritative ledger (the Liminal
-    /// model). ONLINE: every call goes to the backend and mirrors its answer.
-    /// OFFLINE: earns and spends apply to a PERSISTED local mirror and join a
-    /// replay queue; the next moment the network exists (any Refresh — chapter
-    /// entry, opening the shop/wardrobe) the queue replays FIFO onto the
-    /// server, then the server's truth overwrites the mirror. A spend the
+    /// Offline-first wallet over a server-authoritative ledger. Story earns
+    /// and spends immediately update a durable local journal; a background
+    /// worker delivers its FIFO queue on reconnect/resume, including after a
+    /// restart. Server acknowledgements are folded with the still-pending
+    /// tail, so an old response cannot erase new local earnings. A spend the
     /// server ultimately refuses (the device overspent while offline) is
     /// dropped on replay and the refresh corrects the balance — the server
     /// stays the single source of truth, the player just never loses an
     /// offline session's honest earnings. IAP/ad rewards stay online-only by
     /// nature (they need the store / the ad network anyway).
     /// </summary>
-    public static class LvnWallet
+    public static partial class LvnWallet
     {
         /// <summary>Last known state (server truth when online; the persisted
         /// local mirror while offline).</summary>
@@ -178,6 +177,12 @@ namespace Lvn.Services
         // строкой «FIFO holds even mid-chapter», держался только пока вызовы шли
         // по одному.
         private static Task _flush;
+        private static int _generation, _revision, _readOrder;
+        internal static Func<string, string, Task<(long code, string body)>> SyncPost;
+        internal static Func<string, Task<(long code, string body)>> SyncGet;
+
+        private static Task<(long code, string body)> PostQueued(string path, string body)
+            => SyncPost != null ? SyncPost(path, body) : LvnBackend.PostAsync(path, body);
 
         /// <summary>Bind the local mirror/queue to an account. Called by
         /// LvnBackend whenever a sign-in lands: if the device switched to a
@@ -188,23 +193,31 @@ namespace Lvn.Services
         {
             if (string.IsNullOrEmpty(userId)) return;
             var prev = LvnKeep.Get(POwner, "");
-            if (prev == userId) return;
+            if (prev == userId) { EnsureLoaded(); return; }
             if (!string.IsNullOrEmpty(prev))
             {
                 LvnLog.Info($"[lvn-wallet] account switched ({prev} → {userId}) — local mirror and {_queue.Count} queued op(s) discarded");
                 ResetLocal();
-                Changed?.Invoke();
+                NotifyChanged();
             }
             LvnKeep.Put(POwner, userId);
+            EnsureLoaded();
         }
 
         public static async Task<bool> RefreshAsync()
         {
             EnsureLoaded();
+            int generation = _generation;
             await FlushAsync(); // offline earnings land BEFORE we read the truth
+            if (generation != _generation || _queue.Count != 0 || LvnNetworkStatus.ForceOffline) return false;
+            int revision = _revision;
+            // A forced post-reward read supersedes any older background read.
+            // Otherwise the old reply increments revision and rejects the fresh one.
+            int read = ++_readOrder;
             _lastAsk = Lvn.LvnClock.Wall();
-            var (code, body) = await LvnBackend.GetAsync("/v1/wallet");
-            return LvnBackend.Ok(code) && Apply(body);
+            var (code, body) = await (SyncGet != null ? SyncGet("/v1/wallet") : LvnBackend.GetAsync("/v1/wallet"));
+            return generation == _generation && read == _readOrder && revision == _revision
+                && LvnBackend.Ok(code) && ValidWallet(body) && Apply(body);
         }
 
         /// <summary>
@@ -241,73 +254,53 @@ namespace Lvn.Services
         /// <summary>Server-side earn; offline it lands in the local mirror and
         /// the replay queue (still true — the earning is honest and durable).</summary>
         public static Task<bool> EarnAsync(string currency, long amount, string reason)
-            => RunOpAsync("/v1/wallet/earn", "earn", currency, amount, reason, offlineNeedsBalance: false);
+            => RunOpAsync("earn", currency, amount, reason, offlineNeedsBalance: false);
 
         /// <summary>Spend; false when refused (insufficient funds). Offline the
         /// PERSISTED local balance gates the spend, the op queues for replay —
         /// the wardrobe keeps working on a plane. Optional sku is granted into
         /// the inventory atomically.</summary>
         public static Task<bool> SpendAsync(string currency, long amount, string reason, string sku = null)
-            => RunOpAsync("/v1/wallet/spend", "spend", currency, amount, reason, offlineNeedsBalance: true,
+            => RunOpAsync("spend", currency, amount, reason, offlineNeedsBalance: true,
                           extra: p => { if (!string.IsNullOrEmpty(sku)) p["sku"] = sku; });
 
-        /// <summary>ОДНА ОПЕРАЦИЯ КОШЕЛЬКА — порядок и три исхода, общие для всех.
-        ///
-        /// <para>Начисление и трата держали это тело каждое своей копией:
-        /// девять строк из одиннадцати совпадали. В коде про деньги такая копия
-        /// опаснее прочих — заведут третью операцию (перевод, возврат),
-        /// скопируют ближайшую, и полугодовая правка про повторы уедет только в
-        /// одну из трёх.</para>
-        ///
-        /// <para><b>Порядок.</b> Сначала очередь: накопленное офлайн обязано
-        /// лечь ДО того, как сервер судит новую операцию, — иначе трата
-        /// упрётся в баланс, который ещё не доехал. Очередь строго по времени,
-        /// и середина главы её не откладывает.</para>
-        ///
-        /// <para><b>Метка операции рождается ВМЕСТЕ с ней</b> и едет с каждым
-        /// повтором: сервер применяет ровно один раз, даже когда ответ потерян
-        /// по дороге.</para>
-        ///
-        /// <para><b>Три исхода.</b> Сервер ответил согласием — его слово и
-        /// берём. Сервер ответил отказом (нехватка, запрет) — это НЕ офлайн,
-        /// и спорить не о чем. Сервера не слышно — пишем в очередь, а
-        /// зеркало баланса правим следом: запись долговечна, зеркало из неё
-        /// выводится, и порядок здесь не украшение — так переживается
-        /// выключение питания между двумя строками.</para>
-        ///
-        /// <para><b>Чем операции вправе отличаться</b> — ровно двумя вещами.
-        /// Первая: нужен ли офлайн запас (тратить можно только то, что есть;
-        /// зарабатывать — всегда). Вторая: что дописать в тело операции, вроде
-        /// покупаемого предмета.</para>
-        /// </summary>
-        /// <para><b>Адрес приходит доводом ЦЕЛИКОМ, а не склеивается тут из
-        /// кусков.</b> Склеенный я и написал сначала — и страж «клиент зовёт
-        /// адрес, которого сервер не отдаёт» покраснел: он читает исходники и
-        /// видит только литералы. Путь, собранный из частей, для него исчезает,
-        /// и сверка клиента с сервером перестаёт работать молча. Лишнее слово в
-        /// вызове — цена того, что адрес остаётся видимым.</para>
-        private static async Task<bool> RunOpAsync(string endpoint, string op, string currency,
+        /// <summary>One local transaction for both earns and spends. The op_id
+        /// is minted once and persisted with its resulting mirror. Only the
+        /// delivery worker talks to HTTP, FIFO, with stable ids on retries.
+        /// A local success is provisional until the authoritative server
+        /// accepts it; a permanent refusal reconciles balances on replay.</summary>
+        private static Task<bool> RunOpAsync(string op, string currency,
                                                    long amount, string reason, bool offlineNeedsBalance,
                                                    System.Action<JObject> extra = null)
         {
             EnsureLoaded();
-            await FlushAsync();
+            if (string.IsNullOrWhiteSpace(currency) || amount <= 0) return Task.FromResult(false);
             var payload = new JObject { ["op"] = op, ["currency"] = currency, ["amount"] = amount,
                 ["reason"] = reason, ["op_id"] = Lvn.LvnMark.Once() };
             extra?.Invoke(payload);
-            var (code, body) = await LvnBackend.PostAsync(endpoint, payload.ToString());
-            if (LvnBackend.Ok(code)) return Apply(body);
-            if (code != 0) return false;
-            if (offlineNeedsBalance && !CanApplyLocal(payload)) return false;
+            if (offlineNeedsBalance && !CanApplyLocal(payload)) return Task.FromResult(false);
+            // Validate arithmetic before changing either half of the journal.
+            _balances.TryGetValue(currency, out var have);
+            if (op == "earn" && have > long.MaxValue - amount) return Task.FromResult(false);
+            var balances = new Dictionary<string, long>(_balances);
+            var inventory = new Dictionary<string, long>(_inventory);
             Enqueue(payload);
-            ApplyLocal(payload);
-            return true;
+            try { ApplyDelta(payload); PersistMirror(); }
+            catch
+            {
+                _queue.Remove(payload);
+                _balances = balances; _inventory = inventory;
+                throw; // never report a durable local success after a failed write
+            }
+            NotifyChanged();
+            WakeSync();
+            return Task.FromResult(true);
         }
 
         /// <summary>Replay the offline queue FIFO onto the server. Called from
-        /// every Refresh; safe to call any time. Stops at the first transport
-        /// failure (still offline) and keeps the rest queued. A server 4xx
-        /// (e.g. the overdraft finally caught) DROPS the op — truth wins.</summary>
+        /// every Refresh and by the background worker. Temporary failures and
+        /// auth failures retain the queue. Permanent refusals reconcile truth
+        /// before removing the head. Concurrent callers await the same pass.</summary>
         public static Task FlushAsync()
         {
             EnsureLoaded();
@@ -317,31 +310,80 @@ namespace Lvn.Services
             // при достаточном балансе. Игроку это видно как отказ покупки сразу
             // после возвращения в сеть, который лечится повторным тапом.
             if (_flush != null && !_flush.IsCompleted) return _flush;
-            if (_queue.Count == 0) return Task.CompletedTask;
+            if (_queue.Count == 0 || LvnNetworkStatus.ForceOffline) return Task.CompletedTask;
             _flush = FlushQueueAsync();
             return _flush;
         }
 
         private static async Task FlushQueueAsync()
         {
+            int generation = _generation;
+            string owner = LvnKeep.Get(POwner, "");
+            await Task.Yield();
             try
             {
-                while (_queue.Count > 0)
+                while (_queue.Count > 0 && generation == _generation && !LvnNetworkStatus.ForceOffline)
                 {
                     var op = _queue[0];
                     var path = (string)op["op"] == "earn" ? "/v1/wallet/earn" : "/v1/wallet/spend";
                     var body = new JObject(op);
                     body.Remove("op");
-                    var (code, resp) = await LvnBackend.PostAsync(path, body.ToString());
-                    if (LvnBackend.Offline(code)) return; // still offline — keep the queue
+                    var (code, resp) = await PostQueued(path, body.ToString());
+                    if (generation != _generation || owner != LvnKeep.Get(POwner, "")
+                        || _queue.Count == 0 || !ReferenceEquals(_queue[0], op)) return;
+                    if (Retryable(code)) return;
+                    // Malformed success is not an acknowledgement. Reuse the
+                    // same op_id on retry; the server deduplicates it.
+                    if (LvnBackend.Ok(code) && !ValidWallet(resp)) return;
+                    if (!LvnBackend.Ok(code))
+                    {
+                        // A permanent refusal needs authoritative balances;
+                        // never remove it while still displaying its local grant.
+                        var (readCode, truth) = await LvnBackend.GetAsync("/v1/wallet");
+                        if (generation != _generation || !LvnBackend.Ok(readCode) || !ValidWallet(truth)) return;
+                        resp = truth;
+                    }
+                    var balances = _balances;
+                    var inventory = _inventory;
+                    var regen = _regen;
                     _queue.RemoveAt(0);
-                    PersistQueue();
-                    if (LvnBackend.Ok(code)) Apply(resp);
-                    else UnityEngine.Debug.LogWarning(
+                    if (!Apply(resp)) // folds the unacknowledged tail over server truth
+                    {
+                        _queue.Insert(0, op);
+                        _balances = balances; _inventory = inventory; _regen = regen;
+                        return;
+                    }
+                    if (!LvnBackend.Ok(code)) UnityEngine.Debug.LogWarning(
                         $"[lvn-wallet] queued {op["op"]} {op["currency"]} {op["amount"]} rejected on sync ({code}) — server truth wins");
                 }
             }
-            finally { _flush = null; }
+            finally { ScheduleRetry(); }
+        }
+
+        internal static bool Retryable(long code) => code == 0 || code == 408 || code == 425 || code == 429
+            || code == 401 || code == 403 || code >= 500;
+
+        private static bool ValidWallet(string json)
+        {
+            try
+            {
+                var doc = JObject.Parse(json);
+                if (!(doc["balances"] is JObject balances) || !(doc["inventory"] is JObject inventory)) return false;
+                ToMap(balances); ToMap(inventory); ParseRegen(doc["regen"] as JObject);
+                return true;
+            }
+            catch { return false; }
+        }
+
+        private static void NotifyChanged()
+        {
+            var listeners = Changed?.GetInvocationList();
+            if (listeners == null) return;
+            foreach (Action listener in listeners)
+            {
+                try { listener(); }
+                catch (Exception e) { UnityEngine.Debug.LogWarning("[lvn-wallet] observer: " + e.Message); }
+            }
         }
 
         /// <summary>One purchasable pack from the server's IAP catalog — the
@@ -412,9 +454,15 @@ namespace Lvn.Services
         /// decides amounts.</summary>
         public static async Task<bool> VerifyPurchaseAsync(string platform, string sku, string receipt)
         {
+            int generation = _generation, revision = _revision;
             var (code, body) = await LvnBackend.PostAsync("/v1/iap/verify",
                 new JObject { ["platform"] = platform, ["sku"] = sku, ["receipt"] = receipt }.ToString());
-            return LvnBackend.Ok(code) && Apply(body);
+            if (generation != _generation || !LvnBackend.Ok(code)) return false;
+            // A receipt is server-validated, but its snapshot can race with
+            // queued operations. Only use it when there was no local change.
+            if (_queue.Count == 0 && revision == _revision) return Apply(body);
+            await RefreshAsync();
+            return true;
         }
 
         internal static bool Apply(string json)
@@ -428,8 +476,9 @@ namespace Lvn.Services
                 _inventory = ToMap(doc["inventory"] as JObject);
                 _regen = ParseRegen(doc["regen"] as JObject);
                 NoteServerNow((long?)doc["now"] ?? 0);
+                foreach (var pending in _queue) ApplyDelta(pending);
                 PersistMirror();
-                Changed?.Invoke();
+                NotifyChanged();
                 return true;
             }
             catch { return false; }
@@ -451,6 +500,13 @@ namespace Lvn.Services
         /// change (no network) — the offline path and tests share it.</summary>
         internal static void ApplyLocal(JObject op)
         {
+            ApplyDelta(op);
+            PersistMirror();
+            NotifyChanged();
+        }
+
+        private static void ApplyDelta(JObject op)
+        {
             var cur = (string)op["currency"] ?? "";
             long amount = (long?)op["amount"] ?? 0;
             _balances.TryGetValue(cur, out var have);
@@ -461,14 +517,13 @@ namespace Lvn.Services
                 _inventory.TryGetValue(sku, out var n);
                 _inventory[sku] = n + 1;
             }
-            PersistMirror();
-            Changed?.Invoke();
         }
 
         private static void Enqueue(JObject op)
         {
             _queue.Add(op);
-            PersistQueue();
+            // The queue and its resulting mirror are persisted by ApplyLocal
+            // in ONE document; there is no crash window between two prefs.
         }
 
         private static void EnsureLoaded()
@@ -477,30 +532,39 @@ namespace Lvn.Services
             _loaded = true;
             try
             {
-                var mirror = LvnKeep.Get(PMirror, "");
-                if (!string.IsNullOrEmpty(mirror))
+                JArray pending = null;
+                JObject mirror = null;
+                foreach (var key in new[] { PMirror, PMirror + ".bak" })
                 {
-                    var doc = JObject.Parse(mirror);
-                    _balances = ToMap(doc["balances"] as JObject);
-                    _inventory = ToMap(doc["inventory"] as JObject);
+                    var raw = LvnKeep.Get(key, "");
+                    if (string.IsNullOrEmpty(raw)) continue;
+                    try { mirror = JObject.Parse(raw); break; } catch { /* try the complete backup journal */ }
+                }
+                if (mirror != null)
+                {
+                    _balances = ToMap(mirror["balances"] as JObject);
+                    _inventory = ToMap(mirror["inventory"] as JObject);
+                    pending = mirror["pending"] as JArray;
                 }
                 var q = LvnKeep.Get(PQueue, "");
-                if (!string.IsNullOrEmpty(q))
-                    foreach (var t in JArray.Parse(q))
+                // One-way migration from the old split mirror/queue format.
+                if (pending == null && !string.IsNullOrEmpty(q)) pending = JArray.Parse(q);
+                if (pending != null)
+                    foreach (var t in pending)
                         if (t is JObject o) _queue.Add(o);
             }
             catch { /* corrupt prefs → clean start; the next Refresh restores truth */ }
+            WakeSync();
         }
 
         private static void PersistMirror()
         {
-            var doc = new JObject { ["balances"] = ToJObject(_balances), ["inventory"] = ToJObject(_inventory) };
+            var doc = new JObject { ["balances"] = ToJObject(_balances), ["inventory"] = ToJObject(_inventory),
+                ["pending"] = new JArray(_queue) };
             LvnKeep.Put(PMirror, doc.ToString(Newtonsoft.Json.Formatting.None));
-        }
-
-        private static void PersistQueue()
-        {
-            LvnKeep.Put(PQueue, new JArray(_queue).ToString(Newtonsoft.Json.Formatting.None));
+            try { LvnKeep.Put(PMirror + ".bak", doc.ToString(Newtonsoft.Json.Formatting.None)); }
+            catch (Exception e) { UnityEngine.Debug.LogWarning("[lvn-wallet] backup write failed: " + e.Message); }
+            _revision++;
         }
 
         /// <summary>Полное локальное забвение при удалении аккаунта: зеркало,
@@ -510,7 +574,7 @@ namespace Lvn.Services
         {
             ResetLocal();
             LvnKeep.Drop(POwner);
-            Changed?.Invoke();
+            NotifyChanged();
         }
 
         /// <summary>Забыть кошелёк ВМЕСТЕ С ХОЗЯИНОМ. ResetLocal чистит
@@ -521,7 +585,7 @@ namespace Lvn.Services
         {
             ResetLocal();
             try { LvnKeep.Drop(POwner); } catch { /* уже нечего */ }
-            Changed?.Invoke();
+            NotifyChanged();
         }
 
         /// <summary>Перечитать кошелёк С ДИСКА — ровно так, как это делает
@@ -531,6 +595,7 @@ namespace Lvn.Services
         /// случае.</summary>
         internal static void ReloadLocal()
         {
+            _generation++;
             _balances = new Dictionary<string, long>();
             _inventory = new Dictionary<string, long>();
             _regen = new Dictionary<string, RegenInfo>();
@@ -541,6 +606,7 @@ namespace Lvn.Services
 
         internal static void ResetLocal()
         {
+            _generation++;
             _balances = new Dictionary<string, long>();
             _inventory = new Dictionary<string, long>();
             _regen = new Dictionary<string, RegenInfo>();
@@ -549,6 +615,7 @@ namespace Lvn.Services
             using (LvnKeep.Batch())
             {
                 LvnKeep.Drop(PMirror);
+                LvnKeep.Drop(PMirror + ".bak");
                 LvnKeep.Drop(PQueue);
             }
         }

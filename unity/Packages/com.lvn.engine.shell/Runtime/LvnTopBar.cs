@@ -26,6 +26,10 @@ namespace Lvn.UI.Screens
     /// </summary>
     public sealed class LvnTopBar : VisualElement, ILvnEntrance
     {
+        /// <summary>Строка пузырьков в главе (процент слева, кошелёк справа):
+        /// верх и высота — одни числа для пузырьков и для ряда кнопок под ними.</summary>
+        private const float MiniTop = 8f, MiniH = 42f;
+
         /// <summary>Высота ряда навбара — публична: экраны, встающие «под
         /// навбаром» (колонка эмоций гардероба), считают от неё. Облик «сцена»
         /// ставит свою (32 dp макета), поэтому не константа.</summary>
@@ -59,6 +63,10 @@ namespace Lvn.UI.Screens
         /// <summary>Игровые кнопки выезжающего бара (решение Ильи 26.08):
         /// выход в меню, история, гардероб, магазин.</summary>
         public Action OnGameExit, OnGameHistory, OnGameWardrobe, OnGameStore;
+        /// <summary>«Авто» — включить авточтение со скоростью из настроек.
+        /// Жило только в боковом меню, а в главе оно спрятано (TR-76): режим
+        /// стал недостижим («не хватает только фичи авточиталка» — Арам 11.09).</summary>
+        public Action OnGameAuto;
 
         /// <summary>Свободна ли верхняя тап-зона: шелл живёт НАД документом
         /// сцены, и с открытой панелью (история, квик-меню) ловушка глотала
@@ -191,7 +199,7 @@ namespace Lvn.UI.Screens
             // же баблик слева (DownloadHud сам).
             _miniPills = new VisualElement();
             _miniPills.style.position = Position.Absolute;
-            _miniPills.style.top = 8;
+            _miniPills.style.top = MiniTop;
             _miniPills.style.right = 12;
             _miniPills.style.flexDirection = FlexDirection.Row;
             _miniPills.style.display = DisplayStyle.None;
@@ -200,9 +208,9 @@ namespace Lvn.UI.Screens
             // Прогресс главы — такой же пузырёк слева (замена полосе GameHud).
             _miniProgress = new VisualElement();
             _miniProgress.style.position = Position.Absolute;
-            _miniProgress.style.top = 8;
+            _miniProgress.style.top = MiniTop;
             _miniProgress.style.left = 12;
-            _miniProgress.style.height = 42;
+            _miniProgress.style.height = MiniH;
             LvnAir.PadX(_miniProgress, LvnTokens.Space2);
             _miniProgress.style.justifyContent = Justify.Center;
             var pbg = LvnTokens.PanelBg;
@@ -238,6 +246,7 @@ namespace Lvn.UI.Screens
             _gameRow.Add(GameButton(LvnIcon.Book, () => LvnWords.Of("game.history", "History"), () => { ToggleGameBar(false); OnGameHistory?.Invoke(); }));
             _gameRow.Add(GameButton(LvnIcon.Wardrobe, () => LvnWords.Of("menu.wardrobe", "Wardrobe"), () => { ToggleGameBar(false); OnGameWardrobe?.Invoke(); }));
             _gameRow.Add(GameButton(LvnIcon.Store, () => LvnWords.Of("menu.store", "Store"), () => { ToggleGameBar(false); OnGameStore?.Invoke(); }));
+            _gameRow.Add(GameButton(LvnIcon.Play, () => LvnWords.Of("game.auto", "Auto"), () => { ToggleGameBar(false); OnGameAuto?.Invoke(); }));
             Add(_gameRow);
 
             RefreshBalances();
@@ -376,19 +385,20 @@ namespace Lvn.UI.Screens
         /// циферблата (см. <see cref="LogoDialRect"/>).</summary>
         private VisualElement _stageLogo;
         private VisualElement _stageAvatar;
+        private Lvn.Content.LvnManifest _avatarManifest;
+        private string _avatarKey;
 
         /// <summary>Показать другое лицо игрока (TR-79). Пересобирать всю
         /// шапку ради кружка незачем: у аватара своя картинка и своё место.</summary>
         public void SetAvatar(string url, ILvnAssets assets, Lvn.Content.LvnManifest manifest = null)
         {
             if (_stageAvatar == null) return;
-            // Живой портрет героя (TR-68) сильнее картинки набора; нет его —
-            // показываем выбранную аватарку, как прежде. Манифест приходит
-            // доводом, а не хранится здесь: шапка рисует чужие данные и своей
-            // копии каталога иметь не должна.
-            if (Lvn.UI.Screens.LvnPortraitFace.Wear(_stageAvatar, manifest, assets ?? _assets)) return;
-            if (string.IsNullOrEmpty(url)) return;
-            LvnPicture.Photo(_stageAvatar, url, assets ?? _assets, cover: true);
+            _avatarManifest = manifest;
+            _avatarKey = LvnAvatars.Picked + "|" + url;
+            // Keep the catalog reference so a later wallet reconciliation can
+            // replace a purchase the server refused with the default face.
+            if (_stage != null) _stage.Avatar = url;
+            LvnPortraitFace.Show(_stageAvatar, url, manifest, assets ?? _assets);
         }
 
         // ЦИФЕРБЛАТ В ЛОГОТИПЕ — доли от габаритов картинки. В логотипе Time
@@ -418,10 +428,12 @@ namespace Lvn.UI.Screens
         /// подбираем отступ: её высота и вылет заданы рядом, тут же.</summary>
         private float GameRowTop()
         {
-            // ШАПКИ В ГЛАВЕ НЕТ (TR-76) — и вставать под неё не нужно: ряд
-            // садится сразу под вырез, а не под пустое место, где раньше был
-            // логотип с валютами.
-            if (InChapter) return _safeTop + LvnTokens.Space1;
+            // ШАПКИ В ГЛАВЕ НЕТ (TR-76), но есть СТРОКА ПУЗЫРЬКОВ — процент и
+            // кошелёк — и они показываются вместе с рядом. Ряд получал тот же
+            // отступ, что пузырьки, и ложился на них сверху («загораживает
+            // процент прохождения и валюту» — Арам 11.09). Ряд садится под
+            // строку: её верх и высота — одни числа с ней самой.
+            if (InChapter) return _safeTop + MiniTop + MiniH + LvnTokens.Space1;
             float row = BottomEdge(_safeTop);
             if (_stageLogo == null) return row;
             float logoInk = _safeTop - StageD(12f) + StageD(82f) * LogoInkBottom + StageD(6f);
@@ -471,7 +483,7 @@ namespace Lvn.UI.Screens
             avatar.style.backgroundColor = LvnTokens.SurfaceHi;
             avatar.style.overflow = Overflow.Hidden;
             LvnChrome.Frame(avatar, StageD(4f), UiColor.Darker(LvnTokens.Gold, 0.55f), StageD(1f));
-            if (!string.IsNullOrEmpty(look.Avatar)) LvnPicture.Photo(avatar, look.Avatar, assets);
+            LvnPortraitFace.Show(avatar, look.Avatar, null, assets);
             _stageAvatar = avatar;   // TR-79: лицо меняется на ходу, без пересборки шапки
             profile.Add(avatar);
             var name = Lvn.UI.LvnRedress.Bind(new Label(), () => Lvn.UI.LvnPlayerName.Display);
@@ -583,6 +595,11 @@ namespace Lvn.UI.Screens
         /// тап по самой пилюле открывает магазин.</summary>
         public void RefreshBalances()
         {
+            if (_avatarManifest != null)
+            {
+                var url = LvnAvatars.Url(_avatarManifest);
+                if (_avatarKey != LvnAvatars.Picked + "|" + url) SetAvatar(url, _assets, _avatarManifest);
+            }
             FillPills(_pills, compact: false);
             FillPills(_miniPills, compact: true);
         }
@@ -619,7 +636,9 @@ namespace Lvn.UI.Screens
                     Height = StageD(24f),
                     PadLeft = 0, PadRight = 0, PadY = 0,
                     Radius = 0f,
-                    IconSize = StageD(24f),
+                    // Значок на dp ниже ряда: заполняя ряд целиком, он
+                    // единственный не имел люфта, и середина цифр не сходилась с ним.
+                    IconSize = StageD(22f),
                     FontSize = LvnTokens.TextSm,
                     Bold = false,
                     Edge = false,
@@ -629,14 +648,19 @@ namespace Lvn.UI.Screens
                               && _stage.CurrencyIcons.TryGetValue(cur, out var iconUrl) ? iconUrl : null,
                     PlusIconUrl = _stage.Plus,
                     PlusSize = StageD(16f),
-                    AmountMinWidth = StageD(10f),
+                    // Опоры под число нет: её люфт при выравнивании влево весь
+                    // уходил в зазор до «плюса», и у «3» он был вдвое шире, чем
+                    // у «3 470». Ряд стоит у правого края — растущее число
+                    // двигает пару влево, а не «плюс» вправо.
+                    AmountMinWidth = 0f,
+                    Gap = StageD(4f),
                 }, _assets,
                 onTap: () => OnCurrency?.Invoke(captured),
                 onPlus: () => OnCurrency?.Invoke(captured));
             return new LvnWalletPill(cur, new LvnWalletPill.Look
             {
                 MarginLeft = compact ? 6 : 8,
-                Height = compact ? 42 : 46,
+                Height = compact ? MiniH : 46,
                 Radius = compact ? 21f : 23f,
                 IconSize = compact ? 19f : 20f,
                 FontSize = 21f,
@@ -659,8 +683,8 @@ namespace Lvn.UI.Screens
             if (Mathf.Approximately(_safeTop, units)) return;
             _safeTop = units;
             _row.style.marginTop = units;
-            _miniPills.style.top = units + 8f;
-            _miniProgress.style.top = units + 8f;
+            _miniPills.style.top = units + MiniTop;
+            _miniProgress.style.top = units + MiniTop;
             // Зона тапа ОПУСКАЕТСЯ под вырез, а не сжимается им. Здесь стояла
             // высота (`48 + units`) — третий ответ на вопрос, у которого один
             // хозяин: конструктор. На телефоне с чёлкой она перебивала долю

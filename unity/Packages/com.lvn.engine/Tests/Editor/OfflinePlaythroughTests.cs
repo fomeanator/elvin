@@ -37,19 +37,27 @@ namespace Lvn.Tests
 
         private string _cache;
         private bool _wasOffline;
+        private bool _wasNetworkOffline;
 
         [SetUp]
         public void SetUp()
         {
             _cache = Path.Combine(Path.GetTempPath(), "lvn-offline-" + Guid.NewGuid().ToString("N"));
             _wasOffline = LvnNetworkStatus.ForceOffline;
+            _wasNetworkOffline = LvnNetworkStatus.IsOffline;
+            // The first half proves actual online downloads. A preceding test
+            // can release ForceOffline while leaving the real network flag
+            // offline; establish this fixture's own starting state explicitly.
+            LvnNetworkStatus.ForceOffline = false;
+            LvnNetworkStatus.MarkOnline("offline playthrough: live server phase");
         }
 
         [TearDown]
         public void TearDown()
         {
             LvnNetworkStatus.ForceOffline = _wasOffline;
-            if (!_wasOffline) LvnNetworkStatus.MarkOnline("конец теста");
+            if (_wasNetworkOffline) LvnNetworkStatus.MarkOffline("конец теста");
+            else LvnNetworkStatus.MarkOnline("конец теста");
             if (Directory.Exists(_cache)) Directory.Delete(_cache, true);
         }
 

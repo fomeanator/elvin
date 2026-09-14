@@ -13,23 +13,31 @@ namespace Lvn.UI.Screens
     /// </summary>
     public partial class NovelApp
     {
+        private bool _adRewardOpen;
+
         private async Task OpenAdRewardAsync()
         {
             var placement = _manifest?.ui?.store?.ad_placement;
             var root = _shell?.Document?.rootVisualElement;
-            if (string.IsNullOrEmpty(placement) || root == null || _assets == null) return;
-            var screen = new AdRewardScreen(_assets);
-            screen.SetContent(_manifest);
-            // ПЕРЕЕЗД К ЩИТУ ВЕДЁТ ХОЗЯИН СЦЕНЫ (TR-64, пункт 4): экран просит
-            // подъехать, камеру двигаем мы. Своим доступом к сцене экран завёл
-            // бы вторую власть над камерой — ту самую, от которой героиня в
-            // меню «ходила ходуном».
-            screen.OnApproach = near => ApproachBillboard(near);
-            root.Add(screen);
-            try { await screen.RunAsync(placement); }
+            if (_adRewardOpen || string.IsNullOrEmpty(placement) || root == null || _assets == null) return;
+            _adRewardOpen = true;
+            AdRewardScreen screen = null;
+            try
+            {
+                screen = new AdRewardScreen(_assets);
+                screen.SetContent(_manifest);
+                // ПЕРЕЕЗД К ЩИТУ ВЕДЁТ ХОЗЯИН СЦЕНЫ (TR-64, пункт 4): экран просит
+                // подъехать, камеру двигаем мы. Своим доступом к сцене экран завёл
+                // бы вторую власть над камерой — ту самую, от которой героиня в
+                // меню «ходила ходуном».
+                screen.OnApproach = near => ApproachBillboard(near);
+                root.Add(screen);
+                await screen.RunAsync(placement);
+            }
             finally
             {
-                screen.RemoveFromHierarchy();
+                _adRewardOpen = false;
+                screen?.RemoveFromHierarchy();
                 ApproachBillboard(false);   // экран мог закрыться на полпути
             }
         }

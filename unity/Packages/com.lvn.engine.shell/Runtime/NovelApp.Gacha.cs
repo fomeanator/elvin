@@ -7,15 +7,18 @@ namespace Lvn.UI.Screens
     /// КРУТКИ (TR-47) — открыть рулетку и вернуть игрока на витрину.
     ///
     /// <para>Экран живёт на время визита: состояние он спрашивает у сервера
-    /// сам, а начисление уже произошло там же — витрине остаётся обновить
-    /// кошелёк, чтобы выигранное появилось в шапке сразу.</para>
+    /// сам. Сервис обновляет кошелёк и инвентарь после каждого прокрута,
+    /// ещё до анимации. Повторный тап по входу не открывает вторую рулетку.</para>
     /// </summary>
     public partial class NovelApp
     {
+        private bool _gachaOpen;
+
         private async Task OpenGachaAsync()
         {
             var root = _shell?.Document?.rootVisualElement;
-            if (root == null || _assets == null) return;
+            if (_gachaOpen || root == null || _assets == null) return;
+            _gachaOpen = true;
             var screen = new GachaScreen(_assets);
             screen.SetContent(_manifest);
             root.Add(screen);
@@ -23,7 +26,7 @@ namespace Lvn.UI.Screens
             finally
             {
                 screen.RemoveFromHierarchy();
-                await Lvn.Services.LvnWallet.NudgeAsync();   // выигранное видно в шапке
+                _gachaOpen = false;
             }
         }
     }

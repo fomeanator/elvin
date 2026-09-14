@@ -16,6 +16,7 @@ namespace Lvn.Tests
         {
             LvnMotion.Tempo = 1f;
             LvnMenuStage.Apply(0.91f, 1f, 0.35f, 0.14f);
+            LvnMenuStage.DollLift = 0f;
             LvnWardrobeStage.Apply(null);
         }
 
@@ -302,6 +303,24 @@ namespace Lvn.Tests
             Assert.AreEqual(0.8f, LvnMenuStage.DollHeight, 1e-4f, "названное — перекрыто");
             Assert.AreEqual(1f, LvnMenuStage.DollWidth, 1e-4f, "остальное осталось движковым");
             Assert.AreEqual(0.35f, LvnMenuStage.PanStart, 1e-4f);
+        }
+
+        [Test]
+        public void DollLift_IsNamedByTheManifest_AndIsZeroByDefault()
+        {
+            // ПОДЪЁМ КУКЛЫ — ЧИСЛО МАКЕТА. Якорь у фигуры в ногах, и на
+            // главной по макету партнёра она стоит выше нижней кромки: голова
+            // под шапкой, обрез по коленям над меню. Ростом этого не добиться —
+            // рост меняет размер, а не место, — поэтому подъём называется
+            // отдельно, долей высоты кадра, и без слова в манифесте равен нулю.
+            LvnMenuStage.Apply(new Lvn.Content.BrowseConfig { doll_lift = 0.1f });
+            Assert.AreEqual(0.1f, LvnMenuStage.DollLift, 1e-4f, "названный подъём принят");
+
+            LvnMenuStage.Apply(new Lvn.Content.BrowseConfig { doll_lift = 2f });
+            Assert.LessOrEqual(LvnMenuStage.DollLift, 0.5f, "нелепый подъём обрезается, а не уводит куклу с экрана");
+
+            LvnMenuStage.Apply(new Lvn.Content.BrowseConfig());
+            Assert.AreEqual(0f, LvnMenuStage.DollLift, 1e-6f, "без слова кукла стоит на кромке, как раньше");
         }
 
         [Test]

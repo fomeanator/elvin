@@ -15,31 +15,40 @@
 #   qa/mutation-check.sh --csharp   плюс C#: каждая мутация — прогон EditMode,
 #                                   это минуты, поэтому в общий прогон не входит
 #
-# Код возвращается ВСЕГДА (trap на выходе), даже если прогон прерван.
+# Мутации живут только в отдельном снимке, включая незакоммиченные файлы.
+# Возвращать резервную копию в живое дерево нельзя: пока шли тесты, автор
+# мог сохранить новую правку — restore затёр бы её даже при штатном выходе.
 set -uo pipefail
-cd "$(dirname "$0")/.."
-CSHARP=""; [ "${1:-}" = "--csharp" ] && CSHARP=1
+cd "$(dirname "$0")/.." || exit 1
+CSHARP=""
+case "${1:-}" in
+  ""|-bite) ;; # общий сборщик укусов зовёт и этот стенд
+  --csharp) CSHARP=1 ;;
+  *) echo "неизвестный аргумент: $1"; exit 2 ;;
+esac
 
 command -v go >/dev/null 2>&1 || { echo "нет go — пропускаю"; exit 0; }
 
-W="$(mktemp -d)"
-restore() {
-  # Возврат кода — первое дело: прерванный прогон не должен оставить
-  # мутацию в рабочем дереве.
-  for f in "$W"/*.orig; do
-    [ -e "$f" ] || continue
-    base="$(basename "$f" .orig)"
-    target="$(cat "$W/$base.path")"
-    cp "$f" "$target"
-  done
-  rm -rf "$W"
-}
-trap restore EXIT
+for dependency in git rsync python3; do
+  command -v "$dependency" >/dev/null 2>&1 || { echo "нет $dependency — безопасная изоляция невозможна"; exit 1; }
+done
+MUTATION_ROOT="$PWD"
+W="$(mktemp -d "${TMPDIR:-/tmp}/elvin-mutation.XXXXXX")" || exit 1
+trap 'rm -rf -- "$W"' EXIT
+# Только временный каталог убирается при выходе. Восстанавливать исходники
+# оригинального проекта не требуется даже после SIGKILL: мы их не меняем.
+if ! git -c core.quotePath=false ls-files -z -c -o --exclude-standard > "$W/files" \
+   || [ ! -s "$W/files" ] \
+   || ! mkdir "$W/repo" \
+   || ! rsync -a --copy-links --from0 --files-from="$W/files" "$MUTATION_ROOT/" "$W/repo/"; then
+  echo "снимок для мутаций не создан — живое дерево не трогаю"
+  exit 1
+fi
+cd "$W/repo" || exit 1
 
 save() { # $1 = путь к файлу
   local key; key="$(echo "$1" | tr '/' '_')"
   cp "$1" "$W/$key.orig"
-  printf '%s' "$1" > "$W/$key.path"
 }
 
 apply_mutation() { # $1 файл, $2 что заменить, $3 на что
@@ -54,19 +63,51 @@ PY
 }
 
 ok=0; blind=0; stale=0
+test_event() { # $1 JSON-журнал go test, $2 ожидаемый исход конкретного теста
+  python3 - "$1" "$2" <<'PY'
+import json, sys
+with open(sys.argv[1], encoding="utf-8") as events:
+    for line in events:
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        if event.get("Action") == sys.argv[2] and event.get("Test"):
+            sys.exit(0)
+sys.exit(1)
+PY
+}
+
 check() { # $1 имя, $2 файл, $3 старое, $4 новое, $5 -run фильтр, $6 пакет
   local name="$1" file="$2" old="$3" new="$4" filter="$5" pkg="$6"
+  local result="$W/go-$(echo "$file" | tr '/' '_').json"
+  # Иначе заранее красный тест выдаёт любую мутацию за пойманную.
+  if ! (cd "$pkg" && GOWORK=off go test ./... -run "$filter" -count=1 -json >"$result" 2>&1); then
+    echo "  $name: исходный прогон не зелёный — судить о мутации нельзя"
+    stale=$((stale+1)); return
+  fi
+  if ! test_event "$result" pass; then
+    echo "  $name: фильтр не выполнил ни одного теста — судить о мутации нельзя"
+    stale=$((stale+1)); return
+  fi
   save "$file"
   if ! apply_mutation "$file" "$old" "$new"; then
     echo "  $name: место мутации не найдено — стенд отстал от кода"
     stale=$((stale+1)); return
   fi
-  if (cd "$pkg" && go test ./... -run "$filter" -count=1 >/dev/null 2>&1); then
+  if (cd "$pkg" && GOWORK=off go test ./... -run "$filter" -count=1 -json >"$result" 2>&1); then
     echo "  $name: ТЕСТЫ ПРОМОЛЧАЛИ — инвариант не охраняется"
     blind=$((blind+1))
   else
-    echo "  $name: тесты покраснели — инвариант охраняется"
-    ok=$((ok+1))
+    # Ошибка сборки или запуска не доказывает, что инвариант охраняет тест.
+    # Нужен failed у КОНКРЕТНОГО теста, не только ненулевой код процесса.
+    if test_event "$result" fail; then
+      echo "  $name: тесты покраснели — инвариант охраняется"
+      ok=$((ok+1))
+    else
+      echo "  $name: тесты не выполнились — ошибка сборки/запуска не считается защитой"
+      stale=$((stale+1))
+    fi
   fi
   cp "$W/$(echo "$file" | tr '/' '_').orig" "$file"
 }
@@ -80,14 +121,14 @@ check "идемпотентность кошелька" "server/wallet.go" \
 # ── 2. ДОСТАВКА: сервер называет изменившееся поимённо, а не «забирай всё» ──
 check "разница контента" "server/content_delta.go" \
   '		out.Changed, out.Removed = diffVersions(prev, cur)' \
-  '		out.Changed, out.Removed = map[string]string{}, []string{} // мутация' \
-  "Delta|Changes|Content" "server"
+  '		out.Changed, out.Removed = diffVersions(prev, cur); out.Changed, out.Removed = map[string]string{}, []string{} // мутация' \
+  "^Test(РазницаНазываетТолькоИзменившееся|УдалённыеФайлыНазваныОтдельно)$" "server"
 
 # ── 3. ВЕС АРТА: сырой PNG не уходит игроку ────────────────────────────────
 if [ -f server/rawpng.go ]; then
   check "лечение сырого PNG" "server/rawpng.go" \
-    'func healRawPNG' \
-    'func healRawPNG_disabled' \
+    'if int64(buf.Len()) >= before {' \
+    'if true { // мутация: не пережимаем сырой файл' \
     "Raw" "server"
 fi
 

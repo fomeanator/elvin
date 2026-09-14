@@ -57,6 +57,10 @@ namespace Lvn.UI.Screens
             /// при смене баланса); облик «сцена» ставит теснее — макет держит
             /// значок, число и «плюс» вплотную.</summary>
             public float? AmountMinWidth;
+            /// <summary>Зазор значок→число и число→«плюс» — ОДИН на оба.
+            /// Пусто — зазоры темы (8 и 4), как было; облик «сцена» ставит
+            /// свой из макета, чтобы пара читалась ровно с обеих сторон.</summary>
+            public float? Gap;
         }
 
         private readonly string _currency;
@@ -100,8 +104,17 @@ namespace Lvn.UI.Screens
             // вещь. Опора осталась (ряд не дёргается на смене баланса), но
             // текст прижат влево, к тому, о чём он говорит.
             _amount.style.unityTextAlign = TextAnchor.MiddleLeft;
-            _amount.style.marginLeft = LvnTokens.Tight;
+            // Зазор до значка несёт значок; с общим зазором облика число своего
+            // не добавляет — иначе слева выходило вдвое больше, чем справа.
+            _amount.style.marginLeft = _look.Gap.HasValue ? 0f : LvnTokens.Tight;
             _amount.style.flexShrink = 0;   // длинное число не режется многоточием
+            _amount.style.whiteSpace = WhiteSpace.NoWrap;
+            // ОДНА СЕРЕДИНА У ЗНАЧКА, ЧИСЛА И «ПЛЮСА». Три коробки трёх высот
+            // (значок во весь ряд, строка шрифта, квадрат плюса) центровались
+            // каждая по-своему, и цифры стояли ниже значка («кривовато
+            // валюта сверстана» — Арам 11.09). Число получает высоту ряда и
+            // центруется в ней по вертикали.
+            if (_look.Height > 0f) _amount.style.height = _look.Height;
             Add(_amount);
 
             if (_look.ShowTimer)
@@ -113,10 +126,9 @@ namespace Lvn.UI.Screens
                 _timer.style.opacity = 0.7f;
                 _timer.style.display = DisplayStyle.None;
                 Add(_timer);
-                // Отсчёт тикает сам: экрану не нужно помнить, что у него на
-                // баре живёт восполняемая валюта.
-                schedule.Execute(Refresh).Every(1000);
             }
+            // Refill is live even in compact headers without a visible timer.
+            schedule.Execute(Refresh).Every(1000);
 
             if (onPlus != null) Add(PlusButton(onPlus, assets));
 
@@ -134,7 +146,8 @@ namespace Lvn.UI.Screens
             {
                 var img = new VisualElement { pickingMode = PickingMode.Ignore };
                 img.style.width = _look.IconSize; img.style.height = _look.IconSize;
-                img.style.marginRight = LvnTokens.Space1;
+                img.style.marginRight = _look.Gap ?? LvnTokens.Space1;
+                img.style.flexShrink = 0;
                 LvnPicture.Photo(img, _look.IconUrl, assets, cover: false);
                 return img;
             }
@@ -146,7 +159,8 @@ namespace Lvn.UI.Screens
             var tint = _look.IconTint ?? look.Tint;
             var ic = LvnIcons.Make(look.Icon, _look.IconSize, tint);
             ic.pickingMode = PickingMode.Ignore;
-            ic.style.marginRight = LvnTokens.Space1;
+            ic.style.marginRight = _look.Gap ?? LvnTokens.Space1;
+            ic.style.flexShrink = 0;
             return ic;
         }
 
@@ -158,7 +172,8 @@ namespace Lvn.UI.Screens
                 // шапки читалась бы как чужая деталь в чужом ряду.
                 var img = new VisualElement();
                 img.style.width = _look.PlusSize; img.style.height = _look.PlusSize;
-                img.style.marginLeft = LvnTokens.Tight;
+                img.style.marginLeft = _look.Gap ?? LvnTokens.Tight;
+                img.style.flexShrink = 0;
                 LvnPicture.Photo(img, _look.PlusIconUrl, assets, cover: false);
                 img.AddManipulator(new Clickable(onPlus));
                 img.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
@@ -176,17 +191,17 @@ namespace Lvn.UI.Screens
         }
 
         /// <summary>Перечитать кошелёк: число и отсчёт. Зовётся сама раз в
-        /// секунду, когда показывает отсчёт, и снаружи — на событие кошелька.</summary>
+        /// секунду и снаружи — на событие кошелька. Скрытая подпись таймера
+        /// не останавливает восполнение.</summary>
         public void Refresh()
         {
             if (_amount != null) _amount.text = LvnWallet.Display(_currency);
-            if (_timer == null) return;
 
             // «Копится ли» спрашиваем у КОШЕЛЬКА: тот же вопрос решает показ
             // суммы, и два ответа на него однажды разойдутся.
-            if (!LvnWallet.Regen.TryGetValue(_currency, out var r)) { _timer.style.display = DisplayStyle.None; return; }
+            if (!LvnWallet.Regen.TryGetValue(_currency, out var r)) { HideTimer(); return; }
             bool refilling = LvnWallet.BelowCap(_currency) && r.NextRefillUnix > 0;
-            if (!refilling) { _timer.style.display = DisplayStyle.None; return; }
+            if (!refilling) { HideTimer(); return; }
 
             // Через дом кошелька: он держит поправку на часы устройства.
             long left = LvnWallet.SecondsUntilRefill(_currency);
@@ -194,12 +209,14 @@ namespace Lvn.UI.Screens
             {
                 // Время пришло, свежий баланс ещё едет — просим его, но не чаще
                 // раза в пятнадцать секунд: иначе на нуле бьём сервер каждый тик.
-                _timer.text = _look.TimerReadyText ?? "…";
+                if (_timer != null) _timer.text = _look.TimerReadyText ?? "…";
                 RequestRefill();
             }
-            else _timer.text = FormatDuration(left);
-            _timer.style.display = DisplayStyle.Flex;
+            else if (_timer != null) _timer.text = FormatDuration(left);
+            if (_timer != null) _timer.style.display = DisplayStyle.Flex;
         }
+
+        private void HideTimer() { if (_timer != null) _timer.style.display = DisplayStyle.None; }
 
         // Пауза между запросами — у КОШЕЛЬКА: правило «как часто спрашивать
         // сервер о деньгах» жило здесь, статическим полем внутри подписи на

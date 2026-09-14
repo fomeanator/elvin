@@ -56,7 +56,7 @@ namespace Lvn.Content
         {
             if (string.IsNullOrEmpty(scriptUrl)) return false;
             if (_local) return true;
-            try { return File.Exists(CachePath(_scriptCacheDir, scriptUrl, ".txt")); }
+            try { return File.Exists(CachePath(_scriptCacheDir, scriptUrl, ".txt")) || IsAssetCached(scriptUrl); }
             catch { return false; }
         }
 

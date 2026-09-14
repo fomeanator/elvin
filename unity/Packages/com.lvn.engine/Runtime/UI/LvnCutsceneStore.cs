@@ -20,18 +20,8 @@ namespace Lvn.UI
     /// </summary>
     public static class LvnCutsceneStore
     {
-        /// <summary>Одна прожитая катсцена: адрес переигровки и чем показать
-        /// её в галерее. Имя — АВТОРСКОЕ (запасное): на экране оно проходит
-        /// через каталог перевода, поэтому английская версия покажет своё.
-        ///
-        /// <para>ЗАПИСЬ — ЭТО ПРОХОЖДЕНИЕ, А НЕ СЦЕНА. Одна и та же сцена,
-        /// прожитая заново, ложится РЯДОМ отдельной карточкой: игрок был в ней
-        /// в другом наряде, с другим выбором и другим кадром, и склеивать это
-        /// в одну запись — терять ровно то, ради чего галерею смотрят («я
-        /// думал, новое прохождение будет новую катсцену создавать» — Илья
-        /// 09.09). Поэтому у записи два имени: <see cref="Key"/> — адрес
-        /// прохождения, <see cref="Id"/> — метка в сценарии, по которой сцену
-        /// переигрывают.</para></summary>
+        /// <summary>An unlocked scene. Key remains the existing storage/thumbnail
+        /// address; Id and Chapter identify the scene independently of replays.</summary>
         public sealed class Seen
         {
             public string Key;       // адрес прохождения: «id#когда»
@@ -72,93 +62,59 @@ namespace Lvn.UI
             return map;
         }
 
-        /// <summary>Прожитые катсцены новеллы — копия, СВЕЖИЕ ВПЕРЁД. Порядок
-        /// открытия годился, пока запись была одна на сцену; теперь каждое
-        /// прохождение добавляет карточку, и только что прожитое обязано быть
-        /// на виду, а не в хвосте коллекции.</summary>
+        /// <summary>One card per scene, newest first. Existing duplicate records
+        /// and their screenshots stay on disk for compatibility; the collection
+        /// displays the newest card and reuses it on every subsequent visit.</summary>
         public static List<Seen> Seens(string titleId)
         {
-            var list = new List<Seen>();
+            var latest = new Dictionary<(string chapter, string id), Seen>();
             foreach (var pair in Live(titleId))
             {
                 var seen = pair.Value;
                 if (seen == null) continue;
-                // Запись прежнего образца (одна на сцену) ключа в себе не
-                // держала — адресом ей служит ключ словаря.
                 if (string.IsNullOrEmpty(seen.Key)) seen.Key = pair.Key;
                 if (string.IsNullOrEmpty(seen.Id)) seen.Id = pair.Key;
-                list.Add(seen);
+                var identity = (seen.Chapter ?? "", seen.Id);
+                if (!latest.TryGetValue(identity, out var previous)
+                    || seen.At > previous.At
+                    || (seen.At == previous.At && string.CompareOrdinal(seen.Key, previous.Key) < 0))
+                    latest[identity] = seen;
             }
-            list.Sort((a, b) => b.At.CompareTo(a.At));
+            var list = new List<Seen>(latest.Values);
+            list.Sort((a, b) => a.At != b.At ? b.At.CompareTo(a.At)
+                : string.CompareOrdinal(a.Key, b.Key));
             return list;
         }
 
-        /// <summary>Сколько секунд повтор сцены считается ТЕМ ЖЕ проходом.
-        /// Полчаса: за это время игрок мог откатиться и перечитать место, но
-        /// не мог начать главу заново и дойти до той же сцены иначе как
-        /// нарочно.</summary>
-        public const long SameRunSeconds = 30 * 60;
-
-        /// <summary>
-        /// ЧАСЫ ДОМА — шов для стража «того же присеста».
-        ///
-        /// <para>Правило «повтор в пределах получаса — тот же проход» нельзя
-        /// проверить, пока время берётся прямо из системных часов: тест либо
-        /// ждёт полчаса, либо не проверяет ничего. Подменяемые часы — обычный
-        /// приём этого движка (LvnClock у сцены, now у служб сервера).</para>
-        /// </summary>
         public static System.Func<long> Now =
             () => System.DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
-        /// <summary>Сколько прохождений храним у одной новеллы. Коллекция —
-        /// память, а не журнал: без предела десятое переигрывание главы завалило
-        /// бы галерею собой и унесло место снимками.</summary>
-        public const int Keep = 60;
-
-        /// <summary>ПРОЖИТЬ КАТСЦЕНУ — завести карточку этого прохождения и
-        /// вернуть её адрес. Каждый живой проход метки заводит СВОЮ запись:
-        /// сцена та же, а кадр, наряд и выборы — уже другие. Пересмотр из
-        /// галереи сюда не заходит (см. VnStage.RememberCutscene).</summary>
+        /// <summary>Unlock a scene or update its existing card. Replaying a chapter,
+        /// restarting the app and elapsed wall time never create another card.
+        /// The collection has no age/count eviction: an unlock is permanent.</summary>
         public static string Lived(string titleId, string cutsceneId, string name,
                                    string chapter = null, string poster = null)
         {
             if (string.IsNullOrEmpty(cutsceneId)) return null;
             var map = Live(titleId);
             long now = Now();
-
-            // ОДИН ПРОХОД — ОДНА КАРТОЧКА (TR-70). Сцену можно встретить дважды
-            // за короткое время: игрок откатился назад, перечитал место,
-            // вернулся из меню — и на каждый повтор заводилась новая запись,
-            // так галерея дублировалась. Прохождением считаем то, что случилось
-            // не в один присест: повтор в пределах получаса — тот же проход,
-            // ему просто обновляют кадр.
-            foreach (var pair in map)
+            foreach (var seen in Seens(titleId))
             {
-                var seen = pair.Value;
-                if (seen == null || seen.Id != cutsceneId) continue;
-                if (now - seen.At > SameRunSeconds) continue;
+                if (seen.Id != cutsceneId || (seen.Chapter ?? "") != (chapter ?? "")) continue;
                 if (!string.IsNullOrEmpty(name)) seen.Name = name;
-                if (!string.IsNullOrEmpty(chapter)) seen.Chapter = chapter;
                 if (!string.IsNullOrEmpty(poster)) seen.Poster = poster;
-                seen.At = now;
+                seen.At = System.Math.Max(seen.At, now);
                 LvnKeep.Put(Key(titleId), JsonConvert.SerializeObject(map));
-                return seen.Key ?? pair.Key;
+                return seen.Key;
             }
-            // Секунда — достаточная разница: две метки одной сцены за один
-            // проход не случаются, а два прохождения подряд быстрее секунды
-            // не проходятся. Совпало — сдвигаем, лишь бы адрес был свой.
+            // Keep the previous address format so existing thumbnail readers work.
             var key = cutsceneId + "#" + now;
             while (map.ContainsKey(key)) key = cutsceneId + "#" + (++now);
             map[key] = new Seen
             {
-                Key = key,
-                Id = cutsceneId,
-                Name = name,
-                Chapter = chapter,
-                Poster = poster,
-                At = now,
+                Key = key, Id = cutsceneId, Name = name, Chapter = chapter,
+                Poster = poster, At = now,
             };
-            Trim(titleId, map);
             LvnKeep.Put(Key(titleId), JsonConvert.SerializeObject(map));
             return key;
         }
@@ -174,24 +130,6 @@ namespace Lvn.UI
             if (!map.TryGetValue(key, out var seen) || seen == null) return;
             seen.Poster = poster;
             LvnKeep.Put(Key(titleId), JsonConvert.SerializeObject(map));
-        }
-
-        /// <summary>Убрать самые старые прохождения сверх предела вместе с их
-        /// снимками: карточка без снимка ещё карточка, а снимок без карточки —
-        /// просто занятое место.</summary>
-        private static void Trim(string titleId, Dictionary<string, Seen> map)
-        {
-            if (map.Count <= Keep) return;
-            var order = new List<Seen>(map.Values);
-            order.Sort((a, b) => (a?.At ?? 0).CompareTo(b?.At ?? 0));
-            for (int i = 0; i < order.Count - Keep; i++)
-            {
-                var old = order[i];
-                var key = old?.Key;
-                if (string.IsNullOrEmpty(key)) continue;
-                map.Remove(key);
-                DropPoster(titleId, key);
-            }
         }
 
         // ── КАДР КАРТОЧКИ ────────────────────────────────────────────────────
@@ -260,10 +198,8 @@ namespace Lvn.UI
             return System.IO.File.Exists(png) ? png : null;
         }
 
-        /// <summary>ВЫБРОСИТЬ ОДНО ПРОХОЖДЕНИЕ вместе с его снимком. Игрок
-        /// сам решает, какую карточку хранить: коллекция теперь набирается
-        /// проходами, и неудачный дубль он вправе убрать, не снося остальное
-        /// («в списке на карточке прям корзину» — Илья 09.09).</summary>
+        /// <summary>НЕ ПОДКЛЮЧЁН: compatibility hook for explicit maintenance.
+        /// The player collection no longer exposes deletion; account reset uses Clear.</summary>
         public static bool Drop(string titleId, string key)
         {
             if (string.IsNullOrEmpty(key)) return false;
@@ -285,9 +221,8 @@ namespace Lvn.UI
             catch { /* снимок — украшение: не убрался, и ладно */ }
         }
 
-        /// <summary>Записать на диск то, что уже разобрано в памяти. Нужно
-        /// тем, кто правит записи по месту (страж коллекции, перенос данных):
-        /// иначе правка живёт до первой перезагрузки словаря.</summary>
+        /// <summary>НЕ ПОДКЛЮЧЁН: compatibility hook for host-side migrations
+        /// that mutate records in place. Normal unlocks persist through Lived/Dress.</summary>
         public static void Remember(string titleId)
             => LvnKeep.Put(Key(titleId), JsonConvert.SerializeObject(Live(titleId)));
 

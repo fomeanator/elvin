@@ -151,10 +151,11 @@ public class WipeSyncTests
 
         a.Enter();
         yield return Await(a.Store.SaveVarsAsync(T, new JObject { ["золото"] = 100 }, CancellationToken.None));
+        yield return Await(a.Store.FlushAsync());
         a.Leave();
 
         b.Enter();
-        var seen = b.Store.LoadVarsAsync(T, CancellationToken.None);
+        var seen = b.Store.RefreshVarsAsync(T, CancellationToken.None);
         yield return Await(seen);
         Assert.That((int?)seen.Result?["золото"], Is.EqualTo(100), "прогресс не доехал до второго устройства");
         b.Leave();
@@ -162,10 +163,11 @@ public class WipeSyncTests
         // Сброс: пустой набор вместо глагола удаления.
         a.Enter();
         yield return Await(a.Store.SaveVarsAsync(T, new JObject(), CancellationToken.None));
+        yield return Await(a.Store.FlushAsync());
         a.Leave();
 
         b.Enter();
-        var after = b.Store.LoadVarsAsync(T, CancellationToken.None);
+        var after = b.Store.RefreshVarsAsync(T, CancellationToken.None);
         yield return Await(after);
         b.Leave();
         Debug.Log("[стенд] после сброса второе устройство видит: " +
@@ -185,10 +187,11 @@ public class WipeSyncTests
 
         a.Enter();
         yield return Await(a.Store.SaveVarsAsync(T, new JObject { ["золото"] = 100 }, CancellationToken.None));
+        yield return Await(a.Store.FlushAsync());
         a.Leave();
 
         b.Enter();
-        yield return Await(b.Store.LoadVarsAsync(T, CancellationToken.None)); // сходимость: база = 100
+        yield return Await(b.Store.RefreshVarsAsync(T, CancellationToken.None)); // сходимость: база = 100
         // Играли в самолёте: локально записано, на сервер не ушло.
         LvnNetworkStatus.MarkOffline("стенд: самолёт");
         yield return Await(b.Store.SaveVarsAsync(T, new JObject { ["золото"] = 150 }, CancellationToken.None));
@@ -197,10 +200,11 @@ public class WipeSyncTests
 
         a.Enter();
         yield return Await(a.Store.SaveVarsAsync(T, new JObject(), CancellationToken.None)); // чужой сброс
+        yield return Await(a.Store.FlushAsync());
         a.Leave();
 
         b.Enter();
-        var back = b.Store.LoadVarsAsync(T, CancellationToken.None);
+        var back = b.Store.RefreshVarsAsync(T, CancellationToken.None);
         yield return Await(back);
         b.Leave();
         Debug.Log("[стенд] офлайн-сессия против чужого сброса: " +

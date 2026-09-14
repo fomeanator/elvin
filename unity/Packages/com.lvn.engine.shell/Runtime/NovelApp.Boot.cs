@@ -57,6 +57,12 @@ namespace Lvn.UI.Screens
         // в логе, и на самой вуали.
         private async void Start()
         {
+            if (PerformanceDiagnostics)
+            {
+                LvnPerf.Start();
+                _perfStarted = true;
+                LvnPerf.Context = "boot";
+            }
             _quitting = destroyCancellationToken;   // до первого await, пока живы
             // Хранилища оболочки объявляют себя ЗАБВЕНИЮ: движок их не видит
             // (Engine не знает про Shell), а забывать их надо вместе со всеми.
@@ -351,11 +357,11 @@ namespace Lvn.UI.Screens
                     // открывала пустую сцену: под ней чёрный. Ждём факт —
                     // но не дольше секунды с небольшим, иначе сорванная
                     // загрузка держала бы игрока в заставке.
-                    var wait = System.Diagnostics.Stopwatch.StartNew();
                     // …И ПОКА НЕ ПРОГРЕЛСЯ АРТ ВИТРИНЫ. Рамки, нав и значки
                     // приезжали через 0,3–0,45 с ПОСЛЕ снятия вуали и всплывали
                     // по одной («картинки мелькают» — Илья 08.09). Бюджет
                     // ожидания тот же: полотно и рамки греются одной пачкой.
+                    var wait = System.Diagnostics.Stopwatch.StartNew();
                     while (Stage != null && (!Stage.HasBackdrop || !MenuArtReady)
                            && wait.ElapsedMilliseconds < LvnMenuStage.VeilWaitMs)
                         await System.Threading.Tasks.Task.Yield();
@@ -525,10 +531,11 @@ namespace Lvn.UI.Screens
                         _shell.TopBar.SetStage(new Lvn.UI.Screens.LvnTopBar.StageLook
                         {
                             Logo = browse.logo,
-                            Avatar = browse.avatar,
+                            Avatar = LvnAvatars.Url(manifest),
                             Plus = skin + "plus.png",
                             CurrencyIcons = browse.currency_icons,
                         }, _assets, () => LvnAsync.Fire(OpenProfileWithRelationsAsync(), "TopBarProfile"));
+                        _shell.TopBar.SetAvatar(LvnAvatars.Url(manifest), _assets, manifest);
                     }
                     _shell.TopBar.OnCurrency = _ => LvnAsync.Fire(_shell.OpenPackShopAsync(), "TopBarStore");
                     // ЛОГОТИП — ДВЕРЬ ДОМОЙ (TR-77). В главе он не уводит:
@@ -556,6 +563,7 @@ namespace Lvn.UI.Screens
                     _shell.OnChapterSessionStart += () => _shell.TopBar.SetSilent(
                         Lvn.UI.Screens.LvnIntro.Is(_currentTitle));
                     _shell.TopBar.OnGameHistory = () => Stage?.OpenQuickMenu("history");
+                    _shell.TopBar.OnGameAuto = () => Stage?.ToggleAuto();
                     _shell.TopBar.OnGameWardrobe = () =>
                     { if (Stage != null) LvnAsync.Fire(OpenWardrobeFromMenuAsync(Stage), "OpenWardrobeFromMenu"); };
                     _shell.TopBar.OnGameStore = () =>
@@ -744,9 +752,11 @@ namespace Lvn.UI.Screens
         // очереди, а работы по ним идут наперегонки — номер, взятый на входе,
         // и есть настоящий возраст правки.
         private long _liveEditSeq;
+        private bool _deferredContentUpdate;
 
         private async Task OnContentChangedAsync()
         {
+            if (InChapter && !LiveChapterUpdates) { _deferredContentUpdate = true; return; }
             long правка = ++_liveEditSeq;
             // СПРОСИТЬ, ЧТО ИМЕННО ИЗМЕНИЛОСЬ, ПРЕЖДЕ ЧЕМ КАЧАТЬ.
             //
@@ -758,7 +768,12 @@ namespace Lvn.UI.Screens
             //
             // Не смогли спросить (старый сервер, сеть) — идём прежним путём:
             // новый тракт обязан быть ускорением, а не единственной дорогой.
-            var delta = _sync != null ? await _sync.FetchDeltaAsync(_sync.PreviousVersion) : null;
+            // Several notifications may have been deferred; a delta from only
+            // the last one would silently skip earlier changes.
+            var delta = _sync != null && !_deferredContentUpdate
+                ? await _sync.FetchDeltaAsync(_sync.PreviousVersion) : null;
+            if (InChapter && !LiveChapterUpdates) { _deferredContentUpdate = true; return; }
+            _deferredContentUpdate = false;
             bool precise = delta != null && !delta.Full;
 
             if (precise)
@@ -808,6 +823,7 @@ namespace Lvn.UI.Screens
         /// </summary>
         private async Task<bool> AdoptManifestAsync(LvnManifest manifest)
         {
+            if (InChapter && !LiveChapterUpdates) { _deferredContentUpdate = true; return false; }
             if (manifest == null) return false;
             // ПУСТОЙ КАТАЛОГ ПОВЕРХ НЕПУСТОГО НЕ ПРИНИМАЕТСЯ — ни на экраны,
             // ни в офлайновую копию. Почему именно так, с числами и замером, —
@@ -842,6 +858,7 @@ namespace Lvn.UI.Screens
                 LvnLog.Info("[lvn-app] приёмку каталога обогнали — этот экраны не трогает");
                 return false;
             }
+            if (InChapter && !LiveChapterUpdates) { _deferredContentUpdate = true; return false; }
             _shell?.ApplyLiveUpdate(manifest);
             // Содержимое манифеста применяет тот же дом, что и на старте
             // (NovelApp.Manifest): два списка одного факта расходились при
@@ -868,6 +885,7 @@ namespace Lvn.UI.Screens
         /// делать.</summary>
         private async Task HotReloadOpenChapterAsync(long правка = 0)
         {
+            if (!LiveChapterUpdates) return;
             if (_currentChapter == null || Stage == null || Stage.Player == null || Stage.Player.Finished)
                 return;
 

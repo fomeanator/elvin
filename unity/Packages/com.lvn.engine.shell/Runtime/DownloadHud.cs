@@ -42,6 +42,17 @@ namespace Lvn.UI.Screens
         private float _fullW = 520f;
         private float _fullH = 560f;
         private float _sheetTop;     // marginTop капсулы в развёрнутом виде
+        /// <summary>
+        /// КУДА САДИТСЯ КРУЖОК — прямоугольник в координатах панели, обычно
+        /// циферблат в логотипе шапки; null — кружок стоит своим порядком
+        /// (центр строки бара в меню, левый угол в главе).
+        ///
+        /// <para>Шов, а не координаты: логотип живёт по своей вёрстке и ездит
+        /// вместе с шириной экрана и вырезом, поэтому место у него и
+        /// спрашивают — каждый раз заново.</para>
+        /// </summary>
+        public Func<Rect?> MiniAnchor;
+        private bool _onDial;
         private float _safeTop;
 
         // ── швы к хосту (NovelApp навешивает после Build) ────────────────────
@@ -104,8 +115,8 @@ namespace Lvn.UI.Screens
             style.alignItems = inGame ? Align.FlexStart : Align.Center;
             // В игре кружок живёт у левого края; лист — по центру в обоих режимах.
             _capsule.style.marginLeft = inGame ? Mathf.Lerp(104f, 0f, _morph) : 0f;
+            ApplyMorph(_morph);
         }
-
 
         private void FollowChapterMode()
         {
@@ -219,8 +230,9 @@ namespace Lvn.UI.Screens
             _capsule.RegisterCallback<ClickEvent>(_ => { if (!_expanded) SetExpanded(true); });
             _capsule.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             Add(_capsule);
+            RegisterCallback<GeometryChangedEvent>(_ => PlaceCapsule(_morph));
 
-            _miniRing = new ProgressRing(MiniSize * 0.5f - 5f, 3.5f, drawArrow: true);
+            _miniRing = new ProgressRing(MiniSize * 0.5f - 5f, 3.5f, drawArrow: true) { name = "download-ring" };
             _miniRing.style.width = MiniSize; _miniRing.style.height = MiniSize;
             _miniRing.pickingMode = PickingMode.Ignore;
             _capsule.Add(_miniRing);
@@ -496,8 +508,19 @@ namespace Lvn.UI.Screens
         /// короткая дуга крутится сама (спиннер).</summary>
         private sealed class ProgressRing : VisualElement
         {
-            private readonly float _radius, _stroke;
-            private readonly bool _arrow;
+            private float _radius, _stroke;
+            private bool _arrow;
+
+            /// <summary>Перекроить кольцо: витрина сажает его на циферблат
+            /// логотипа, и там у него свой размер и своя сердцевина — часы уже
+            /// нарисованы, стрелка внутри лишняя.</summary>
+            public void Shape(float radius, float stroke, bool arrow)
+            {
+                if (Mathf.Approximately(_radius, radius)
+                    && Mathf.Approximately(_stroke, stroke) && _arrow == arrow) return;
+                _radius = radius; _stroke = stroke; _arrow = arrow;
+                MarkDirtyRepaint();
+            }
             private float _progress = -1f;  // цель
             private float _shown = -1f;     // что нарисовано: плывёт к цели
             private float _spin;

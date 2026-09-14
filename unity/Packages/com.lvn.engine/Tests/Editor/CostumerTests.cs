@@ -93,6 +93,19 @@ namespace Lvn.Tests
         // ── облик для сцены ───────────────────────────────────────────────────
 
         [Test]
+        public void Look_FacePreviewBeatsScriptedLiteral()
+        {
+            // Команда главы или реакция витрины оставляет в памяти куклы
+            // литеральную эмоцию; примерка лица в гардеробе обязана её
+            // перебить — иначе пункт горит, а лицо не меняется.
+            LvnWardrobe.Preview(Entity, "emotion", "tears");
+            var scripted = Defaults("emotion", "idle", "dress", "gala");
+            var look = LvnCostumer.Look(scripted, Entity, null);
+            Assert.AreEqual("tears", look["emotion"], "примерка лица проиграла сценарному литералу");
+            Assert.AreEqual("gala", look["dress"], "костюм из сценария примерка лица трогать не должна");
+        }
+
+        [Test]
         public void Look_LiteralIsStoryForced_TemplateIsVariableDriven()
         {
             LvnWardrobe.Preview(Entity, "armor", "silk");

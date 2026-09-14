@@ -50,6 +50,7 @@ namespace Lvn.UI.World
         /// <summary>Replace a multi-Image rig with one already-composited proxy.</summary>
         internal bool Begin(RectTransform transition, RectTransform rig, bool includeSingleLayer = false)
         {
+            using var perf = LvnPerf.Measure(LvnPerf.Part.ActorComposite);
             End();
             if (transition == null || rig == null) return false;
 

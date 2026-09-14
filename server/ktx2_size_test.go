@@ -15,7 +15,7 @@ import (
 func TestKtx2TakesADownscaleWhenTheSourceIsHuge(t *testing.T) {
 	dir := t.TempDir()
 	huge := filepath.Join(dir, "wall.png")
-	writePNG(t, huge, 3000, 3000)   // 9 Мп — вдвое больше потолка
+	writePNG(t, huge, 3000, 3000) // 9 Мп — вдвое больше потолка
 
 	if !tooBigToEncode(huge) {
 		t.Fatal("крупный исходник признан безопасным — кодировщик снова умрёт по памяти")

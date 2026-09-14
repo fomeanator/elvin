@@ -36,7 +36,7 @@ namespace Lvn.UI
     /// на фасад ассетов оболочки; спайн-типов здесь нет (мост — делегаты), пакет
     /// собирается и без spine-unity.</para>
     /// </summary>
-    public static class LvnSpinePoster
+    public static partial class LvnSpinePoster
     {
         /// <summary>Кто держит страницы атласа: ключ — элемент-хозяин постера.
         /// Одна доска на приложение, потому что и окно памяти одно.</summary>
@@ -54,12 +54,14 @@ namespace Lvn.UI
             Func<string, Task<Sprite>> loadSprite,
             Lvn.Content.ILvnPinLedger ledger = null,
             Action onFallback = null,
-            Action<RenderTexture> onPoster = null)
+            Action<RenderTexture> onPoster = null,
+            VisualElement visibilityTarget = null)
         {
             if (host == null || spine == null || loadText == null || loadSprite == null) return;
             if (!LvnSpineBridge.Available) { onFallback?.Invoke(); return; }
             var origin = new Vector3(20000f + (_seq++ % 64) * Spacing, 20000f, 0f);
-            LvnAsync.Fire(BuildAsync(host, spine, loadText, loadSprite, origin, ledger, onFallback, onPoster),
+            LvnAsync.Fire(BuildAsync(host, spine, loadText, loadSprite, origin, ledger, onFallback, onPoster,
+                visibilityTarget ?? host),
                 "SpinePoster");
         }
 
@@ -151,7 +153,8 @@ namespace Lvn.UI
 
         private static async Task BuildAsync(VisualElement host, LvnSpineRef spine,
             Func<string, Task<string>> loadText, Func<string, Task<Sprite>> loadSprite, Vector3 origin,
-            Lvn.Content.ILvnPinLedger ledger, Action onFallback, Action<RenderTexture> onPoster)
+            Lvn.Content.ILvnPinLedger ledger, Action onFallback, Action<RenderTexture> onPoster,
+            VisualElement visibilityTarget)
         {
             var kit = await LoadKitAsync(spine, loadText, loadSprite);
             // НЕ ВЫШЛО — ЗОВЁМ ЗАПАСНОЙ ХОД. Молчаливый выход оставлял карточку
@@ -221,6 +224,8 @@ namespace Lvn.UI
             cam.enabled = false;
             var driver = camGo.AddComponent<Ticker>();
             driver.Camera = cam;
+            driver.VisibilityTarget = visibilityTarget;
+            driver.CanvasRoot = canvasGo;
 
             var go = LvnSpineBridge.Create(crt, kit.Json, kit.Atlas, kit.Textures, spine.scale, kit.Bg);
             if (go == null) { Cleanup(root, rt, host); onFallback?.Invoke(); return; }
@@ -245,7 +250,6 @@ namespace Lvn.UI
             // сохраняются так же, растяжки нет.
             host.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
 
-            var pinned = kit.Sprites;
             EventCallback<DetachFromPanelEvent> onDetach = null;
             onDetach = _ => { host.UnregisterCallback(onDetach); Cleanup(root, rt, host); };
             host.RegisterCallback(onDetach);
@@ -262,26 +266,6 @@ namespace Lvn.UI
         /// с тем, что делает <see cref="Ticker"/>).</summary>
         public static bool ShouldRender(float lastRender, float now)
             => lastRender < 0f || now - lastRender >= 1f / Hz;
-
-        /// <summary>Часовой постера: держит камеру выключенной и сам зовёт
-        /// съёмку с частотой <see cref="Hz"/>. Живёт на объекте камеры и умирает
-        /// вместе с установкой, поэтому гасить его отдельно нечем и незачем.</summary>
-        internal sealed class Ticker : MonoBehaviour
-        {
-            public Camera Camera;
-            private float _last = -1f;
-
-            private void LateUpdate()
-            {
-                // ПОСЛЕ анимации: скелет считает позу в Update, снимать раньше
-                // значило бы показывать кадр отставшим на один.
-                if (Camera == null) { Destroy(this); return; }
-                float now = Time.unscaledTime;
-                if (!ShouldRender(_last, now)) return;
-                _last = now;
-                Camera.Render();
-            }
-        }
 
         private static void Cleanup(GameObject root, RenderTexture rt, VisualElement host)
         {

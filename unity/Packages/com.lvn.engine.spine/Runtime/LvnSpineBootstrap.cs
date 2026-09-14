@@ -69,6 +69,7 @@ namespace Lvn.Spine
         {
             LvnSpineBridge.Create = (parent, skeletonJson, atlasText, textures, scale, bgTexture) =>
             {
+                using var perf = Lvn.LvnPerf.Measure(Lvn.LvnPerf.Part.SpineBuild);
                 var res = Resource(skeletonJson, atlasText, textures);
                 if (res.Data == null) return null;
 

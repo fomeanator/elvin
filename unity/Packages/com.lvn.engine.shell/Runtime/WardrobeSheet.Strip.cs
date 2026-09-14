@@ -75,10 +75,9 @@ namespace Lvn.UI.Screens
                         if (IsSubAxis(kv.Key)) continue;
                         foreach (var it in Items(kv.Key))
                         {
-                            // Только КУПЛЕННЫЕ платные (Илья 28.08): бесплатная
-                            // база есть у всех — витрина «Все» показывает именно
-                            // коллекцию покупок.
-                            if (it.value == LvnWardrobe.NoneValue || it.price <= 0
+                            // Collection = purchases AND awarded wheel prizes.
+                            // Zero-price gacha items are earned, unlike the free base look.
+                            if (it.value == LvnWardrobe.NoneValue || (it.price <= 0 && !it.gacha)
                                 || !IsOwnedIn(kv.Key, it)) continue;
                             all.Add((kv.Key, it));
                         }

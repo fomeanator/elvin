@@ -2,6 +2,7 @@
   "name": "Lvn.Engine.Spine",
   "rootNamespace": "Lvn.Spine",
   "references": [
+    "Lvn.Engine",
     "Lvn.Engine.UI",
     "spine-unity",
     "spine-csharp"

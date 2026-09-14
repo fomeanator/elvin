@@ -45,6 +45,10 @@ namespace Lvn.UI.Screens
                  "under StreamingAssets/<BundleSubdir>, mirroring the server's URL paths.")]
         public bool OfflineBundled = false;
 
+        /// <summary>Authoring only: apply remote edits to the running scene.
+        /// Shipping games defer them until the player returns to the menu.</summary>
+        public bool LiveChapterUpdates = false;
+
         [Tooltip("Subfolder under StreamingAssets that holds the bundled content (offline builds).")]
         public string BundleSubdir = "lvn";
 
@@ -55,6 +59,9 @@ namespace Lvn.UI.Screens
                  "its sidecar string catalog <script>.<locale>.json; lines with a " +
                  "text_id resolve through it. Empty = chapters use their inline text.")]
         public string Locale = "";
+
+        [Tooltip("Bounded frame diagnostics in device logs; independent of verbose logging.")]
+        public bool PerformanceDiagnostics = true;
 
         /// <summary>
         /// ДЕЙСТВУЮЩИЙ ЯЗЫК: выбор игрока перекрывает умолчание сборки
@@ -75,7 +82,7 @@ namespace Lvn.UI.Screens
                 // системы сам, и хосту не нужно ни смотреть на телефон, ни
                 // записывать ответ в выбор игрока.
                 var live = Lvn.UI.LvnLocale.Effective;
-                return !string.IsNullOrEmpty(live) ? live : Locale;
+                return LvnPrefs.LocaleChosen || !string.IsNullOrEmpty(live) ? live : Locale;
             }
         }
 
@@ -204,6 +211,7 @@ namespace Lvn.UI.Screens
             _state = OfflineBundled
                 ? (ILvnStateStore)new LocalStateStore()
                 : new HttpStateStore(contentBase, ResolveUserId(), StateKey);
+            if (_state is HttpStateStore remote) remote.Synchronized += OnStateSynchronized;
             return contentBase;
         }
 
@@ -498,13 +506,13 @@ namespace Lvn.UI.Screens
             if (_stringsCache.TryGetValue(url, out var cached)) return cached;
             try
             {
-                var json = await _assets.Loader.DownloadScriptText(url, default, singleAttempt: true);
+                var json = await _assets.Loader.DownloadScriptCached(url);
                 var cat = string.IsNullOrEmpty(json) ? null : Newtonsoft.Json.JsonConvert
                     .DeserializeObject<System.Collections.Generic.Dictionary<string, string>>(json);
-                _stringsCache[url] = cat;   // второе переключение туда-обратно уже мгновенное
+                if (cat != null) _stringsCache[url] = cat; // absence is not a permanent cached result
                 return cat;
             }
-            catch { _stringsCache[url] = null; return null; }
+            catch { return null; } // retry a missing catalog after connectivity returns
         }
 
 
@@ -598,13 +606,72 @@ namespace Lvn.UI.Screens
 
         private void OnDestroy()
         {
+            if (_perfStarted)
+            {
+                LvnPerf.Stop();
+                LvnPerf.Context = null;
+            }
             _sync?.Stop();
+            if (_state is HttpStateStore remote)
+            {
+                remote.Synchronized -= OnStateSynchronized;
+                remote.Dispose();
+            }
             _leash.Release();
             _shell?.ReleaseSubscriptions();
             // The veil is a root GameObject (it outlives this component by
             // design during boot) — a host tearing NovelApp down mid-boot must
             // not be left with an opaque, input-eating veil over its own UI.
             BootVeil.Hide();
+        }
+
+        private string _deferredProgressOwner;
+
+        private string _perfSurface, _perfChapter, _perfLabel, _perfContext;
+        private int _perfAt;
+        private bool _perfStarted;
+
+        private void LateUpdate()
+        {
+            if (!_perfStarted || !LvnPerf.Enabled) return;
+            using var perf = LvnPerf.Measure(LvnPerf.Part.Diagnostics);
+            // UI events have settled: attach the displayed screen and story
+            // position to this frame before Update N+1 reports it.
+            LvnPerf.Context = PerformanceContext();
+        }
+
+        // Strings are composed only when navigation or story position changes.
+        // Every frame keeps references to these immutable ids, not story text.
+        private string PerformanceContext()
+        {
+            string surface = _shell?.PerformanceScreen ?? "boot";
+            string chapter = Lvn.Services.LvnWhereabouts.Chapter;
+            string label = Lvn.Services.LvnWhereabouts.Label;
+            int at = Lvn.Services.LvnWhereabouts.At;
+            if (_perfContext == null || surface != _perfSurface || chapter != _perfChapter || label != _perfLabel || at != _perfAt)
+            {
+                _perfSurface = surface; _perfChapter = chapter; _perfLabel = label; _perfAt = at;
+                _perfContext = surface + ",chapter=" + chapter + ",label=" + label + ",step=" + at;
+            }
+            return _perfContext;
+        }
+
+        private void OnStateSynchronized(string scope, JObject vars)
+        {
+            // Cloud catch-up may refresh an idle hub, never the active player.
+            if (scope != ProgressVault.Scope || _manifest == null) return;
+            if (InChapter) { _deferredProgressOwner = LvnKeep.Owner; return; }
+            ProgressVault.Absorb(vars, _manifest);
+            _shell?.ApplyLiveUpdate(_manifest);
+        }
+
+        private async Task ApplyDeferredProgressAsync()
+        {
+            var owner = _deferredProgressOwner;
+            _deferredProgressOwner = null;
+            if (owner == null || owner != LvnKeep.Owner || _state == null) return;
+            var vars = await _state.LoadVarsAsync(ProgressVault.Scope, default);
+            if (owner == LvnKeep.Owner) OnStateSynchronized(ProgressVault.Scope, vars);
         }
 
 

@@ -256,16 +256,10 @@ namespace Lvn.UI.Screens
             avatar.style.backgroundColor = LvnTokens.SurfaceHi;
             LvnChrome.Frame(avatar, avatarSize / 2f, LvnTokens.Accent, 3f);
 
-            var glyph = LvnIcons.Make(AvatarIcon, 50f, LvnTokens.Text);
-            glyph.style.alignSelf = Align.Center;
-            avatar.Add(glyph);
             // ЖИВОЙ ПОРТРЕТ СИЛЬНЕЕ КАРТИНКИ (TR-68): игрок выбрал «мой облик»
             // — в кружке лицо его героя, собранное в гардеробе, а не картинка
             // из набора.
-            if (!LvnPortraitFace.Wear(avatar, _manifest, _assets) && !string.IsNullOrEmpty(AvatarUrl))
-            {
-                LvnPicture.Photo(avatar, AvatarUrl, _assets);
-            }
+            LvnPortraitFace.Show(avatar, AvatarUrl, _manifest, _assets);
             // ПО АВАТАРУ ОТКРЫВАЕТСЯ ВЫБОР ЛИЦА (TR-79). Кружок и раньше
             // выглядел кнопкой — по нему жали и ничего не происходило.
             if (OnPickAvatar != null)
@@ -280,7 +274,7 @@ namespace Lvn.UI.Screens
             col.style.flexGrow = 1;
             identity.Add(col);
 
-            var name = new Label(Lvn.UI.LvnPlayerName.Display);
+            var name = Lvn.UI.LvnRedress.Bind(new Label(), () => Lvn.UI.LvnPlayerName.Display);
             name.style.color = LvnTokens.Text;
             name.style.fontSize = LvnTokens.TextLg;
             name.style.unityFontStyleAndWeight = FontStyle.Bold;

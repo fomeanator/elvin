@@ -158,6 +158,10 @@ namespace Lvn.UI
         {
             private int _w, _h;
 
+            private void OnApplicationPause(bool paused) => LvnPerf.Pause(paused);
+            private void OnApplicationFocus(bool focused) => LvnPerf.Focus(focused);
+            private void OnApplicationQuit() => LvnPerf.Stop();
+
             private void LateUpdate()
             {
                 if (!_scaleDirty) return;
@@ -174,6 +178,7 @@ namespace Lvn.UI
                 // Тик стоит ДО раннего выхода: размер экрана меняется редко,
                 // а кадр проживается всегда. Страж: TestFrameLengthIsMeasuredFromBoot.
                 Lvn.LvnFrameWatch.Frame(Time.unscaledDeltaTime, Time.frameCount);
+                LvnPerf.Frame(Time.unscaledDeltaTime, Time.frameCount);
                 if (Screen.width == _w && Screen.height == _h) return;
                 _w = Screen.width; _h = Screen.height;
                 float match = CurrentMatch;
@@ -184,6 +189,7 @@ namespace Lvn.UI
                     _scalers[i].matchWidthOrHeight = match;
                 }
             }
+
         }
     }
 }

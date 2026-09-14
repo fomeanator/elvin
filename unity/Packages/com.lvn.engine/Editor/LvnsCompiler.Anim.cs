@@ -79,6 +79,13 @@ namespace Lvn.Editor
                     else
                         p["path"] = tok;
                 }
+                else
+                {
+                    // Mirror Go's rejection: an unknown token must not silently
+                    // turn a looping animation into a one-shot on Unity import.
+                    throw new LvnsCompileException($"unknown positional token \"{tok}\" "
+                        + "(expected duration (e.g. 2s), yoyo|loop|pingpong|stop, key=value, t:v keyframes or a bracket list [value ...])");
+                }
             }
             if (inlineKeys.Count > 0)
             {

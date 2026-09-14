@@ -641,6 +641,7 @@ namespace Lvn.UI.World
 
         private void Update()
         {
+            using var perf = LvnPerf.Measure(LvnPerf.Part.SpriteFx);
             if (_speed > 0f)
             {
                 float k = Time.unscaledDeltaTime * _speed;
@@ -690,6 +691,7 @@ namespace Lvn.UI.World
 
         private void LateUpdate()
         {
+            using var perf = LvnPerf.Measure(LvnPerf.Part.SpriteFx);
             if (_compositeHalo) SyncCompositeHaloGeometry();
         }
 

@@ -53,6 +53,7 @@ func NewClientLogService(dir, adminToken string) (*ClientLogService, error) {
 func (s *ClientLogService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/log/client", s.handleIngest)
 	mux.HandleFunc("/v1/admin/client-logs", s.handleTail)
+	mux.HandleFunc("/v1/admin/performance", s.handlePerformance)
 	// Падения, сгруппированные по сути, а не по строкам (crashes.go): то же,
 	// зачем ставят Sentry, на данных, которые уже собираются.
 	mux.HandleFunc("/v1/admin/crashes", s.handleCrashes)

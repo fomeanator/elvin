@@ -12,6 +12,7 @@ namespace Lvn.UI
         Home, Store, Wardrobe, Gallery, Archive, Profile, Settings, Gift,
         Energy, Gem, Coin, Lock, Play, Check, Close, Alert, Chevron, Plus, Star, Heart, Clock,
         Crown, Trophy, Key, Book, Mask, Flame, Chart, Refresh, Trash,
+        Telegram, Vk, TikTok,
     }
 
     /// <summary>
@@ -153,6 +154,19 @@ namespace Lvn.UI
         public static VisualElement MakeCurrency(string currency, float size)
             => Make(ForCurrency(currency), size, CurrencyColor(currency));
 
+        /// <summary>Known social links have a local vector fallback when the
+        /// manifest supplies no artwork. Unknown links retain their label.</summary>
+        public static LvnIcon ForSocial(string url)
+        {
+            if (!System.Uri.TryCreate(url, System.UriKind.Absolute, out var uri)) return LvnIcon.None;
+            var host = uri.Host.ToLowerInvariant();
+            bool Is(string domain) => host == domain || host.EndsWith("." + domain, System.StringComparison.Ordinal);
+            if (Is("t.me") || Is("telegram.me") || Is("telegram.org")) return LvnIcon.Telegram;
+            if (Is("vk.com") || Is("vk.ru")) return LvnIcon.Vk;
+            if (Is("tiktok.com")) return LvnIcon.TikTok;
+            return LvnIcon.None;
+        }
+
         /// <summary>Рисует иконку в уже существующем элементе — когда размер
         /// задаёт раскладка, а не мы.</summary>
         public static void Paint(VisualElement el, LvnIcon icon, Color color,
@@ -233,6 +247,30 @@ namespace Lvn.UI
 
             switch (icon)
             {
+                case LvnIcon.Telegram:
+                    p.MoveTo(V(2f, 10f)); p.LineTo(V(22f, 3f)); p.LineTo(V(18f, 21f));
+                    p.LineTo(V(11f, 15f)); p.LineTo(V(7f, 18f)); p.LineTo(V(7f, 12f)); p.ClosePath();
+                    p.MoveTo(V(7f, 12f)); p.LineTo(V(18f, 6f)); p.LineTo(V(11f, 15f));
+                    break;
+
+                case LvnIcon.Vk:
+                    p.MoveTo(V(2f, 6f));
+                    p.BezierCurveTo(V(3f, 14f), V(7f, 19f), V(12f, 19f));
+                    p.LineTo(V(12f, 6f));
+                    p.MoveTo(V(12f, 13f));
+                    p.BezierCurveTo(V(16f, 13f), V(20f, 8f), V(21f, 6f));
+                    p.MoveTo(V(12f, 13f));
+                    p.BezierCurveTo(V(17f, 13f), V(20f, 17f), V(22f, 19f));
+                    break;
+
+                case LvnIcon.TikTok:
+                    p.MoveTo(V(14f, 3f)); p.LineTo(V(14f, 16f));
+                    p.BezierCurveTo(V(14f, 22f), V(5f, 23f), V(5f, 17f));
+                    p.BezierCurveTo(V(5f, 14f), V(8f, 12f), V(11f, 13f));
+                    p.MoveTo(V(14f, 3f));
+                    p.BezierCurveTo(V(15f, 7f), V(18f, 9f), V(22f, 9f));
+                    break;
+
                 case LvnIcon.Home:
                     p.MoveTo(V(3f, 11f)); p.LineTo(V(12f, 3.5f)); p.LineTo(V(21f, 11f));
                     p.MoveTo(V(5.5f, 10f)); p.LineTo(V(5.5f, 21f)); p.LineTo(V(18.5f, 21f)); p.LineTo(V(18.5f, 10f));

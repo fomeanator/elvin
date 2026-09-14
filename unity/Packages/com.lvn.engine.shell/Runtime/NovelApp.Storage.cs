@@ -52,6 +52,20 @@ namespace Lvn.UI.Screens
                 .Replace("{title}", LvnWords.Name("title", t.id, t.name))
                 .Replace("{n}", ch.number.ToString());
 
+        private IEnumerable<LvnPart> OfflineChapterParts(LvnChapter chapter)
+        {
+            foreach (var part in LvnParts.OfChapter(chapter)) yield return part;
+            if (string.IsNullOrEmpty(chapter?.script_url)) yield break;
+            var locales = new HashSet<string>(_manifest?.languages ?? new List<string>());
+            locales.Add(CurrentLocale);
+            foreach (var locale in locales)
+            {
+                if (string.IsNullOrEmpty(locale)) continue;
+                var url = LvnUrl.Sibling(chapter.script_url, "." + locale + ".json");
+                if (_assets.Loader.HasPublishedAsset(url)) yield return new LvnPart(url, LvnParts.Script);
+            }
+        }
+
         // ── «Скачать всю игру» (ELVIN-85) ────────────────────────────────────
         // Полный список контента по манифесту, с ЭФФЕКТИВНЫМИ url (крупный
         // арт живёт @2k-вариантом — качаем то, что возьмёт показ).
@@ -67,14 +81,20 @@ namespace Lvn.UI.Screens
             }
             // ЧТО перечислять — у Описи (LvnParts), здесь только глагол.
             foreach (var part in LvnParts.OfAll(_manifest)) Add(part.Url, part.Kind, part.Size);
+            foreach (var title in _manifest?.titles ?? new List<LvnTitle>())
+                if (title != null)
+                    foreach (var chapter in title.ChaptersOf())
+                        foreach (var part in OfflineChapterParts(chapter)) Add(part.Url, part.Kind, part.Size);
             return items;
         }
 
         private Task<(long missingBytes, int missingCount, long usedBytes)> StorageInfoAsync()
-            => Task.Run(async () =>
+        {
+            // Locale/settings are Unity state; capture on the main thread.
+            var items = CollectContentItems();
+            var loader = _assets.Loader;
+            return Task.Run(async () =>
             {
-                var items = CollectContentItems();
-                var loader = _assets.Loader;
                 long missing = 0; int count = 0;
                 foreach (var (url, _, size) in items)
                     if (!loader.IsAssetCached(url))
@@ -85,6 +105,7 @@ namespace Lvn.UI.Screens
                 long used = await loader.AssetCacheDiskUsageAsync();
                 return (missing, count, used);
             });
+        }
 
         private Lvn.UI.Screens.DownloadCenter _dlCenter;
         private int _lastMissingCount = -1;
@@ -98,6 +119,7 @@ namespace Lvn.UI.Screens
             _dlCenter ??= new Lvn.UI.Screens.DownloadCenter(loader);
             var m = _manifest;
             if (m?.titles == null) return Task.CompletedTask;
+            loader.PinOfflineAssets(CollectContentItems().Select(item => item.url));
 
             var chapterUrls = new HashSet<string>();
             var perChapter = new List<(string label, long bytes, List<Lvn.Content.PreloadItem> items)>();
@@ -117,7 +139,7 @@ namespace Lvn.UI.Screens
                         items.Add(new Lvn.Content.PreloadItem { Url = eff, Kind = kind, Size = size });
                         bytes += size > 0 ? size : DownloadPolicy.UnknownSizeBytes;
                     }
-                    foreach (var part in LvnParts.OfChapter(ch)) Add(part.Url, part.Kind, part.Size);
+                    foreach (var part in OfflineChapterParts(ch)) Add(part.Url, part.Kind, part.Size);
                     if (items.Count > 0)
                         perChapter.Add((ChapterEntryLabel(t, ch), bytes, items));
                 }
@@ -190,7 +212,7 @@ namespace Lvn.UI.Screens
                                 // Между файлами игрок может выбрать другой бокс:
                                 // старое решение больше не разрешает его удалять.
                                 if (!ArtBoxPurgePolicy.IsCurrent(cur, DownloadPolicy.PreferredSuffix)) return false;
-                                if (loader.DeleteCachedAsset(url)) { had = true; removed++; }
+                                if (loader.DeleteCachedAsset(url, preserveOffline: true)) { had = true; removed++; }
                             }
                             if (!ArtBoxPurgePolicy.IsCurrent(cur, DownloadPolicy.PreferredSuffix)) return false;
                             if (!had) continue;
@@ -223,6 +245,8 @@ namespace Lvn.UI.Screens
         private void EnqueueChapterDownload(LvnTitle t, LvnChapter ch)
         {
             var loader = _assets.Loader;
+            loader.PinOfflineAssets(OfflineChapterParts(ch)
+                .Select(part => DownloadPolicy.Effective(part.Kind, part.Url)));
             _dlCenter ??= new Lvn.UI.Screens.DownloadCenter(loader);
             var items = new List<Lvn.Content.PreloadItem>();
             long bytes = 0;
@@ -234,7 +258,7 @@ namespace Lvn.UI.Screens
                 items.Add(new Lvn.Content.PreloadItem { Url = eff, Kind = kind, Size = size });
                 bytes += size > 0 ? size : DownloadPolicy.UnknownSizeBytes;
             }
-            foreach (var part in LvnParts.OfChapter(ch)) Add(part.Url, part.Kind, part.Size);
+            foreach (var part in OfflineChapterParts(ch)) Add(part.Url, part.Kind, part.Size);
             _dlCenter.Enqueue(ChapterEntryLabel(t, ch), bytes, items, LvnWords.Name("title", t?.id, t?.name));
         }
 
@@ -281,7 +305,7 @@ namespace Lvn.UI.Screens
                 {
                     if (ch == null) continue;
                     bool ok = true;
-                    foreach (var part in LvnParts.OfChapter(ch))
+                    foreach (var part in OfflineChapterParts(ch))
                     {
                         if (string.IsNullOrEmpty(part.Url)) continue;
                         if (loader.IsAssetCached(DownloadPolicy.Effective(part.Kind, part.Url))) continue;
@@ -312,7 +336,7 @@ namespace Lvn.UI.Screens
                     // Вводная и глава, на которой стоит прогресс, — неприкосновенны:
                     // им играть следующими.
                     bool keep = intro || (current != null && ch.id == current.id);
-                    foreach (var part in LvnParts.OfChapter(ch))
+                    foreach (var part in OfflineChapterParts(ch))
                     {
                         Add(live, part.Url);
                         if (keep) Add(prot, part.Url);

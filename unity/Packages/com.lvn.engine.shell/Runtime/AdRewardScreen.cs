@@ -32,6 +32,7 @@ namespace Lvn.UI.Screens
         private string _placement;
         private string _skin;
         private bool _stageGlass;
+        private bool _offering, _offerReady;
         private bool StageDressed => !string.IsNullOrEmpty(_skin);
 
         public AdRewardScreen(ILvnAssets assets)
@@ -70,6 +71,10 @@ namespace Lvn.UI.Screens
             _actions = new VisualElement();
             _actions.style.marginTop = LvnTokens.Space5;
             sheet.Add(_actions);
+            schedule.Execute(TickOffer).Every(500);
+            LvnLeash.WhileOnScreen(this,
+                () => Lvn.Services.LvnAds.Changed += UpdateOffer,
+                () => Lvn.Services.LvnAds.Changed -= UpdateOffer);
         }
 
         /// <inheritdoc cref="ILvnContentAware.SetContent"/>
@@ -89,9 +94,34 @@ namespace Lvn.UI.Screens
         public async Task RunAsync(string placement)
         {
             _placement = placement;
+            _offering = true;
             BuildBillboard();   // щит стоит на сцене всё время разговора (TR-64)
             Offer();
-            await ShowAsync();
+            var showing = ShowAsync();
+            LvnAsync.Fire(RefreshOfferAsync(), "AdOffer");
+            try { await showing; }
+            finally { _offering = false; }
+        }
+
+        private async Task RefreshOfferAsync()
+        {
+            await Lvn.Services.LvnAds.GetCatalogAsync();
+            UpdateOffer();
+        }
+
+        private void UpdateOffer()
+        {
+            if (IsOpen && _offering) Offer();
+        }
+
+        private void TickOffer()
+        {
+            if (!IsOpen || !_offering) return;
+            LvnAsync.Fire(Lvn.Services.LvnAds.RefreshDueAsync(), "AdRecharge");
+            var state = Lvn.Services.LvnAds.StateOf(_placement);
+            bool ready = state != null && state.Ready && Lvn.Services.LvnAds.Available;
+            if (ready != _offerReady) Offer();
+            else _note.text = state == null ? LvnWords.Of("network.title", "No connection") : Left(state);
         }
 
         // ── ЧТО ПОКАЗЫВАЕМ ────────────────────────────────────────────────────
@@ -100,10 +130,10 @@ namespace Lvn.UI.Screens
         {
             var st = Lvn.Services.LvnAds.StateOf(_placement);
             long amount = st?.Amount ?? 0;
-            _reward.text = "+" + amount.ToString(CultureInfo.InvariantCulture);
-            _note.text = Left(st);
+            _reward.text = amount > 0 ? "+" + LvnPriceTag.Full(st.Currency, amount) : "";
+            _note.text = st == null ? LvnWords.Of("network.title", "No connection") : Left(st);
             _actions.Clear();
-            bool ready = st == null || st.Ready;
+            bool ready = _offerReady = st != null && st.Ready && Lvn.Services.LvnAds.Available;
             if (ready) _actions.Add(Primary(() => LvnWords.Of("ads.watch", "Watch"), Watch));
             _actions.Add(Quiet(() => LvnWords.Of("ads.later", "Not now"), Cancel));
         }
@@ -129,6 +159,8 @@ namespace Lvn.UI.Screens
 
         private void Watch()
         {
+            if (!_offering || !_offerReady) return;
+            _offering = false;
             _note.text = LvnWords.Of("ads.loading", "Loading the ad…");
             _actions.Clear();
             LvnAsync.Fire(WatchAsync(), "AdWatch");
@@ -138,9 +170,13 @@ namespace Lvn.UI.Screens
         {
             // СНАЧАЛА ПЕРЕЕЗД, ПОТОМ РОЛИК: щит вырастает во весь кадр, и
             // реклама начинается ИЗ сцены, а не поверх разговора.
-            await ApproachAsync();
             bool granted = false;
-            try { granted = await Lvn.Services.LvnAds.WatchAndRewardAsync(_placement); }
+            try
+            {
+                await ApproachAsync();
+                if (!IsOpen) return;
+                granted = await Lvn.Services.LvnAds.WatchAndRewardAsync(_placement);
+            }
             catch (Exception e) { LvnLog.Trace("[lvn-ads] показ не удался: " + e.Message); }
             if (!IsOpen) return;
             Depart();
@@ -154,7 +190,7 @@ namespace Lvn.UI.Screens
             var st = Lvn.Services.LvnAds.StateOf(_placement);
             if (granted)
             {
-                _reward.text = "+" + (st?.Amount ?? 0).ToString(CultureInfo.InvariantCulture);
+                _reward.text = st == null ? "" : "+" + LvnPriceTag.Full(st.Currency, st.Amount);
                 _note.text = LvnWords.Of("ads.got", "Crystals are in your wallet");
             }
             else

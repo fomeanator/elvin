@@ -115,6 +115,8 @@ namespace Lvn.UI.Screens
             // Вышли из новеллы: события меню не должны числиться за историей,
             // из которой игрок уже ушёл.
             LeaveChapterContext();
+            LvnAsync.Fire(ApplyDeferredProgressAsync(), "DeferredProgressSync");
+            if (_deferredContentUpdate) LvnAsync.Fire(OnContentChangedAsync(), "DeferredContentUpdate");
             // A chapter's worth of remote sprites fragments the panel's dynamic
             // atlas (freed regions rarely fit the next tenant); rebuild it clean
             // at this natural boundary.

@@ -87,7 +87,7 @@ namespace Lvn.UI.Screens
             if (picked == SelfId) return m?.ui?.browse?.avatar;
             if (!string.IsNullOrEmpty(picked))
                 foreach (var c in Offered(m))
-                    if (c.Id == picked) return c.Url;
+                    if (c.Id == picked && Owned(c)) return c.Url;
             return m?.ui?.browse?.avatar;
         }
 
@@ -98,6 +98,32 @@ namespace Lvn.UI.Screens
             if (!c.Paid) return true;
             return Lvn.Services.LvnWallet.Inventory != null
                 && Lvn.Services.LvnWallet.Inventory.TryGetValue(c.Item, out var n) && n > 0;
+        }
+
+        /// <summary>Buy once, then persist the selected face for this account.
+        /// Online refusals are reconciled before reporting success; offline
+        /// purchases use the wallet's durable journal.</summary>
+        public static async System.Threading.Tasks.Task<bool> ChooseAsync(LvnManifest manifest, string id)
+        {
+            string owner = Lvn.LvnKeep.Owner;
+            if (id == SelfId)
+            {
+                if (LvnHeroPortrait.Layers(manifest) == null) return false;
+            }
+            else
+            {
+                var choice = Offered(manifest).Find(c => c.Id == id);
+                if (choice == null) return false;
+                if (!Owned(choice))
+                {
+                    if (!await Lvn.Services.LvnWallet.SpendAsync(choice.Currency, choice.Price, "avatar", choice.Item)) return false;
+                    await Lvn.Services.LvnWallet.FlushAsync();
+                    if (owner != Lvn.LvnKeep.Owner || !Owned(choice)) return false;
+                }
+            }
+            if (owner != Lvn.LvnKeep.Owner) return false;
+            Picked = id;
+            return true;
         }
     }
 }

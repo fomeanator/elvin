@@ -41,6 +41,16 @@ namespace Lvn.Content
         {
             ct.ThrowIfCancellationRequested();
             var path = CachePath(_scriptCacheDir, scriptUrl, ".txt");
+            // Download Center stores every item (including scripts/catalogs)
+            // in the byte cache. A downloaded-but-never-opened chapter must
+            // not need a second HTTP request to create its text-cache copy.
+            var preloaded = CachePath(_assetCacheDir, scriptUrl, ".bin");
+            if (!File.Exists(path) && File.Exists(preloaded))
+            {
+                try { return await ReadAllTextAsync(preloaded, ct); }
+                catch (OperationCanceledException) { throw; }
+                catch { /* unreadable bytes: use the normal recovery path */ }
+            }
             if (File.Exists(path))
             {
                 try { return await ReadAllTextAsync(path, ct); }

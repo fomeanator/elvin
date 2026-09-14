@@ -31,6 +31,7 @@ namespace Lvn.Content
         public static Texture2D DownscaleIfOversized(Texture2D tex, int cap = MaxTextureSize,
                                                      bool finalize = true)
         {
+            using var perf = LvnPerf.Measure(LvnPerf.Part.TextureResize);
             if (tex == null) return null;
             int m = Mathf.Max(tex.width, tex.height);
             if (m <= cap) return tex;
@@ -63,6 +64,7 @@ namespace Lvn.Content
         /// </summary>
         public static Texture2D WithMipmaps(Texture2D tex, int minSide = 1200, bool finalize = true)
         {
+            using var perf = LvnPerf.Measure(LvnPerf.Part.TextureResize);
             if (tex == null || tex.mipmapCount > 1) return tex;
             if (Mathf.Max(tex.width, tex.height) < minSide) return tex;
 
@@ -113,6 +115,7 @@ namespace Lvn.Content
         /// </summary>
         public static Texture2D Decode(byte[] bytes)
         {
+            using var perf = LvnPerf.Measure(LvnPerf.Part.TextureDecode);
             if (bytes == null || bytes.Length == 0) return null;
             var tex = new Texture2D(2, 2, TextureFormat.RGBA32, mipChain: false);
             if (tex.LoadImage(bytes)) return tex;

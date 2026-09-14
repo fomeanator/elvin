@@ -537,6 +537,7 @@ namespace Lvn.UI.Screens
             }
             _def = _entity != null && _manifest?.sprites != null
                    && _manifest.sprites.TryGetValue(_entity, out var d) ? d : null;
+            LvnWardrobe.ClearTransientEmotions(_manifest);
             RebuildSlots();   // облик героя + «Фон»; всё ниже читает только его
             _index.Clear();
             _autoDressed.Clear(); // лист собирается заново — и его примерки тоже

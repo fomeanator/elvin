@@ -54,6 +54,7 @@ namespace Lvn.UI.Screens
             if (Stage == null || portal == null) return;
             var fav = MenuFavoriteEntity();
             LvnLog.Trace($"[lvn-portal] уход с миссии: героиня={fav ?? "-"}");
+            LvnPerf.Event("portal-leave", "hero=" + (fav ?? "-"));
             Gate.Hold();   // таймер главной больше не властен над створом
 
             // 1. Кадр расчищает РАСПОРЯДИТЕЛЬ: остаётся она одна, и вместе с
@@ -148,9 +149,16 @@ namespace Lvn.UI.Screens
             await LeaveToMenuAsync();      // расталкивание, створ, шейдер, фейд
 
             // Кадр меню ставится ПОД ЧЁРНЫМ — смены никто не видит.
-            HandOverToMenu();
+            HandOverToMenu(placeHeroine: false);
             var fav = MenuFavoriteEntity();
-            if (!string.IsNullOrEmpty(fav)) Stage.ApplyStage(Hidden(fav), LvnSender.Cutscene);
+            // Place under the portal before revealing. The delayed menu task
+            // used to relocate her halfway through the dissolve animation.
+            PlaceMenuHeroine();
+            if (!string.IsNullOrEmpty(fav))
+            {
+                Stage.ApplyStage(Hidden(fav), LvnSender.Cutscene);
+                await Stage.WaitForActorArtAsync(fav);
+            }
             Gate.Set(1f, 0f);   // створ ЗДЕСЬ ещё открыт
             await Task.Delay(LvnMotion.Ms(120));
 
@@ -159,6 +167,7 @@ namespace Lvn.UI.Screens
             if (!string.IsNullOrEmpty(fav)) Stage.ApplyStage(Revealed(fav, 0.6f), LvnSender.Cutscene);
             Gate.Set(0f, 0.8f);
             _shell?.ShowMenuChrome();
+            LvnPerf.Event("portal-returned", "hero=" + (fav ?? "-"));
             LvnLog.Trace("[lvn-portal] возвращение доиграно");
         }
 
@@ -173,6 +182,7 @@ namespace Lvn.UI.Screens
 
             var fav = MenuFavoriteEntity();
             bool inFrame = !string.IsNullOrEmpty(fav) && Stage.ActorVisibleOrPending(fav);
+            LvnPerf.Event("portal-enter", "hero=" + (fav ?? "-") + " inFrame=" + inFrame);
             LvnLog.Trace($"[lvn-portal] уход в главу: героиня={fav ?? "-"}, в кадре={inFrame}");
             Gate.Hold();   // таймер главной больше не властен над створом
             _shell?.HideMenuChrome();   // кадр остаётся сценой, а не витриной с кнопками
@@ -228,6 +238,7 @@ namespace Lvn.UI.Screens
             // его раскрытым — значит оставить кадр под наложением.
             if (Stage.StoryDressedStage())
             {
+                LvnPerf.Event("portal-resume", "restored-frame");
                 LvnLog.Trace("[lvn-portal] кадр собран реплеем — приезд не разыгрываем, только створ");
                 Gate.Set(0f, 0.8f);
                 await Task.Delay(LvnMotion.Ms(900));
@@ -235,6 +246,7 @@ namespace Lvn.UI.Screens
             }
 
             LvnLog.Trace($"[lvn-portal] прибытие в главу: героиня={fav ?? "-"}");
+            LvnPerf.Event("portal-arrive", "hero=" + (fav ?? "-"));
 
             // 1. Кадр расчищает РАСПОРЯДИТЕЛЬ — и запоминает, кого глава успела
             //    выставить: после катсцены он вернёт их на место.
@@ -298,6 +310,7 @@ namespace Lvn.UI.Screens
                 //    авторской команды о них, то есть на несколько ходов, а
                 //    собеседник в неподвижной сцене — насовсем.
                 Stage.EndSolo();
+                LvnPerf.Event("portal-arrived", "hero=" + (fav ?? "-"));
                 LvnLog.Trace("[lvn-portal] прибытие доиграно — глава продолжает");
             }
         }

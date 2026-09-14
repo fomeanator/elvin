@@ -121,6 +121,9 @@ namespace Lvn.UI
 
         public CanvasSceneRenderer(World.WorldStage scene) => _scene = scene;
 
+        /// <summary>Экран сменился — фигуры ставятся заново (см. WorldStage.RefitToFrame).</summary>
+        public bool RefitToFrame() => _scene.RefitToFrame();
+
         /// <summary>The stage canvas root — hosts the resume veil (see
         /// VnStage.RestoreSnapshot).</summary>
         public GameObject Root => _scene.Root;

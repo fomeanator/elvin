@@ -34,11 +34,22 @@ namespace Lvn.UI
         private const float TrackHeight = 8f;
         private const float KnobSize = 28f;
 
+        private sealed class PaintedSlider : Slider
+        {
+            public Action<float> Paint;
+            public PaintedSlider(float min, float max) : base(min, max) { }
+            public override void SetValueWithoutNotify(float newValue)
+            {
+                base.SetValueWithoutNotify(newValue);
+                Paint?.Invoke(value);
+            }
+        }
+
         public static Slider Make(float min, float max, float value,
                                   Action<float> onApply, Action<float> onPreview = null,
                                   Color? accent = null, Color? track = null)
         {
-            var s = new Slider(min, max) { value = value };
+            var s = new PaintedSlider(min, max) { value = value };
             var acc = accent ?? LvnTokens.Accent;
             s.style.height = 40;
             s.style.marginTop = LvnTokens.Space1;
@@ -118,19 +129,18 @@ namespace Lvn.UI
                 if (fill != null) fill.style.width = Length.Percent(t * 100f);
                 if (knob != null) knob.style.left = Length.Percent(t * 100f);
             }
+            s.Paint = Paint;
             Paint(value);
 
-            float pending = value;
             s.RegisterValueChangedCallback(e =>
             {
-                pending = e.newValue;
                 Paint(e.newValue);
                 onPreview?.Invoke(e.newValue);   // то, что слышно/видно только вживую
             });
 
             void Apply()
             {
-                onApply?.Invoke(pending);
+                onApply?.Invoke(s.value);
                 // Отклик на отпускание: бегунок коротко проступает — «дошло».
                 // Без него игрок не понимает, засчиталось ли, и дёргает ползунок
                 // ещё раз.

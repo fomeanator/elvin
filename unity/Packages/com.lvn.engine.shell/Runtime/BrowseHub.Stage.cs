@@ -115,24 +115,38 @@ namespace Lvn.UI.Screens
             _stageCard = StageCard();
             stack.Add(_stageCard);
             stack.Add(StageGap());
-            _stageAd = StageAdButton();
-            stack.Add(_stageAd);
+            // РЯД КНОПОК ПОД КАРТОЧКОЙ — награда за ролик и крутки (TR-47) в
+            // ОДНУ строку, высотой в кнопку награды. Крутки стояли ПОД наградой
+            // и молча поднимали весь столбик на 47 dp от макета: стек прижат к
+            // низу, и каждая новая строка растёт вверх (сверка кадров 12.09).
+            // Ряд держит высоту и без кнопок: нет рекламы — столбик не едет.
+            var actions = ScreenUi.Row();
+            actions.name = "stage-actions";
+            actions.pickingMode = PickingMode.Ignore;
+            actions.style.justifyContent = Justify.FlexEnd;
+            actions.style.flexShrink = 0;
+            actions.style.height = D(LvnStageSkin.Adv.Height);
 
-            // КРУТКИ (TR-47) — рядом с наградой за ролик: обе кнопки про то,
-            // как получить валюту, не платя деньгами. Пункта нет, пока хозяин
-            // не дал, чем его открыть: гача заводится сервером, и обещать её
-            // без сервера незачем.
-            // Кнопка круток строится ВСЕГДА и лишь показывается по обработчику:
-            // он приходит от оболочки позже сборки облика (см. OnSpin).
-            _stageSpin = LvnStageKit.Button(() => LvnWords.Of("gacha.title", "Spin"), () => _onSpin?.Invoke());
+            // КРУТКИ — рядом с наградой за ролик: обе кнопки про то, как
+            // получить валюту, не платя деньгами. Пункта нет, пока хозяин не
+            // дал, чем его открыть: гача заводится сервером, и обещать её без
+            // сервера незачем. Кнопка строится ВСЕГДА и лишь показывается по
+            // обработчику: он приходит от оболочки позже сборки облика (см.
+            // OnSpin). Размер — как у награды: рамка-арт карточки, сплющенная
+            // под одно слово, читалась дырой рядом с ней.
+            _stageSpin = GachaScreen.LaunchButton(() => _onSpin?.Invoke());
+            _stageSpin.name = "stage-spin";
+            _stageSpin.style.width = D(LvnStageSkin.Adv.Width);
             _stageSpin.style.height = D(LvnStageSkin.Adv.Height);
-            _stageSpin.style.marginTop = LvnTokens.Space1;
+            _stageSpin.style.minHeight = D(LvnStageSkin.Adv.Height);
+            _stageSpin.style.flexShrink = 0;
+            _stageSpin.style.marginRight = LvnTokens.Space1;
             _stageSpin.style.display = _onSpin != null ? DisplayStyle.Flex : DisplayStyle.None;
-            LvnStageKit.HollowFrame(_stageSpin, SkinUrl("card-back.png"), _assets,
-                                    LvnStageKit.CardBackW, LvnStageKit.CardBackH,
-                                    LvnStageKit.CardBackCornerPx, LvnStageKit.CardBackPxPerDp,
-                                    index: 0, solid: true);
-            stack.Add(_stageSpin);
+            actions.Add(_stageSpin);
+
+            _stageAd = StageAdButton();
+            actions.Add(_stageAd);
+            stack.Add(actions);
 
             // Высота экрана известна только после раскладки — и меняется на
             // повороте; столбик подгоняется при каждой смене геометрии.
@@ -162,7 +176,7 @@ namespace Lvn.UI.Screens
         /// кнопка. Ведёт в библиотеку — все новеллы одним списком.</summary>
         private VisualElement StagePanel()
         {
-            var p = new VisualElement { pickingMode = PickingMode.Ignore };
+            var p = new VisualElement { name = "stage-home-panel", pickingMode = PickingMode.Ignore };
             float pw = LvnStageSkin.Panel.Width, ph = LvnStageSkin.Panel.Height;
             p.style.width = D(pw); p.style.height = D(ph);
             p.style.marginRight = D(2f);
@@ -379,12 +393,16 @@ namespace Lvn.UI.Screens
         /// нарисованы внутри меню. Вырез меньше — меню остаётся высотой макета;
         /// больше — растёт на разницу, и столбик поднимается вместе с ним.</summary>
         private static float StageHomeBarDp => LvnStageSkin.HomeBar;
+        private const float StageNavHeightDp = 146f;
+        private const float StageHomeOverhangDp = 20f;
+        private const float StageActionsGapDp = 8f;
         /// <summary>Шапка макета: ряд 32 dp плюс логотип, свисающий под него
         /// (блок 58 dp), плюс воздух до столбика.</summary>
         private const float StageTopBlockDp = 58f + 12f;
         /// <summary>Столбик без воздуха: панель, карточка, кнопка награды и
         /// два минимальных зазора — ниже он не ужмётся, дальше только масштаб.</summary>
-        private const float StageStackMinDp = 124f + 255f + 39f + 2f * 8f;
+        private static float StageStackMinHeight => D(LvnStageSkin.Panel.Height)
+            + D(LvnStageSkin.CardFront.Height) + D(LvnStageSkin.Adv.Height) + 2f * D(8f);
         /// <summary>Ниже этого столбик не масштабируем: подписи перестают читаться.</summary>
         private const float StageMinScale = 0.55f;
 
@@ -404,10 +422,11 @@ namespace Lvn.UI.Screens
         private void ApplyStageSafeArea()
         {
             float inset = Mathf.Max(LvnEdges.Bottom(this), D(StageHomeBarDp));
+            float navHeight = D(StageNavHeightDp - StageHomeBarDp) + inset;
             if (_bottomNav != null)
             {
                 _bottomNav.style.paddingBottom = 0;
-                _bottomNav.style.height = D(146f - StageHomeBarDp) + inset;
+                _bottomNav.style.height = navHeight;
             }
             // Внутренние страницы (подборка, деталь) начинаются ПОД шапкой
             // облика: её логотип свисает ниже ряда, и заголовок страницы
@@ -416,13 +435,17 @@ namespace Lvn.UI.Screens
             if (_collectionView != null) _collectionView.style.paddingTop = top;
             if (_detailView != null) _detailView.style.paddingTop = top;
             if (_stageStack == null) return;
-            float bottom = LvnStageKit.BottomAboveBar(this, LvnStageSkin.Home.Bottom);
+            // The home button rises above the navigation strip. The spin
+            // button shares its horizontal space, so reserve its full hit
+            // area before fitting the column to the remaining screen height.
+            float bottom = Mathf.Max(LvnStageKit.BottomAboveBar(this, LvnStageSkin.Home.Bottom),
+                navHeight + D(StageHomeOverhangDp) + D(StageActionsGapDp));
             _stageStack.style.bottom = bottom;
             _stageStack.style.top = top;
             float viewH = resolvedStyle.height;
             if (float.IsNaN(viewH) || viewH <= 1f) return;   // до первой раскладки
             float avail = viewH - top - bottom;
-            float need = D(StageStackMinDp);
+            float need = StageStackMinHeight;
             float scale = avail >= need ? 1f : Mathf.Max(StageMinScale, avail / need);
             _stageStack.style.scale = new Scale(new Vector2(scale, scale));
             _stageStack.style.transformOrigin = new TransformOrigin(Length.Percent(100f), Length.Percent(100f));
@@ -435,14 +458,12 @@ namespace Lvn.UI.Screens
         /// Значки нарисованы в самой картинке; живут только слова.</summary>
         private VisualElement StageNav()
         {
-            // Коробка меню выше нарисованной полосы: над ней в тех же 146 dp
-            // стоит кольцо, а кнопка награды из столбика заходит в её верх.
-            // Коробка тапы НЕ ловит — иначе она глотала бы нажатия по кнопке
-            // награды (тур 08.09: до кнопки доходил только отпуск). Ловят
-            // нарисованная полоса (floor), вкладки и кольцо.
+            // The transparent area above the strip does not catch taps;
+            // only the floor, tabs and raised home button do. The action row
+            // clears that raised button in ApplyStageSafeArea.
             var nav = new VisualElement { pickingMode = PickingMode.Ignore };
             _bottomNav = nav;
-            nav.style.height = D(146f);
+            nav.style.height = D(StageNavHeightDp);
             nav.style.flexShrink = 0;
             // ПОД ЛЕНТОЙ — СЦЕНА, А НЕ ЧЁРНОТА. Здесь стояла заливка цветом
             // фона от 74 dp до низа: рисунок меню ниже своей панели прозрачен,
@@ -474,7 +495,7 @@ namespace Lvn.UI.Screens
 
             // Центр: круг нарисован; слово и подпись состояния — живые.
             var home = new VisualElement { name = "stage-tab-home" };
-            At(home, 0f, -D(20f), D(142f), D(162.5f));
+            At(home, 0f, -D(StageHomeOverhangDp), D(142f), D(162.5f));
             home.style.left = Length.Percent(50f);
             home.style.marginLeft = -D(71f);
             var word = StageLabel(() => LvnTabs.Label(LvnTabs.Home, _cfg).ToUpperInvariant(),

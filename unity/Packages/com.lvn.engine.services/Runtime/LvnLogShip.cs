@@ -85,6 +85,10 @@ namespace Lvn.Services
             Enqueue("info", $"session start · {Lvn.LvnDeviceProfile.Model} · {Lvn.LvnDeviceProfile.Os} " +
                             $"· app {Application.version} · mem {Lvn.LvnDeviceProfile.RamMb}MB " +
                             $"· gpu {Lvn.LvnDeviceProfile.Gpu}", null, persist: false);
+            // The first perf header predates backend boot; retain its build,
+            // display and counter capabilities in the server-side session too.
+            if (Lvn.LvnPerf.Enabled)
+                Enqueue("info", Lvn.LvnPerf.SessionInfo, null, persist: false);
         }
 
         private static void OnLog(string message, string stack, LogType type)
@@ -109,6 +113,7 @@ namespace Lvn.Services
 
         private static void Enqueue(string level, string msg, string stack, bool persist)
         {
+            using var perf = Lvn.LvnPerf.Measure(Lvn.LvnPerf.Part.LogEnqueue);
             bool collapsed = false;
             JObject line = null;
             _box.Modify(q =>
@@ -158,8 +163,10 @@ namespace Lvn.Services
                 },
                 ["lines"] = lines,
             };
-            var (code, _) = await LvnBackend.PostAsync("/v1/log/client",
-                body.ToString(Newtonsoft.Json.Formatting.None));
+            string json;
+            using (Lvn.LvnPerf.Measure(Lvn.LvnPerf.Part.LogSerialize))
+                json = body.ToString(Newtonsoft.Json.Formatting.None);
+            var (code, _) = await LvnBackend.PostAsync("/v1/log/client", json);
             if (LvnBackend.Ok(code)) { _lastMsg = null; _lastLine = null; }
             return code;
         }

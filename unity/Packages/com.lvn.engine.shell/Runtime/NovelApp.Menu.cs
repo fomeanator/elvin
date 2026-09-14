@@ -142,6 +142,7 @@ namespace Lvn.UI.Screens
             var b = manifest?.ui?.browse;
             LvnMenuStage.Apply(b);
             LvnWardrobeStage.Apply(manifest?.ui?.wardrobe);
+            LvnWardrobe.ClearTransientEmotions(manifest);
         }
 
         /// <summary>Полотно витрины греется, как только известен манифест.
@@ -252,7 +253,7 @@ namespace Lvn.UI.Screens
         /// ПЕРЕСТАВЛЯЕТСЯ: место берётся у витрины меню, а наряд и эмоция
         /// остаются те, с которыми кончилась глава.</para>
         /// </summary>
-        private void HandOverToMenu()
+        private void HandOverToMenu(bool placeHeroine = true)
         {
             if (Stage == null) return;
             var canvas = MenuCanvasUrl();
@@ -267,7 +268,7 @@ namespace Lvn.UI.Screens
             // Героиня выходит ПОСЛЕ фона, а не вместе с ним: сначала мир, потом
             // тот, кто в него вернулся. Появиться одновременно значит смазать
             // оба события в одно мельтешение.
-            LvnAsync.Fire(PlaceMenuHeroineSoonAsync(), "MenuHeroine");
+            if (placeHeroine) LvnAsync.Fire(PlaceMenuHeroineSoonAsync(), "MenuHeroine");
         }
 
         /// <summary>Сколько длится возвращение: кроссфейд полотна меню.</summary>
@@ -323,8 +324,9 @@ namespace Lvn.UI.Screens
             // смену наряда и на каждый возврат из главы; ставь её всегда в
             // слот главной — и она прыгала бы влево посреди гардероба, где её
             // только что увели в центр.
+            var room = LvnTabs.RoomOf(_shell?.Tab ?? LvnTabs.Home);
             if (!Stage.Prima.Stand(sender, z, MenuDollSlot(),
-                                   nudge: LvnMenuStage.DollNudge(LvnTabs.RoomOf(_shell?.Tab ?? LvnTabs.Home))))
+                                   nudge: LvnMenuStage.DollNudge(room), lift: LvnMenuStage.DollLiftFor(room)))
                 return false;
             // План и дыхание полотна — тоже свойства вкладки, не картинки.
             if (sender == LvnSender.Menu) RestoreMenuComposition();
@@ -364,14 +366,16 @@ namespace Lvn.UI.Screens
 
         private void ShowMenuScene(bool withPortal)
         {
-            // ВЕРНУЛИСЬ ИЗ ГЛАВЫ — героиня это замечает (TR-66). Только настоящий
-            // приход: лечение полотна зовёт нас же и событием не считается.
-            if (withPortal) Raise("on_return", act: true);
             if (Stage == null || InChapter)
             {
                 LvnLog.Trace($"[lvn-menu] сцена меню ПРОПУЩЕНА: stage={(Stage != null)}, играется глава={InChapter}");
                 return;
             }
+            // ВЕРНУЛИСЬ ИЗ ГЛАВЫ — героиня это замечает (TR-66). Только настоящий
+            // приход: лечение полотна зовёт нас же и событием не считается.
+            // Стоит ПОСЛЕ проверки главы: раньше стояло до неё и будило реакцию
+            // в сцене истории.
+            if (withPortal) Raise("on_return", act: true);
             var canvas = MenuCanvasUrl();
             // «Стоит ли уже полотно» спрашиваем У СЦЕНЫ. Здесь жил свой флажок,
             // и он врал ровно тогда, когда это было важнее всего: картинка со
@@ -446,6 +450,7 @@ namespace Lvn.UI.Screens
         // где её поставил автор, на боковых возвращается в центр кадра.
         private string _menuDollSlot;     // куда едет героиня в этом переезде
         private float _menuDollNudge;     // …и на сколько правее слота там стоит
+        private float _menuDollLift;      // …и на сколько выше кромки (главная по макету)
         private bool _menuDollSent;         // …и послана ли она уже (первым тиком)
         // …и насколько она отодвинута: на главной свой план, на боковых — вблизи.
         private float _menuCastZoomFrom = 1f, _menuCastZoomTo = 1f;
@@ -474,6 +479,7 @@ namespace Lvn.UI.Screens
             // бы раньше кадра. Тик посылает её один раз — по этому флагу.
             _menuDollSlot = LvnMenuStage.DollSlot(LvnTabs.RoomOf(toTab));
             _menuDollNudge = LvnMenuStage.DollNudge(LvnTabs.RoomOf(toTab));
+            _menuDollLift = LvnMenuStage.DollLiftFor(LvnTabs.RoomOf(toTab));
             _menuDollSent = false;
             // УХОДИМ ИЗ ГАРДЕРОБА — ОБЩИЙ ПЛАН ВОЗВРАЩАЕТСЯ ВМЕСТЕ С ПЕРЕЛЁТОМ.
             // Наезд гардероба (камера 1.07 на разделе «Моё») снимался при
@@ -671,6 +677,9 @@ namespace Lvn.UI.Screens
             // лицо снимается — иначе «сон» после покупки доиграл бы на героине
             // уже в сцене истории, где лицом командует сценарий.
             _moodClip?.Stop();
+            // Настроение узнаёт, что игрок ушёл: без этого «сон» оставался
+            // играющим, и первое же касание в главе будило реакцию.
+            _mood?.Leave();
             ReleaseFace(refresh: false);
             Stage.CloseMenuLayer();
             _menuSceneActor = null;

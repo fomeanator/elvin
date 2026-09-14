@@ -294,6 +294,7 @@ namespace Lvn.Content
                 }
 
                 var tex = result.texture;
+                using var perf = LvnPerf.Measure(LvnPerf.Part.SpriteCreate);
                 tex.wrapMode = TextureWrapMode.Clamp;
                 // The server bakes a mip chain into every encode (basisu -mipmap);
                 // trilinear blends between mips so minified art (shrunk actors,

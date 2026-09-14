@@ -80,6 +80,27 @@ namespace Lvn.UI.Screens
             // already on disk (no network), so a cached install still shows its art.
             try { await _downloads.BootPrefetchAsync(manifest, online, default, showcaseAhead: LvnIntro.Pending(manifest) == null); }
             catch { /* best-effort — missing boot art is non-fatal */ }
+            WarmHubSpines(manifest);
+        }
+
+        // ЖИВЫЕ ФИГУРЫ ХАБА — ЗАРАНЕЕ. Карточка ленты поднимает спайн сама, а
+        // пока едут json/атлас/страницы, её постер ПУСТ: игрок видит не «ещё
+        // грузится», а сломанную карточку (замер 07.09 — холст, текстура и
+        // подгонка были в порядке, не хватало только файлов). Греем их тем же
+        // фасадом ассетов, что потом спросит карточка, — значит в тот же кэш, —
+        // и просим мост разобрать скелет в стороне от главного потока.
+        // Не ждём: прогрев идёт фоном, а не задерживает бут.
+        private void WarmHubSpines(LvnManifest manifest)
+        {
+            if (manifest?.sprites == null) return;
+            foreach (var kv in manifest.sprites)
+            {
+                var spine = kv.Value?.spine;
+                if (spine == null) continue;
+                LvnAsync.Fire(Lvn.UI.LvnSpinePoster.WarmAsync(spine,
+                    url => _assets.LoadTextAsync(url, default),
+                    url => _assets.LoadSpriteAsync(url, default)), "SpineWarm");
+            }
         }
 
         // Probe the server's /healthz with a hard 3s deadline. Token-based, because

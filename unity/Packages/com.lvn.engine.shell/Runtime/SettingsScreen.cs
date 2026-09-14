@@ -96,6 +96,10 @@ namespace Lvn.UI.Screens
             // Полоса видна: в настройках она подсказывает, что список
             // длиннее экрана (живой репорт «не видно, что есть куда скроллить»).
             _list = Lvn.UI.LvnScroll.Vertical(showScroller: true);
+            // A vertical list fits the viewport after the scrollbar takes its
+            // share. Intrinsic child width must not create hidden horizontal overflow.
+            _list.contentContainer.style.width = Length.Percent(100);
+            _list.contentContainer.style.minWidth = 0;
             // ПОЛОСА ВИДНА, КОГДА ЕСТЬ ЧТО ПРОКРУЧИВАТЬ. Спрятанная полоса
             // экономит четыре пикселя и стоит того, что игрок не знает о
             // половине настроек: лента длиннее экрана, а признака этого нет
@@ -334,7 +338,7 @@ namespace Lvn.UI.Screens
         {
             var row = RowEx(LvnWords.Pick("settings.sound", _cfg.sound_label, "All sounds"),
                 LvnWords.Of("settings.mute_hint", "Turns music and effects fully off"));
-            var btn = new Button { text = LvnPrefs.SoundOn ? (LvnWords.Pick("common.on", _cfg.on_text, "On")) : (LvnWords.Pick("common.off", _cfg.off_text, "Off")) };
+            var btn = new Button { name = "settings-sound", text = LvnPrefs.SoundOn ? (LvnWords.Pick("common.on", _cfg.on_text, "On")) : (LvnWords.Pick("common.off", _cfg.off_text, "Off")) };
             StyleValueButton(btn, LvnPrefs.SoundOn);
             btn.clicked += () =>
             {
@@ -363,7 +367,6 @@ namespace Lvn.UI.Screens
         private VisualElement SliderRow(string label, string hint, float min, float max,
             System.Func<float> get, System.Action<float> set, bool live = false, bool audio = false)
         {
-            var row = RowEx(label, hint);
             // Бегунок красит сам дом: штатный сделан прозрачным и служит только
             // областью захвата, так что покраска его фона отсюда была работой
             // по невидимому элементу.
@@ -371,18 +374,18 @@ namespace Lvn.UI.Screens
             // ноль программно, шлёт то же событие, что и палец игрока: без
             // этой защиты «выключить звук» стирало бы сохранённые уровни, и
             // «включить» возвращало бы тишину.
-            System.Action<float> guarded = v => { if (!_muting) set(v); };
+            System.Action<float> guarded = v => { if (!_muting && (!audio || LvnPrefs.SoundOn)) set(v); };
             var slider = Lvn.UI.LvnSlider.Make(min, max, get(), guarded,
                 onPreview: live ? guarded : null, accent: _accent);
-            slider.style.width = 200;
-            slider.style.marginLeft = LvnTokens.Space2;
-            row.Add(slider);
+            // The control needs its own row: UITK's track can otherwise extend
+            // beyond the narrow value column and lose the maximum under the scrollbar.
+            LvnAir.MarginX(slider, LvnTokens.Space2);
             // ЗВУК ВЫКЛЮЧЕН — ГРОМКОСТИ ПОКАЗЫВАЮТ НОЛЬ И НЕ ДВИГАЮТСЯ (TR-74).
             // Иначе экран противоречил сам себе: тишина в игре и половина
             // громкости на ползунке. Само значение НЕ трогаем: вернув «Вкл»,
             // игрок обязан получить свои прежние уровни, а не ноль.
             if (audio) _audioSliders.Add((slider, get));
-            return row;
+            return WideRow(label, hint, slider);
         }
 
         // Ползунки громкости и их истинные значения: по ним строка «Все звуки»
@@ -402,7 +405,10 @@ namespace Lvn.UI.Screens
                     if (slider == null) continue;
                     slider.SetEnabled(on);
                     slider.style.opacity = on ? 1f : 0.45f;
-                    slider.value = on ? value() : 0f;
+                    // UITK can queue ChangeEvent until after this method has
+                    // returned. A temporary guard alone cannot stop that event
+                    // from overwriting the saved volume with the display zero.
+                    slider.SetValueWithoutNotify(on ? value() : 0f);
                 }
             }
             finally { _muting = false; }

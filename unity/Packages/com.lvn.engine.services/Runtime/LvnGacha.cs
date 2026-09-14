@@ -53,6 +53,7 @@ namespace Lvn.Services
             public Prize Prize;
             public bool FreeToday;
             public List<Prize> PrizesLeft = new List<Prize>();
+            public bool WalletSynced;
             public string Error;      // пусто — прокрут состоялся
         }
 
@@ -81,23 +82,44 @@ namespace Lvn.Services
         /// запрос за состоянием не нужен, а значит и рассинхрона между ними.</summary>
         public static async Task<Spin> SpinAsync()
         {
+            // Pending story earnings must reach the server before it charges the spin.
+            await LvnWallet.FlushAsync();
             var (code, body) = await LvnBackend.PostAsync("/v1/gacha/spin", "{}");
-            var d = LvnBackend.Json(code, body);
-            if (d == null) return new Spin { Error = "offline" };
-            var err = (string)d["error"];
-            if (!string.IsNullOrEmpty(err)) return new Spin { Error = err };
-            var spin = new Spin
-            {
-                SectorId = (string)d["sector"],
-                Super = (string)d["kind"] == "super",
-                Currency = (string)d["currency"],
-                Amount = (long?)d["amount"] ?? 0,
-                FreeToday = (bool?)d["free_today"] ?? false,
-            };
-            if (d["prize"] is JObject p)
-                spin.Prize = new Prize { Sku = (string)p["sku"], Label = (string)p["label"], Art = (string)p["art"] };
-            ReadPrizes(d["prizes_left"] as JArray, spin.PrizesLeft);
+            var spin = ReadSpin(code, body);
+            if (!string.IsNullOrEmpty(spin.Error)) return spin;
+            // This is a purchase/reward, never a throttled background nudge.
+            // Refresh publishes BOTH balances and inventory before the reveal,
+            // even if the player closes the screen while the request is in flight.
+            spin.WalletSynced = await LvnWallet.RefreshAsync();
             return spin;
+        }
+
+        internal static Spin ReadSpin(long code, string body)
+        {
+            if (code == 0) return new Spin { Error = "offline" };
+            try
+            {
+                var d = JObject.Parse(body ?? "");
+                var err = (string)d["error"];
+                if (!string.IsNullOrEmpty(err)) return new Spin { Error = err };
+                if (!LvnBackend.Ok(code) || string.IsNullOrEmpty((string)d["sector"]))
+                    return new Spin { Error = "invalid_response" };
+                var spin = new Spin
+                {
+                    SectorId = (string)d["sector"],
+                    Super = (string)d["kind"] == "super",
+                    Currency = (string)d["currency"],
+                    Amount = (long?)d["amount"] ?? 0,
+                    FreeToday = (bool?)d["free_today"] ?? false,
+                };
+                if (d["prize"] is JObject p)
+                    spin.Prize = new Prize { Sku = (string)p["sku"], Label = (string)p["label"], Art = (string)p["art"] };
+                ReadPrizes(d["prizes_left"] as JArray, spin.PrizesLeft);
+                if (spin.Super ? string.IsNullOrEmpty(spin.Prize?.Sku) : string.IsNullOrEmpty(spin.Currency))
+                    return new Spin { Error = "invalid_response" };
+                return spin;
+            }
+            catch { return new Spin { Error = "invalid_response" }; }
         }
 
         private static void ReadSectors(JArray src, List<Sector> into)

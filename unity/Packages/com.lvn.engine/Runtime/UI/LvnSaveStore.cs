@@ -8,7 +8,7 @@ namespace Lvn.UI
 {
     /// <summary>Stored data and loadability are separate: a newer save still
     /// occupies its slot and needs confirmation before replacement.</summary>
-    public enum LvnSaveSlotState { Empty, Occupied, NewerVersion }
+    public enum LvnSaveSlotState { Empty, Occupied, NewerVersion, Unreadable }
 
     /// <summary>One persisted save slot: the player snapshot plus the display
     /// metadata a save/load UI shows (when, where, the last line read).</summary>
@@ -105,7 +105,9 @@ namespace Lvn.UI
         public static Dictionary<string, LvnSaveSlot> Slots(string titleId)
         {
             var ok = new Dictionary<string, LvnSaveSlot>();
-            foreach (var kv in Raw(titleId))
+            var raw = Raw(titleId);
+            if (raw == null) return ok; // unreadable is hidden from loading, not writable
+            foreach (var kv in raw)
             {
                 // Inspect only the envelope before interpreting the snapshot.
                 var version = StoredVersion(kv.Value);
@@ -123,7 +125,9 @@ namespace Lvn.UI
         /// snapshot is never interpreted as the current schema.</summary>
         public static LvnSaveSlotState GetState(string titleId, string slot)
         {
-            if (!Raw(titleId).TryGetValue(slot ?? "", out var data)
+            var raw = Raw(titleId);
+            if (raw == null) return LvnSaveSlotState.Unreadable;
+            if (!raw.TryGetValue(slot ?? "", out var data)
                 || data == null || data.Type == JTokenType.Null)
                 return LvnSaveSlotState.Empty;
             return StoredVersion(data) > LvnSaveSlot.CurrentVersion
@@ -167,22 +171,25 @@ namespace Lvn.UI
 
         private static Dictionary<string, JToken> Raw(string titleId)
         {
+            // Absence of BOTH copies is a new playthrough. A missing/truncated
+            // main key may still have a perfectly readable backup.
+            if (!LvnKeep.Has(Key(titleId)) && !LvnKeep.Has(BackupKey(titleId)))
+                return new Dictionary<string, JToken>();
             var json = LvnKeep.Get(Key(titleId), "");
-            if (string.IsNullOrEmpty(json)) return new Dictionary<string, JToken>();
             var parsed = Parse(json);
             if (parsed != null) return parsed;
 
-            // ОСНОВНОЙ БЛОК НЕ ЧИТАЕТСЯ — ПОДНИМАЕМ ЗАПАСНОЙ. Теряется при этом
-            // максимум последняя запись, а не вся история прохождения.
+            // The backup mirrors the successful write, including a legitimately
+            // empty map after deleting the last slot.
             var spare = Parse(LvnKeep.Get(BackupKey(titleId), ""));
-            if (spare != null && spare.Count > 0)
+            if (spare != null)
             {
                 Debug.LogWarning("[lvn] блок сохранений не читается — поднял запасную копию ("
-                               + spare.Count + " слот(ов); потеряна максимум последняя запись)");
+                               + spare.Count + " слот(ов))");
                 return spare;
             }
-            Debug.LogWarning("[lvn] блок сохранений не читается, запасной копии нет — начинаю с пустого");
-            return new Dictionary<string, JToken>();
+            Debug.LogWarning("[lvn] обе копии сохранений не читаются — запись запрещена до восстановления");
+            return null; // never turn unknown player data into permission to overwrite it
         }
 
         /// <summary>Bring a slot up to <see cref="LvnSaveSlot.CurrentVersion"/>.
@@ -217,6 +224,7 @@ namespace Lvn.UI
             data.Version = LvnSaveSlot.CurrentVersion;
             data.SavedAtUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var all = Raw(titleId);
+            if (all == null) return false;
             try { all[slot] = JToken.FromObject(data); }
             catch (Exception e)
             {
@@ -231,10 +239,10 @@ namespace Lvn.UI
             // Миниатюра уходит ВСЕГДА, даже если записи слота уже нет: PNG живёт
             // отдельным файлом, и «слот снесли, картинка осталась» — это и мусор
             // на диске, и кадр чужой игры, всплывающий в следующем сохранении.
-            WriteThumb(titleId, slot, null);
             var all = Raw(titleId);
-            if (!all.Remove(slot ?? "")) return;
-            Write(titleId, all);
+            if (all == null) return; // preserve the thumbnail along with unknown data
+            if (all.Remove(slot ?? "") && !Write(titleId, all)) return;
+            WriteThumb(titleId, slot, null);
         }
 
         /// <summary>Снести все слоты новеллы вместе с их миниатюрами.
@@ -242,8 +250,10 @@ namespace Lvn.UI
         /// каждый раз вспоминать, что у слота есть ещё и файл.</summary>
         public static void DeleteAll(string titleId)
         {
-            foreach (var slot in new List<string>(Raw(titleId).Keys))
-                Delete(titleId, slot);
+            var raw = Raw(titleId);
+            if (raw != null)
+                foreach (var slot in new List<string>(raw.Keys))
+                    Delete(titleId, slot);
             LvnKeep.Drop(Key(titleId));
             // Забвение уносит и запас: иначе «удалить всё» оставляет сохранения
             // лежать под соседним ключом.
@@ -252,6 +262,7 @@ namespace Lvn.UI
 
         private static bool Write(string titleId, Dictionary<string, JToken> all)
         {
+            using var perf = LvnPerf.Measure(LvnPerf.Part.SaveSerialize);
             try
             {
                 var json = JsonConvert.SerializeObject(all);

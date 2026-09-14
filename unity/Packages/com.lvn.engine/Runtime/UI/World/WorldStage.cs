@@ -114,13 +114,54 @@ namespace Lvn.UI.World
         /// WIDTH on portrait (= reference.x) and HEIGHT on landscape (width
         /// grows with the aspect) — same orientation rule as LvnPanel.</summary>
         private float LogicalWidth()
-            => Screen.width > Screen.height && Screen.height > 0
-                ? _reference.y * Screen.width / Screen.height
-                : _reference.x;
+        {
+            var f = FrameProbe();
+            return f.x > f.y && f.y > 0f ? _reference.y * f.x / f.y : _reference.x;
+        }
+
+        /// <summary>
+        /// РАЗМЕР ЭКРАНА, ПО КОТОРОМУ СТАВИТСЯ КАДР. Один зонд на все расчёты
+        /// (полоса, высота, подгонка), чтобы тест мог подменить экран — иначе
+        /// смену кадра не проверить: Screen в тесте не переключается.
+        /// </summary>
+        public static System.Func<Vector2> FrameProbe = () => new Vector2(Screen.width, Screen.height);
+
+        /// <summary>Кадр, по которому в последний раз ставили фигуры.</summary>
+        private Vector2 _frameApplied;
+
+        /// <summary>
+        /// ЭКРАН ВСТАЛ — ФИГУРЫ ДОГОНЯЮТ КАДР.
+        ///
+        /// <para>Постановка меряется по экрану в момент команды, а экран не
+        /// всегда уже стоит: окно игры в редакторе первые кадры — полоска в
+        /// тридцать раз шире высоты, поворот телефона проходит промежуточные
+        /// размеры. Команда в такой момент считала полосу сцены по мусорному
+        /// кадру, и героиня уезжала на тридцать экранов вправо
+        /// (<c>[lvn-move] hill: слот (31966, …)</c>, стенд 12.09; репорт «ГГ
+        /// летает»). Поставленную фигуру никто не пересчитывал. Теперь сцена
+        /// помнит, по какому кадру ставила, и при смене ставит всех заново тем
+        /// же размещением. Зовётся каждый кадр — сравнение двух чисел.</para>
+        /// </summary>
+        /// <returns>true — кадр сменился и фигуры поставлены заново.</returns>
+        public bool RefitToFrame()
+        {
+            var f = FrameProbe();
+            if (f.x <= 1f || f.y <= 1f || f == _frameApplied) return false;
+            _frameApplied = f;
+            foreach (var kv in _slots)
+            {
+                var a = kv.Value.Actor;
+                if (a == null || a.LastPlacement is not Placement p || !p.Show) continue;
+                LvnLog.Trace($"[lvn-refit] {kv.Key}: кадр стал {f.x:0}×{f.y:0} — ставим заново");
+                ApplyPlacement(kv.Key, a, p);
+            }
+            return true;
+        }
 
         public WorldStage(Transform parent, int sortingOrder = 0, Vector2? reference = null)
         {
             _reference = reference ?? new Vector2(1080f, 1920f);
+            _frameApplied = FrameProbe();
 
             _canvasGo = new GameObject("vn-world-canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
             _canvasGo.transform.SetParent(parent, false);
@@ -341,7 +382,8 @@ namespace Lvn.UI.World
             // width × the device aspect. Derive it from Screen — always valid — rather
             // than _content.rect, which lags a layout pass and would leave actors floating
             // at the 1920 reference bottom until the rect settles ("не всегда съезжает").
-            float sw = Screen.width, sh = Screen.height;
+            var f = FrameProbe();
+            float sw = f.x, sh = f.y;
             if (sw > 1f && sh > 1f) return new Vector2(_reference.x, _reference.x * (sh / sw));
             return _reference;
         }
@@ -488,6 +530,7 @@ namespace Lvn.UI.World
             IReadOnlyList<string> layerIds = null, IReadOnlyList<Vector4> layerRects = null,
             IReadOnlyList<Lvn.Content.SpriteCatalog.ResolvedLayer> layerDefs = null)
         {
+            using var perf = LvnPerf.Measure(LvnPerf.Part.ActorBuild);
             if (string.IsNullOrEmpty(id)) return null;
             var a = EnsureActor(id);
 
@@ -697,10 +740,12 @@ namespace Lvn.UI.World
             // overflow the screen sideways (the "левую часть обрезает" bug), so
             // the sizing frame caps at the visible height. Tall phones keep the
             // fixed-reference size exactly as before.
+            var frame = FrameProbe();
+            a.LastPlacement = p;   // по нему фигуру поставят заново, когда сменится кадр
             float lw = LogicalWidth();
-            float lh = Screen.width > Screen.height && Screen.height > 0
+            float lh = frame.x > frame.y && frame.y > 0f
                 ? _reference.y
-                : (Screen.width > 0 ? _reference.x * Screen.height / Screen.width : _reference.y);
+                : (frame.x > 0f ? _reference.x * frame.y / frame.x : _reference.y);
             var sizeFit = new Vector2(_reference.x, Mathf.Min(lh, _reference.y));
             WorldPlacement.Apply(a.Slot, p, sizeFit);
             if (lh > _reference.y + 0.5f)
@@ -880,12 +925,22 @@ namespace Lvn.UI.World
                     // быть чистым: иначе кукла из витрины меню так и стоит в нём
                     // до первой команды о ней. Объект и его слои целы —
                     // показать её снова стоит ноль загрузок.
-                    if (actor != null) actor.gameObject.SetActive(false);
+                    if (actor != null)
+                    {
+                        // Keep the art, not the outgoing chapter's invisibility,
+                        // animation tracks or unfinished exit callback.
+                        LvnFade.Cancel(kv.Value.Group);
+                        actor.StopAll();
+                        actor.EndTransitionVisual();
+                        LvnSpriteFxDriver.Apply(actor.gameObject, new JObject { ["off"] = 1, ["dur"] = 0f });
+                        actor.gameObject.SetActive(false);
+                    }
                     continue;
                 }
                 if (actor != null) Object.Destroy(actor.gameObject);
             }
             Prune(_slots);
+            _pendingSfx.Clear(); // effects queued in the old chapter have no recipient here
             // ПОЗА НЕ ПЕРЕЖИВАЕТ УБОРКУ ДАЖЕ У НЕЁ. Живой объект — это про
             // спрайты и материал, а порядок слоя и возраст рождения — про
             // мизансцену уходящей главы: оставь их, и героиня войдёт в новую
