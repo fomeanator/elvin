@@ -1027,20 +1027,20 @@
   "default": "Tap if purchases went missing after a reinstall"
  },
  {
-  "key": "settings.tab_account",
-  "default": "Account"
- },
- {
-  "key": "settings.tab_data",
+  "key": "settings.sec_data",
   "default": "Data"
  },
  {
-  "key": "settings.tab_main",
-  "default": "General"
+  "key": "settings.sec_graphics",
+  "default": "Graphics"
  },
  {
-  "key": "settings.tab_reading",
-  "default": "Reading"
+  "key": "settings.sec_sound",
+  "default": "Sound"
+ },
+ {
+  "key": "settings.sec_text",
+  "default": "Text"
  },
  {
   "key": "settings.text_sample",
