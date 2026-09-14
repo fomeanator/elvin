@@ -46,51 +46,71 @@ namespace Lvn.UI.Screens
         private void RebuildSubRow(bool animate = true)
         {
             if (_subRow == null) return;
-            _subRow.Clear();
-            bool any = false;
-            // Вкладка «Моё» тоже носит свои поднастройки — там живёт основа
-            // фигуры (запад/север). Раньше ряд молчал на ней целиком.
+            // НА МЕСТЕ, А НЕ ЗАНОВО (TR-99, Илья 14.09: «цвет волос обновляется
+            // при покупке»). Ряд пересоздавался целиком на каждый тап и покупку
+            // — свотчи рождались заново и мигали. Теперь ряд сверяется по ключу,
+            // как лента карточек: существующие свотчи остаются, у них меняются
+            // только кольцо «надето» и бейдж владения.
+            var entries = new List<(string key, string axis, LvnWardrobeItem item)>();
             if (_tab != null)
                 foreach (var sub in SubAxesOf(_tab))
                 {
                     var items = Items(sub);
                     if (items.Count == 0) continue;
-                    var slot = _slots[sub];
-                    // Подпись подоси («Основа», «Цвет волос») — через словарь:
-                    // она стоит рядом с переведёнными плитками и остаётся
-                    // последним русским словом в английском гардеробе.
-                    var lbl = Lvn.UI.LvnRedress.Bind(new Label(),
-                        () => Lvn.Content.LvnWords.Name("axis", sub, slot?.name));
-                    lbl.style.color = _dim;
-                    lbl.style.fontSize = LvnTokens.TextSm;
-                    lbl.style.marginLeft = any ? 22 : 0; // зазор между слотами
-                    lbl.style.marginRight = LvnTokens.Space2;
-                    _subRow.Add(lbl);
-                    int n = 0;
-                    foreach (var it in items)
-                    {
-                        var sw = SubSwatch(sub, it);
-                        _subRow.Add(sw);
-                        if (animate) EnterSoft(sw, n);
-                        n++;
-                    }
-                    any = true;
+                    entries.Add(("label:" + sub, sub, null));
+                    foreach (var it in items) entries.Add((sub + "/" + it.value, sub, it));
                 }
-            // МЕСТО ПОД РЯД ДЕРЖИТСЯ ВСЕГДА, если у героя вообще есть
-            // поднастройки. Ряд то появлялся, то исчезал вместе с разделом,
-            // лист менял высоту, а он прижат к низу — разделы и лента прыгали
-            // вверх-вниз под пальцем, полки героев и лиц пересчитывались
-            // («при смене категории строки дрожат» — Илья 14.09). Пустой ряд
-            // невидим, но высоту держит: геометрия листа не зависит от раздела.
+            bool any = entries.Count > 0;
+            int swatchNo = 0;
+            Lvn.UI.LvnMontage.Sync(_subRow, entries,
+                key: e => e.key,
+                create: e =>
+                {
+                    if (e.item == null) return SubLabel(e.axis, first: entries.Count > 0 && entries[0].key == e.key);
+                    var sw = SubSwatch(e.axis, e.item);
+                    if (animate) EnterSoft(sw, swatchNo++);
+                    return sw;
+                },
+                update: (el, e) => { if (e.item != null) RefreshSwatch(el, e.axis, e.item); });
             bool reserve = HasSubAxes;
             _subRow.style.display = any || reserve ? DisplayStyle.Flex : DisplayStyle.None;
             _subRow.style.visibility = any ? Visibility.Visible : Visibility.Hidden;
             _subRow.style.minHeight = reserve ? LvnTokens.TouchLg : 0f;
         }
 
-        // Свотч: круг цвета из манифеста (item.color), иначе — мини-арт;
-        // непринадлежащий помечен «◆», текущий обведён акцентом. Покупку
-        // непринадлежащего цвета предлагает кнопка «Выбрать» (PendingBuy).
+        private VisualElement SubLabel(string sub, bool first)
+        {
+            var slot = _slots[sub];
+            var lbl = Lvn.UI.LvnRedress.Bind(new Label(),
+                () => Lvn.Content.LvnWords.Name("axis", sub, slot?.name));
+            lbl.style.color = _dim;
+            lbl.style.fontSize = LvnTokens.TextSm;
+            lbl.style.marginLeft = first ? 0 : 22; // зазор между слотами
+            lbl.style.marginRight = LvnTokens.Space2;
+            return lbl;
+        }
+
+        /// <summary>Обновить состояние существующего свотча: кольцо «надето» и
+        /// бейдж «не куплено» — без пересоздания элемента.</summary>
+        private void RefreshSwatch(VisualElement b, string axis, LvnWardrobeItem item)
+        {
+            LvnStyler.Chosen(b, IsWornIn(axis, item.value), _accent);
+            var dot = b.Q<Label>("sub-dot");
+            bool owned = IsOwnedIn(axis, item);
+            if (owned && dot != null) dot.RemoveFromHierarchy();
+            else if (!owned && dot == null) b.Add(OwnershipDot());
+        }
+
+        private Label OwnershipDot()
+        {
+            var dot = new Label("◆") { name = "sub-dot", pickingMode = PickingMode.Ignore };
+            dot.style.position = Position.Absolute;
+            dot.style.top = -6; dot.style.right = -6;
+            dot.style.color = LvnTokens.Gold;
+            dot.style.fontSize = Lvn.UI.LvnTokens.TextMicro;
+            return dot;
+        }
+
         private VisualElement SubSwatch(string axis, LvnWardrobeItem item)
         {
             bool worn = IsWornIn(axis, item.value);
@@ -125,15 +145,7 @@ namespace Lvn.UI.Screens
                 b.Add(art);
             }
             LvnStyler.Chosen(b, worn, _accent);
-            if (!IsOwnedIn(axis, item))
-            {
-                var dot = new Label("◆") { pickingMode = PickingMode.Ignore };
-                dot.style.position = Position.Absolute;
-                dot.style.top = -6; dot.style.right = -6;
-                dot.style.color = LvnTokens.Gold;
-                dot.style.fontSize = Lvn.UI.LvnTokens.TextMicro;
-                b.Add(dot);
-            }
+            if (!IsOwnedIn(axis, item)) b.Add(OwnershipDot());
             return b;
         }
 
