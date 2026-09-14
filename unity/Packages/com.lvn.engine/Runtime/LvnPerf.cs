@@ -132,7 +132,9 @@ namespace Lvn
             // Persist the producing run/build in the message: an offline queue
             // can be shipped by a later launch, even after an APK update.
             _identity = " run=" + LvnMark.Run + " build=" + Uri.EscapeDataString(Application.version);
-            SessionInfo = "[lvn-perf] session v=1 app=" + Application.version + " unity=" + Application.unityVersion
+            SessionInfo = "[lvn-perf] session v=1 app=" + Application.version
+                + " commit=" + LvnBuildInfo.Commit + " channel=" + LvnBuildInfo.Channel
+                + " unity=" + Application.unityVersion
                 + " device=" + LvnDeviceProfile.Model + " gpu=" + LvnDeviceProfile.Gpu
                 + " screen=" + Screen.width + "x" + Screen.height + " target_fps=" + Application.targetFrameRate
                 + " refresh_hz=" + LvnDeviceProfile.RefreshHz.ToString("F1", CultureInfo.InvariantCulture)

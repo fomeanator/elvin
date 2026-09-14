@@ -157,7 +157,8 @@ namespace Lvn.UI.Screens
             // без раскопок в Library/ScriptAssemblies.
             LvnLog.Info(Lvn.LvnBuildStamp.Line(
                 typeof(Lvn.LvnPlayer), typeof(VnStage),
-                typeof(Lvn.Content.ContentLoader), typeof(NovelApp)));
+                typeof(Lvn.Content.ContentLoader), typeof(NovelApp))
+                + (string.IsNullOrEmpty(Lvn.LvnBuildInfo.Short) ? "" : " сборка " + Lvn.LvnBuildInfo.Short));
             // Let the veil actually REACH the screen before any heavier boot
             // work (PSO load, probes): on slow devices frame 1's render was
             // getting starved and the first visible percent was already 30.
