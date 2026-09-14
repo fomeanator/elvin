@@ -90,6 +90,13 @@ namespace Lvn.Services
             // This is a purchase/reward, never a throttled background nudge.
             // Refresh publishes BOTH balances and inventory before the reveal,
             // even if the player closes the screen while the request is in flight.
+            // КОШЕЛЁК — СРАЗУ, А НЕ «ПРИ СЛУЧАЕ» (Ваня, fix/gacha-wallet). Сервер
+            // только что списал цену прокрута и начислил выигрыш; зеркало на
+            // телефоне об этом не знает. NudgeAsync молчит 15 секунд после
+            // любого вопроса, а хаб спрашивал только что — кристаллы уходили
+            // на сервере, а в шапке лежали прежние до перезапуска («крутка не
+            // отнимает кристаллы», тестировщик 12.09). Крутка — действие
+            // игрока: спрашивает сама крутка, а не экран.
             spin.WalletSynced = await LvnWallet.RefreshAsync();
             return spin;
         }
