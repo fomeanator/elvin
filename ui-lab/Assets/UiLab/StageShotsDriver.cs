@@ -301,6 +301,13 @@ namespace Lvn.UiLab
             }
             Debug.Log("[shots] хаб на месте");
 
+            if (_tag.StartsWith("shop"))
+            {
+                yield return Shop();
+                Done();
+                yield break;
+            }
+
             LvnTitle marked = null;
             if (!string.IsNullOrEmpty(_titleId) && _chapter > 0)
             {
@@ -334,6 +341,72 @@ namespace Lvn.UiLab
             if (_tag.StartsWith("tour")) yield return Tour();
             if (marked != null) LvnProgress.ClearCurrent(marked);
             Done();
+        }
+
+        // Магазин снимается без покупки и без записи прогресса новеллы.
+        private IEnumerator Shop()
+        {
+            var travel = _app.Shell.TabGoTo(LvnTabs.Store);
+            while (!travel.IsCompleted) yield return null;
+            if (travel.IsFaulted) { Debug.LogError("[shots] магазин: " + travel.Exception); yield break; }
+            var shop = _app.Shell.PackShop;
+            for (int i = 0; i < 120 && shop.Q("shop-pack") == null; i++)
+                yield return new WaitForSecondsRealtime(0.5f);
+            if (shop.Q("shop-pack") == null)
+            {
+                Debug.LogError("[shots] магазин: каталог не появился");
+                yield return Shoot("shop-empty");
+                yield break;
+            }
+            if (!_tag.StartsWith("shop-engine")) yield return WaitArt(20f);
+            yield return WaitHeroine(12f);
+            yield return new WaitForSecondsRealtime(3f);
+            // Реклама может приехать после каталога; кадры разных размеров
+            // сравниваются на одном, уже загруженном состоянии магазина.
+            for (int i = 0; i < 40 && Lvn.Services.LvnAds.Available && !string.IsNullOrEmpty(shop.AdPlacement)
+                && Lvn.Services.LvnAds.StateOf(shop.AdPlacement) == null; i++)
+                yield return new WaitForSecondsRealtime(0.25f);
+            shop.Rebuild();
+            yield return new WaitForSecondsRealtime(0.5f);
+            DiagnoseShop(shop);
+            yield return Shoot("shop");
+            var fields = BindingFlags.Instance | BindingFlags.NonPublic;
+            var ids = typeof(PackShopScreen).GetField("_tabIds", fields)?.GetValue(shop) as System.Collections.Generic.List<string>;
+            var tabs = typeof(PackShopScreen).GetField("_tabsRow", fields)?.GetValue(shop) as VisualElement;
+            int bundles = ids?.IndexOf("bundles") ?? -1;
+            if (bundles >= 0 && tabs != null)
+            {
+                Tap(tabs[bundles]);
+                yield return new WaitForSecondsRealtime(2f);
+                DiagnoseShop(shop);
+                yield return Shoot("shop-bundles");
+            }
+            if (_tag.EndsWith("-se"))
+            {
+                // Модальный вход использует те же карточки в сетке: на SE проверяем и его.
+                var modal = _app.Shell.OpenPackShopAsync();
+                yield return new WaitForSecondsRealtime(2f);
+                DiagnoseShop(_app.Shell.PackShopModal);
+                yield return Shoot("shop-modal");
+                _app.Shell.PackShopModal.Hide();
+                while (!modal.IsCompleted) yield return null;
+                if (modal.IsFaulted) Debug.LogError("[shots] модальный магазин: " + modal.Exception);
+            }
+        }
+
+        private static void DiagnoseShop(PackShopScreen shop)
+        {
+            foreach (var card in shop.Query<VisualElement>("shop-pack").ToList())
+            {
+                var price = card.Q<Button>("shop-price");
+                var measured = price.MeasureTextSize(price.text, price.contentRect.width,
+                    VisualElement.MeasureMode.AtMost, 0, VisualElement.MeasureMode.Undefined);
+                bool fits = measured.y <= price.contentRect.height + 2f
+                    && price.worldBound.xMin >= card.worldBound.xMin - 2f
+                    && price.worldBound.xMax <= card.worldBound.xMax + 2f;
+                Debug.Log($"[shots] магазин SKU={card.userData}: card={card.worldBound}, price={price.worldBound}, "
+                    + $"кегль={price.resolvedStyle.fontSize}, цена помещается={(fits ? "ДА" : "НЕТ")}");
+            }
         }
 
         // ── загрузчик ───────────────────────────────────────────────────────

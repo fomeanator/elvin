@@ -172,8 +172,8 @@ namespace Lvn.UI.Screens
             if (_header != null) _header.style.display = DisplayStyle.None;
             if (_tabsRow != null)
             {
-                ScreenUi.Row(_tabsRow);
-                _tabsRow.style.flexWrap = Wrap.NoWrap;
+                LvnFlow.Wrap(_tabsRow);
+                _tabsRow.style.maxWidth = Length.Percent(100f);
                 _tabsRow.style.justifyContent = Justify.Center;
                 _tabsRow.style.alignSelf = Align.Center;
                 _tabsRow.style.backgroundColor = UiColor.WithAlpha(LvnTokens.PanelBg, 0.35f);
@@ -210,8 +210,8 @@ namespace Lvn.UI.Screens
                 s.style.bottom = LvnStageKit.BottomAboveBar(s, LvnStageSkin.Shop.Bottom);
             });
             if (_header != null) _header.style.display = DisplayStyle.None;
-            ScreenUi.Row(_tabsRow);
-            _tabsRow.style.flexWrap = Wrap.NoWrap;
+            LvnFlow.Wrap(_tabsRow);
+            _tabsRow.style.maxWidth = Length.Percent(100f);
             _tabsRow.style.justifyContent = Justify.FlexEnd;
             _tabsRow.style.marginBottom = D(10f);
             _tabsRow.style.marginRight = D(2f);
@@ -224,6 +224,7 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(_tabsRow, D(8f));
             LvnAir.Pad(_tabsRow, D(12f), D(2f));
             _list.contentContainer.style.alignItems = Align.FlexEnd;
+            _list.style.width = Length.Percent(100f);
         }
 
         /// <summary>Вкладки словами: выбранная — золотом, остальные приглушены.
@@ -238,123 +239,117 @@ namespace Lvn.UI.Screens
                 bool active = i == _tab;
                 var word = LvnStageKit.Text(
                     () => idx < _tabIds.Count ? TabTitle(_tabIds[idx]).ToUpperInvariant() : string.Empty,
-                    LvnTokens.TextSm, active ? LvnTokens.Gold : LvnTokens.TextDim, medium: true);
+                    LvnTokens.TextSm, active ? LvnTokens.Bg : LvnTokens.TextDim, medium: true);
                 word.pickingMode = PickingMode.Position;
-                word.style.marginLeft = i == 0 ? 0f : D(14f);
-                LvnAir.PadY(word, D(6f));
+                word.style.backgroundColor = active ? LvnTokens.Gold : Color.clear;
+                word.style.marginRight = LvnTokens.Space1;
+                word.style.marginBottom = LvnTokens.Space1;
+                word.style.whiteSpace = WhiteSpace.Normal;
+                LvnChrome.Round(word, LvnTokens.RadiusXs);
+                LvnAir.Pad(word, LvnTokens.Space2, D(6f));
                 word.AddManipulator(new Clickable(() => { _tab = idx; Rebuild(); }));
                 LvnMotion.Tappable(word);
                 _tabsRow.Add(word);
             }
         }
 
-        /// <summary>ДВЕ КАРТОЧКИ В РЯД на листе. Панель нарисована в dp макета
-        /// (см. паспорт «pack») и на лист шириной около 320 dp ложится одна.
-        /// Слот берёт половину ряда, а панель внутри ужимается масштабом под
-        /// его ширину — рамка, фигура и кегль вместе, как одна картинка
-        /// («в магазине карточки надо 2 в ряд» — Илья 09.09). Столбик витрины
-        /// уже карточки — там по-прежнему одна.</summary>
-        private VisualElement HalfSlot(VisualElement pack)
-        {
-            var slot = new VisualElement();
-            slot.style.width = Length.Percent(48.5f);
-            slot.style.marginBottom = D(10f);
-            slot.style.flexShrink = 0;
-            pack.style.position = Position.Absolute;
-            pack.style.left = 0; pack.style.top = 0;
-            pack.style.marginRight = 0; pack.style.marginBottom = 0;
-            pack.style.transformOrigin = new TransformOrigin(0f, 0f);
-            slot.Add(pack);
-            float w = D(PackW), h = D(PackH), lastK = 0f;
-            slot.RegisterCallback<GeometryChangedEvent>(e =>
-            {
-                float sw = e.newRect.width;
-                if (sw <= 0f || w <= 0f) return;
-                float k = sw / w;
-                if (Mathf.Approximately(k, lastK)) return;
-                lastK = k;
-                pack.style.scale = new Scale(new Vector3(k, k, 1f));
-                slot.style.height = h * k;
-            });
-            return slot;
-        }
-
-        /// <summary>Пакет — панель облика: плашка (лента «ПОПУЛЯРНЫЙ» или имя
-        /// валюты), сумма со значком, бонус, нарисованная кнопка с ценой.
-        /// Геометрия — ровно панели новостей главной (BrowseHub.StagePanel).</summary>
+        /// <summary>Рамка растёт за содержимым: чипы и длинные подписи могут
+        /// переноситься. Цена не ужимается вместе с карточкой на узком экране.</summary>
         private VisualElement StagePack(Pack pack)
         {
-            float W = PackW, H = PackH;
-            var p = new VisualElement();
-            p.style.width = D(W); p.style.height = D(H);
+            var p = new VisualElement { name = "shop-pack", userData = pack.Sku };
+            if (_column) p.style.width = D(pack.Best ? ColumnDp - 2f : PackW);
+            else p.style.width = Length.Percent(pack.Best ? 100f : 48.5f);
+            p.style.minHeight = D(PackH);
             p.style.marginRight = D(2f);
             p.style.marginBottom = D(10f);
             p.style.flexShrink = 0;
+            LvnAir.PadX(p, D(FigureInset));
+            p.style.paddingTop = D(4f);
+            p.style.paddingBottom = D(3f);
 
-            // Рамка — растянутая по высоте девятидольно: плашка сверху и
-            // нарисованная кнопка снизу остаются своих размеров.
             var frame = new VisualElement { name = LvnStageKit.ArtName, pickingMode = PickingMode.Ignore };
-            At(frame, -D(LvnStageKit.Bleed), -D(LvnStageKit.Bleed),
-               D(W + LvnStageKit.Bleed * 2f), D(H + LvnStageKit.Bleed * 2f));
+            frame.style.position = Position.Absolute;
+            frame.style.left = frame.style.right = frame.style.top = frame.style.bottom = -D(LvnStageKit.Bleed);
             LvnPicture.Slice(frame,
                 new Vector4(0f, 0f, (LvnStageKit.Bleed + 30f) * PanelPxPerDp, (LvnStageKit.Bleed + 46f) * PanelPxPerDp),
                 D(1f) / PanelPxPerDp);
             LvnPicture.Skin(frame, SkinUrl("panel.png"), _assets, what: "StageSkin");
             p.Add(frame);
-            // ФИГУРА ПОВЕРХ РАМКИ. Спайн вешается фоном на поле внутри рамки
-            // тем же постером, что на карточке главной, и лежит НАД рамкой:
-            // под её полупрозрачной заливкой фигура тонула в тёмном («спайн
-            // поверх надо, щас он понизу» — Илья 08.09). Плашка, сумма и
-            // кнопка — выше фигуры.
+            if (pack.Best)
+            {
+                p.AddToClassList("shop-recommended");
+                p.Add(Glow());
+                var edge = new VisualElement { pickingMode = PickingMode.Ignore };
+                edge.style.position = Position.Absolute;
+                edge.style.left = edge.style.right = edge.style.top = edge.style.bottom = 0;
+                LvnChrome.Frame(edge, D(8f), LvnTokens.Accent, 2f);
+                p.Add(edge);
+            }
+
+            VisualElement plaque = pack.Badge != Ribbon.None ? BadgeLabel(pack.Badge)
+                : LvnStageKit.Plaque(() => pack.Grants != null ? LvnWords.Of("shop.story_bundle", "STORY BUNDLE") : TabTitle(pack.Currency));
+            plaque.style.minHeight = D(24f);
+            plaque.style.flexShrink = 0;
+            p.Add(plaque);
+
+            var art = new VisualElement { name = "shop-art", pickingMode = PickingMode.Ignore };
+            art.style.height = D(Mathf.Max(60f, PackH - 118f) + (pack.Best ? LvnTokens.Space2 : 0f));
+            art.style.flexShrink = 0;
             if (_spine != null && LvnSpineBridge.Available)
             {
                 var figure = new VisualElement { pickingMode = PickingMode.Ignore };
-                At(figure, D(FigureInset), D(FigureTop), D(FigureW), D(FigureH));
+                figure.style.position = Position.Absolute;
+                figure.style.left = figure.style.right = figure.style.top = figure.style.bottom = 0;
                 LvnPicture.Fit(figure);
                 BindSharedSpine(figure);
-                p.Add(figure);
+                art.Add(figure);
             }
-
-
-            string head = pack.Badge == Ribbon.Popular ? LvnWords.Of("shop.popular", "POPULAR")
-                        : pack.Badge == Ribbon.Value ? LvnWords.Of("shop.value", "BEST VALUE")
-                        : pack.Badge == Ribbon.BestPrice ? LvnWords.Of("shop.best_price", "BEST PRICE")
-                        : pack.Grants != null ? LvnWords.Of("shop.story_bundle", "STORY BUNDLE")
-                        : TabTitle(pack.Currency);
-            var plaque = LvnStageKit.Plaque(() => head);
-            At(plaque, 0f, 0f, D(W), D(28f));
-            p.Add(plaque);
-
-            // Сумма под фигурой: набор — заголовком, валюта — числом со
-            // значком; и то и другое золотом, как названия на главной.
-            var row = new VisualElement { pickingMode = PickingMode.Ignore };
-            At(row, 0f, D(H - 100f), D(W), D(28f));
-            row.style.alignItems = Align.Center; row.style.justifyContent = Justify.Center;
-            VisualElement amount = !string.IsNullOrEmpty(pack.Headline)
-                ? LvnStageKit.Text(() => pack.Headline, LvnTokens.TextLg, LvnTokens.Gold, medium: true)
-                : LvnPriceTag.Tag(pack.Currency, pack.Amount,
-                    new LvnPriceTag.Row { FontSize = LvnTokens.TextXl, TextColor = LvnTokens.Gold, Gap = 8f });
-            amount.pickingMode = PickingMode.Ignore;
-            row.Add(amount);
-            p.Add(row);
-
-            if (!string.IsNullOrEmpty(pack.SubLine))
+            else
             {
-                var sub = LvnStageKit.Text(() => pack.SubLine, LvnTokens.TextXs, LvnTokens.Silver);
-                At(sub, 0f, D(H - 74f), D(W), D(18f));
-                p.Add(sub);
+                LvnPicture.Fit(art);
+                if (!string.IsNullOrEmpty(pack.Card)) LvnPicture.Photo(art, pack.Card, _assets);
+                else
+                {
+                    art.style.alignItems = Align.Center; art.style.justifyContent = Justify.Center;
+                    art.Add(LvnIcons.Make(pack.Emblem, LvnTokens.Space6, LvnTokens.Gold));
+                }
             }
-            else if (pack.Bonus > 0)
-            {
-                var bonus = LvnStageKit.Text(
-                    () => LvnWords.Of("shop.bonus", "+{0} bonus", LvnPriceTag.Amount(pack.Bonus)),
-                    LvnTokens.TextXs, LvnTokens.Silver);
-                At(bonus, 0f, D(H - 74f), D(W), D(18f));
-                p.Add(bonus);
-            }
+            p.Add(art);
 
+            var body = new VisualElement();
+            body.style.alignItems = Align.Center;
+            // Подписи читаются и поверх светлой фигуры; высота определяется текстом.
+            body.style.backgroundColor = LvnTokens.Panel(0.88f);
+            LvnChrome.Round(body, LvnTokens.RadiusXs);
+            LvnAir.PadX(body, LvnTokens.Space1);
+            VisualElement amount;
+            if (!string.IsNullOrEmpty(pack.Headline))
+            {
+                var head = LvnStageKit.Text(() => pack.Headline, LvnTokens.TextBase, LvnTokens.Silver, medium: true);
+                head.style.whiteSpace = WhiteSpace.Normal;
+                amount = head;
+            }
+            else amount = LvnPriceTag.Tag(pack.Currency, pack.Amount,
+                new LvnPriceTag.Row { FontSize = LvnTokens.TextBase, TextColor = LvnTokens.Silver, Gap = LvnTokens.Space1 });
+            body.Add(amount);
+            if (pack.Grants != null && pack.Grants.Count > 0) body.Add(GrantChips(pack));
+            else if (!string.IsNullOrEmpty(pack.SubLine) || pack.Bonus > 0)
+            {
+                var sub = LvnStageKit.Text(() => !string.IsNullOrEmpty(pack.SubLine) ? pack.SubLine
+                    : LvnWords.Of("shop.bonus", "+{0} bonus", LvnPriceTag.Amount(pack.Bonus)), LvnTokens.TextXs, LvnTokens.Silver);
+                sub.style.whiteSpace = WhiteSpace.Normal;
+                body.Add(sub);
+            }
+            p.Add(body);
             var buy = StagePriceButton(pack);
-            At(buy, D(25f), D(H - 42f), D(150f), D(42f));
+            // Короткий пак не заполняет minHeight: свободный воздух остаётся
+            // НАД кнопкой, иначе цена висит выше кнопки, нарисованной внизу рамки.
+            buy.style.marginTop = StyleKeyword.Auto;
+            buy.style.alignSelf = Align.Center;
+            buy.style.width = Length.Percent(82f);
+            buy.style.minHeight = D(42f);
+            buy.style.flexShrink = 0;
             p.Add(buy);
             return p;
         }
@@ -365,14 +360,16 @@ namespace Lvn.UI.Screens
         /// (LvnBusy) держит кнопку и меняет её подпись.</summary>
         private Button StagePriceButton(Pack pack)
         {
-            var b = new Button { text = pack.Price };
+            var b = new Button { name = "shop-price", text = pack.Price };
             b.style.backgroundColor = Color.clear;
             LvnChrome.ClearBorder(b);
             b.style.marginLeft = 0; b.style.marginRight = 0; b.style.marginTop = 0; b.style.marginBottom = 0;
             LvnAir.Pad(b, 0f);
             b.style.paddingBottom = D(3f);   // НАРОЧНО одна сторона: подпись чуть выше центра, нижняя грань рамки толще
             b.style.color = LvnTokens.Gold;
-            b.style.fontSize = LvnTokens.TextBase;
+            b.style.fontSize = LvnTokens.TextLg;
+            b.style.unityFontStyleAndWeight = FontStyle.Bold;
+            b.style.whiteSpace = WhiteSpace.Normal;
             b.style.unityTextAlign = TextAnchor.MiddleCenter;
             LvnFonts.Apply(b, LvnFonts.Display);
             b.clicked += () => Buy(b, pack);
