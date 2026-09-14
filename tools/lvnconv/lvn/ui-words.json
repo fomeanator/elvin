@@ -632,8 +632,16 @@
   "default": "Stop"
  },
  {
+  "key": "gacha.close",
+  "default": "Close"
+ },
+ {
   "key": "gacha.come_back",
   "default": "Come back tomorrow for a free spin"
+ },
+ {
+  "key": "gacha.contents",
+  "default": "What's inside"
  },
  {
   "key": "gacha.failed",
@@ -650,6 +658,10 @@
  {
   "key": "gacha.offline",
   "default": "Spins need a connection."
+ },
+ {
+  "key": "gacha.owned",
+  "default": "owned"
  },
  {
   "key": "gacha.price",

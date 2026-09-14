@@ -22,6 +22,7 @@ namespace Lvn.Services
             public long Amount;
             public string Label;
             public string Icon;
+            public double Weight;    // вес в жеребьёвке — для показа шансов
             public bool Super => Kind == "super";
         }
 
@@ -31,6 +32,9 @@ namespace Lvn.Services
             public string Sku;
             public string Label;
             public string Art;
+            public string Rarity;    // ключ редкости (из манифеста, на клиенте)
+            public long Price;       // цена в гардеробе, 0 — не продаётся
+            public string Currency;  // валюта цены
         }
 
         public sealed class Status
@@ -141,6 +145,7 @@ namespace Lvn.Services
                     Amount = (long?)s["amount"] ?? 0,
                     Label = (string)s["label"],
                     Icon = (string)s["icon"],
+                    Weight = (double?)s["weight"] ?? 0,
                 });
         }
 
