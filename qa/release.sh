@@ -64,10 +64,18 @@ say "компиляция C# (Roslyn)…"
 say "Go-стражи…"
 ( cd "$TREE/tools/lvnconv" && go test ./lvn/ -count=1 > "$HOME/ominis/builds/$NAME.guards.log" 2>&1 ) || {
   grep "^--- FAIL" "$HOME/ominis/builds/$NAME.guards.log" | head; die "стражи красные — $HOME/ominis/builds/$NAME.guards.log"; }
-say "стенд утечек…"
-RANGE=$([ "$CH" = dev ] && echo "origin/main..HEAD" || echo "HEAD~30..HEAD")
-( cd "$TREE" && qa/leak-scan.sh "$RANGE" > "$HOME/ominis/builds/$NAME.leaks.log" 2>&1 ) || die "стенд утечек не пускает — $HOME/ominis/builds/$NAME.leaks.log"
-tail -1 "$HOME/ominis/builds/$NAME.leaks.log"
+# Стенд утечек — ворота ПЕРЕД публикацией: dev сверяется с main (что уедет
+# новым), prod — с прошлым prod-выпуском (всё в main уже опубликовано, и
+# старые коммиты с давно известным содержимым тут не судятся).
+PREV_CH=$(awk -v ch="$CH" '$2==ch {sha=$3} END{print sha}' "$HOME/ominis/builds/releases.log" 2>/dev/null)
+if [ "$CH" = dev ]; then RANGE="origin/main..HEAD"
+elif [ -n "$PREV_CH" ] && git -C "$TREE" cat-file -e "$PREV_CH^{commit}" 2>/dev/null; then RANGE="$PREV_CH..HEAD"
+else RANGE=""; fi
+if [ -n "$RANGE" ]; then
+  say "стенд утечек ($RANGE)…"
+  ( cd "$TREE" && qa/leak-scan.sh "$RANGE" > "$HOME/ominis/builds/$NAME.leaks.log" 2>&1 ) || die "стенд утечек не пускает — $HOME/ominis/builds/$NAME.leaks.log"
+  tail -1 "$HOME/ominis/builds/$NAME.leaks.log"
+else say "стенд утечек: первый prod-выпуск, диапазона нет — ворота стоят на dev"; fi
 
 # ── 3. сборка в родном проекте, пакеты — из дерева релиза ────────────────
 if ps -axo args= | grep "Unity.app/Contents/MacOS/Unity" | grep -v grep | grep -q -- "$PROJ"; then
