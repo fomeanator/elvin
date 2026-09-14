@@ -60,6 +60,20 @@ namespace Lvn.UI.Screens
                 if (kv.Value?.subOf == parent && IsSubAxis(kv.Key)) yield return kv.Key;
         }
 
+        /// <summary>Есть ли у героя хоть одна поднастройка с предметами — тогда
+        /// ряд свотчей держит своё место на КАЖДОМ разделе, а не только там,
+        /// где он показан (геометрия листа не зависит от раздела).</summary>
+        private bool HasSubAxes
+        {
+            get
+            {
+                if (_slots == null) return false;
+                foreach (var kv in _slots)
+                    if (IsSubAxis(kv.Key) && Items(kv.Key).Count > 0) return true;
+                return false;
+            }
+        }
+
         // Что на оси надето прямо сейчас — спрашиваем Костюмера; здесь только
         // витринный хвост: пустой слот показывает первый предмет, иначе
         // шаблонной иконке и подписи было бы нечего показать.

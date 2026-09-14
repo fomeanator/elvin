@@ -76,7 +76,16 @@ namespace Lvn.UI.Screens
                     }
                     any = true;
                 }
-            _subRow.style.display = any ? DisplayStyle.Flex : DisplayStyle.None;
+            // МЕСТО ПОД РЯД ДЕРЖИТСЯ ВСЕГДА, если у героя вообще есть
+            // поднастройки. Ряд то появлялся, то исчезал вместе с разделом,
+            // лист менял высоту, а он прижат к низу — разделы и лента прыгали
+            // вверх-вниз под пальцем, полки героев и лиц пересчитывались
+            // («при смене категории строки дрожат» — Илья 14.09). Пустой ряд
+            // невидим, но высоту держит: геометрия листа не зависит от раздела.
+            bool reserve = HasSubAxes;
+            _subRow.style.display = any || reserve ? DisplayStyle.Flex : DisplayStyle.None;
+            _subRow.style.visibility = any ? Visibility.Visible : Visibility.Hidden;
+            _subRow.style.minHeight = reserve ? LvnTokens.TouchLg : 0f;
         }
 
         // Свотч: круг цвета из манифеста (item.color), иначе — мини-арт;

@@ -377,6 +377,12 @@ namespace Lvn.UI.Screens
             _itemName.style.color = _text;
             _itemName.style.fontSize = LvnTokens.TextBase;
             _itemName.style.unityTextAlign = TextAnchor.MiddleCenter;
+            // В ОДНУ СТРОКУ: длинное имя переносилось на вторую, строка росла,
+            // и лист менял высоту от предмета к предмету. Многоточие честнее
+            // прыжка всей панели.
+            _itemName.style.whiteSpace = WhiteSpace.NoWrap;
+            _itemName.style.overflow = Overflow.Hidden;
+            _itemName.style.textOverflow = TextOverflow.Ellipsis;
             _itemName.style.backgroundColor = LvnTokens.Veil(0.35f);
             LvnAir.PadY(_itemName, LvnTokens.Space2);
             LvnAir.MarginX(_itemName, LvnTokens.Space2);

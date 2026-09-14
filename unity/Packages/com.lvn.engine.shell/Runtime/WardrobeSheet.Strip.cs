@@ -47,6 +47,9 @@ namespace Lvn.UI.Screens
         // въезд карточек заново значит дёргать неподвижный список под пальцем
         // (Илья 26.08). Въезд принадлежит появлению ленты — смене раздела,
         // персонажа, открытию листа.
+        /// <summary>Рост плитки — одно число на карточку и на пустую ленту.</summary>
+        private const float StripCardH = 208f;
+
         private void RebuildStrip(bool animate = true)
         {
             if (_strip == null) return;
@@ -152,7 +155,13 @@ namespace Lvn.UI.Screens
         {
             _stripCards.Clear();
             foreach (var child in _strip.contentContainer.Children()) _stripCards.Add(child);
-            _strip.style.display = _stripCards.Count > 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            // ЛЕНТА ДЕРЖИТ ВЫСОТУ И ПУСТОЙ. display:none ронял лист на высоту
+            // плитки («Моё» без покупок), а первый же раздел поднимал его
+            // обратно — та же дрожь строк, что и у ряда поднастроек. Пустая
+            // лента невидима, но место держит.
+            bool any = _stripCards.Count > 0;
+            _strip.style.visibility = any ? Visibility.Visible : Visibility.Hidden;
+            _strip.style.minHeight = StripCardH;
         }
 
         /// <summary>
@@ -266,7 +275,7 @@ namespace Lvn.UI.Screens
             // номер там ничего не значит, и зелёная отметка не появлялась
             // вовсе (живой репорт 01.09). По имени видно, что это за вещь.
             card.name = "card-" + axis + "/" + item.value;
-            card.style.width = 150; card.style.height = 208;
+            card.style.width = 150; card.style.height = StripCardH;
             card.style.marginRight = LvnTokens.Space2;
             card.style.flexShrink = 0;
             // Платина #D1D1D6 (Илья 26.08) вместо прежней тускло-серой заливки:
@@ -451,9 +460,43 @@ namespace Lvn.UI.Screens
                 _strip.schedule.Execute(() =>
                 {
                     if (target.panel == null || target.parent != _strip.contentContainer) return;
-                    _strip.ScrollTo(target);
+                    GlideTo(target);
                 });
             }
+        }
+
+        /// <summary>
+        /// ЛЕНТА ДОВОЗИТ КАРТОЧКУ ПЛАВНО. ScrollTo ставил её в кадр скачком:
+        /// на смене раздела и по стрелкам лента дёргалась, и это читалось как
+        /// сбой, а не как ход («сделай премиальный плавный гардероб» — Илья
+        /// 14.09). Цель та же, что у ScrollTo — карточка в окне целиком,
+        /// ближним краем; поколение обрывает прежний ход, если карточку
+        /// сменили быстрее, чем доехали. Геометрии ещё нет — едем скачком,
+        /// как раньше.
+        /// </summary>
+        private int _glideEpoch;
+
+        private void GlideTo(VisualElement card)
+        {
+            if (_strip == null || card == null || card.panel == null
+                || card.parent != _strip.contentContainer) return;
+            float viewW = _strip.contentViewport.layout.width;
+            float x = card.layout.x, w = card.layout.width;
+            float contentW = _strip.contentContainer.layout.width;
+            if (float.IsNaN(viewW) || viewW <= 1f || float.IsNaN(x) || float.IsNaN(contentW))
+            { _strip.ScrollTo(card); return; }
+            float from = _strip.scrollOffset.x;
+            float to = from;
+            if (x < from) to = x;
+            else if (x + w > from + viewW) to = x + w - viewW;
+            to = Mathf.Clamp(to, 0f, Mathf.Max(0f, contentW - viewW));
+            if (Mathf.Abs(to - from) < 1f) return;
+            int mine = ++_glideEpoch;
+            LvnAsync.Fire(LvnMotion.PlayAsync(_strip, LvnMotion.Normal, (e, p) =>
+            {
+                if (mine != _glideEpoch) return;
+                ((ScrollView)e).scrollOffset = new Vector2(Mathf.Lerp(from, to, p), 0f);
+            }), "StripGlide");
         }
 
         /// <summary>Надета ли вещь этой карточки: имя карточки — «ось/значение»,
