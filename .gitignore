@@ -173,3 +173,7 @@ ui-lab/Logs/
 ui-lab/Temp/
 ui-lab/obj/
 ui-lab/UserSettings/
+
+# Золотые кадры тестов — двоичные, с партнёрским артом: в публичный репозиторий не идут (qa/leak-scan.sh). Живут локально; без них тест пропускается.
+unity/Packages/com.lvn.engine/Tests/Runtime/Golden/*.png
+unity/Packages/com.lvn.engine/Tests/Runtime/Golden/*.png.meta
