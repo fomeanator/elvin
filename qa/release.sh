@@ -100,6 +100,34 @@ case "$CH" in dev) [[ "$PKG" == *.dev ]] || die "у dev-сборки пакет 
 # ── 5. выкладка ───────────────────────────────────────────────────────────
 $SCP "$OUT" "$RELEASE_SERVER:/tmp/$NAME.apk" 2>&1 | grep -v Warning
 $SSH "$RELEASE_SERVER" "O=\$(stat -c %U:%G $RELEASE_DL/$RELEASE_LATEST_PROD); install -o \${O%%:*} -g \${O##*:} -m 644 /tmp/$NAME.apk $RELEASE_DL/$NAME.apk && cp -p $RELEASE_DL/$NAME.apk $RELEASE_DL/$LATEST && rm -f /tmp/$NAME.apk; for f in $NAME.apk $LATEST; do echo \"\$f http=\$(curl -s -o /dev/null -w %{http_code} $RELEASE_URL/\$f) байт=\$(stat -c %s $RELEASE_DL/\$f)\"; done" 2>&1 | grep -v Warning
+# ── 6. карточка сборки для сниппета в мессенджере ─────────────────────────
+# Ссылка на .apk — двоичный файл, сниппета у неё нет. Боту-превью nginx отдаёт
+# вместо файла HTML с OG-тегами и картинку 1200×630 со списком изменений
+# (qa/release-preview.py); людям по той же ссылке — сам APK. Список — темы
+# коммитов с прошлого выпуска этого канала (releases.log), служебные
+# (docs/chore/test/merge) опускаются, пока есть содержательные.
+PREV=$(awk -v ch="$CH" '$2==ch {sha=$3} END{print sha}' "$HOME/ominis/builds/releases.log" 2>/dev/null)
+NOTES="${RELEASE_NOTES:-}"
+if [ -n "$NOTES" ] && [ -f "$NOTES" ]; then LINES=$(grep -v '^\s*$' "$NOTES")
+else
+  RANGE_LOG=$([ -n "$PREV" ] && git -C "$TREE" cat-file -e "$PREV^{commit}" 2>/dev/null && echo "$PREV..HEAD" || echo "-12")
+  ALL=$(git -C "$TREE" log --no-merges --format=%s $RANGE_LOG)
+  MEAT=$(echo "$ALL" | grep -Ev '^(docs|chore|test|tests|ci|merge)(\(|:)' || true)
+  LINES=$(echo "${MEAT:-$ALL}" | sed -E 's/^[a-z]+\(([^)]*)\): /\1: /; s/^[a-z]+: //' | head -12)
+fi
+PREV_DIR="$HOME/ominis/builds/preview"; mkdir -p "$PREV_DIR"
+SIZE_MB=$(( $(stat -f %z "$OUT") / 1048576 ))
+TITLE="${RELEASE_TITLE:-Сборка} · $CH"
+SUB="$(date '+%d.%m %H:%M') · коммит $SHA · $SIZE_MB МБ$([ "$CH" = dev ] && echo ' · пакет .dev')"
+echo "$LINES" | python3 "$REPO/qa/release-preview.py" --out "$PREV_DIR" --name "$NAME" --title "$TITLE" --subtitle "$SUB" \
+  --apk "$RELEASE_URL/$NAME.apk" --page "${RELEASE_URL%/*}/dl-preview/$NAME.html" >/dev/null || say "карточка не собралась — сниппета не будет"
+LBASE="${LATEST%.apk}"
+cp -f "$PREV_DIR/$NAME.png" "$PREV_DIR/$LBASE.png" 2>/dev/null
+sed "s#dl-preview/$NAME#dl-preview/$LBASE#g; s#/$NAME.apk#/$LATEST#g" "$PREV_DIR/$NAME.html" > "$PREV_DIR/$LBASE.html" 2>/dev/null
+$SCP "$PREV_DIR/$NAME.html" "$PREV_DIR/$NAME.png" "$PREV_DIR/$LBASE.html" "$PREV_DIR/$LBASE.png" "$RELEASE_SERVER:${RELEASE_DL%/*}/dl-preview/" 2>&1 | grep -v Warning
+$SSH "$RELEASE_SERVER" "chown --reference=$RELEASE_DL/$RELEASE_LATEST_PROD ${RELEASE_DL%/*}/dl-preview/$NAME.* ${RELEASE_DL%/*}/dl-preview/$LBASE.* 2>/dev/null" 2>&1 | grep -v Warning
+say "карточка: ${RELEASE_URL%/*}/dl-preview/$NAME.html"
+
 SUM=$(shasum -a 256 "$OUT" | cut -c1-16)
 echo "$(date '+%Y-%m-%d %H:%M') $CH $SHA $NAME.apk $PKG sha256:$SUM" >> "$HOME/ominis/builds/releases.log"
 say "ГОТОВО $CH · коммит $SHA · $RELEASE_URL/$NAME.apk (она же $RELEASE_URL/$LATEST)"
