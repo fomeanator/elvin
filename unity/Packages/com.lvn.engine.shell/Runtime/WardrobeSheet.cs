@@ -369,6 +369,7 @@ namespace Lvn.UI.Screens
                 b.style.justifyContent = Justify.Center;
                 LvnAir.Pad(b, LvnTokens.Space3, LvnTokens.Space2);
                 SkinButton(b, false);
+                Smooth(b, LvnMotion.Quick, "opacity"); // гаснут и оживают плавно
             }
             carousel.Add(prev);
 
@@ -407,6 +408,7 @@ namespace Lvn.UI.Screens
             LvnAir.PadY(_cancel, LvnTokens.Space2);
             _cancel.style.marginRight = LvnTokens.Space2;
             SkinButton(_cancel, false);
+            Smooth(_cancel, LvnMotion.Quick, "opacity");
             actions.Add(_cancel);
 
             _confirm = new Button(() => LvnAsync.Fire(ConfirmAsync(), "Confirm"));
@@ -415,6 +417,7 @@ namespace Lvn.UI.Screens
             _confirm.style.flexBasis = 0;
             LvnAir.PadY(_confirm, LvnTokens.Space2);
             SkinButton(_confirm, true);
+            Smooth(_confirm, LvnMotion.Quick, "opacity");
             // Цена стоит НА кнопке, поэтому подпись у кнопки составная: слово,
             // число и значок валюты. Собственный text у Button остаётся пустым —
             // иначе он рисовался бы поверх строки.
@@ -534,6 +537,12 @@ namespace Lvn.UI.Screens
         /// <summary>Build tabs/carousel for a character. Public for tests.</summary>
         public void BuildFor(string entityId)
         {
+            // ТОТ ЖЕ ГЕРОЙ — ТОТ ЖЕ РАЗДЕЛ. Лист пересобирается после каждого
+            // «Выбрать» (цикл вкладки открывает его заново) и после ответа
+            // кошелька, и каждый раз откатывал игрока на «Моё», заново
+            // проигрывал въезд карточек и ужимал вкладки ступенями на глазах.
+            // Помним, где стояли, и возвращаемся туда без представления.
+            var was = _entity; var wasTab = _tab; int wasFit = _tabFit;
             _entity = entityId;
             if ((string.IsNullOrEmpty(_entity) || _manifest?.sprites == null
                  || !_manifest.sprites.ContainsKey(_entity)) && _manifest?.sprites != null)
@@ -544,10 +553,11 @@ namespace Lvn.UI.Screens
             _def = _entity != null && _manifest?.sprites != null
                    && _manifest.sprites.TryGetValue(_entity, out var d) ? d : null;
             RebuildSlots();   // облик героя + «Фон»; всё ниже читает только его
+            bool same = was != null && was == _entity;
             _index.Clear();
             _autoDressed.Clear(); // лист собирается заново — и его примерки тоже
             _tabs.Clear();
-            _tabFit = 0;   // ряд собирается заново — меряем с чистого листа
+            _tabFit = same ? wasFit : 0;   // другой герой — меряем с чистого листа
             _tab = null;
             _title.text = LvnWords.Pick("wardrobe.title", _cfg.title, "Wardrobe");
 
@@ -648,6 +658,9 @@ namespace Lvn.UI.Screens
                 all.Add(lblA);
                 _tabs.Insert(0, all); // «Моё» — первым (Илья 28.08)
             }
+            // Ступень ужатия применяем СРАЗУ, а не ждём трёх раскладок подряд:
+            // ряд одного и того же героя уже мерили.
+            if (_tabFit > 0) ApplyTabFit(_tabFit);
 
             // The hero must OPEN the sheet already dressed from THIS sheet: an
             // axis whose worn value isn't among the scene's items puts on its
@@ -690,8 +703,18 @@ namespace Lvn.UI.Screens
             }
 
             RebuildEmotions();
-            // «Моё» — вкладка по умолчанию (Илья 28.08), когда она есть.
-            SelectTab(_slots.Count > 1 ? AllTab : _tab);
+            // Прежний раздел, если он у этого героя ещё есть; иначе «Моё» —
+            // вкладка по умолчанию (Илья 28.08), когда она есть. На прежнем
+            // разделе карточки не въезжают заново: они и не уходили.
+            string keep = null;
+            if (same && wasTab != null)
+            {
+                bool alive = wasTab == AllTab
+                    ? _slots.Count > 1
+                    : _slots.ContainsKey(wasTab) && !IsSubAxis(wasTab) && Items(wasTab).Count > 0;
+                if (alive) keep = wasTab;
+            }
+            SelectTab(keep ?? (_slots.Count > 1 ? AllTab : _tab), animate: keep == null);
             StageDress();
         }
 
@@ -717,9 +740,9 @@ namespace Lvn.UI.Screens
                 // обе идут через словарь: иначе «Основа: Запад» остаётся русским
                 // посреди английского гардероба.
                 var axisName = Lvn.Content.LvnWords.Name("axis", basis, slot?.name);
-                _itemName.text = string.IsNullOrEmpty(nm)
+                SetItemName(string.IsNullOrEmpty(nm)
                     ? axisName
-                    : axisName + ": " + Lvn.Content.LvnWords.Name("skin", val, nm);
+                    : axisName + ": " + Lvn.Content.LvnWords.Name("skin", val, nm));
                 return;
             }
             var item = CurrentItem();
@@ -742,7 +765,22 @@ namespace Lvn.UI.Screens
                 n = Lvn.Content.LvnWords.Name("skin", v, n);
                 extra = extra == null ? n : extra + ", " + n;
             }
-            _itemName.text = extra == null ? name : name + " · " + extra;
+            SetItemName(extra == null ? name : name + " · " + extra);
+        }
+
+        /// <summary>Новое имя в строке выбора проявляется, а не подменяется:
+        /// смена слова скачком читалась как мигание рядом с плавной лентой.
+        /// То же слово — ничего не делаем.</summary>
+        private void SetItemName(string text)
+        {
+            if (_itemName == null || _itemName.text == text) return;
+            _itemName.text = text;
+            _itemName.style.opacity = 0.45f;
+            _itemName.schedule.Execute(() =>
+            {
+                Smooth(_itemName, LvnMotion.Quick, "opacity");
+                _itemName.style.opacity = 1f;
+            });
         }
 
         // Стрелки листают КАРУСЕЛЬ раздела; на вкладке «Моё» каруселью служит
