@@ -80,7 +80,10 @@ namespace Lvn.UI.Screens
         private VisualElement VersionRow()
         {
             var row = RowEx(LvnWords.Pick("settings.version", _cfg.version_label, "Version"), null);
-            var val = new Label(Application.version + EditorBuildStamp());
+            // Канал и коммит — из подписи сборщика: по скрину настроек видно,
+            // из какого коммита собрано (docs/release-pipeline.md).
+            var sign = Lvn.LvnBuildInfo.Short;
+            var val = new Label(Application.version + (string.IsNullOrEmpty(sign) ? "" : " · " + sign) + EditorBuildStamp());
             val.style.color = _dim;
             val.style.fontSize = LvnTokens.TextSm;
             row.Add(val);

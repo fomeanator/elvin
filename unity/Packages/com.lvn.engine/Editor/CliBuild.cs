@@ -62,6 +62,14 @@ namespace Lvn.EditorTools
             var stamp = DateTime.Now.ToString("yyyyMMdd.HHmm");
             PlayerSettings.bundleVersion = stamp;
             Debug.Log($"[lvn-build] version stamp {stamp}");
+            // КАНАЛ И КОММИТ — В САМУ СБОРКУ (docs/release-pipeline.md). Штамп
+            // времени говорит «когда», но не «что»: два APK за минуту из разных
+            // веток неотличимы, и «где мои правки» разбирают догадками.
+            // qa/release.sh передаёт хэш коммита и канал (dev/prod); они
+            // уезжают в Настройки → Версия и в лог устройства. Dev-сборка ещё
+            // и живёт своим именем пакета — стоит рядом с продом на одном
+            // телефоне.
+            StampChannel(target, stamp);
 
             // Иконка — часть «это готовый продукт», а не отдельный шаг, о
             // котором надо помнить: если проект принёс свои картинки, ставим их
@@ -106,6 +114,40 @@ namespace Lvn.EditorTools
                       $"({summary.totalErrors} errors, {summary.totalWarnings} warnings)");
             if (summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded)
                 EditorApplication.Exit(1); // make CI/scripts fail loudly
+        }
+
+        /// <summary>Файл подписи сборки внутри проекта: рантайм читает его
+        /// как <c>Resources.Load("lvn-build")</c> (см. <c>LvnBuildInfo</c>).</summary>
+        private const string BuildInfoAsset = "Assets/Resources/lvn-build.json";
+
+        /// <summary>
+        /// ПОДПИСАТЬ СБОРКУ каналом и коммитом и дать dev-сборке своё имя.
+        ///
+        /// <para>Имя пакета и ярлык: суффикс СНИМАЕМ и ставим заново.
+        /// PlayerSettings переживают запуски редактора, и суффикс от прошлой
+        /// dev-сборки иначе уехал бы в прод.</para>
+        /// </summary>
+        private static void StampChannel(BuildTarget target, string stamp)
+        {
+            var commit = Environment.GetEnvironmentVariable("LVN_BUILD_COMMIT") ?? "";
+            var channel = Environment.GetEnvironmentVariable("LVN_BUILD_CHANNEL") ?? "";
+            var suffix = Environment.GetEnvironmentVariable("LVN_APP_ID_SUFFIX") ?? "";
+            var named = UnityEditor.Build.NamedBuildTarget.FromBuildTargetGroup(
+                BuildPipeline.GetBuildTargetGroup(target));
+            var id = PlayerSettings.GetApplicationIdentifier(named) ?? "";
+            var baseId = id.EndsWith(".dev", StringComparison.Ordinal) ? id.Substring(0, id.Length - 4) : id;
+            var wantId = baseId + suffix;
+            if (wantId != id) PlayerSettings.SetApplicationIdentifier(named, wantId);
+            var name = PlayerSettings.productName ?? "";
+            var baseName = name.EndsWith(" Dev", StringComparison.Ordinal) ? name.Substring(0, name.Length - 4) : name;
+            var wantName = string.IsNullOrEmpty(suffix) ? baseName : baseName + " Dev";
+            if (wantName != name) PlayerSettings.productName = wantName;
+            Directory.CreateDirectory(Path.GetDirectoryName(BuildInfoAsset) ?? "Assets/Resources");
+            File.WriteAllText(BuildInfoAsset,
+                "{\"stamp\":\"" + stamp + "\",\"commit\":\"" + commit + "\",\"channel\":\"" + channel + "\"}");
+            AssetDatabase.ImportAsset(BuildInfoAsset, ImportAssetOptions.ForceSynchronousImport);
+            Debug.Log($"[lvn-build] канал «{(channel == "" ? "-" : channel)}», коммит {(commit == "" ? "-" : commit)}, "
+                    + $"пакет {wantId}, имя «{wantName}»");
         }
 
         // Exported projects self-boot (the template's Boot.cs creates the
