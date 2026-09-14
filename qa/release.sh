@@ -106,20 +106,28 @@ $SSH "$RELEASE_SERVER" "O=\$(stat -c %U:%G $RELEASE_DL/$RELEASE_LATEST_PROD); in
 # (qa/release-preview.py); людям по той же ссылке — сам APK. Список — темы
 # коммитов с прошлого выпуска этого канала (releases.log), служебные
 # (docs/chore/test/merge) опускаются, пока есть содержательные.
+# Текст сниппета — ПУТЬ ПРОВЕРКИ: мессенджер показывает три-четыре строки
+# и режет, список изменений туда не помещается (он идёт картинкой). Путь
+# собирается из строк «Проверить: …» в телах коммитов с прошлого выпуска
+# (правило для всех, кто коммитит в dev), либо из файла заметок.
 PREV=$(awk -v ch="$CH" '$2==ch {sha=$3} END{print sha}' "$HOME/ominis/builds/releases.log" 2>/dev/null)
 NOTES="${RELEASE_NOTES:-}"
-if [ -n "$NOTES" ] && [ -f "$NOTES" ]; then LINES=$(grep -v '^\s*$' "$NOTES")
+if [ -n "$NOTES" ] && [ -f "$NOTES" ]; then
+  LINES=$(grep -v '^\s*$' "$NOTES" | grep -v '^Проверить:')
+  CHECK=$(grep '^Проверить:' "$NOTES" | sed 's/^Проверить: *//' | paste -sd '·' - | sed 's/·/ · /g')
 else
   RANGE_LOG=$([ -n "$PREV" ] && git -C "$TREE" cat-file -e "$PREV^{commit}" 2>/dev/null && echo "$PREV..HEAD" || echo "-12")
   ALL=$(git -C "$TREE" log --no-merges --format=%s $RANGE_LOG)
   MEAT=$(echo "$ALL" | grep -Ev '^(docs|chore|test|tests|ci|merge)(\(|:)' || true)
   LINES=$(echo "${MEAT:-$ALL}" | sed -E 's/^[a-z]+\(([^)]*)\): /\1: /; s/^[a-z]+: //' | head -12)
+  CHECK=$(git -C "$TREE" log --no-merges --format=%b $RANGE_LOG | grep '^Проверить:' | sed 's/^Проверить: *//' | head -6 | paste -sd '·' - | sed 's/·/ · /g')
 fi
+CHECK=$(echo "$CHECK" | cut -c1-220)
 PREV_DIR="$HOME/ominis/builds/preview"; mkdir -p "$PREV_DIR"
 SIZE_MB=$(( $(stat -f %z "$OUT") / 1048576 ))
-TITLE="${RELEASE_TITLE:-Сборка} · $CH"
-SUB="$(date '+%d.%m %H:%M') · коммит $SHA · $SIZE_MB МБ$([ "$CH" = dev ] && echo ' · пакет .dev')"
-echo "$LINES" | python3 "$REPO/qa/release-preview.py" --out "$PREV_DIR" --name "$NAME" --title "$TITLE" --subtitle "$SUB" \
+TITLE="${RELEASE_TITLE:-Сборка} · $CH · $(date '+%d.%m %H:%M') · $SHA"
+SUB="коммит $SHA · $SIZE_MB МБ$([ "$CH" = dev ] && echo ' · пакет .dev')"
+echo "$LINES" | python3 "$REPO/qa/release-preview.py" --out "$PREV_DIR" --name "$NAME" --title "$TITLE" --subtitle "$SUB" --check "${CHECK:-}" \
   --apk "$RELEASE_URL/$NAME.apk" --page "${RELEASE_URL%/*}/dl-preview/$NAME.html" >/dev/null || say "карточка не собралась — сниппета не будет"
 LBASE="${LATEST%.apk}"
 cp -f "$PREV_DIR/$NAME.png" "$PREV_DIR/$LBASE.png" 2>/dev/null
