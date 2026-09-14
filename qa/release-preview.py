@@ -72,7 +72,7 @@ def main():
     page = f"""<!doctype html><html lang="ru"><head><meta charset="utf-8">
 <title>{esc(a.title)} — {esc(a.subtitle)}</title>
 <meta property="og:type" content="website">
-<meta property="og:title" content="{esc(a.title)} · {esc(a.subtitle)}">
+<meta property="og:title" content="{esc(a.title)}">
 <meta property="og:description" content="{esc(desc)}">
 <meta property="og:image" content="{esc(img)}">
 <meta property="og:image:width" content="{W}"><meta property="og:image:height" content="{H}">
