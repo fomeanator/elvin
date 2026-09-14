@@ -108,8 +108,7 @@ namespace Lvn.UI.Screens
         {
             DismissCeremony();
             var veil = new VisualElement { name = "gacha-blackout" };
-            veil.style.position = Position.Absolute;
-            veil.style.left = 0; veil.style.right = 0; veil.style.top = 0; veil.style.bottom = 0;
+            LvnChrome.Stretch(veil);   // во весь экран круток
             veil.style.backgroundColor = Color.black;
             veil.style.alignItems = Align.Center;
             veil.style.justifyContent = Justify.Center;
