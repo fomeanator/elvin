@@ -692,6 +692,10 @@
   "default": "History"
  },
  {
+  "key": "game.settings",
+  "default": "Settings"
+ },
+ {
   "key": "history",
   "default": "History"
  },
