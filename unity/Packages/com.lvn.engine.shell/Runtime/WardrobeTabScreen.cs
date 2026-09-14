@@ -117,6 +117,13 @@ namespace Lvn.UI.Screens
             get => _alert;
             set { _alert = value; if (_sheet != null) _sheet.Alert = value; }
         }
+        private System.Func<Task> _openGacha;
+        /// <summary>Открыть крутки (приз круток в ленте) — вешает хозяин витрины.</summary>
+        public System.Func<Task> OpenGacha
+        {
+            get => _openGacha;
+            set { _openGacha = value; if (_sheet != null) _sheet.OpenGacha = value; }
+        }
 
         // Текущий персонаж вкладки: фаворит меню, иначе героиня по умолчанию.
         private string Entity
@@ -260,6 +267,7 @@ namespace Lvn.UI.Screens
             _sheet.OpenStore = _openStore;
             _sheet.ConfirmTopUp = _confirmTopUp;
             _sheet.Alert = _alert;
+            _sheet.OpenGacha = _openGacha;
             _panel.Add(_sheet);
         }
 

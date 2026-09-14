@@ -1263,5 +1263,13 @@
  {
   "key": "wardrobe.nothing_yet",
   "default": "Nothing yet — look through the sections"
+ },
+ {
+  "key": "wardrobe.prize",
+  "default": "Gacha prize"
+ },
+ {
+  "key": "wardrobe.spin",
+  "default": "Spin for it"
  }
 ]

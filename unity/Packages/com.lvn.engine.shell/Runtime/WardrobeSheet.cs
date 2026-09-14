@@ -63,6 +63,10 @@ namespace Lvn.UI.Screens
         /// <summary>Host hook: open the currency store (the pills' "+" tap).
         /// NovelShell wires this to its StoreScreen.</summary>
         public System.Func<Task> OpenStore;
+        /// <summary>Host hook: открыть крутки. Приз круток в гардеробе не
+        /// продаётся (TR-47) — кнопка у такой карточки зовёт барабан, а не
+        /// кассу. Пусто — кнопка говорит «приз круток» и не жмётся.</summary>
+        public System.Func<Task> OpenGacha;
         /// <summary>Host hook: "not enough X — go to the store?" (title, message) →
         /// true to open the store and retry the purchase once. Same "ONE store
         /// everywhere" pattern as the chapter/title entry gates
