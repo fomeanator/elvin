@@ -13,6 +13,19 @@ the format stays `.lvn`.)
 
 To build a game (not the engine), start at [`howto/AGENTS.md`](howto/AGENTS.md).
 
+## Branches & releases
+
+- `dev` is the integration branch, `main` is production. Work in **your own
+  branch** and merge it into `dev`; `main` only ever receives `dev` as a whole,
+  after the dev build has been tried on a device.
+- **Never leave uncommitted work in the shared working tree.** A finished task
+  is a commit on your branch. Uncommitted edits are not part of any build and
+  get lost at the next merge.
+- APKs are built only from a commit on `origin`, by `qa/release.sh dev|prod`
+  (see `docs/release-pipeline.md`). Never build from the working tree; never
+  clone the build project. Dev builds carry the `.dev` package suffix and the
+  commit hash in Settings → Version.
+
 ## Build & test
 
 CI builds each Go module standalone with `GOWORK=off` (no workspace), then runs
