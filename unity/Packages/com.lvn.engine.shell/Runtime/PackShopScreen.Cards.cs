@@ -107,30 +107,30 @@ namespace Lvn.UI.Screens
         // ── One pack card ─────────────────────────────────────────────────────
         private VisualElement Card(Pack pack)
         {
-            if (Dressed) return _column ? StagePack(pack) : HalfSlot(StagePack(pack));
-            bool wide = _column || pack.Best || pack.Grants != null; // герой, наборы и весь столбик — во всю ширину
-            var card = new VisualElement();
-            card.style.width = Length.Percent(wide ? 100f : 48.5f);
+            if (Dressed) return StagePack(pack);
+            bool wide = pack.Best;
+            var card = new VisualElement { name = "shop-pack", userData = pack.Sku };
+            card.style.width = Length.Percent(wide ? 100f : _column ? 86f : 48.5f);
+            card.style.flexShrink = 0;
             card.style.marginBottom = LvnTokens.Space2;
             LvnChrome.Card(card, pack.Best ? LvnTokens.SurfaceHi : LvnTokens.Surface, LvnTokens.Radius);
             card.style.overflow = Overflow.Hidden;
             if (pack.Best)
             {
-                // Верх акцентный, остальные три — тот же тихий тон, что у
-                // обычной карточки: выделяется одна сторона, а не рамка целиком.
-                var quietEdge = LvnChrome.BorderTone(0.64f);
-                LvnChrome.Border(card, quietEdge, 1f);
-                LvnChrome.EdgeOn(card, LvnSide.Top, LvnTokens.Accent, 2f);
+                card.AddToClassList("shop-recommended");
+                LvnChrome.Border(card, LvnTokens.Accent, 2f);
+                card.Add(Glow());
             }
 
             // Арт-сцена: не фиолетовая шапка, а тихий стол витрины. Реальная
             // иконка каталога может заполнить её целиком; без неё остаётся
             // аккуратный знак валюты и подпись категории.
-            var art = new VisualElement();
-            art.style.height = wide ? 112 : 82;
+            var art = new VisualElement { name = "shop-art" };
+            art.style.height = wide ? LvnTokens.Space6 * 3 : LvnTokens.Space6 * 2;
+            art.style.flexShrink = 0;
             art.style.alignItems = Align.Center;
             art.style.justifyContent = Justify.Center;
-            art.style.backgroundColor = UiColor.WithAlpha(pack.Tint, 0.88f);
+            art.style.backgroundColor = Color.Lerp(LvnTokens.Surface, pack.Tint, 0.16f);
             LvnChrome.RoundTop(art, LvnTokens.Radius);
             art.style.overflow = Overflow.Hidden;
             LvnPicture.Fit(art);
@@ -163,7 +163,7 @@ namespace Lvn.UI.Screens
             // СКОЛЬКО И ЧЕГО. У набора своё название («Набор новичка»), у пачки
             // валюты — сумма со значком: слово («500 кристаллов») занимало
             // полторы строки крупным кеглем и переносилось посреди числа.
-            float sum = wide ? 30 : 25;
+            float sum = LvnTokens.TextBase;
             VisualElement amount;
             if (!string.IsNullOrEmpty(pack.Headline))
             {
@@ -181,25 +181,7 @@ namespace Lvn.UI.Screens
 
             if (pack.Grants != null && pack.Grants.Count > 0)
             {
-                // Состав набора — пилюлями: читается с одного взгляда.
-                var chips = new VisualElement();
-                LvnFlow.Wrap(chips);
-                chips.style.marginTop = LvnTokens.Space1;
-                foreach (var kv in pack.Grants)
-                {
-                    var chip = LvnStyler.Chip(ScreenUi.Row(), LvnTokens.Faint);
-                    chip.style.marginBottom = LvnTokens.Space1;
-                    chip.style.marginRight = LvnTokens.Space1;
-                    // РЯД СОБИРАЕТ ЦЕННИК. Здесь он складывался руками —
-                    // значок акцентным, сумма цветом текста, — и та же валюта
-                    // в хабе и в гардеробе выглядела иначе. Заодно уходит
-                    // повторённое здесь решение дома: слова рядом со значком
-                    // нет, он уже сказал, какая это валюта.
-                    chip.Add(LvnPriceTag.Tag(kv.Key, kv.Value,
-                        new LvnPriceTag.Row { FontSize = 20f, IconSize = 18f, Gap = 6f }));
-                    chips.Add(chip);
-                }
-                body.Add(chips);
+                body.Add(GrantChips(pack));
             }
             else if (pack.Bonus > 0)
             {
@@ -211,8 +193,10 @@ namespace Lvn.UI.Screens
                 body.Add(bonus);
             }
 
-            var buy = new Button { text = pack.Price };
-            buy.style.fontSize = LvnTokens.TextSm;
+            var buy = new Button { name = "shop-price", text = pack.Price };
+            buy.style.fontSize = LvnTokens.TextLg;
+            buy.style.whiteSpace = WhiteSpace.Normal;
+            buy.style.unityTextAlign = TextAnchor.MiddleCenter;
             buy.style.marginTop = LvnTokens.Space2;
             buy.style.alignSelf = Align.Stretch;
             LvnAir.PadY(buy, LvnTokens.Space2);
@@ -232,25 +216,65 @@ namespace Lvn.UI.Screens
 
             if (pack.Badge != Ribbon.None)
             {
-                bool gold = pack.Badge == Ribbon.Value || pack.Badge == Ribbon.BestPrice;
-                string txt = pack.Badge == Ribbon.Popular ? LvnWords.Of("shop.popular", "POPULAR")
-                           : pack.Badge == Ribbon.Value ? LvnWords.Of("shop.value", "BEST VALUE")
-                           : LvnWords.Of("shop.best_price", "BEST PRICE");
-                var ribbon = new Label(txt) { pickingMode = PickingMode.Ignore };
+                var ribbon = BadgeLabel(pack.Badge);
                 ribbon.style.position = Position.Absolute;
-                ribbon.style.top = 10;
-                ribbon.style.left = 12;
-                ribbon.style.fontSize = LvnTokens.TextMicro;
-                ribbon.style.unityFontStyleAndWeight = FontStyle.Bold;
-                ribbon.style.letterSpacing = 1.5f;
-                ribbon.style.color = gold ? LvnTokens.Bg : LvnTokens.OnAccent;
-                ribbon.style.backgroundColor = gold ? LvnTokens.Gold : LvnTokens.Accent;
-                LvnAir.Pad(ribbon, LvnTokens.Space2, LvnTokens.Hair);
-                LvnChrome.Round(ribbon, LvnTokens.RadiusXs);
-                card.Add(ribbon);
+                ribbon.style.top = LvnTokens.Space1;
+                ribbon.style.left = LvnTokens.Space1;
+                ribbon.style.right = LvnTokens.Space1;
+                art.Add(ribbon);
             }
 
             return card;
+        }
+
+        private static VisualElement Glow()
+        {
+            var glow = new VisualElement { name = "shop-glow", pickingMode = PickingMode.Ignore };
+            glow.style.position = Position.Absolute;
+            glow.style.left = 0; glow.style.right = 0; glow.style.bottom = 0;
+            glow.style.height = Length.Percent(45f);
+            glow.style.backgroundImage = LvnBackdrop.Vertical(
+                UiColor.WithAlpha(LvnTokens.Accent, 0f), UiColor.WithAlpha(LvnTokens.Accent, 0.32f), smooth: true);
+            return glow;
+        }
+
+        private static Label BadgeLabel(Ribbon badge)
+        {
+            string text = badge == Ribbon.Popular ? LvnWords.Of("shop.popular", "POPULAR")
+                : badge == Ribbon.Value ? LvnWords.Of("shop.value", "BEST VALUE")
+                : LvnWords.Of("shop.best_price", "BEST PRICE");
+            // Три роли различаются и словами, и тоном, включая две премиальные ленты.
+            Color tone = badge == Ribbon.Popular ? LvnTokens.Accent
+                : badge == Ribbon.Value ? LvnTokens.Bronze : LvnTokens.Gold;
+            var ribbon = new Label(text) { name = "shop-ribbon", pickingMode = PickingMode.Ignore };
+            ribbon.style.fontSize = LvnTokens.TextXs;
+            ribbon.style.unityFontStyleAndWeight = FontStyle.Bold;
+            ribbon.style.letterSpacing = LvnTokens.TextXs * 0.06f;
+            ribbon.style.whiteSpace = WhiteSpace.Normal;
+            ribbon.style.unityTextAlign = TextAnchor.MiddleCenter;
+            ribbon.style.color = badge == Ribbon.Popular ? LvnTokens.OnAccent : LvnTokens.Bg;
+            ribbon.style.backgroundColor = tone;
+            LvnAir.Pad(ribbon, LvnTokens.Space2, LvnTokens.Hair);
+            LvnChrome.Round(ribbon, LvnTokens.RadiusXs);
+            return ribbon;
+        }
+
+        private static VisualElement GrantChips(Pack pack)
+        {
+            var chips = new VisualElement { name = "shop-grants", pickingMode = PickingMode.Ignore };
+            LvnFlow.Wrap(chips, Justify.Center);
+            chips.style.width = Length.Percent(100f);
+            chips.style.marginTop = LvnTokens.Space1;
+            foreach (var kv in pack.Grants)
+            {
+                var chip = LvnStyler.Chip(ScreenUi.Row(), LvnTokens.SurfaceHi);
+                chip.style.marginBottom = LvnTokens.Space1;
+                chip.style.marginRight = LvnTokens.Space1;
+                chip.Add(LvnPriceTag.Tag(kv.Key, kv.Value,
+                    new LvnPriceTag.Row { FontSize = LvnTokens.TextXs, IconSize = LvnTokens.TextXs, Gap = LvnTokens.Space1 }));
+                chips.Add(chip);
+            }
+            return chips;
         }
     }
 }

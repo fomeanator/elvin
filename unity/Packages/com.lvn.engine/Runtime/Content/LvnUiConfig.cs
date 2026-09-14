@@ -249,6 +249,12 @@ namespace Lvn.Content
     /// mere presence adds the quick-menu entry.</summary>
     public sealed class StoreConfig
     {
+        /// <summary>Рекомендуемый SKU; без поля — последний пак каждой вкладки.
+        /// Неизвестный SKU не рекомендует ни одного пака.</summary>
+        public string recommended_sku;
+        /// <summary>SKU → popular | value | best_price. Полная замена клиентских
+        /// лент; пустая карта убирает все ленты, отсутствие сохраняет эвристику.</summary>
+        public Dictionary<string, string> badges;
         // Площадка рекламы для бесплатной карточки магазина («посмотри ролик —
         // получи валюту»). Пусто — карточки нет.
         public string ad_placement;

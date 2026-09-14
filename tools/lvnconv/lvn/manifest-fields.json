@@ -656,6 +656,7 @@
   "StoreConfig": {
     "ad_art": "string",
     "ad_placement": "string",
+    "badges": "map:string",
     "bonus_text": "string",
     "buy_text": "string",
     "cancel_text": "string",
@@ -669,6 +670,7 @@
     "menu_label": "string",
     "panel_color": "string",
     "peek_text": "string",
+    "recommended_sku": "string",
     "scrim_color": "string",
     "show_menu_item": "bool",
     "text_color": "string",
