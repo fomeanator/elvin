@@ -417,13 +417,26 @@ namespace Lvn.UI.Screens
             host.Insert(host.IndexOf(_window) + 1 + _extraLanes.Count, lane.Window);
             _extraLanes.Add(lane);
             foreach (var cell in lane.Strip.Children()) cell.style.width = CellWidth;
+            ApplyLaneHeights();
             Render(lane);
+        }
+
+        /// <summary>Три дорожки не влезали в окно (скрин Ильи 01:0x): с каждой
+        /// добавленной лентой все дорожки становятся ниже — одна 144, две по
+        /// 112, три по 92 dp, — чтобы ряд кнопок оставался на экране.</summary>
+        private void ApplyLaneHeights()
+        {
+            int lanes = 1 + _extraLanes.Count;
+            float h = LvnStageKit.D(lanes >= 3 ? 92f : lanes == 2 ? 112f : 144f);
+            _window.style.height = h;
+            foreach (var lane in _extraLanes) lane.Window.style.height = h;
         }
 
         private void RemoveLanes()
         {
             foreach (var lane in _extraLanes) lane.Window.RemoveFromHierarchy();
             _extraLanes.Clear();
+            ApplyLaneHeights();
         }
 
         /// <summary>Ответ сервера с пределом ожидания: висящий запрос — неудача, а не вечное «Крутим…».</summary>
