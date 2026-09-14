@@ -676,6 +676,10 @@
   "default": "Spin"
  },
  {
+  "key": "gacha.top_up",
+  "default": "Top up"
+ },
+ {
   "key": "gacha.won_currency",
   "default": "You got: {0}"
  },

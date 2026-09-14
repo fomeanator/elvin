@@ -28,6 +28,10 @@ namespace Lvn.UI.Screens
         /// уходят на сервер разом и каждая лента едет к своему результату;
         /// редкое на любой ленте — церемония и стоп.</summary>
         private bool _auto;
+        /// <summary>Дверь в магазин: при нехватке валюты вместо «Крутить» —
+        /// «Пополнить» (TR-107). Вешает хозяин витрины.</summary>
+        public Func<Task> OpenStore;
+        private bool _needTopUp;
         private const int MaxLanes = 3;
         private const float FastSpinSeconds = 0.5f;
         /// <summary>«Крутим…» не должно висеть вечно (TR-106): ответ дольше —
@@ -270,6 +274,18 @@ namespace Lvn.UI.Screens
                     ? LvnWords.Of("gacha.price", "Next spin: {0}", LvnPriceTag.Full(_state.SpinCurrency, _state.SpinPrice))
                     : LvnWords.Of("gacha.come_back", "Come back tomorrow for a free spin");
             if (_state.Sectors.Count == 0 || (!_state.FreeToday && _state.SpinPrice <= 0)) return;
+            // НЕ ХВАТАЕТ — «ПОПОЛНИТЬ» (TR-107): кнопка ведёт в магазин, а не
+            // предлагает крутку, которая упрётся в кошелёк.
+            bool broke = !_state.FreeToday && _state.SpinPrice > 0
+                && (_needTopUp || LvnWallet.Balance(_state.SpinCurrency) < _state.SpinPrice);
+            if (broke)
+            {
+                _needTopUp = false;
+                var topUp = ActionButton("gacha-topup", () => LvnWords.Of("gacha.top_up", "Top up"), () =>
+                    LvnAsync.Fire(TopUpAsync(), "GachaTopUp"));
+                topUp.SetEnabled(OpenStore != null);
+                return;
+            }
             var button = ActionButton("gacha-spin", () => _state.FreeToday ? LvnWords.Of("gacha.spin", "Spin") : "",
                 () => LvnAsync.Fire(SpinAsync(), "GachaSpin"));
             AddAutoButton(button);
@@ -294,6 +310,15 @@ namespace Lvn.UI.Screens
                 price.Add(LvnIcons.MakeCurrency(_state.SpinCurrency, LvnStageKit.D(20f)));
                 button.Add(price);
             }
+        }
+
+        private async Task TopUpAsync()
+        {
+            if (OpenStore == null) return;
+            await OpenStore();
+            if (_closed) return;
+            await LvnWallet.RefreshAsync();    // вернулись из магазина — кошелёк мог вырасти
+            if (!_closed) PaintIdle();
         }
 
         /// <summary>«Авто» рядом с основной кнопкой.</summary>
