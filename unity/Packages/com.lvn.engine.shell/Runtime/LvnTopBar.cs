@@ -537,7 +537,41 @@ namespace Lvn.UI.Screens
             // Пилюли пересобираются под облик: значки картинками, без подложки.
             _pills.Clear();
             RefreshBalances();
+            // ПИЛЮЛИ НЕ ЗАЕЗЖАЮТ НА БУКВЫ (TR-97, Илья 14.09: «наезжает на
+            // лого»). Ширина пилюль зависит от цифр баланса и размера шрифта
+            // интерфейса, а буквы логотипа стоят на своих долях ширины — при
+            // «515 / 2 570» и коротком экране пилюли ложились на «ROMANCE».
+            // Считаем по факту раскладки и ужимаем блок к правому краю.
+            if (!_pillsFitHooked)
+            {
+                _pillsFitHooked = true;
+                _pills.RegisterCallback<GeometryChangedEvent>(_ => KeepPillsOffLogo());
+                _row.RegisterCallback<GeometryChangedEvent>(_ => KeepPillsOffLogo());
+            }
         }
+
+        private bool _pillsFitHooked;
+
+        /// <summary>Ужать блок валют к правому краю, если он лёг на буквы
+        /// логотипа: масштаб от 1 до 0,6 по свободной полосе справа от букв.</summary>
+        private void KeepPillsOffLogo()
+        {
+            if (_stage == null || _stageLogo == null || _pills == null) return;
+            float rowW = _row.resolvedStyle.width, pillsW = _pills.resolvedStyle.width;
+            if (float.IsNaN(rowW) || float.IsNaN(pillsW) || rowW <= 0f || pillsW <= 0f) return;
+            // Буквы кончаются на доле LogoLettersRight ширины арта; арт — это
+            // почти вся строка (отступы StageD(3) по краям).
+            float lettersRight = _stageLogo.resolvedStyle.width * LogoLettersRight + StageD(3f);
+            float pillsLeft = _pills.worldBound.xMin - _row.worldBound.xMin;
+            float free = pillsLeft + pillsW - lettersRight - StageD(6f);   // от букв до правого края пилюль
+            float k = Mathf.Clamp(free / pillsW, 0.6f, 1f);
+            if (Mathf.Abs(k - _pillsScale) < 0.01f) return;
+            _pillsScale = k;
+            _pills.style.transformOrigin = new TransformOrigin(Length.Percent(100), Length.Percent(50));
+            _pills.style.scale = new Scale(new Vector2(k, k));
+        }
+
+        private float _pillsScale = 1f;
 
 
         // ── содержимое ────────────────────────────────────────────────────────
