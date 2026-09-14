@@ -87,6 +87,13 @@ namespace Lvn
         /// актёров, надписи HUD, покой и итоговое состояние эффектов и звука —
         /// не показывая ни одной реплики. Нужно после <c>Restore</c>: кадр, в
         /// котором сохранялись, собирается обратно, прежде чем игра продолжится.</summary>
+        /// <summary>ПРОЙДЕННАЯ РЕПЛИКА НА ПУТИ ВОССТАНОВЛЕНИЯ (TR-85). Реплей
+        /// собирает фон, актёров, эффекты и звук, а журнал «Истории» оставался
+        /// пустым: выйти из главы и вернуться — в истории одна строка, та, что
+        /// на экране. Сцена подписывается на время реплея и складывает реплики
+        /// в журнал, не показывая их.</summary>
+        public event Action<string, string, string> ReplayedSay;
+
         public void ReplayVisuals(int upto)
         {
             if (_script == null) return;
@@ -205,6 +212,16 @@ namespace Lvn
                 {
                     var lid = (string)c["id"];
                     if (!string.IsNullOrEmpty(lid)) labelLast[lid] = pi;
+                    continue;
+                }
+                if (opName == "say" && ReplayedSay != null)
+                {
+                    // Те же слова, что показал бы Present: локализация,
+                    // варианты текста и подстановка переменных.
+                    var who = TextInterpolation.Apply(LocalizedWho((string)c["who"]), Vars);
+                    var text = TextAlternatives.Apply(Localized(c), Vars, i, null, mutate: false);
+                    text = TextInterpolation.Apply(text, Vars);
+                    if (!IsLegacyHintSpeaker(who)) ReplayedSay.Invoke(who, text, (string)c["style"]);
                     continue;
                 }
                 if (opName == "ui")
