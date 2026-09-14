@@ -863,6 +863,21 @@ namespace Lvn.Content
             }
         }
 
+        /// <summary>
+        /// КЛЮЧИ ТОГО, ЧТО ЛЕСТНИЦА ПРИВОЗИТ НА САМОМ ДЕЛЕ: адрес уже со
+        /// ступенью качества и его ktx2-двойник, без разворота по ступеням.
+        /// Уборка кладёт их в «живое» и «неприкосновенное»: файл плана,
+        /// стёртый над квотой, лестница везёт снова при следующем запуске —
+        /// сотни мегабайт за первую минуту и лаги на всех экранах.
+        /// </summary>
+        public void AddPlannedKeysFor(string effectiveUrl, HashSet<string> into)
+        {
+            if (string.IsNullOrEmpty(effectiveUrl) || into == null) return;
+            into.Add(HashKey(effectiveUrl, VersionFor(effectiveUrl)));
+            var ktx2 = Ktx2UrlFor(effectiveUrl);
+            if (!string.IsNullOrEmpty(ktx2)) into.Add(HashKey(ktx2, VersionFor(ktx2)));
+        }
+
         /// <summary>Удалить один закэшированный ассет (и его ktx2-транскод) с
         /// диска — чистка противоположного бокса при смене «Качества арта».</summary>
         public bool DeleteCachedAsset(string url, bool preserveOffline = false)
