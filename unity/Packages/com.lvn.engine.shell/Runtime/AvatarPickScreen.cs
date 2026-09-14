@@ -61,7 +61,7 @@ namespace Lvn.UI.Screens
         public void SetContent(LvnManifest manifest)
         {
             _manifest = manifest;
-            _selected = LvnAvatars.Picked;
+            _selected = Effective;
             LvnStageKit.TakeSkin(manifest, ref _skin, StageDress);
             Rebuild();
         }
@@ -110,7 +110,7 @@ namespace Lvn.UI.Screens
             LvnPortraitFace.Show(art, url, _manifest, _assets,
                 forceSelf: id == LvnAvatars.SelfId, staticOnly: choice != null);
             cell.Add(art);
-            bool current = LvnAvatars.Picked == id && (choice == null || LvnAvatars.Owned(choice));
+            bool current = Effective == id && (choice == null || LvnAvatars.Owned(choice));
             string caption = current ? LvnWords.Of("avatar.current", "Selected")
                 : choice == null ? LvnWords.Of("avatar.self", "My look")
                 : LvnAvatars.Owned(choice) ? LvnWords.Of("avatar.owned", "Available")
@@ -137,12 +137,17 @@ namespace Lvn.UI.Screens
             PaintAction();
         }
 
+        /// <summary>Что показано сейчас: пустой выбор — это «Мой облик»
+        /// (<see cref="LvnAvatars.ShowsSelf"/>), и набор обязан отмечать его,
+        /// а не оставлять игрока без выбранной плитки.</summary>
+        private static string Effective => LvnAvatars.ShowsSelf ? LvnAvatars.SelfId : LvnAvatars.Picked;
+
         private void PaintAction()
         {
             var choice = LvnAvatars.Offered(_manifest).Find(c => c.Id == _selected);
             bool valid = choice != null || (_selected == LvnAvatars.SelfId && LvnHeroPortrait.Layers(_manifest) != null);
             bool owned = choice == null || LvnAvatars.Owned(choice);
-            bool current = valid && owned && _selected == LvnAvatars.Picked;
+            bool current = valid && owned && _selected == Effective;
             _apply.text = _busy ? LvnWords.Of("avatar.applying", "Applying…")
                 : current ? LvnWords.Of("avatar.current", "Selected")
                 : owned ? LvnWords.Of("avatar.apply", "Set picture")

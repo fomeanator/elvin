@@ -68,6 +68,19 @@ namespace Lvn.UI.Screens
         /// </summary>
         public const string SelfId = "self";
 
+        /// <summary>
+        /// НЕ ВЫБРАЛ — ЗНАЧИТ «МОЙ ОБЛИК». Живой портрет из слоёв (TR-68) —
+        /// умолчание, а картинка из набора — явный выбор игрока. Кружок в
+        /// шапке и профиле показывал живой портрет только при
+        /// <c>Picked == "self"</c>, а выбор по умолчанию пуст — игрок
+        /// переодевал героиню, а лицо в шапке и профиле оставалось авторской
+        /// картинкой («образ ГГ не обновляется, опять дефолт» — партнёр 14.09).
+        /// </summary>
+        public static bool ShowsSelf
+        {
+            get { var p = Picked; return string.IsNullOrEmpty(p) || p == SelfId; }
+        }
+
         /// <summary>Выбранная игроком аватарка или пусто — тогда показывается
         /// та, что назвал автор (<c>ui.browse.avatar</c>).</summary>
         public static string Picked
