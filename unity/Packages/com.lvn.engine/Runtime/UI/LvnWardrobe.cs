@@ -57,6 +57,25 @@ namespace Lvn.UI
         public static IReadOnlyDictionary<string, string> Equipped(string entity)
             => Load(entity);
 
+        /// <summary>Repair emotion previews committed by older shells. Only
+        /// catalogued expression axes without a wardrobe slot are transient;
+        /// actual appearance slots and their equipped items remain untouched.
+        /// Вернулась 14.09 вечером: попытка надевать лицо (TR-82 п.3) утекала в
+        /// главу — надетая эмоция заполняла ось у команд сценария без эмоции,
+        /// и лицо героини прыгало между кадрами.</summary>
+        public static void ClearTransientEmotions(Lvn.Content.LvnManifest manifest)
+        {
+            if (manifest?.sprites == null) return;
+            foreach (var entry in manifest.sprites)
+            {
+                var def = entry.Value;
+                if (def?.axes == null || def.wardrobe == null) continue;
+                foreach (var axis in def.axes.Keys)
+                    if (LvnWardrobeStage.IsEmotion(axis) && !def.wardrobe.ContainsKey(axis))
+                        Equip(entry.Key, axis, null);
+            }
+        }
+
         /// <summary>Equip an axis value (null/empty value = take the slot off).
         /// Persists and raises <see cref="Changed"/>.</summary>
         public static void Equip(string entity, string axis, string value)
