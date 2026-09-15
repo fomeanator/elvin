@@ -684,8 +684,16 @@
   "default": "owned"
  },
  {
+  "key": "gacha.pack_failed",
+  "default": "The purchase did not go through. Try again."
+ },
+ {
   "key": "gacha.spin",
   "default": "Spin"
+ },
+ {
+  "key": "gacha.spins_pack",
+  "default": "{0} spins"
  },
  {
   "key": "gacha.take",
