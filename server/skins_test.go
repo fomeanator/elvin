@@ -91,8 +91,15 @@ func TestSkinsCollectApplyRoundTrip(t *testing.T) {
 	must(err)
 	items := skinList(skinDig(m, "sprites", "victoria", "wardrobe", "outfit"), "items")
 	orchid := items[1].(map[string]any)
-	if skinNum(orchid, "price") != 99 || !skinBool(orchid, "gacha") {
-		t.Fatalf("правка не дошла до наряда в манифесте: %+v", orchid)
+	if skinNum(orchid, "price") != 99 || skinBool(orchid, "gacha") {
+		t.Fatalf("наряд с ценой и в крутке: цена 99, а флаг gacha (только из крутки) стоять не должен: %+v", orchid)
+	}
+	gift := items[2].(map[string]any)
+	if !skinBool(gift, "gacha") || gift["price"] != nil {
+		t.Fatalf("приз без цены: флаг gacha есть, цены нет: %+v", gift)
+	}
+	if _, has := items[0].(map[string]any)["rarity"]; has {
+		t.Fatalf("пустая ступень не должна дописываться: %+v", items[0])
 	}
 	hall := skinList(skinDig(m, "ui", "browse"), "canvas_options")[0].(map[string]any)
 	if skinStr(hall, "rarity") != "uncommon" {

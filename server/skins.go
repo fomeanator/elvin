@@ -242,6 +242,16 @@ func setIf(m map[string]any, key, value string) {
 	}
 }
 
+// setOrDrop — поле либо со смыслом, либо его нет: применение не должно
+// засорять манифест нулями и пустыми строками там, где их не было.
+func setOrDrop(m map[string]any, key string, value any, keep bool) {
+	if keep {
+		m[key] = value
+	} else {
+		delete(m, key)
+	}
+}
+
 // applySkins — разложить каталог по манифесту и барабану. Возвращает, сколько
 // скинов нашли своё место в манифесте.
 func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) int {
@@ -265,10 +275,13 @@ func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) in
 				}
 				setIf(it, "name", sk.Name)
 				setIf(it, "icon", sk.Art)
-				it["rarity"] = sk.Rarity
-				it["price"] = sk.Price
+				setOrDrop(it, "rarity", sk.Rarity, sk.Rarity != "")
+				setOrDrop(it, "price", sk.Price, sk.Price > 0)
 				setIf(it, "currency", sk.Currency)
-				it["gacha"] = sk.Gacha
+				// ФЛАГ gacha В ГАРДЕРОБЕ ЗНАЧИТ «ТОЛЬКО ИЗ КРУТКИ — не покупается»
+				// (TR-93). Скин с ценой и в крутке продаётся как прежде, и на ленте
+				// тоже есть; флаг ставим лишь тем, у кого цены нет.
+				setOrDrop(it, "gacha", true, sk.Gacha && sk.Price <= 0)
 				placed++
 			}
 		}
@@ -285,8 +298,8 @@ func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) in
 		setIf(o, "title", sk.Name)
 		setIf(o, "url", sk.Art)
 		setIf(o, "preview", sk.Preview)
-		o["rarity"] = sk.Rarity
-		o["price"] = sk.Price
+		setOrDrop(o, "rarity", sk.Rarity, sk.Rarity != "")
+		setOrDrop(o, "price", sk.Price, sk.Price > 0)
 		setIf(o, "currency", sk.Currency)
 		placed++
 	}
