@@ -106,15 +106,24 @@ namespace Lvn
             f.Id = -1;
         }
 
-        internal string SlowReport()
+        // КОДЫ ВМЕСТО ТЕКСТА (TR-86, Илья 15.09: «на логах экономить — вместо
+        // текста коды»). Строка «slow» весила ~900 байт и уходила раз в 2 с:
+        // повторённые run/build, семнадцать метрик с «na», шесть частей с
+        // четырьмя полями каждая. 90 % дневного объёма логов на сервере были
+        // этими строками. Теперь: короткие ключи (таблица — docs/client-logs.md),
+        // неизвестные метрики не пишутся вовсе, части — «имя:своё/всего/вызовов».
+        /// <summary>Худший медленный кадр с прошлого отчёта; <paramref name="minMs"/>
+        /// — пол: кадры короче не стоят строки (окно их и так считает).</summary>
+        internal string SlowReport(double minMs = 0)
         {
             if (_worstMs <= 0) return null;
-            var b = new StringBuilder(1024);
-            b.Append("[lvn-perf] slow frame=").Append(_worstFrame);
-            Number(b, "frame_ms", _worstMs); Number(b, "budget_ms", _worstBudget);
-            b.Append(" context=").Append(_worstContext ?? "unknown");
+            if (_worstMs < minMs) { _worstMs = 0; return null; }
+            var b = new StringBuilder(320);
+            b.Append("[lvn-perf] S f=").Append(_worstFrame);
+            Number(b, "ms", _worstMs); Number(b, "b", _worstBudget);
+            b.Append(" ctx=").Append(_worstContext ?? "unknown");
             for (int i = 0; i < _metricNames.Length; i++) Number(b, _metricNames[i], _worstMetrics[i]);
-            Costs(b, _worstCosts);
+            Costs(b, _worstCosts, 3);
             _worstMs = 0;
             return b.ToString();
         }
@@ -124,34 +133,33 @@ namespace Lvn
             if (_count == 0) return null;
             int samples = Math.Min(_count, _durations.Length);
             Array.Sort(_durations, 0, samples);
-            var b = new StringBuilder(1600);
-            b.Append("[lvn-perf] window frames=").Append(_count);
-            b.Append(" first_frame=").Append(_firstFrame).Append(" last_frame=").Append(_lastFrame);
-            b.Append(" seconds=").Append((_elapsed / 1000).ToString("F6", CultureInfo.InvariantCulture));
+            var b = new StringBuilder(512);
+            b.Append("[lvn-perf] W n=").Append(_count);
+            b.Append(" f0=").Append(_firstFrame).Append(" f1=").Append(_lastFrame);
+            Number(b, "s", _elapsed / 1000);
             Number(b, "fps", _count * 1000 / _elapsed);
-            Number(b, "p50_ms", Percentile(samples, .50));
-            Number(b, "p95_ms", Percentile(samples, .95));
-            Number(b, "p99_ms", Percentile(samples, .99)); Number(b, "max_ms", _max);
-            b.Append(" percentile_samples=").Append(samples).Append(" over_budget=").Append(_overBudget)
-                .Append(" over50=").Append(_over50).Append(" over100=").Append(_over100)
-                .Append(" gc_collections=").Append(_collections).Append(" invalid_spans=").Append(InvalidSpans);
+            Number(b, "p50", Percentile(samples, .50));
+            Number(b, "p95", Percentile(samples, .95));
+            Number(b, "p99", Percentile(samples, .99)); Number(b, "max", _max);
+            b.Append(" ps=").Append(samples).Append(" ob=").Append(_overBudget)
+                .Append(" o50=").Append(_over50).Append(" o100=").Append(_over100)
+                .Append(" gc=").Append(_collections).Append(" inv=").Append(InvalidSpans);
             for (int i = 0; i < _metricNames.Length; i++)
-            {
-                Number(b, _metricNames[i] + "_avg", _metricCounts[i] > 0 ? _metricSums[i] / _metricCounts[i] : -1);
-                Number(b, _metricNames[i] + "_max", _metricCounts[i] > 0 ? _metricMax[i] : -1);
-            }
-            Costs(b, _window);
+                if (_metricCounts[i] > 0)
+                    b.Append(' ').Append(_metricNames[i]).Append('=')
+                     .Append(F1(_metricSums[i] / _metricCounts[i])).Append('/').Append(F1(_metricMax[i]));
+            Costs(b, _window, 4);
             ResetWindow();
             return b.ToString();
         }
 
         private float Percentile(int samples, double p) => _durations[Math.Max(0, (int)Math.Ceiling(samples * p) - 1)];
 
-        private void Costs(StringBuilder b, Cost[] costs)
+        private void Costs(StringBuilder b, Cost[] costs, int limit)
         {
             Array.Clear(_picked, 0, _picked.Length);
-            b.Append(" top_self_ms=[");
-            for (int n = 0; n < 6; n++)
+            b.Append(" top=");
+            for (int n = 0; n < limit; n++)
             {
                 int best = -1;
                 for (int i = 0; i < costs.Length; i++)
@@ -160,28 +168,18 @@ namespace Lvn
                 _picked[best] = true;
                 if (n > 0) b.Append(';');
                 var c = costs[best];
-                b.Append((LvnPerf.Part)best).Append(':').Append(c.Self.ToString("F2", CultureInfo.InvariantCulture))
-                    .Append("/total=").Append(c.Total.ToString("F2", CultureInfo.InvariantCulture))
-                    .Append("/max=").Append(c.Max.ToString("F2", CultureInfo.InvariantCulture))
-                    .Append("/calls=").Append(c.Calls).Append("/alloc_B=").Append(c.UnknownAlloc ? "na" : c.Bytes.ToString(CultureInfo.InvariantCulture));
+                b.Append((LvnPerf.Part)best).Append(':').Append(F1(c.Self)).Append('/').Append(F1(c.Total)).Append('/').Append(c.Calls);
+                if (!c.UnknownAlloc && c.Bytes > 0) b.Append('/').Append(c.Bytes.ToString(CultureInfo.InvariantCulture)).Append('B');
             }
-            b.Append("] top_alloc_B=[");
-            Array.Clear(_picked, 0, _picked.Length);
-            for (int n = 0; n < 3; n++)
-            {
-                int best = -1;
-                for (int i = 0; i < costs.Length; i++)
-                    if (!_picked[i] && !costs[i].UnknownAlloc && costs[i].Bytes > 0 && (best < 0 || costs[i].Bytes > costs[best].Bytes)) best = i;
-                if (best < 0) break;
-                _picked[best] = true;
-                if (n > 0) b.Append(';');
-                b.Append((LvnPerf.Part)best).Append(':').Append(costs[best].Bytes);
-            }
-            b.Append(']');
         }
 
+        private static string F1(double value) => value.ToString("F1", CultureInfo.InvariantCulture);
+
         private static void Number(StringBuilder b, string key, double value)
-            => b.Append(' ').Append(key).Append('=').Append(value < 0 ? "na" : value.ToString("F2", CultureInfo.InvariantCulture));
+        {
+            if (value < 0) return;   // неизвестная метрика — не «na», а ничего
+            b.Append(' ').Append(key).Append('=').Append(F1(value));
+        }
 
         private void ResetWindow()
         {

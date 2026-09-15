@@ -107,8 +107,12 @@ namespace Lvn.Services
                     level = "info";
                     break;
             }
-            Enqueue(level, message, string.IsNullOrEmpty(stack) ? null : stack,
-                persist: type == LogType.Exception || type == LogType.Error);
+            // СТЕК — ТОЛЬКО У ОШИБКИ (TR-86): у info-строк Unity прикладывает свой
+            // стек вызовов, и он весил больше самой строки — на сервере это были
+            // сотни байт мусора на каждую запись о переодевании.
+            bool keepStack = type == LogType.Exception || type == LogType.Error;
+            Enqueue(level, message, keepStack && !string.IsNullOrEmpty(stack) ? stack : null,
+                persist: keepStack);
         }
 
         private static void Enqueue(string level, string msg, string stack, bool persist)

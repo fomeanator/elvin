@@ -15,24 +15,24 @@ namespace Lvn.Tests
             c.Span(101, LvnPerf.Part.ActorBuild, 1, 1, 0);
             c.EndFrame(100, 80, 16.67, 0, NoMetrics);
             var report = c.SlowReport();
-            StringAssert.Contains("frame=100", report);
-            StringAssert.Contains("context=settings", report);
-            StringAssert.Contains("UiRedress:60.00/total=70.00", report);
+            StringAssert.Contains("f=100", report);
+            StringAssert.Contains("ctx=settings", report);
+            StringAssert.Contains("UiRedress:60.0/70.0/1/2048B", report);
             StringAssert.DoesNotContain("ActorBuild", report);
             c.EndFrame(101, 30, 16.67, 0, NoMetrics);
-            StringAssert.Contains("ActorBuild:1.00", c.SlowReport());
+            StringAssert.Contains("ActorBuild:1.0/1.0/1", c.SlowReport());
         }
 
         [Test] public void ReportsWorstFrameWithoutDroppingSustainedJankFromSummary()
         {
             var c = new LvnPerfCapture(Array.Empty<string>());
             for (int i = 0; i < 120; i++) c.EndFrame(i, i == 40 ? 200 : 40, 16.67, 0, NoMetrics);
-            StringAssert.Contains("frame=40", c.SlowReport());
+            StringAssert.Contains("f=40", c.SlowReport());
             Assert.IsNull(c.SlowReport(), "no duplicate log until another slow frame");
             var report = c.Summary();
-            StringAssert.Contains("frames=120", report);
-            StringAssert.Contains("over_budget=120", report);
-            StringAssert.Contains("max_ms=200.00", report);
+            StringAssert.Contains("n=120", report);
+            StringAssert.Contains("ob=120", report);
+            StringAssert.Contains("max=200.0", report);
             Assert.IsNull(c.Summary());
         }
 
@@ -41,21 +41,23 @@ namespace Lvn.Tests
             var c = new LvnPerfCapture(Array.Empty<string>());
             for (int i = 0; i < 20; i++) c.EndFrame(i, i == 19 ? 200 : 16, 16.67, i == 19 ? 1 : 0, NoMetrics);
             var report = c.Summary();
-            StringAssert.Contains("p50_ms=16.00", report);
-            StringAssert.Contains("p95_ms=16.00", report);
-            StringAssert.Contains("p99_ms=200.00", report);
-            StringAssert.Contains("over_budget=1 over50=1 over100=1 gc_collections=1", report);
+            StringAssert.Contains("p50=16.0", report);
+            StringAssert.Contains("p95=16.0", report);
+            StringAssert.Contains("p99=200.0", report);
+            StringAssert.Contains("ob=1 o50=1 o100=1 gc=1", report);
         }
 
         [Test] public void UnknownCounterIsNotMisreportedAsZeroAndMetricsMatchWorstFrame()
         {
-            var c = new LvnPerfCapture(new[] { "main_ms", "render_ms" });
+            var c = new LvnPerfCapture(new[] { "m", "r" });
             c.EndFrame(1, 60, 16.67, 0, new[] { 50.0, -1 });
             c.EndFrame(2, 16, 16.67, 0, new[] { 10.0, -1 });
-            StringAssert.Contains("main_ms=50.00 render_ms=na", c.SlowReport());
+            var slow = c.SlowReport();
+            StringAssert.Contains(" m=50.0", slow);
+            StringAssert.DoesNotContain(" r=", slow);   // неизвестная метрика не пишется вовсе (TR-86)
             var report = c.Summary();
-            StringAssert.Contains("main_ms_avg=30.00 main_ms_max=50.00", report);
-            StringAssert.Contains("render_ms_avg=na render_ms_max=na", report);
+            StringAssert.Contains(" m=30.0/50.0", report);
+            StringAssert.DoesNotContain(" r=", report);
         }
 
         [Test] public void ResumeResetDiscardsOldScopesAndPausedWindow()
@@ -69,6 +71,16 @@ namespace Lvn.Tests
             StringAssert.DoesNotContain("TextureDecode", c.SlowReport());
         }
 
+        [Test] public void SlowFloorSkipsMinorHitchesButKeepsWindowCounts()
+        {
+            var c = new LvnPerfCapture(Array.Empty<string>());
+            c.EndFrame(1, 40, 16.67, 0, NoMetrics);
+            Assert.IsNull(c.SlowReport(50), "40 мс — запинка, окно её сочтёт, строки не заслуживает");
+            c.EndFrame(2, 80, 16.67, 0, NoMetrics);
+            StringAssert.Contains("f=2 ms=80.0", c.SlowReport(50));
+            StringAssert.Contains(" ob=2 o50=1", c.Summary());
+        }
+
         [Test] public void AccumulationHasBoundedStorage()
         {
             var c = new LvnPerfCapture(Array.Empty<string>());
@@ -80,8 +92,8 @@ namespace Lvn.Tests
                 c.EndFrame(i, 16, 16.67, 0, NoMetrics);
             }
             var report = c.Summary();
-            StringAssert.Contains("frames=10001", report);
-            StringAssert.Contains("percentile_samples=8192", report);
+            StringAssert.Contains("n=10001", report);
+            StringAssert.Contains("ps=8192", report);
         }
     }
 }
