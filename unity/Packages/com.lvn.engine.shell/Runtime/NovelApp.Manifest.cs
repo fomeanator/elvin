@@ -214,7 +214,13 @@ namespace Lvn.UI.Screens
                 ? manifest.languages : System.Array.Empty<string>();
             // ЦЕННИК узнаёт, как называются деньги ЭТОЙ игры: слова
             // принадлежат автору, движок знает только форму показа.
-            Lvn.UI.LvnPriceTag.Learn(manifest.ui?.currency_look);
+            // …и как они выглядят: картинка валюты — ОДНА на всё приложение
+            // (TR-117); карты значков по экранам (шапка, гардероб, магазин)
+            // остались запасными для старых манифестов.
+            Lvn.UI.LvnPriceTag.Assets = _assets;
+            Lvn.UI.LvnPriceTag.Learn(manifest.ui?.currency_look,
+                manifest.ui?.browse?.currency_icons, manifest.ui?.wardrobe?.currency_icons,
+                manifest.ui?.store?.currency_icons);
             // И как игра зовёт безымянного игрока — тоже слово автора.
             if (!string.IsNullOrEmpty(manifest.ui?.guest_name))
                 Lvn.UI.LvnPlayerName.GuestLabel = manifest.ui.guest_name;

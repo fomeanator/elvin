@@ -150,6 +150,10 @@ export default function AdminSkins({ token, notify }) {
 
           <NewSkinForm kind={kind} onAdd={(sk) => { const next = structuredClone(live); next.skins.push(sk); setDoc(next); }} existing={live.skins || []} />
 
+          <h3 style={{ marginTop: 18 }}>Валюты</h3>
+          <p className="admin-hint">Как валюта выглядит везде — шапка, ценники, плитки, крутки: имя, форма при сумме («1 200 кристаллов»), цвет, картинка (адрес в контенте, например /content/ui/stage/icon-crystal.png). Без картинки — векторный значок движка (Gem, Energy, Coin, Key, Heart). Сохранил — картинка сменилась по всему приложению.</p>
+          <CurrenciesTable currencies={live.currencies || {}} onChange={(currencies) => { const next = structuredClone(live); next.currencies = currencies; setDoc(next); }} />
+
           <h3 style={{ marginTop: 18 }}>Наборы круток</h3>
           <p className="admin-hint">Кейсы на выбор в крутке: имя, описание, обложка, цена крутки; приз попадает в набор, если тот назван у скина в колонке «Наборы» (пусто при «Крутка» — первый набор). Один набор — выбора в игре нет.</p>
           <CasesTable cases={live.cases || []} onChange={(cases) => { const next = structuredClone(live); next.cases = cases; setDoc(next); }} />
@@ -244,7 +248,40 @@ function CasesTable({ cases, onChange }) {
 
 function normalize(data) {
   const d = data && typeof data === "object" ? data : {};
-  return { rarity_colors: d.rarity_colors || {}, rarity_weights: d.rarity_weights || {}, cases: Array.isArray(d.cases) ? d.cases : [], skins: Array.isArray(d.skins) ? d.skins : [] };
+  return { rarity_colors: d.rarity_colors || {}, rarity_weights: d.rarity_weights || {}, currencies: d.currencies || {}, cases: Array.isArray(d.cases) ? d.cases : [], skins: Array.isArray(d.skins) ? d.skins : [] };
+}
+
+// ВАЛЮТЫ — ОДНО МЕСТО (TR-117): раньше картинка кристалла жила в четырёх
+// картах манифеста, и половина экранов рисовала вектор-заглушку.
+function CurrenciesTable({ currencies, onChange }) {
+  const ids = Object.keys(currencies);
+  const edit = (id, patch) => onChange({ ...currencies, [id]: { ...(currencies[id] || {}), ...patch } });
+  const rename = (from, to) => {
+    if (!to || to === from || currencies[to]) return;
+    const next = {}; for (const k of ids) next[k === from ? to : k] = currencies[k]; onChange(next);
+  };
+  const remove = (id) => { const next = { ...currencies }; delete next[id]; onChange(next); };
+  const add = () => { const id = ids.includes("crystals") ? "currency" + (ids.length + 1) : "crystals"; onChange({ ...currencies, [id]: { name: "", unit: "", icon: "Gem", color: "#f0c860", image: "" } }); };
+  return (
+    <div>
+      <table className="adm-table dense">
+        <thead><tr><th>id</th><th>Имя</th><th>Единица</th><th>Цвет</th><th>Картинка</th><th>Вектор</th><th></th></tr></thead>
+        <tbody>
+          {ids.map((id) => { const c = currencies[id] || {}; return (
+            <tr key={id}>
+              <td><input className="field" style={{ width: 110 }} defaultValue={id} onBlur={(e) => rename(id, e.target.value.trim())} /></td>
+              <td><input className="field" style={{ width: 130 }} value={c.name || ""} onChange={(e) => edit(id, { name: e.target.value })} /></td>
+              <td><input className="field" style={{ width: 130 }} value={c.unit || ""} onChange={(e) => edit(id, { unit: e.target.value })} /></td>
+              <td><input type="color" value={c.color || "#f0c860"} onChange={(e) => edit(id, { color: e.target.value })} /> <span className="muted">{c.color || "—"}</span></td>
+              <td><input className="field" style={{ width: 280 }} placeholder="/content/ui/….png" value={c.image || ""} onChange={(e) => edit(id, { image: e.target.value })} /></td>
+              <td><input className="field" style={{ width: 90 }} placeholder="Gem" value={c.icon || ""} onChange={(e) => edit(id, { icon: e.target.value })} /></td>
+              <td><button className="btn-ghost sm" onClick={() => remove(id)}>✕</button></td>
+            </tr>); })}
+        </tbody>
+      </table>
+      <button className="btn-ghost sm" style={{ marginTop: 6 }} onClick={add}>+ валюта</button>
+    </div>
+  );
 }
 
 // Пустые поля не сохраняем — каталог остаётся читаемым глазами.
@@ -252,6 +289,9 @@ function clean(doc) {
   return {
     rarity_colors: doc.rarity_colors,
     rarity_weights: doc.rarity_weights,
+    currencies: Object.fromEntries(Object.entries(doc.currencies || {}).filter(([id]) => id).map(([id, c]) => {
+      const out = {}; for (const k of ["name", "unit", "icon", "color", "image"]) if (c && c[k]) out[k] = c[k]; return [id, out];
+    })),
     cases: (doc.cases || []).filter((c) => c.id).map((c) => {
       const out = { id: c.id };
       for (const k of ["name", "description", "cover", "spin_currency"]) if (c[k]) out[k] = c[k];

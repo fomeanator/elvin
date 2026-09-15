@@ -222,7 +222,7 @@ namespace Lvn.UI.Screens
                 // так же, как скины»): значок валюты вместо арта, сумма — именем.
                 _art.style.backgroundImage = StyleKeyword.None;
                 _hanger.Clear();
-                _hanger.Add(LvnIcons.MakeCurrency(info.CurrencyIcon, 64f * _scale));
+                _hanger.Add(LvnPriceTag.Icon(info.CurrencyIcon, 64f * _scale));
                 _hanger.style.opacity = 1f;
                 _hanger.style.display = DisplayStyle.Flex;
                 Spinning(false);

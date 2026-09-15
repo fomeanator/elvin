@@ -28,7 +28,7 @@ namespace Lvn.UI.Screens
             _confirmLabel.text = text;
             if (_confirmCoin != null) { _confirmCoin.RemoveFromHierarchy(); _confirmCoin = null; }
             if (string.IsNullOrEmpty(currency)) return;
-            _confirmCoin = LvnIcons.MakeCurrency(currency, 26f);
+            _confirmCoin = LvnPriceTag.Icon(currency, 26f);
             _confirmCoin.style.marginLeft = Lvn.UI.LvnTokens.Space1;
             _confirmRow.Add(_confirmCoin);
         }

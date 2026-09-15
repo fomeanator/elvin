@@ -136,6 +136,10 @@ namespace Lvn.Content
         public string icon;
         /// <summary>Цвет значка и суммы («#f0c860»).</summary>
         public string color;
+        /// <summary>КАРТИНКА ВАЛЮТЫ (TR-117): адрес в контенте. Один значок на
+        /// всё приложение — шапка, ценники, плитки, крутки; пусто — вектор
+        /// <c>icon</c>. Правится в админке («Скины → Валюты»).</summary>
+        public string image;
     }
 
     public sealed class WardrobeConfig

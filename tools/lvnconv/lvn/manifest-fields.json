@@ -193,6 +193,7 @@
   "CurrencyLook": {
     "color": "string",
     "icon": "string",
+    "image": "string",
     "name": "string",
     "unit": "string"
   },
