@@ -358,26 +358,32 @@ namespace Lvn.UI.Screens
             _status.style.display = string.IsNullOrEmpty(text) ? DisplayStyle.None : DisplayStyle.Flex;
         }
 
-        /// <summary>Правая часть кнопки: выигрыш (сумма и значок по валютам), а
-        /// пока его нет — цена хода или «бесплатно».</summary>
-        private VisualElement Tally(bool price)
+        /// <summary>СТРОКА ВЫИГРЫША НАД КНОПКОЙ (Илья 15.09: «кристаллы и энергию
+        /// показывать над кнопкой, в кнопку не надо»): сумма и значок по валютам.</summary>
+        private VisualElement WinRow()
         {
             var row = ScreenUi.Row();
             row.pickingMode = PickingMode.Ignore;
-            if (_win.Count > 0)
+            row.style.justifyContent = Justify.Center;
+            row.style.marginBottom = LvnTokens.Space1;
+            foreach (var kv in _win)
             {
-                foreach (var kv in _win)
-                {
-                    if (kv.Value <= 0) continue;
-                    var amount = new Label("+" + LvnPriceTag.Amount(kv.Value)) { pickingMode = PickingMode.Ignore };
-                    amount.style.color = LvnTokens.Gold;
-                    amount.style.marginLeft = LvnTokens.Space2;
-                    row.Add(amount);
-                    row.Add(LvnIcons.MakeCurrency(kv.Key, LvnStageKit.D(20f)));
-                }
-                return row;
+                if (kv.Value <= 0) continue;
+                var amount = new Label("+" + LvnPriceTag.Amount(kv.Value)) { pickingMode = PickingMode.Ignore };
+                amount.style.color = LvnTokens.Gold;
+                amount.style.fontSize = LvnTokens.TextLg;
+                LvnAir.MarginX(amount, LvnTokens.Space1);
+                row.Add(amount);
+                row.Add(LvnIcons.MakeCurrency(kv.Key, LvnStageKit.D(22f)));
             }
-            if (!price) return row;
+            return row;
+        }
+
+        /// <summary>Правая часть кнопки: цена хода на всех лентах или «бесплатно».</summary>
+        private VisualElement PriceTag()
+        {
+            var row = ScreenUi.Row();
+            row.pickingMode = PickingMode.Ignore;
             if (_state.FreeToday)
             {
                 var free = LvnRedress.Bind(new Label { pickingMode = PickingMode.Ignore }, () => LvnWords.Of("gacha.free", "free"));
@@ -614,7 +620,10 @@ namespace Lvn.UI.Screens
             int n = LapLength;
             float step = CellWidth + LvnTokens.Space1;
             double o = ((lane.Pos % n) + n) % n * step;
-            lane.Strip.style.left = (float)(-(o + n * step) + WindowWidth * 0.5f - CellWidth * 0.5f);
+            // Сдвиг — ПРЕОБРАЗОВАНИЕМ, а не полем left: left перекладывает
+            // разметку всех плиток ленты каждый кадр (Илья: «лагает лента»),
+            // translate двигает готовую картинку.
+            lane.Strip.style.translate = new Translate((float)(-(o + n * step) + WindowWidth * 0.5f - CellWidth * 0.5f), 0f);
         }
 
         private void LayoutStrip()
@@ -676,26 +685,21 @@ namespace Lvn.UI.Screens
                 return;
             }
             _actions.Add(ModeRow());
+            if (_win.Count > 0) _actions.Add(WinRow());
             bool autoMode = Mode != AutoMode.Off;
             var button = ActionButton("gacha-spin", () => "", () => LvnAsync.Fire(autoMode ? AutoAsync() : SpinAsync(), "GachaSpin"));
             button.RemoveFromHierarchy();
             button.text = "";
             LvnFlow.Wrap(ScreenUi.Row(button), Justify.Center);
-            // Слово на кнопке — пока нет выигрыша; после хода её текст ЗАМЕНЯЕТСЯ
-            // суммой со значком (Илья: «только 120 и значок, без текста»).
-            if (_win.Count == 0)
-            {
-                var label = LvnRedress.Bind(new Label { pickingMode = PickingMode.Ignore },
-                    () => autoMode ? LvnWords.Of("gacha.auto", "Auto") : LvnWords.Of("gacha.spin", "Spin"));
-                label.style.whiteSpace = WhiteSpace.Normal;
-                label.style.flexShrink = 0;
-                label.style.maxWidth = Length.Percent(100f);
-                label.style.color = LvnTokens.Gold;
-                button.Add(label);
-            }
-            // Справа — выигрыш последнего запуска, а пока его нет — цена хода
-            // на всех лентах (лент три — цена втрое) или «бесплатно».
-            button.Add(Tally(price: true));
+            var label = LvnRedress.Bind(new Label { pickingMode = PickingMode.Ignore },
+                () => autoMode ? LvnWords.Of("gacha.auto", "Auto") : LvnWords.Of("gacha.spin", "Spin"));
+            label.style.whiteSpace = WhiteSpace.Normal;
+            label.style.flexShrink = 0;
+            label.style.maxWidth = Length.Percent(100f);
+            label.style.color = LvnTokens.Gold;
+            button.Add(label);
+            // Справа — цена хода на всех лентах (лент три — цена втрое) или «бесплатно».
+            button.Add(PriceTag());
             var row = ScreenUi.Row();
             button.style.flexGrow = 1; button.style.flexShrink = 1;
             row.Add(button);
@@ -851,6 +855,7 @@ namespace Lvn.UI.Screens
         {
             _actions.Clear();
             _actions.Add(ModeRow());
+            if (_win.Count > 0) _actions.Add(WinRow());
             var row = ScreenUi.Row();
             if (auto)
             {
@@ -858,7 +863,6 @@ namespace Lvn.UI.Screens
                 LvnStageKit.PlateButton(stop, primary: false);
                 stop.RemoveFromHierarchy();
                 stop.style.flexGrow = 1;
-                stop.Add(Tally(price: false));   // выигрыш копится прямо в кнопке
                 row.Add(stop);
             }
             else
@@ -994,7 +998,7 @@ namespace Lvn.UI.Screens
                 if (sp.Super) { rares.Add(sp); if (sp.SoldAmount > 0 && !string.IsNullOrEmpty(sp.SoldCurrency)) Tip(sp.SoldCurrency, sp.SoldAmount); continue; }
                 if (sp.Amount > 0 && !string.IsNullOrEmpty(sp.Currency)) Tip(sp.Currency, sp.Amount);
             }
-            if (_spinning && _auto) PaintRunning(auto: true);   // сумма в «Стоп» растёт с каждым ходом
+            if (_spinning && _auto) PaintRunning(auto: true);   // строка выигрыша над кнопкой растёт с каждым ходом
             // ОСТАНОВКА И ЕСТЬ ОТКРЫТИЕ: быстро — клетка горит 0,4 с, обычно —
             // вспышка; редкое тоже показывается в ленте, а уже потом церемония.
             var shows = new List<Task>();
