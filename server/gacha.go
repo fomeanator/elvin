@@ -139,6 +139,17 @@ func (c gachaConfig) left(taken []string) []gachaPrize {
 	return out
 }
 
+// all — весь набор призов с весами: «Что внутри» показывает и выбитое
+// (Илья 15.09: «почему только 3?»), а не только то, что ещё можно достать.
+func (c gachaConfig) all() []gachaPrize {
+	out := make([]gachaPrize, 0, len(c.Prizes))
+	for _, p := range c.Prizes {
+		p.Weight = c.prizeWeight(p)
+		out = append(out, p)
+	}
+	return out
+}
+
 // pick — приз из оставшихся по весам ступеней: бессмертное выпадает реже
 // обычного, а не поровну со всеми.
 func (s *GachaService) pick(left []gachaPrize) gachaPrize {
@@ -190,6 +201,7 @@ func (s *GachaService) handleStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"sectors":       cfg.wheel(doc.Taken),
 		"prizes_left":   cfg.left(doc.Taken),
+		"prizes":        cfg.all(),
 		"free_today":    doc.FreeDay != s.today(),
 		"spin_currency": cfg.Currency,
 		"spin_price":    cfg.Price,

@@ -14,30 +14,17 @@ namespace Lvn.UI.Screens
     /// отдельной шейдерной сборки, которую нельзя проверить до APK. Живёт,
     /// пока прикреплён к панели; снятие останавливает тик.</para>
     /// </summary>
-    public sealed class LvnPrizeGlow : VisualElement
+    public sealed class LvnPrizeGlow : LvnLiveMesh
     {
         public Color Tint = Color.white;
         /// <summary>Соотношение сторон картинки: рамка обводит её, а не окно.</summary>
         public float Aspect;
 
         private const int Rays = 20, HaloSteps = 40, CornerSteps = 10;
-        private const float Tick = 0.016f;
+        private const float Step = 0.016f;
         private float _phase;
-        private IVisualElementScheduledItem _tick;
 
-        public LvnPrizeGlow()
-        {
-            pickingMode = PickingMode.Ignore;
-            generateVisualContent += Draw;
-            RegisterCallback<AttachToPanelEvent>(_ => Start());
-            RegisterCallback<DetachFromPanelEvent>(_ => _tick?.Pause());
-        }
-
-        private void Start()
-        {
-            _tick?.Pause();
-            _tick = schedule.Execute(() => { _phase += Tick; MarkDirtyRepaint(); }).Every(16);
-        }
+        protected override void Tick() => _phase += Step;
 
         /// <summary>Прямоугольник самой картинки внутри окна: вписана по
         /// меньшей стороне, как её и показывает <c>LvnPicture.Fit</c>.</summary>
@@ -49,7 +36,7 @@ namespace Lvn.UI.Screens
             return new Rect(r.center.x - w / 2f, r.center.y - h / 2f, w, h);
         }
 
-        private void Draw(MeshGenerationContext mgc)
+        protected override void Draw(MeshGenerationContext mgc)
         {
             var r = contentRect;
             if (r.width <= 2f || r.height <= 2f) return;

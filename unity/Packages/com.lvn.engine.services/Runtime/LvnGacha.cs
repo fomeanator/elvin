@@ -42,6 +42,7 @@ namespace Lvn.Services
         {
             public List<Sector> Sectors = new List<Sector>();
             public List<Prize> PrizesLeft = new List<Prize>();
+            public List<Prize> Prizes = new List<Prize>();   // весь набор, включая уже выбитые
             public bool FreeToday;
             public string SpinCurrency;
             public long SpinPrice;
@@ -78,6 +79,8 @@ namespace Lvn.Services
                 };
                 ReadSectors(d["sectors"] as JArray, st.Sectors);
                 ReadPrizes(d["prizes_left"] as JArray, st.PrizesLeft);
+                ReadPrizes(d["prizes"] as JArray, st.Prizes);
+                if (st.Prizes.Count == 0) st.Prizes.AddRange(st.PrizesLeft);   // старый сервер
                 return st;
             }
             catch { return null; }
