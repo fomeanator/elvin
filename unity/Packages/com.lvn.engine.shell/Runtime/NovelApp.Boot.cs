@@ -283,6 +283,8 @@ namespace Lvn.UI.Screens
 
             _shell = NovelShell.Create(transform, theme: ShellTheme);
             _shell.Build(manifest, _assets);
+            // Чем пользуются и куда жмут — счётчики на корне дерева (TR-126).
+            Lvn.Services.LvnUsage.Boot(_shell.Document?.rootVisualElement);
             Mark("shell built");
             WireQuickMenu(manifest);
 
@@ -427,6 +429,12 @@ namespace Lvn.UI.Screens
             // Position too, not just stats — so a suspended app resumes on the same
             // line (the autosave slot; SaveToSlot is synchronous PlayerPrefs).
             if (paused) Stage?.AutosaveNow();
+            if (paused)
+            {
+                // Минута использования не должна пропасть с уходом в фон (TR-126).
+                Lvn.Services.LvnUsage.Flush();
+                LvnAsync.Fire(Lvn.Services.LvnAnalytics.FlushAsync(), "UsageFlush");
+            }
         }
 
         private CoalescingWork _contentChanges;

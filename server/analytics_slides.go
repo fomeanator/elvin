@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/fomeanator/elvin/tools/lvnconv/lvn"
 )
@@ -63,15 +64,88 @@ type choiceRow struct {
 	LockedNote string      `json:"locked_note,omitempty"`
 }
 
+// lineRow — одна строка главы в воронке по строкам: докуда дошли считается из
+// концов сессий (дочитали + ушли на индексе ≥ этой строки); текст и говорящий
+// — из скрипта, который у сервера есть.
+type lineRow struct {
+	At      int     `json:"at"`
+	Op      string  `json:"op"`
+	Who     string  `json:"who,omitempty"`
+	Line    string  `json:"line,omitempty"`
+	Reached int     `json:"reached"`
+	OfStart float64 `json:"of_start"`
+	OfPrev  float64 `json:"of_prev"`
+	Lost    int     `json:"lost"`
+}
+
+const maxLineRows = 4000
+
+// linesReach — воронка по строкам из свёртки главы: дошедших до команды i —
+// все дочитавшие плюс ушедшие на команде ≥ i. Только видимые строки:
+// реплики, развилки, метки.
+func linesReach(ch *chapRoll, doc *lvn.Doc) []lineRow {
+	if doc == nil || ch == nil {
+		return nil
+	}
+	exitAt := make([]int, len(doc.Script)+1)
+	for key, n := range ch.Exits {
+		if at, err := strconv.Atoi(key); err == nil && at >= 0 {
+			if at >= len(doc.Script) {
+				at = len(doc.Script)
+			}
+			exitAt[at] += n
+		}
+	}
+	// суффиксные суммы: сколько ушло на индексе ≥ i
+	after := make([]int, len(doc.Script)+2)
+	for i := len(doc.Script); i >= 0; i-- {
+		after[i] = after[i+1] + exitAt[i]
+	}
+	var rows []lineRow
+	prev := ch.Starts
+	for i, c := range doc.Script {
+		op := c.Op()
+		if op != "say" && op != "choice" && op != "label" {
+			continue
+		}
+		if op == "label" && strings.HasPrefix(c.Str("id"), "__") {
+			continue
+		}
+		reached := ch.Finishes + after[i]
+		row := lineRow{At: i, Op: op, Reached: reached, OfStart: ratio(reached, ch.Starts), OfPrev: ratio(reached, prev)}
+		switch op {
+		case "say":
+			row.Who = clip(c.Str("who"), 48)
+			row.Line = clip(c.Str("text"), 160)
+		case "choice":
+			row.Line = "развилка"
+		case "label":
+			row.Line = "метка " + c.Str("id")
+		}
+		if prev > reached {
+			row.Lost = prev - reached
+		}
+		rows = append(rows, row)
+		prev = reached
+		if len(rows) >= maxLineRows {
+			break
+		}
+	}
+	return rows
+}
+
 type slidesReport struct {
-	Title    string      `json:"title"`
-	Chapter  string      `json:"chapter"`
-	Name     string      `json:"name,omitempty"`
-	Starts   int         `json:"starts"`
-	Finishes int         `json:"finishes"`
-	Abandons int         `json:"abandons"`
-	Slides   []slideRow  `json:"slides,omitempty"`
-	Choices  []choiceRow `json:"choices,omitempty"`
+	Title    string     `json:"title"`
+	Chapter  string     `json:"chapter"`
+	Name     string     `json:"name,omitempty"`
+	Starts   int        `json:"starts"`
+	Finishes int        `json:"finishes"`
+	Abandons int        `json:"abandons"`
+	Slides   []slideRow `json:"slides,omitempty"`
+	// Воронка ПО СТРОКАМ (TR-126, Илья: «0-ю строку увидели 100, дальше
+	// кликнули 97…»): по запросу by=line — каждая реплика и развилка главы.
+	Lines   []lineRow   `json:"lines,omitempty"`
+	Choices []choiceRow `json:"choices,omitempty"`
 	// Worst — метка, на которой потеряли больше всего между соседними.
 	Worst     string   `json:"worst_slide,omitempty"`
 	WorstLost int      `json:"worst_lost,omitempty"`
@@ -120,6 +194,9 @@ func (s *AnalyticsService) handleSlides(w http.ResponseWriter, r *http.Request) 
 	rep.Starts, rep.Finishes, rep.Abandons = ch.Starts, ch.Finishes, ch.Abandons
 
 	script := s.chapters.loadDoc(title, chapter)
+	if r.URL.Query().Get("by") == "line" {
+		rep.Lines = linesReach(ch, script)
+	}
 
 	// ── слайды ──────────────────────────────────────────────────────────────
 	type slideHit struct {

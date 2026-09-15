@@ -93,5 +93,9 @@ namespace Lvn.Services
 
         /// <summary>Ролик не дал награды.</summary>
         public const string AdRewardFail = "ad_reward_fail";
+
+        /// <summary>Использование интерфейса за минуту: тапы по элементам и
+        /// секунды по экранам одним событием (LvnUsage, TR-126).</summary>
+        public const string UiUse = "ui_use";
     }
 }
