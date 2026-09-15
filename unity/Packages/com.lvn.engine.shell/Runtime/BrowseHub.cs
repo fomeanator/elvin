@@ -42,6 +42,8 @@ namespace Lvn.UI.Screens
         /// <summary>The wardrobe tab in the bottom nav. Null → the tab still shows
         /// (a fallback slot) but does nothing.</summary>
         public System.Func<Task> OnWardrobe;
+        /// <summary>Вкладка круток в нижнем меню — комната между гардеробом и магазином.</summary>
+        public System.Func<Task> OnGacha;
         /// <summary>Gallery / Profile nav tabs.</summary>
         public System.Func<Task> OnGallery;
         public System.Func<Task> OnProfile;

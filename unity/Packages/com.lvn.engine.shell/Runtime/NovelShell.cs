@@ -145,6 +145,8 @@ namespace Lvn.UI.Screens
 
         /// <summary>Вкладка гардероба — UI вокруг общей героини.</summary>
         public WardrobeTabScreen WardrobeTab;
+        /// <summary>Комната круток — страница вкладки (тот же экран, что и модаль в главе).</summary>
+        public GachaScreen GachaTab { get; private set; }
 
         // Тоже окно в дом, а не копия: оболочка спрашивает имя, а не хранит.
         private string _playerName => Lvn.UI.LvnPlayerName.Current;
@@ -339,8 +341,16 @@ namespace Lvn.UI.Screens
             WardrobeTab.OpenStore = () => OpenPackShopAsync();
             WardrobeTab.ConfirmTopUp = (t, m) => ConfirmAsync(t, m, LvnWords.Of("store.go", "Store"), LvnWords.Of("common.cancel", "Cancel"));
             WardrobeTab.Alert = (t, m) => AlertAsync(t, m);
+            // КРУТКИ — КОМНАТА (Илья 15.09): страница между гардеробом и магазином,
+            // героиня уходит, ленты на купленном фоне; панель встаёт над нижней лентой.
+            GachaTab = new GachaScreen(assets, tab: true);
+            GachaTab.NavHeight = () => Hub?.NavHeight ?? 0f;
+            GachaTab.OpenStore = () => OpenPackShopAsync();
+            GachaTab.GoHome = () => LvnAsync.Fire(TabGoTo(LvnTabs.Home), "GachaHome");
+            Add(GachaTab);
             Reparent(PackShop, tabsLayer);
             Reparent(WardrobeTab, tabsLayer);
+            Reparent(GachaTab, tabsLayer);
             Reparent(Profile, tabsLayer);
             Reparent(Hub, tabsLayer); // хаб ПОСЛЕДНИМ — его нав поверх вкладок
             Reparent(Settings, popupLayer);

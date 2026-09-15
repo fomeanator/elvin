@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Lvn.Content;
 using Lvn.Services;
@@ -84,9 +85,17 @@ namespace Lvn.UI.Screens
         private const float SpinSeconds = 7f;
         private const int SpinLaps = 6;
 
-        public GachaScreen(ILvnAssets assets)
+        /// <summary>Вкладкой: страница живёт долго, показывается и прячется
+        /// (ShowAsTab/HideAsTab), «назад» ведёт на главную, панель встаёт над
+        /// нижней лентой, фон прозрачнее — сквозь него купленный фон меню.</summary>
+        private readonly bool _tabMode;
+        public Action GoHome;
+        public Func<float> NavHeight;
+
+        public GachaScreen(ILvnAssets assets, bool tab = false)
         {
             _assets = assets;
+            _tabMode = tab;
             name = "gacha-screen";
             BuySpins = TestBuySpinsAsync;
             // ВО ВЕСЬ ЭКРАН под навбаром, как магазин и профиль (Илья 15.09:
@@ -95,8 +104,9 @@ namespace Lvn.UI.Screens
             _sheet = LvnChrome.Sheet(new VisualElement(), 0f);
             Add(_sheet);
             AdoptSheet(_sheet, fullscreen: true);
+            if (_tabMode) _sheet.style.backgroundColor = LvnTokens.Veil(0.42f);   // фон меню виден сквозь
             _title = LvnRedress.Bind(new Label(), () => LvnWords.Of("gacha.title", "Spin"));
-            var header = ScreenUi.GalleryHeader(Cancel, _title, out var counter);
+            var header = ScreenUi.GalleryHeader(_tabMode ? (Action)(() => GoHome?.Invoke()) : Cancel, _title, out var counter);
             _sheet.Add(header);
             var back = header.Q<Button>();
             LvnStyler.IconSlot(back, LvnStageKit.D(44f));
@@ -198,6 +208,30 @@ namespace Lvn.UI.Screens
         }
 
         protected override void OnClosed() => StopPresentation();
+
+        /// <summary>Вкладка показывается снова: экран оживает и перечитывает
+        /// состояние — пул, кошелёк, шансы могли смениться, пока его не было.</summary>
+        protected override void OnOpening()
+        {
+            if (!_tabMode) return;
+            _closed = false; _skipAsked = false; _auto = false; _spinning = false;
+            _artCancel = new CancellationTokenSource();
+            DismissCeremony();
+            LvnAsync.Fire(ReloadAsync(), "GachaTab");
+        }
+
+        private async Task ReloadAsync()
+        {
+            Say(LvnWords.Of("boot.loading_data", "loading data…"));
+            var state = await LvnGacha.GetAsync();
+            if (_closed) return;
+            Present(state);
+        }
+
+        public override void Settled()
+        {
+            if (_tabMode && NavHeight != null) _sheet.style.bottom = NavHeight();   // панель над нижней лентой
+        }
         public override void Hide() { StopPresentation(); base.Hide(); }
         private void StopPresentation()
         {
@@ -774,6 +808,7 @@ namespace Lvn.UI.Screens
         private async Task TopUpAsync()
         {
             if (OpenStore == null) return;
+            if (_tabMode) { await OpenStore(); return; }   // вкладка остаётся, магазин — модалью поверх
             // МАГАЗИН ПОД КРУТКАМИ (Илья 15.09: «конфликт модалок»): магазин —
             // модалка оболочки, а крутки — оверлей поверх корня, и магазин
             // открывался под ними. Крутки закрываются, магазин выходит на свет;

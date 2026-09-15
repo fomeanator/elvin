@@ -58,9 +58,13 @@ namespace Lvn.UI.Screens
         /// EditMode 11.09 (TabSetTests), красным с самого появления комнаты.</para>
         /// </summary>
         public const int Titles = 4;
+        /// <summary>Крутки — своя комната внизу по центру (Илья 15.09: «отдельный
+        /// экран круток, как гардероб или профиль; снизу по центру, чтобы было
+        /// гардероб, крутки, магазин»). Страничный номер — подряд за списком.</summary>
+        public const int Gacha = 5;
         /// <summary>Галерея — вкладка БЕЗ страницы: открывает модаль, и в счёт
         /// цветов полотна не входит. Поэтому её номер стоит ПОСЛЕ страничных.</summary>
-        public const int Gallery = 5;
+        public const int Gallery = 6;
 
         /// <summary>
         /// КАРТА КОМНАТ — где какая вкладка стоит в пространстве витрины.
@@ -90,6 +94,7 @@ namespace Lvn.UI.Screens
                 case Profile:  return new Vector2(0f,   0f);   // слева сверху
                 case Home:     return new Vector2(0.5f, 0.5f); // центр
                 case Wardrobe: return new Vector2(0f,   1f);   // слева снизу
+                case Gacha:    return new Vector2(0.5f, 1f);   // снизу по центру — между гардеробом и магазином
                 case Store:    return new Vector2(1f,   1f);   // справа снизу
                 case Gallery:  return new Vector2(1f,   0f);   // справа сверху (зеркало профиля)
                 // Галерея и список делят угол: у одной новеллы включена
@@ -109,6 +114,7 @@ namespace Lvn.UI.Screens
                 case Home:     return "home";
                 case Store:    return "store";
                 case Wardrobe: return "wardrobe";
+                case Gacha:    return "gacha";
                 case Profile:  return "profile";
                 case Gallery:  return "gallery";
                 case Titles:   return "titles";
@@ -153,6 +159,8 @@ namespace Lvn.UI.Screens
             {
                 case Home:  return LvnMenuStage.Room.Home;
                 case Store: return LvnMenuStage.Room.Store;
+                // В крутках героиня уходит со сцены: ленты на купленном фоне (Илья 15.09).
+                case Gacha: return LvnMenuStage.Room.Empty;
                 default:    return LvnMenuStage.Room.Side;
             }
         }
@@ -162,8 +170,10 @@ namespace Lvn.UI.Screens
         {
             new LvnTab(Home,     LvnIcon.Home,     "nav.home",     "Home",     hasPage: true),
             new LvnTab(Titles,   LvnIcon.Book,     "nav.titles",   "Novels",   hasPage: true),
-            new LvnTab(Store,    LvnIcon.Store,    "nav.store",    "Store",    hasPage: true),
+            // Внизу слева направо: гардероб, крутки, магазин (Илья 15.09).
             new LvnTab(Wardrobe, LvnIcon.Wardrobe, "nav.wardrobe", "Wardrobe", hasPage: true),
+            new LvnTab(Gacha,    LvnIcon.Gift,     "nav.gacha",    "Spins",    hasPage: true),
+            new LvnTab(Store,    LvnIcon.Store,    "nav.store",    "Store",    hasPage: true),
             new LvnTab(Gallery,  LvnIcon.Gallery,  "nav.gallery",  "Gallery",  hasPage: false),
             new LvnTab(Profile,  LvnIcon.Profile,  "nav.profile",  "Profile",  hasPage: true),
         };
