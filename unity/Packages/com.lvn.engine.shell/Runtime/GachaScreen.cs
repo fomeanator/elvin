@@ -528,7 +528,7 @@ namespace Lvn.UI.Screens
                 Rarity = rank >= 0 ? LvnRarity.ColorOf(prize.Rarity, palette) : (Color?)null,
                 RarityWord = rank >= 0 ? LvnRarity.Word(prize.Rarity) : null,
                 Price = prize.Price, Currency = prize.Currency ?? _state?.SpinCurrency,
-                Gift = prize.Price <= 0, Owned = owned,
+                Gift = prize.Price <= 0, Owned = owned, PriceAlways = true,   // «есть» не прячет цену (Илья)
                 Corner = owned ? LvnWords.Of("gacha.owned", "owned") + (copies > 0 ? " ×" + (copies + 1) : "")
                     : chance.HasValue ? chance.Value.ToString("0.##") + " %" : null,
                 Obtain = obtain,
