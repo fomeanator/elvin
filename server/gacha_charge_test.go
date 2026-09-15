@@ -126,3 +126,34 @@ func TestGachaPickWeighsRarity(t *testing.T) {
 		t.Fatalf("бросок 0.97 при весах 40/1/1 должен дать бессмертный, дал %s", got.SKU)
 	}
 }
+
+// НАБОРЫ: без cases в файле — один набор по умолчанию из верхнего уровня; с
+// наборами — свои призы и цена, а верхний уровень остаётся для старых клиентов.
+func TestGachaCasesPick(t *testing.T) {
+	legacy := gachaConfig{Currency: "crystals", Price: 50,
+		Sectors: []gachaSector{{ID: "super", Kind: "super", Weight: 1}},
+		Prizes:  []gachaPrize{{SKU: "a"}}}
+	v, k, ok := legacy.pickCase("")
+	if !ok || k.ID != defaultCaseID || len(v.Prizes) != 1 || v.Price != 50 {
+		t.Fatalf("набор по умолчанию: %+v %+v", k, v)
+	}
+	cfg := legacy
+	cfg.Cases = []gachaCase{
+		{ID: "base", Name: "Обычный"},
+		{ID: "vip", Name: "Золотой", Price: 200, Prizes: []gachaPrize{{SKU: "b"}, {SKU: "c"}}},
+		{ID: "old", Hidden: true},
+	}
+	if got := cfg.caseSummaries(); len(got) != 2 || got[1]["prizes"] != 2 || got[1]["spin_price"] != int64(200) {
+		t.Fatalf("сводка наборов: %+v", got)
+	}
+	v, k, ok = cfg.pickCase("vip")
+	if !ok || k.Name != "Золотой" || len(v.Prizes) != 2 || v.Price != 200 || len(v.Sectors) != 1 {
+		t.Fatalf("набор vip: %+v / %+v", k, v)
+	}
+	if _, _, ok := cfg.pickCase("nope"); ok {
+		t.Fatal("чужой набор не должен находиться")
+	}
+	if v, _, _ := cfg.pickCase("base"); len(v.Prizes) != 0 {
+		t.Fatalf("у базового набора с cases призы свои (пусто), а не верхнего уровня: %+v", v.Prizes)
+	}
+}

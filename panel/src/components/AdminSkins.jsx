@@ -110,6 +110,7 @@ export default function AdminSkins({ token, notify }) {
                   <th title="порядок показа; 0 — как в манифесте">Поряд.</th>
                   <th title="метки через запятую">Метки</th>
                   <th title="не показывать нигде; у игроков остаётся">Скрыт</th>
+                  <th title="в каких наборах приз (id через запятую); пусто при «Крутка» — первый набор">Наборы</th>
                 </tr>
               </thead>
               <tbody>
@@ -139,14 +140,19 @@ export default function AdminSkins({ token, notify }) {
                     <td className="num"><input className="field" type="number" min="0" style={{ width: 64 }} value={s.order || 0} onChange={(e) => edit(i, { order: Number(e.target.value) || 0 })} /></td>
                     <td><input className="field" style={{ minWidth: 110 }} value={s.tags || ""} onChange={(e) => edit(i, { tags: e.target.value })} /></td>
                     <td className="num"><input type="checkbox" checked={!!s.hidden} onChange={(e) => edit(i, { hidden: e.target.checked })} /></td>
+                    <td><input className="field" style={{ width: 110 }} value={(s.cases || []).join(",")} placeholder={(live.cases?.[0]?.id) || "base"} onChange={(e) => edit(i, { cases: e.target.value.split(",").map((x) => x.trim()).filter(Boolean) })} /></td>
                   </tr>
                 ))}
-                {rows.length === 0 && <tr><td colSpan="15" className="muted">Пусто — нажмите «Собрать из манифеста»</td></tr>}
+                {rows.length === 0 && <tr><td colSpan="16" className="muted">Пусто — нажмите «Собрать из манифеста»</td></tr>}
               </tbody>
             </table>
           </div>
 
           <NewSkinForm kind={kind} onAdd={(sk) => { const next = structuredClone(live); next.skins.push(sk); setDoc(next); }} existing={live.skins || []} />
+
+          <h3 style={{ marginTop: 18 }}>Наборы круток</h3>
+          <p className="admin-hint">Кейсы на выбор в крутке: имя, описание, обложка, цена крутки; приз попадает в набор, если тот назван у скина в колонке «Наборы» (пусто при «Крутка» — первый набор). Один набор — выбора в игре нет.</p>
+          <CasesTable cases={live.cases || []} onChange={(cases) => { const next = structuredClone(live); next.cases = cases; setDoc(next); }} />
 
           <h3 style={{ marginTop: 18 }}>Ступени: цвет и вес в крутке</h3>
           <p className="admin-hint">Цвет плиток, рамок и церемонии — у ступени. Вес — доля ступени внутри «Редкого» (сумма любая): чем меньше, тем реже выпадает приз этой ступени.</p>
@@ -202,9 +208,43 @@ function NewSkinForm({ kind, onAdd, existing }) {
   );
 }
 
+function CasesTable({ cases, onChange }) {
+  const edit = (i, patch) => { const next = cases.map((c, j) => (j === i ? { ...c, ...patch } : c)); onChange(next); };
+  const add = () => onChange([...cases, { id: "case" + (cases.length + 1), name: "Новый набор", spin_currency: "crystals", spin_price: 50 }]);
+  const remove = (i) => onChange(cases.filter((_, j) => j !== i));
+  return (
+    <div className="admin-tablewrap">
+      <table className="adm-table dense">
+        <thead><tr><th>id</th><th>Имя</th><th>Описание</th><th>Обложка</th><th>Цена</th><th>Валюта</th><th>Поряд.</th><th>Скрыт</th><th></th></tr></thead>
+        <tbody>
+          {cases.map((c, i) => (
+            <tr key={i}>
+              <td><input className="field" style={{ width: 90 }} value={c.id || ""} onChange={(e) => edit(i, { id: e.target.value.trim() })} /></td>
+              <td><input className="field" value={c.name || ""} onChange={(e) => edit(i, { name: e.target.value })} /></td>
+              <td><input className="field" style={{ minWidth: 200 }} value={c.description || ""} onChange={(e) => edit(i, { description: e.target.value })} /></td>
+              <td><input className="field" value={c.cover || ""} placeholder="/content/…" onChange={(e) => edit(i, { cover: e.target.value })} /></td>
+              <td className="num"><input className="field" type="number" min="0" style={{ width: 80 }} value={c.spin_price || 0} onChange={(e) => edit(i, { spin_price: Number(e.target.value) || 0 })} /></td>
+              <td>
+                <select className="field" value={c.spin_currency || "crystals"} onChange={(e) => edit(i, { spin_currency: e.target.value })}>
+                  {CURRENCIES.map((x) => <option key={x} value={x}>{x}</option>)}
+                </select>
+              </td>
+              <td className="num"><input className="field" type="number" min="0" style={{ width: 64 }} value={c.order || 0} onChange={(e) => edit(i, { order: Number(e.target.value) || 0 })} /></td>
+              <td className="num"><input type="checkbox" checked={!!c.hidden} onChange={(e) => edit(i, { hidden: e.target.checked })} /></td>
+              <td className="num"><button className="btn-ghost sm" onClick={() => remove(i)} title="убрать набор из каталога (призы у скинов остаются)">×</button></td>
+            </tr>
+          ))}
+          {cases.length === 0 && <tr><td colSpan="9" className="muted">Наборов нет — один набор по умолчанию из верхнего уровня барабана</td></tr>}
+        </tbody>
+      </table>
+      <button className="btn-ghost sm" style={{ marginTop: 6 }} onClick={add}>+ набор</button>
+    </div>
+  );
+}
+
 function normalize(data) {
   const d = data && typeof data === "object" ? data : {};
-  return { rarity_colors: d.rarity_colors || {}, rarity_weights: d.rarity_weights || {}, skins: Array.isArray(d.skins) ? d.skins : [] };
+  return { rarity_colors: d.rarity_colors || {}, rarity_weights: d.rarity_weights || {}, cases: Array.isArray(d.cases) ? d.cases : [], skins: Array.isArray(d.skins) ? d.skins : [] };
 }
 
 // Пустые поля не сохраняем — каталог остаётся читаемым глазами.
@@ -212,11 +252,20 @@ function clean(doc) {
   return {
     rarity_colors: doc.rarity_colors,
     rarity_weights: doc.rarity_weights,
+    cases: (doc.cases || []).filter((c) => c.id).map((c) => {
+      const out = { id: c.id };
+      for (const k of ["name", "description", "cover", "spin_currency"]) if (c[k]) out[k] = c[k];
+      for (const k of ["spin_price", "order"]) if (c[k]) out[k] = c[k];
+      if (c.hidden) out.hidden = true;
+      if (c.sectors) out.sectors = c.sectors;
+      return out;
+    }),
     skins: doc.skins.map((s) => {
       const out = { sku: s.sku, kind: s.kind };
       for (const k of ["name", "description", "art", "preview", "rarity", "currency", "tags"]) if (s[k]) out[k] = s[k];
       for (const k of ["price", "gacha_weight", "sell_price", "order"]) if (s[k]) out[k] = s[k];
       for (const k of ["buy", "gacha", "hidden"]) if (s[k]) out[k] = true;
+      if (Array.isArray(s.cases) && s.cases.length) out.cases = s.cases;
       return out;
     }),
   };

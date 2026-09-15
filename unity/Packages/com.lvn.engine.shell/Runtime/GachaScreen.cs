@@ -53,6 +53,49 @@ namespace Lvn.UI.Screens
         private const int AutoShowMs = 400;
         private const int AutoTakeMs = 2400, AutoResumeMs = 400;
 
+        private VisualElement _cases;
+        /// <summary>Какой набор крутим: последний выбранный (помнится), иначе первый.</summary>
+        private string CaseId => string.IsNullOrEmpty(LvnPrefs.GachaCase) ? null : LvnPrefs.GachaCase;
+
+        /// <summary>Ряд наборов: обложка, имя, цена; текущий подсвечен. Один набор — ряда нет.</summary>
+        private void PaintCases()
+        {
+            if (_cases == null) return;
+            _cases.Clear();
+            var list = _state?.Cases;
+            if (list == null || list.Count <= 1) { _cases.style.display = DisplayStyle.None; return; }
+            _cases.style.display = DisplayStyle.Flex;
+            foreach (LvnGacha.Case c in list)
+            {
+                var id = c.Id;
+                bool on = id == _state.CaseId;
+                var card = new LvnSkinCard();
+                card.SetSize(LvnStageKit.D(96f), LvnStageKit.D(120f));
+                LvnAir.Margin(card, LvnTokens.Space1);
+                card.Bind(new LvnSkinCard.Info
+                {
+                    Title = c.Name ?? id, Art = c.Cover, Cover = true, Frame = 1f, FrameY = 0.5f,
+                    Owned = true, Description = c.Description,
+                    Corner = c.SpinPrice > 0 ? LvnPriceTag.Amount(c.SpinPrice) : null,
+                }, _assets);
+                card.SetChosen(on, LvnTokens.Gold);
+                card.Tapped += () => LvnAsync.Fire(SwitchCaseAsync(id), "GachaCase");
+                _cases.Add(card);
+            }
+        }
+
+        /// <summary>Сменить набор: помним выбор, перечитываем состояние, ленты — заново.</summary>
+        private async Task SwitchCaseAsync(string id)
+        {
+            if (_spinning || _closed || id == _state?.CaseId) return;
+            LvnPrefs.GachaCase = id;
+            Say(LvnWords.Of("boot.loading_data", "loading data…"));
+            var state = await LvnGacha.GetAsync(id);
+            if (_closed || state == null) return;
+            _sectorsDirty = true;
+            Present(state);
+        }
+
         /// <summary>РЕЖИМ АВТО — переключатель над кнопкой, как качество в
         /// настройках (Илья 15.09): «Выкл» — обычная крутка и кнопка снова;
         /// «Плавно» — авто с обычной лентой; «Быстро» — авто 0,6 с + 0,4 с.
@@ -139,6 +182,14 @@ namespace Lvn.UI.Screens
             _window.style.flexShrink = 0;
             LvnChrome.Round(_window, LvnTokens.RadiusSm);
             _window.style.backgroundColor = LvnTokens.Veil(0.35f);
+            // ВЫБОР НАБОРА (Илья и партнёр 15.09: «крутки на наборы — в крутке
+            // выбрать, какой кейс крутить; пока один, потом второй»): ряд над
+            // лентой, виден, когда наборов больше одного.
+            _cases = new VisualElement { name = "gacha-cases" };
+            LvnFlow.Wrap(_cases, Justify.FlexStart);
+            _cases.style.marginBottom = LvnTokens.Space2;
+            _cases.style.display = DisplayStyle.None;
+            content.Add(_cases);
             content.Add(_window);
 
             _strip = new VisualElement { name = "gacha-strip", pickingMode = PickingMode.Ignore };
@@ -209,7 +260,7 @@ namespace Lvn.UI.Screens
             Say(LvnWords.Of("boot.loading_data", "loading data…"));
             var shown = ShowAsync();
             if (!LvnSkins.Loaded) await LvnSkins.RefreshAsync();   // описания призов — из каталога
-            _state = await LvnGacha.GetAsync();
+            _state = await LvnGacha.GetAsync(CaseId);
             if (!_closed) Present(_state);
             await shown;
         }
@@ -217,6 +268,7 @@ namespace Lvn.UI.Screens
         internal void Present(LvnGacha.Status state)
         {
             _state = state;
+            PaintCases();
             BuildStrip();
             PaintIdle();
         }
@@ -238,7 +290,7 @@ namespace Lvn.UI.Screens
         {
             Say(LvnWords.Of("boot.loading_data", "loading data…"));
             if (!LvnSkins.Loaded) await LvnSkins.RefreshAsync();
-            var state = await LvnGacha.GetAsync();
+            var state = await LvnGacha.GetAsync(CaseId);
             if (_closed) return;
             Present(state);
         }
@@ -995,9 +1047,9 @@ namespace Lvn.UI.Screens
         }
 
         /// <summary>Ответ сервера с пределом ожидания: висящий запрос — неудача, а не вечное «Крутим…».</summary>
-        private static async Task<LvnGacha.Spin> SpinWithTimeoutAsync()
+        private async Task<LvnGacha.Spin> SpinWithTimeoutAsync()
         {
-            var spin = LvnGacha.SpinAsync();
+            var spin = LvnGacha.SpinAsync(_state?.CaseId);
             var done = await Task.WhenAny(spin, Task.Delay(SpinTimeoutMs));
             if (done != spin) return new LvnGacha.Spin { Error = "timeout" };
             return await spin;

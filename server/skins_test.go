@@ -153,6 +153,40 @@ func TestSkinsCollectApplyRoundTrip(t *testing.T) {
 			t.Fatal("скрытый скин попал в барабан")
 		}
 	}
+	if len(g.Cases) != 1 || g.Cases[0].ID != defaultCaseID || len(g.Cases[0].Prizes) != len(g.Prizes) {
+		t.Fatalf("набор по умолчанию должен совпасть с верхним уровнем: %+v", g.Cases)
+	}
+
+	// ВТОРОЙ НАБОР: назван в каталоге, приз назначен ему — барабан получает
+	// два набора с разными призами и ценой; верхний уровень = первый набор.
+	cfg.Cases = []gachaCase{{ID: "base", Name: "Обычный"}, {ID: "vip", Name: "Золотой", Price: 200}}
+	for i := range cfg.Skins {
+		if cfg.Skins[i].SKU == "wardrobe:hero:outfit:orchid" {
+			cfg.Skins[i].Cases = []string{"vip"}
+		}
+	}
+	data, _ = json.MarshalIndent(cfg, "", "  ")
+	must(os.WriteFile(filepath.Join(dir, skinsFile), data, 0o644))
+	_, err = svc.Apply()
+	must(err)
+	g, err = readGacha(filepath.Join(dir, "gacha.json"))
+	must(err)
+	if len(g.Cases) != 2 || g.Cases[1].Price != 200 || len(g.Cases[1].Prizes) != 1 || g.Cases[1].Prizes[0].SKU != "wardrobe:hero:outfit:orchid" {
+		t.Fatalf("наборы разложены неверно: %+v", g.Cases)
+	}
+	for _, p := range g.Cases[0].Prizes {
+		if p.SKU == "wardrobe:hero:outfit:orchid" {
+			t.Fatal("приз набора vip не должен быть в базовом")
+		}
+	}
+	if len(g.Prizes) != len(g.Cases[0].Prizes) {
+		t.Fatal("верхний уровень — призы первого набора")
+	}
+	cfg3, err := svc.Collect()
+	must(err)
+	if len(cfg3.Cases) != 2 {
+		t.Fatalf("сбор поверх правленого потерял наборы: %+v", cfg3.Cases)
+	}
 
 	// Повторное применение — без изменений на диске.
 	before, _ := os.ReadFile(filepath.Join(dir, "manifest.json"))
