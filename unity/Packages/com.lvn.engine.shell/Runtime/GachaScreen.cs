@@ -42,9 +42,9 @@ namespace Lvn.UI.Screens
         /// «Пополнить» (TR-107). Вешает хозяин витрины.</summary>
         public Func<Task> OpenStore;
         private bool _needTopUp;
-        /// <summary>Одна лента (Илья 15.09: «5 открытий не дают никакого процесса,
-        /// моя крутка — как игра, как рыбалка»): каждая крутка — событие.</summary>
-        private const int MaxLanes = 1;
+        /// <summary>До пяти лент (Илья 15.09: «как мне поток в 5 раз увеличить?»):
+        /// каждая лента — своя крутка за свою цену, все едут разом.</summary>
+        private const int MaxLanes = 5;
         /// <summary>Такт автокрутки (Илья 15.09: «0,6 крутка, 0,4 показываем,
         /// чтобы секунда была»): лента едет 0,6 с, выпавшая клетка держится
         /// подсвеченной 0,4 с — и только потом следующий ход.</summary>
@@ -662,7 +662,6 @@ namespace Lvn.UI.Screens
             var stop = ActionButton("gacha-auto-stop", () => LvnWords.Of("gacha.auto_stop", "Stop"), () => _auto = false);
             LvnStageKit.PlateButton(stop, primary: false);
             more.RemoveFromHierarchy(); stop.RemoveFromHierarchy();
-            if (MaxLanes <= 1) more.style.display = DisplayStyle.None;   // лент больше не бывает — кнопки нет
             var row = ScreenUi.Row();
             more.style.flexGrow = 1; stop.style.flexShrink = 0; stop.style.marginLeft = LvnTokens.Space2;
             row.Add(more); row.Add(stop);
