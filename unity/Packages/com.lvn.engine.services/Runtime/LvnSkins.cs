@@ -40,11 +40,6 @@ namespace Lvn.Services
         public static Skin Find(string sku)
             => !string.IsNullOrEmpty(sku) && _bySku.TryGetValue(sku, out var s) ? s : null;
 
-        public static IEnumerable<Skin> Of(string kind)
-        {
-            foreach (var s in _all) if (s.Kind == kind) yield return s;
-        }
-
         /// <summary>Перечитать каталог с сервера. Неудача не трогает прежний.</summary>
         public static async Task<bool> RefreshAsync()
         {
