@@ -41,7 +41,7 @@ namespace Lvn.UI
         /// выключить. Тот же путь, что у пункта бокового меню.</summary>
         public void ToggleAuto()
         {
-            if (_stage.AutoReading) { _stage.StopAuto(); SpeedBar(false); return; }
+            if (_stage.AutoArmed) { _stage.StopAuto(); SpeedBar(false); return; }
             _stage.StartAuto(LvnPrefs.AutoSpeed);
             SpeedBar(true);
         }
@@ -168,12 +168,19 @@ namespace Lvn.UI
             if (_stage.PanelOpen) return;
             // Значок режима называет и скорость: «АВТО ×5» честнее, чем два
             // разных слова для одного и того же (TR-69).
-            string label = _stage.AutoReading
+            // ПО «ВКЛЮЧЁН», А НЕ ПО «ИДЁТ ПРЯМО СЕЙЧАС» (TR-122): на развилке
+            // промотка притихает, но режим не снят — после выбора она вернётся,
+            // и значок с панелью обязаны это показывать, а не пропадать.
+            bool armed = _stage.AutoArmed;
+            string label = armed
                 ? L("auto", "Auto").ToUpperInvariant() + " ×" + LvnPrefs.AutoSpeed
                 : null;
             // Панель скорости живёт ровно столько же, сколько режим: тап по
-            // кадру снял его — она уходит сама, без отдельного выключателя.
-            if (!_stage.AutoReading && _speedBar != null) SpeedBar(false);
+            // кадру снял его — она уходит сама, без отдельного выключателя; а
+            // вернулся режим (промотка после развилки, граница главы) — панель
+            // возвращается тем же опросом, без отдельного включателя.
+            if (!armed && _speedBar != null) SpeedBar(false);
+            if (armed && _speedBar == null) SpeedBar(true);
             _modeBadge.style.display = label == null ? DisplayStyle.None : DisplayStyle.Flex;
             if (label != null && _modeBadge.text != label) _modeBadge.text = label;
         }
@@ -383,7 +390,7 @@ namespace Lvn.UI
             // то же с разной поспешностью; теперь «Авто» открывает выбор
             // скорости внизу экрана, а пропуск — это её крайнее значение.
             if (!Hidden("auto"))
-                sheet.Add(Item(_stage.AutoReading ? L("auto", "Auto") + " ✓" : L("auto", "Auto"), () =>
+                sheet.Add(Item(_stage.AutoArmed ? L("auto", "Auto") + " ✓" : L("auto", "Auto"), () =>
                 {
                     Close();
                     ToggleAuto();

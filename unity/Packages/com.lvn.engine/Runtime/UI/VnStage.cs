@@ -419,8 +419,10 @@ namespace Lvn.UI
             // its reading delay passes, advance as if tapped. Choices always wait.
             root.schedule.Execute(AutoAdvanceTick).Every(100);
 
-            // Skip: fast-forward gear (~13 lines/s), stops on anything interactive.
-            root.schedule.Execute(SkipTick).Every(75);
+            // Skip: fast-forward gear — строка за тик, до 20 строк/с (TR-122:
+            // «должно прям пролетать»; у Liminal 50 мс на строку), stops on
+            // anything interactive.
+            root.schedule.Execute(SkipTick).Every(50);
 
             // Player comfort settings (dialogue window opacity now, live on change).
             LvnPrefs.Changed -= OnPrefsChanged;

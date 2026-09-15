@@ -84,6 +84,18 @@ namespace Lvn.UI
         /// <summary>Идёт ли авто-чтение — любой скорости.</summary>
         public bool AutoReading => Skipping || LvnPrefs.AutoAdvance;
 
+        /// <summary>
+        /// РЕЖИМ ВКЛЮЧЁН, ХОТЬ И ПРИТИХ (TR-122). Промотка гаснет на развилке и
+        /// на границе главы, но это не решение игрока: после выбора она сама
+        /// возвращается. Панель скорости и значок режима живут ПО ЭТОМУ ответу,
+        /// а не по «идёт прямо сейчас»: иначе на развилке панель снималась, и
+        /// после выбора глава летела дальше без единого следа режима на экране
+        /// («пропадает нижняя выбиралка, и игра просто идёт дальше» — Илья).
+        /// Тап по кадру спрашивает <see cref="AutoReading"/>: на развилке
+        /// касание варианта не должно гасить режим.
+        /// </summary>
+        public bool AutoArmed => AutoReading || _resumeSkipAfterChoice || _skipCarried;
+
         /// <summary>Остановка ПО ВОЛЕ ИГРОКА (тап по кадру, значок режима, меню):
         /// продолжать на следующей главе нечего.</summary>
         public void StopSkip()
@@ -113,8 +125,23 @@ namespace Lvn.UI
                 Skipping = false; // something needs the player — gear down
                 return;
             }
-            if (InputBlocked || _chromeHidden || StageBusy) return; // paused, not cancelled
-            if (_dialogue != null && _dialogue.IsRevealing) { _dialogue.Complete(); return; }
+            if (InputBlocked || _chromeHidden) return; // paused, not cancelled
+            // АВТОРСКАЯ ПАУЗА ПРОМОТКЕ НЕ УКАЗ (TR-122): `wait`, который глотает
+            // касание (см. TapNotOurs), — это ритм чтения, а перечитывающий его
+            // уже прожил. Где щелчок — часть истории, промотка ждёт, как все.
+            if (_awaitingWait && !_awaitingInput && TapNotOurs)
+            {
+                CancelPendingWait();
+                _player.Advance();
+                return;
+            }
+            if (StageBusy) return;
+            // СТРОКА ЗА ОДИН ТИК. Раньше тик дописывал строку и уходил, а
+            // листал её только следующий: два тика по 75 мс на реплику плюс
+            // вся хореография карточки — «×100 медленно, должно прям
+            // пролетать» (Илья). Промотка показывает строку целиком и тут же
+            // листает; хореографию карточки она обходит (см. ShowSay).
+            if (_dialogue != null && _dialogue.IsRevealing) _dialogue.Complete();
             if (_awaitingTap)
             {
                 _awaitingTap = false;
@@ -212,6 +239,14 @@ namespace Lvn.UI
             // прогресс и записал бы игроку чужое место в главе.
             if (!string.IsNullOrEmpty(_cutsceneWatch)) { FinishCutsceneWatch(); return; }
             AutosaveNow();
+            // ВОПРОС СНЯТ ВМЕСТЕ С ГЛАВОЙ (TR-115). Уход с развилки прятал окно
+            // реплики (катсцена возвращения), а список вариантов оставался
+            // висеть поверх возвращения в меню («выборы не скрываются —
+            // залипают на экране»). Позиция уже сохранена — развилка вернётся
+            // с продолжением. Отсчёт срочного выбора — тоже: иначе он дожал
+            // бы вариант за игрока уже по дороге в меню и переписал сейв.
+            StopChoiceTimer();
+            StopWaitingForPlayer();
             ExitRequested = true;
         }
 

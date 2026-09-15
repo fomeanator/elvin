@@ -54,6 +54,15 @@ namespace Lvn.UI
         /// </summary>
         private bool SayOnScreen => _sayUp && Commands?.HolderOf("say") == null;
 
+        /// <summary>
+        /// КАК ПРИХОДИТ КАРТОЧКА РЕПЛИКИ — по теме, а В ПРОМОТКЕ НИКАК (TR-122).
+        /// Уход старой карточки, такт тишины, въезд новой — это чтение; при
+        /// ×100 игрок перечитывает и хочет пролететь. Один ответ для смены,
+        /// показа и снятия окна: раньше каждое из трёх мест спрашивало тему
+        /// само, и обойти хореографию можно было бы только в одном из них.
+        /// </summary>
+        private LvnAppearKind BoxAppear => Skipping ? LvnAppearKind.None : LvnAppear.Parse(Theme?.BoxAppear);
+
         private void SetSayVisible(bool on, Action shown = null)
         {
             if (!on)
@@ -66,7 +75,7 @@ namespace Lvn.UI
             if (_dialogue != null)
             {
                 bool wasOn = _dialogue.style.display == DisplayStyle.Flex;
-                var kind = LvnAppear.Parse(Theme?.BoxAppear);
+                var kind = BoxAppear;
                 int ms = Mathf.RoundToInt(DialogueFadeSeconds() * 1000f);
 
                 if (on && !wasOn && kind != LvnAppearKind.None)
@@ -234,7 +243,7 @@ namespace Lvn.UI
             // replacement into place. This is independent of speaker identity.
             bool replacing = _sayUp && _dialogue != null &&
                 _dialogue.style.display == DisplayStyle.Flex && !_dialogueSurfaceFresh;
-            var kind = LvnAppear.Parse(Theme?.BoxAppear);
+            var kind = BoxAppear;
             if (replacing && kind != LvnAppearKind.None)
             {
                 int gen = ++_dialogueSwapGeneration;
@@ -268,6 +277,7 @@ namespace Lvn.UI
             _dialogue.ApplyStyle(style);
             _dialogue.SuppressAdvanceHint(false); // a plain line invites the tap again
             _dialogue.Reveal(text);
+            if (Skipping) _dialogue.Complete();   // промотка: строка целиком, без печати (TR-122)
             _sayUp = true;
             _sayUpSince = LvnClock.Now(); // для самоисцеления тапов
             _curChoices = null;
@@ -298,7 +308,9 @@ namespace Lvn.UI
         {
             if (!BoxMine(gen) || !_sayUp) return;
             if (_curChoices != null && _curChoices.Count > 0) return;
-            float left = _clock.Remaining(LvnStageClock.ActorVisibilityBarrier);
+            // Промотка не ждёт, пока фигуры дойдут до места: перечитывающему
+            // важна строка, а не выход актёра (TR-122).
+            float left = Skipping ? 0f : _clock.Remaining(LvnStageClock.ActorVisibilityBarrier);
             if (left > 0.001f)
             {
                 _dialogue.schedule.Execute(() => UnlockSayWhenChoreographyReady(gen))
