@@ -299,15 +299,29 @@ namespace Lvn.UI.Screens
                 {
                     name = "gacha-glow",
                     Tint = rank >= 0 ? LvnRarity.ColorOf(prize.Rarity, RarityPalette) : LvnTokens.Gold,
-                    Aspect = sprite.rect.height > 0 ? sprite.rect.width / sprite.rect.height : 0f,
                 };
                 LvnChrome.Stretch(glow);
                 _rewardArt.Add(glow);
+                // КАДР КАК НА ПЛИТКЕ, ТОЛЬКО КРУПНЕЕ (Илья 15.09 со скрином:
+                // причёска терялась точкой сверху — слой куклы вписывался
+                // целиком): причёска — к голове, платье — к корпусу, фон —
+                // заливкой; окно обрезает излишек, лучи остаются снаружи.
+                var look = InfoFor(prize, RarityPalette, null, owned: false);
+                float zoom = look.Cover ? 1f : Mathf.Max(1f, look.Frame * LvnSkinDetail.DetailZoom);
+                var frame = new VisualElement { name = "gacha-frame", pickingMode = PickingMode.Ignore };
+                LvnChrome.Stretch(frame);
+                frame.style.overflow = Overflow.Hidden;
+                LvnChrome.Round(frame, LvnTokens.RadiusSm);
                 var picture = new VisualElement { name = "gacha-picture", pickingMode = PickingMode.Ignore };
-                LvnChrome.Stretch(picture);
-                LvnPicture.Fit(picture, cover: false);
+                picture.style.position = Position.Absolute;
+                picture.style.width = Length.Percent(zoom * 100f);
+                picture.style.height = Length.Percent(zoom * 100f);
+                picture.style.left = Length.Percent(50f - zoom * 100f * 0.5f);
+                picture.style.top = Length.Percent(50f - zoom * 100f * look.FrameY);
+                LvnPicture.Fit(picture, cover: look.Cover);
                 LvnPicture.Paint(picture, sprite, slice: 0);
-                _rewardArt.Add(picture);
+                frame.Add(picture);
+                _rewardArt.Add(frame);
                 LvnLog.Info($"[lvn-gacha] арт приза показан: {prize.Art} ({sprite.rect.width:0}×{sprite.rect.height:0})");
                 _rewardArt.schedule.Execute(() => LvnLog.Info(
                     $"[lvn-gacha] арт приза: окно {_rewardArt.resolvedStyle.width:0}×{_rewardArt.resolvedStyle.height:0}, "

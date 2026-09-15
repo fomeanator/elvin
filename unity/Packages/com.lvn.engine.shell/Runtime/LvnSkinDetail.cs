@@ -11,7 +11,8 @@ namespace Lvn.UI.Screens
     /// тап где угодно закрывает.</summary>
     public static class LvnSkinDetail
     {
-        private const float DetailZoom = 1.35f;
+        /// <summary>Насколько ближе плитки показывать скин крупно (подробности, церемония).</summary>
+        internal const float DetailZoom = 1.35f;
 
         public static void Show(VisualElement from, LvnSkinCard.Info info, ILvnAssets assets)
         {
