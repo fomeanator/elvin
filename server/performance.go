@@ -48,10 +48,22 @@ type performanceReport struct {
 	Contract string               `json:"metric_contract"`
 }
 
+// performanceShort — короткие ключи строк окна (формат v2, TR-86: «вместо
+// текста коды») → полные имена, которыми живёт сводка. Старые строки идут
+// как шли: полные имена остаются полными.
+var performanceShort = map[string]string{
+	"n": "frames", "f0": "first_frame", "f1": "last_frame", "s": "seconds",
+	"max": "max_ms", "p95": "p95_ms", "p99": "p99_ms",
+	"ob": "over_budget", "o50": "over50", "o100": "over100", "top": "top_self_ms",
+}
+
 func performanceFields(message string) map[string]string {
 	fields := make(map[string]string)
 	for _, part := range strings.Fields(message) {
 		if k, v, ok := strings.Cut(part, "="); ok {
+			if long, short := performanceShort[k]; short {
+				k = long
+			}
 			fields[k] = v
 		}
 	}
@@ -88,7 +100,7 @@ func readPerformance(r io.Reader, device, app string) ([]*performanceClient, int
 			hw[key] = hardware{line.Model, line.OS}
 			continue
 		}
-		if !strings.HasPrefix(line.Msg, "[lvn-perf] window ") {
+		if !strings.HasPrefix(line.Msg, "[lvn-perf] window ") && !strings.HasPrefix(line.Msg, "[lvn-perf] W ") {
 			continue
 		}
 		f := performanceFields(line.Msg)
@@ -144,7 +156,11 @@ func readPerformance(r io.Reader, device, app string) ([]*performanceClient, int
 		c.P99WindowMax = math.Max(c.P99WindowMax, p99)
 		if worst >= c.Worst {
 			c.Worst = worst
-			_, c.WorstTop, _ = strings.Cut(line.Msg, " top_self_ms=")
+			if _, top, ok := strings.Cut(line.Msg, " top_self_ms="); ok {
+				c.WorstTop = top
+			} else {
+				_, c.WorstTop, _ = strings.Cut(line.Msg, " top=")
+			}
 		}
 	}
 	if err := sc.Err(); err != nil {

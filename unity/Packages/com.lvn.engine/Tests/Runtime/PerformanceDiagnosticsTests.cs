@@ -32,17 +32,18 @@ namespace Lvn.Tests
             }
             yield return null; yield return null;
             LvnPerf.Flush();
-            var slow = LvnPerf.Tail().Split('\n').Last(l => l.Contains("[lvn-perf] slow"));
-            StringAssert.Contains("frame=" + blocked + " ", slow);
+            var slow = LvnPerf.Tail().Split('\n').Last(l => l.Contains("[lvn-perf] S "));
+            StringAssert.Contains("f=" + blocked + " ", slow);
             StringAssert.Contains("ActorBuild:", slow);
-            var costs = System.Text.RegularExpressions.Regex.Match(slow, @"ActorBuild:([0-9.]+)/total=([0-9.]+)");
+            var costs = System.Text.RegularExpressions.Regex.Match(slow, @"ActorBuild:([0-9.]+)/([0-9.]+)/");
             double self = double.Parse(costs.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
             double total = double.Parse(costs.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture);
             Assert.Greater(total - self, 20, "nested work must be excluded from self time");
             StringAssert.Contains("FontBuild:", slow);
-            StringAssert.Contains("context=perf-test", slow);
-            StringAssert.Contains("run=" + LvnMark.Run + " ", slow);
-            StringAssert.Contains("build=" + Uri.EscapeDataString(Application.version) + " ", slow);
+            StringAssert.Contains("ctx=perf-test", slow);
+            // run/build живут в строке session, а не в каждой строке кадра (TR-86)
+            StringAssert.Contains("run=" + LvnMark.Run + " ", LvnPerf.Tail());
+            StringAssert.Contains("build=" + Uri.EscapeDataString(Application.version) + " ", LvnPerf.Tail());
             LvnPerf.Pause(true);
             yield return null;
             LvnPerf.Pause(false);
@@ -50,7 +51,7 @@ namespace Lvn.Tests
             // must not appear as a minute-long gameplay freeze.
             LvnPerf.Frame(60, Time.frameCount + 1);
             LvnPerf.Flush();
-            StringAssert.DoesNotContain("frame_ms=60000", LvnPerf.Tail());
+            StringAssert.DoesNotContain("ms=60000", LvnPerf.Tail());
 
             var handles = new System.Collections.Generic.List<ProfilerRecorderHandle>();
             ProfilerRecorderHandle.GetAvailable(handles);

@@ -127,3 +127,26 @@ func TestPerformanceOfflineQueueKeepsProducingRunAndBuild(t *testing.T) {
 		t.Fatalf("old observations attributed to new build: %+v windows=%d err=%v", clients, windows, err)
 	}
 }
+
+// ФОРМАТ V2 — КОРОТКИЕ КЛЮЧИ (TR-86, «вместо текста коды»): окно «W» с
+// ключами n/f0/f1/s/p95/p99/max/ob/o50/o100/top читается той же сводкой,
+// что и старое «window …», и даёт те же числа; run/build в строке нет —
+// устройство и сборка берутся из заголовка пачки.
+func TestPerformanceReadsCompactWindow(t *testing.T) {
+	compact := "[lvn-perf] W n=600 f0=100 f1=699 s=10.0 fps=60.0 p50=16.7 p95=16.7 p99=20.0 max=133.3 ps=600 ob=6 o50=2 o100=1 gc=3 inv=0 m=16.9/133.6 top=FontGlyphs:10.9/10.9/2;Diagnostics:0.3/0.5/3"
+	text := perfLine("dev-a", "20260915.2000", "s1", compact)
+	clients, windows, err := readPerformance(strings.NewReader(text), "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if windows != 1 || len(clients) != 1 {
+		t.Fatalf("компактное окно не прочитано: окон %d, клиентов %d", windows, len(clients))
+	}
+	c := clients[0]
+	if c.Frames != 600 || c.Slow != 6 || c.Over50 != 2 || c.Over100 != 1 || c.Worst != 133.3 || c.P95WindowMax != 16.7 {
+		t.Fatalf("числа окна разошлись: %+v", c)
+	}
+	if !strings.HasPrefix(c.WorstTop, "FontGlyphs:10.9") {
+		t.Fatalf("части худшего кадра не взяты из top=: %q", c.WorstTop)
+	}
+}

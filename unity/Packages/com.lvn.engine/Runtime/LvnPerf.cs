@@ -42,33 +42,33 @@ namespace Lvn
 
         private sealed class Metric
         {
-            internal readonly string Key, Name;
+            internal readonly string Key, Code, Name;   // Code — короткий ключ в строках S/W (docs/client-logs.md)
             internal readonly ProfilerCategory Category;
             internal readonly double Scale;
             internal ProfilerRecorder Recorder;
-            internal Metric(string key, ProfilerCategory category, string name, double scale = 1)
-            { Key = key; Category = category; Name = name; Scale = scale; }
+            internal Metric(string key, string code, ProfilerCategory category, string name, double scale = 1)
+            { Key = key; Code = code; Category = category; Name = name; Scale = scale; }
         }
 
         private static readonly Metric[] _metrics =
         {
-            new Metric("main_ms", ProfilerCategory.Internal, "Main Thread", 1e-6),
-            new Metric("render_ms", ProfilerCategory.Internal, "Render Thread", 1e-6),
-            new Metric("present_wait_ms", ProfilerCategory.Render, "Gfx.WaitForPresentOnGfxThread", 1e-6),
-            new Metric("fps_wait_ms", ProfilerCategory.Internal, "WaitForTargetFPS", 1e-6),
-            new Metric("ui_panels_ms", new ProfilerCategory("PlayerLoop"), "PreLateUpdate.UIElementsUpdatePanels", 1e-6),
-            new Metric("ui_layout_ms", ProfilerCategory.Scripts, "UIElements.UpdateLayout", 1e-6),
-            new Metric("ui_render_ms", new ProfilerCategory("PlayerLoop"), "PostLateUpdate.UIElementsRepaintPanels", 1e-6),
-            new Metric("ui_style_ms", ProfilerCategory.Scripts, "UIElements.UpdateStyle", 1e-6),
-            new Metric("ui_geometry_ms", ProfilerCategory.Scripts, "UIElements.UpdateRenderData", 1e-6),
-            new Metric("text_prepare_ms", ProfilerCategory.Scripts, "TextJob.PrepareMainThread", 1e-6),
-            new Metric("glyph_ms", ProfilerCategory.Scripts, "FontAsset.TryAddGlyph", 1e-6),
-            new Metric("gc_alloc_B", ProfilerCategory.Memory, "GC Allocated In Frame"),
-            new Metric("gc_used_MB", ProfilerCategory.Memory, "GC Used Memory", 1.0 / (1024 * 1024)),
-            new Metric("total_used_MB", ProfilerCategory.Memory, "Total Used Memory", 1.0 / (1024 * 1024)),
-            new Metric("draw_calls", ProfilerCategory.Render, "Draw Calls Count"),
-            new Metric("batches", ProfilerCategory.Render, "Batches Count"),
-            new Metric("triangles", ProfilerCategory.Render, "Triangles Count")
+            new Metric("main_ms", "m", ProfilerCategory.Internal, "Main Thread", 1e-6),
+            new Metric("render_ms", "r", ProfilerCategory.Internal, "Render Thread", 1e-6),
+            new Metric("present_wait_ms", "pw", ProfilerCategory.Render, "Gfx.WaitForPresentOnGfxThread", 1e-6),
+            new Metric("fps_wait_ms", "fw", ProfilerCategory.Internal, "WaitForTargetFPS", 1e-6),
+            new Metric("ui_panels_ms", "up", new ProfilerCategory("PlayerLoop"), "PreLateUpdate.UIElementsUpdatePanels", 1e-6),
+            new Metric("ui_layout_ms", "ul", ProfilerCategory.Scripts, "UIElements.UpdateLayout", 1e-6),
+            new Metric("ui_render_ms", "ur", new ProfilerCategory("PlayerLoop"), "PostLateUpdate.UIElementsRepaintPanels", 1e-6),
+            new Metric("ui_style_ms", "us", ProfilerCategory.Scripts, "UIElements.UpdateStyle", 1e-6),
+            new Metric("ui_geometry_ms", "ug", ProfilerCategory.Scripts, "UIElements.UpdateRenderData", 1e-6),
+            new Metric("text_prepare_ms", "tp", ProfilerCategory.Scripts, "TextJob.PrepareMainThread", 1e-6),
+            new Metric("glyph_ms", "gl", ProfilerCategory.Scripts, "FontAsset.TryAddGlyph", 1e-6),
+            new Metric("gc_alloc_B", "ga", ProfilerCategory.Memory, "GC Allocated In Frame"),
+            new Metric("gc_used_MB", "gcm", ProfilerCategory.Memory, "GC Used Memory", 1.0 / (1024 * 1024)),
+            new Metric("total_used_MB", "mem", ProfilerCategory.Memory, "Total Used Memory", 1.0 / (1024 * 1024)),
+            new Metric("draw_calls", "dc", ProfilerCategory.Render, "Draw Calls Count"),
+            new Metric("batches", "bt", ProfilerCategory.Render, "Batches Count"),
+            new Metric("triangles", "tri", ProfilerCategory.Render, "Triangles Count")
         };
         private static readonly double[] _values = new double[_metrics.Length];
         private static readonly OpenScope[] _stack = new OpenScope[64];
@@ -86,6 +86,10 @@ namespace Lvn
         private static string _allocationSource = "na";
         private static string _identity;
         public static bool Enabled { get; private set; }
+
+        /// <summary>Пол строки «медленный кадр» (TR-86): кадры до 50 мс — обычные
+        /// запинки интерфейса, их считает окно; строку получает только заметный.</summary>
+        public const double SlowFloorMs = 50;
         public static string SessionInfo { get; private set; }
 
         /// <summary>Main-thread context supplied by the host at the end of its frame. No UI callback in the core.</summary>
@@ -117,10 +121,10 @@ namespace Lvn
             var available = new StringBuilder();
             for (int i = 0; i < _metrics.Length; i++)
             {
-                var m = _metrics[i]; names[i] = m.Key;
+                var m = _metrics[i]; names[i] = m.Code;
                 Bind(m);
                 if (i > 0) available.Append(',');
-                available.Append(m.Key).Append(':').Append(m.Recorder.Valid ? "yes" : "na");
+                available.Append(m.Key).Append('(').Append(m.Code).Append("):").Append(m.Recorder.Valid ? "yes" : "na");
             }
             _capture = new LvnPerfCapture(names);
             _depth = 0; _lastFrame = -1; _skip = 2; _paused = false; _focused = true;
@@ -140,7 +144,8 @@ namespace Lvn
                 + " refresh_hz=" + LvnDeviceProfile.RefreshHz.ToString("F1", CultureInfo.InvariantCulture)
                 + " vsync=" + QualitySettings.vSyncCount + " verbose=" + LvnLog.Verbose
                 + " counters=" + available + " gpu_time=not_sampled timings=main_thread_wall self=exclusive"
-                + " scope_alloc=" + _allocationSource + " slow_interval_s=2 window_s=10";
+                + " scope_alloc=" + _allocationSource + " slow_interval_s=2 window_s=10"
+                + " slow_floor_ms=" + SlowFloorMs + " format=v2";
             Emit(SessionInfo);
         }
 
@@ -224,7 +229,7 @@ namespace Lvn
                 }
                 Event("counters-ready", available.ToString());
             }
-            if (now >= _nextSlow) { _nextSlow = now + 2; Emit(_capture.SlowReport()); }
+            if (now >= _nextSlow) { _nextSlow = now + 2; Emit(_capture.SlowReport(SlowFloorMs)); }
             if (now >= _nextSummary) { _nextSummary = now + 10; Emit(_capture.Summary()); }
         }
 
@@ -326,14 +331,17 @@ namespace Lvn
         public static void Flush()
         {
             if (!Enabled) return;
-            Emit(_capture.SlowReport()); Emit(_capture.Summary());
+            Emit(_capture.SlowReport(SlowFloorMs)); Emit(_capture.Summary());
         }
 
         private static void Emit(string line)
         {
             if (line == null) return;
             using var timing = Measure(Part.Diagnostics);
-            line = line.Insert(line.IndexOf(' ', "[lvn-perf] ".Length), _identity);
+            // run/build — только у редких строк (session, event): у строк S/W они
+            // повторяли заголовок пачки и весили больше самих чисел (TR-86).
+            if (!line.StartsWith("[lvn-perf] S ", StringComparison.Ordinal) && !line.StartsWith("[lvn-perf] W ", StringComparison.Ordinal))
+                line = line.Insert(line.IndexOf(' ', "[lvn-perf] ".Length), _identity);
             _tail[_tailIndex] = line; _tailIndex = (_tailIndex + 1) % _tail.Length;
             _tailCount = Math.Min(_tail.Length, _tailCount + 1);
             // Per-message NoStacktrace: error/exception diagnostics retain their stacks.
