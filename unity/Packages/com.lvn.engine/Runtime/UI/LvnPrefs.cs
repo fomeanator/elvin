@@ -59,6 +59,7 @@ namespace Lvn.UI
             _soundOn = LvnKeep.Get(P + "sound_on", 1) == 1;
             _locale = LvnKeep.Get(P + "locale", "");
             _artQuality = LvnKeep.Get(P + "art_quality", "");
+            _gachaAuto = LvnKeep.Get(P + "gacha_auto", "off");
             // Миграция со старого двухпозиционного флага «Экономия».
             if (_artQuality == "" && LvnKeep.Get(P + "art_eco", 0) == 1) _artQuality = "1k";
             _menuTrack = LvnKeep.Get(P + "menu_track", "");
@@ -283,6 +284,15 @@ namespace Lvn.UI
             set { EnsureLoaded(); Set(ref _artQuality, "art_quality", value ?? ""); }
         }
         private static string _artQuality = "";
+
+        /// <summary>Режим авто-крутки: off — вручную (кнопка снова после хода),
+        /// smooth — авто с обычной лентой, fast — авто 0,6 с + 0,4 с показ.</summary>
+        public static string GachaAuto
+        {
+            get { EnsureLoaded(); return _gachaAuto; }
+            set { EnsureLoaded(); Set(ref _gachaAuto, "gacha_auto", value ?? "off"); }
+        }
+        private static string _gachaAuto = "off";
 
         /// <summary>Целевая частота кадров: 60 (по умолчанию) или 30 —
         /// экономия батареи; хост применяет через Application.targetFrameRate.</summary>

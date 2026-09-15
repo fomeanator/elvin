@@ -65,9 +65,6 @@ namespace Lvn.UI.Screens
             _rewardName.text = spin.Super
                 ? prize.Label ?? prize.Sku
                 : "+" + LvnPriceTag.Amount(spin.Amount);
-            _status.text = spin.Super
-                ? LvnWords.Of("gacha.won_prize", "You got: {0}", prize.Label ?? prize.Sku)
-                : LvnWords.Of("gacha.won_currency", "You got: {0}", LvnPriceTag.Full(spin.Currency, spin.Amount));
             _window.style.display = DisplayStyle.None;
             _content.scrollOffset = Vector2.zero;
             float available = _content.contentViewport.resolvedStyle.height;
@@ -112,9 +109,9 @@ namespace Lvn.UI.Screens
             if (!spin.WalletSynced) LvnAsync.Fire(LvnWallet.RefreshAsync(), "GachaWalletRetry");
             _prizeVersion++;
             DismissCeremony();
-            if (_auto) { _reward.style.display = DisplayStyle.None; _poolDirty = true; }   // авто едет дальше, ленты на месте
-            else PaintIdle();   // лента остаётся где стояла (TR-108)
-            _taken?.TrySetResult(true);
+            _reward.style.display = DisplayStyle.None;
+            _poolDirty = true;   // в пуле приз станет «есть»
+            _taken?.TrySetResult(true);   // ход продолжается: покой или следующий ход рисует он
         }
 
         private VisualElement _blackout;

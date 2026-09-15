@@ -620,10 +620,6 @@
   "default": "As authored"
  },
  {
-  "key": "gacha.add_lane",
-  "default": "Add a lane"
- },
- {
   "key": "gacha.auto",
   "default": "Auto"
  },
@@ -656,8 +652,24 @@
   "default": "The spin did not go through. Try again."
  },
  {
-  "key": "gacha.free_ready",
-  "default": "Today's free spin is waiting"
+  "key": "gacha.free",
+  "default": "free"
+ },
+ {
+  "key": "gacha.lanes",
+  "default": "Lanes: {0}"
+ },
+ {
+  "key": "gacha.mode_fast",
+  "default": "Fast"
+ },
+ {
+  "key": "gacha.mode_off",
+  "default": "Off"
+ },
+ {
+  "key": "gacha.mode_smooth",
+  "default": "Smooth"
  },
  {
   "key": "gacha.no_funds",
@@ -672,16 +684,8 @@
   "default": "owned"
  },
  {
-  "key": "gacha.price",
-  "default": "Next spin: {0}"
- },
- {
   "key": "gacha.spin",
   "default": "Spin"
- },
- {
-  "key": "gacha.spinning",
-  "default": "Spinning…"
  },
  {
   "key": "gacha.take",
@@ -694,14 +698,6 @@
  {
   "key": "gacha.top_up",
   "default": "Top up"
- },
- {
-  "key": "gacha.won_currency",
-  "default": "You got: {0}"
- },
- {
-  "key": "gacha.won_prize",
-  "default": "You got: {0}"
  },
  {
   "key": "gallery",
