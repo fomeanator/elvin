@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { analyticsSummary, analyticsFunnel, analyticsHealth, analyticsMoney, analyticsSlides, withSegment, adminCrashes, adminSpendStats, analyticsUsage } from "../../lib/api.js";
+import { analyticsSummary, analyticsFunnel, analyticsHealth, analyticsMoney, analyticsSlides, withSegment, adminCrashes, adminSpendStats, analyticsUsage, adminLogLevel, adminSetLogLevel } from "../../lib/api.js";
 import { useAsync, fmt } from "../adminShared.jsx";
 import { Page, LoadState, Empty, Kpi } from "./ui.jsx";
 import {
@@ -806,6 +806,7 @@ function Health({ token, q }) {
                     empty="Клиент не прислал ни одного unknown_op." />
       </div>
       <Crashes token={token} q={q} />
+      <LogRemote token={token} />
 
       <CountPanel title="Промахи по ассетам" rows={d.asset_failures}
                   empty="Ни одного asset_fail — либо всё грузится, либо клиент их не шлёт." />
@@ -905,6 +906,56 @@ function Usage({ token, q }) {
               </tbody>
             </table>
           </div>
+        )}
+      </LoadState>
+    </section>
+  );
+}
+
+// ── Пульт подробного лога (TR-86) ───────────────────────────────────────────
+//
+// Устройство хранит всё само; здесь мы просим прислать Trace с конкретного
+// устройства на N часов. Указание уезжает с первой же пачкой его логов.
+function LogRemote({ token }) {
+  const list = useAsync(() => adminLogLevel(token), [token]);
+  const [device, setDevice] = useState("");
+  const [hours, setHours] = useState(24);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const rows = (list.data || {}).directives || [];
+  const send = async (dev, h) => {
+    if (!dev) return;
+    setBusy(true); setMsg("");
+    try {
+      await adminSetLogLevel(dev, h, token);
+      setMsg(h > 0 ? "указание отдано — устройство начнёт слать Trace с первой же пачкой логов" : "указание снято");
+      list.reload && list.reload();
+    } catch (e) { setMsg("✗ " + (e.message || e)); }
+    finally { setBusy(false); }
+  };
+  return (
+    <section className="adm-panel">
+      <header className="adm-panel-head">
+        <h2>Подробный лог с устройства</h2>
+        <span className="adm-dim">устройство хранит всё само; просим Trace точечно и на срок</span>
+      </header>
+      <div className="admin-rowbtns" style={{ gap: 8, flexWrap: "wrap" }}>
+        <input className="field" style={{ width: 300 }} placeholder="id устройства (dev из логов или сбоев)" value={device} onChange={(e) => setDevice(e.target.value.trim())} />
+        <input className="field" type="number" min="1" max="168" style={{ width: 80 }} value={hours} onChange={(e) => setHours(Number(e.target.value) || 24)} />
+        <button className="btn-ghost sm" disabled={busy || !device} onClick={() => send(device, hours)}>Подробный лог на {hours} ч</button>
+      </div>
+      {msg && <p className="adm-dim">{msg}</p>}
+      <LoadState loading={list.loading} error={list.error}>
+        {!rows.length ? <p className="adm-dim">Живых указаний нет.</p> : (
+          <ul className="adm-bars">
+            {rows.map((r) => (
+              <li key={r.device} className="adm-bars-row">
+                <span className="adm-bars-name" title={r.device}>{r.device}</span>
+                <span className="adm-bars-val muted">до {r.until.replace("T", " ").slice(0, 16)}</span>
+                <button className="btn-ghost sm" disabled={busy} onClick={() => send(r.device, 0)}>снять</button>
+              </li>
+            ))}
+          </ul>
         )}
       </LoadState>
     </section>
