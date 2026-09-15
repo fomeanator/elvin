@@ -672,10 +672,6 @@
   "default": "Spinning…"
  },
  {
-  "key": "gacha.super",
-  "default": "Rare"
- },
- {
   "key": "gacha.take",
   "default": "Take the prize"
  },

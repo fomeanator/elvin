@@ -288,6 +288,10 @@ namespace Lvn.UI.Screens
             }
 
             if (!owned) card.Add(PriceBadge(item));
+            // Облик редкости — С РОЖДЕНИЯ, а не только при обновлении: карточка,
+            // рождённая при смене раздела, приходила без цвета ступени до
+            // первой сверки (Илья 15.09: «не во всех категориях есть»).
+            DressRarity(card, Rarity(item));
 
             if (i < 0)
             {
@@ -393,6 +397,7 @@ namespace Lvn.UI.Screens
                 // разных осей, и номер вкладки к ней отношения не имеет.
                 bool on = _tab == AllTab ? IsWornCard(_stripCards[k]) : k == cur;
                 LvnStyler.Chosen(_stripCards[k], on, ChosenInk);
+                if (!on) LvnSkinCard.RestoreRing(_stripCards[k]);   // ободок ступени переживает «тихую» грань
             }
             // Довозим В КАДР ТУ ЖЕ карточку, что и отметили, — иначе на «Моё»
             // лента уезжала к безразличной k-й, а отмеченная оставалась за краем.

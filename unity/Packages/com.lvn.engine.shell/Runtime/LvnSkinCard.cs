@@ -119,6 +119,18 @@ namespace Lvn.UI.Screens
             if (bar != null) { bar.style.backgroundColor = c; bar.style.display = DisplayStyle.Flex; }
         }
 
+        /// <summary>Вернуть ободок редкости после чужой правки грани: подсветка
+        /// надетого (<c>LvnStyler.Chosen</c>) ставит всем остальным «тихую»
+        /// грань темы и стирала цвет ступени при каждой смене раздела (Илья
+        /// 15.09: «при изменении категорий пропадает окрашивание»). Цвет — с
+        /// полосы понизу, она и есть память о ступени.</summary>
+        public static void RestoreRing(VisualElement card)
+        {
+            var bar = card?.Q("card-rarity");
+            if (bar == null || bar.style.display.value != DisplayStyle.Flex) return;
+            LvnChrome.Border(card, bar.style.backgroundColor.value, 2f);
+        }
+
         /// <summary>Подарок вместо ценника: приз круток (TR-93) не покупают,
         /// а выигрывают — ценник «0» врал бы «бесплатно».</summary>
         public static VisualElement GiftBadge()
