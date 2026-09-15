@@ -61,11 +61,6 @@ namespace Lvn.UI.Screens
             return list;
         }
 
-        /// <summary>Выбор есть и без набора картинок, если новелла умеет
-        /// собирать живой портрет. То же условие использует сетка выбора.</summary>
-        public static bool CanChoose(LvnManifest manifest)
-            => Offered(manifest).Count > 0 || LvnHeroPortrait.Layers(manifest) != null;
-
         /// <summary>
         /// ВЫБОР «МОЙ ОБЛИК» (TR-68) — живой портрет героя вместо картинки из
         /// набора. Стоит первым в наборе и картинки в манифесте не имеет: его

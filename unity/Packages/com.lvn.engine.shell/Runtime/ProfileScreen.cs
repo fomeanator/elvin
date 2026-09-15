@@ -10,10 +10,13 @@ using UnityEngine.UIElements;
 namespace Lvn.UI.Screens
 {
     /// <summary>
-    /// Профиль показывает данные хоста и объясняет пустые разделы. Имя
-    /// читает у LvnPlayerName, аватар — у набора новеллы или живого портрета.
-    /// Minimal оставляет только имя и копируемый ID. Значения прогресса и
-    /// награды не выдумываются; хост обновляет поля и зовёт Rebuild.
+    /// The player PROFILE overlay — a scrim plus a scrollable sheet, themed from
+    /// <see cref="LvnTokens"/> (the "Полночь" palette). It shows an identity card
+    /// (avatar + name + level + XP bar), a row of stat tiles, an achievements
+    /// grid, a relationships list (affection meters), and a footer with the
+    /// player's UID and a copy button. Every value here ships with a hardcoded
+    /// fallback so the screen renders standalone; a host wires live data by
+    /// setting the public fields and calling <see cref="Rebuild"/>.
     /// </summary>
     public sealed partial class ProfileScreen : LvnOverlayScreen
     {
@@ -31,12 +34,10 @@ namespace Lvn.UI.Screens
         /// <summary>One character relationship row (0..1 affection).</summary>
         public struct Relation
         {
-            public string Id; // title + stat key; optional for standalone hosts
             public string Name;
             public float Affection; // 0..1
-            public Relation(string name, float affection) : this(name, affection, null) { }
-            public Relation(string name, float affection, string id)
-            { Id = id; Name = name; Affection = Mathf.Clamp01(affection); }
+            public Relation(string name, float affection)
+            { Name = name; Affection = Mathf.Clamp01(affection); }
         }
 
         /// <summary>One stat tile: a big number over a caption.</summary>
@@ -48,7 +49,7 @@ namespace Lvn.UI.Screens
             { Value = value; Caption = caption; }
         }
 
-        // ── Данные хоста ────────────────────────────────────────────────
+        // ── Live/overridable model (hardcoded demo fallbacks) ──────────────
         // Копия имени не хранится — см. BrowseHub: одна правда у роли
         // LvnPlayerName, экран её только показывает.
 
@@ -75,14 +76,16 @@ namespace Lvn.UI.Screens
         public int XpNext;
         public string Uid;
 
-        // Пустые списки объясняются интерфейсом, не заполняются демо-данными.
-        // Замки пустой сетки — оформление, а не выдуманные достижения.
+        // ФЕЙКА В ПРОФИЛЕ НЕТ (живой репорт): демонстрационные статы,
+        // достижения и отношения удалены. Отношения — РЕАЛЬНЫЕ: хост
+        // наполняет их из статов тайтлов перед открытием; пустой список
+        // прячет секцию. Достижения вернутся вместе с настоящей системой.
         public List<Stat> Stats = new List<Stat>();
         public List<Achievement> Achievements = new List<Achievement>();
         public List<Relation> Relations = new List<Relation>();
 
         /// <summary>Реально пройдено глав по всем историям — хост считает по
-        /// прогрессу перед открытием. 0 показывает пояснение.</summary>
+        /// прогрессу перед открытием. 0 прячет плитку.</summary>
         public int ChaptersDone;
 
         /// <summary>Открыть экран настроек — профиль даёт на них ссылку
@@ -120,7 +123,7 @@ namespace Lvn.UI.Screens
 
             // ВКЛАДКА как главная (Илья 26.08): без листа и скрима, контент на
             // общей атмосфере, дырка под нижнее меню, root не ловит тапы.
-            var sheet = _sheet = new VisualElement { name = "profile-sheet" };
+            var sheet = _sheet = new VisualElement();
             ScreenUi.HubTabSheet(this, sheet);
             Add(sheet);
 
@@ -137,9 +140,7 @@ namespace Lvn.UI.Screens
 
             // ── Scrollable body ───────────────────────────────────────────
             _body = Lvn.UI.LvnScroll.Vertical();
-            _body.name = "profile-body";
             _body.style.flexGrow = 1;
-            _body.style.minHeight = 0;
             sheet.Add(_body);
 
             Rebuild();
@@ -156,41 +157,29 @@ namespace Lvn.UI.Screens
         {
             _body.Clear();
             _body.Add(BuildIdentityCard());
-            // МИНИМАЛЬНЫЙ ПРОФИЛЬ (TR-25, ui.browse.profile_full=false) прячет
-            // ТОЛЬКО выдуманные разделы — статы, прогресс, достижения. Отношения,
-            // ссылки (катсцены, настройки, выход, удаление) и ID остаются: в
-            // переносе версии Вани Minimal обрубал всё до имени и ID («где
-            // пункты?» — Илья 15.09).
-            if (!Minimal)
-            {
-                _body.Add(StageHeader(ScreenUi.SectionHeader(LvnWords.Of("profile.stats", "Story stats"))));
-                _body.Add(Stats.Count > 0 ? BuildStatRow() : HintCard(
-                    LvnWords.Of("profile.stats_empty", "Your story stats will appear here."), "stats"));
+            if (!Minimal && Stats.Count > 0) _body.Add(BuildStatRow());
 
-                _body.Add(StageHeader(ScreenUi.SectionHeader(LvnWords.Of("profile.progress", "Reading"))));
-                _body.Add(ChaptersDone > 0 ? ProgressLine() : HintCard(
-                    LvnWords.Of("profile.progress_empty", "No chapters completed yet."), "progress"));
-            }
+            if (ChaptersDone > 0) _body.Add(ProgressLine());
 
             // КОШЕЛЬКА ЗДЕСЬ НЕТ. Балансы живут в шапке — она видна всегда и
             // обновляется сама; вторая копия в профиле показывала те же числа
             // с задержкой на открытие экрана и расходилась с шапкой ровно в тот
             // момент, когда игрок сверял их глазами (решение Ильи, 28.08).
 
-            if (!Minimal)
+            if (!Minimal && Achievements.Count > 0)
             {
                 _body.Add(StageHeader(ScreenUi.SectionHeader(LvnWords.Of("profile.achievements", "Achievements"))));
-                if (Achievements.Count == 0) _body.Add(HintCard(
-                    LvnWords.Of("profile.achievements_empty", "No achievements to display yet."), "achievements"));
                 _body.Add(BuildAchievements());
             }
 
-            // Отношения — реальные данные, показываются и в минимальном
-            // профиле: это то, ради чего игрок сюда заходит.
+            // Отношения с фаворитами — реальные данные, показываются и в
+            // минимальном профиле: это то, ради чего игрок сюда заходит.
+            // Пустоту не прячем, а объясняем: игрок должен знать, что здесь
+            // вырастет и от чего (живой репорт «там пустота, смысл какой»).
             _body.Add(StageHeader(ScreenUi.SectionHeader(LvnWords.Of("profile.relations", "Relationships"))));
             if (Relations.Count > 0) _body.Add(BuildRelations());
             else _body.Add(HintCard(
-                LvnWords.Of("profile.relations_empty", "The first choice already bends the story. Start a chapter and your ties appear here."), "relations"));
+                LvnWords.Of("profile.relations_empty", "The first choice already bends the story. Start a chapter and your ties appear here.")));
 
             if (OnGiveShare != null) _body.Add(GiveShareLink());
             if (OnTakeShare != null) _body.Add(TakeShareLink());
@@ -221,9 +210,9 @@ namespace Lvn.UI.Screens
         }
 
         // Мягкая карточка-пояснение вместо пустого места.
-        private VisualElement HintCard(string text, string section)
+        private VisualElement HintCard(string text)
         {
-            var card = new VisualElement { name = "profile-" + section + "-empty" };
+            var card = new VisualElement();
             LvnChrome.Card(card, LvnTokens.SurfaceSoft);
             StageCard(card);
             LvnAir.Pad(card, LvnTokens.Space3);
@@ -238,7 +227,7 @@ namespace Lvn.UI.Screens
         // ── Section 2: identity card ───────────────────────────────────────
         private VisualElement BuildIdentityCard()
         {
-            var card = new VisualElement { name = "profile-identity" };
+            var card = new VisualElement();
             card.style.flexDirection = FlexDirection.Column;
             LvnChrome.Card(card, LvnTokens.SurfaceHi, LvnTokens.Radius);
             StageCard(card);
@@ -257,11 +246,10 @@ namespace Lvn.UI.Screens
             card.Add(identity);
 
             // Circular avatar with an Accent ring.
-            float avatarSize = LvnTokens.TouchLg * 2f;
-            var avatar = new VisualElement { name = "profile-avatar" };
+            const float avatarSize = 96f;
+            var avatar = new VisualElement();
             avatar.style.width = avatarSize;
             avatar.style.height = avatarSize;
-            avatar.style.flexShrink = 0;
             avatar.style.marginRight = LvnTokens.Space3;
             avatar.style.alignItems = Align.Center;
             avatar.style.justifyContent = Justify.Center;
@@ -284,11 +272,15 @@ namespace Lvn.UI.Screens
             // Name + level + XP.
             var col = new VisualElement();
             col.style.flexGrow = 1;
-            col.style.flexShrink = 1;
-            col.style.minWidth = 0;
             identity.Add(col);
-            col.Add(PlayerName());
-            if (Minimal) return card; // TR-25: профиль = кружок аватара + имя + ID, без уровня и XP
+
+            var name = Lvn.UI.LvnRedress.Bind(new Label(), () => Lvn.UI.LvnPlayerName.Display);
+            name.style.color = LvnTokens.Text;
+            name.style.fontSize = LvnTokens.TextLg;
+            name.style.unityFontStyleAndWeight = FontStyle.Bold;
+            col.Add(name);
+
+            if (Minimal) return card; // TR-25: профиль = имя + ID, без уровня и XP
             // Уровня нет — секции нет: пустая полоса опыта врёт не меньше
             // выдуманной, а «Уровень 0» выглядит поломкой.
             if (Level <= 0 && XpNext <= 0) return card;
@@ -314,15 +306,92 @@ namespace Lvn.UI.Screens
             return card;
         }
 
-        private static Label PlayerName()
+        // ── Section 3: stat tiles ──────────────────────────────────────────
+        private VisualElement BuildStatRow() => TileRow(Stats);
+
+        private VisualElement TileRow(List<Stat> stats)
         {
-            var name = LvnRedress.Bind(new Label { name = "profile-player-name" }, () => LvnPlayerName.Display);
-            name.style.color = LvnTokens.Text;
-            name.style.fontSize = LvnTokens.TextLg;
-            name.style.unityFontStyleAndWeight = FontStyle.Bold;
-            name.style.whiteSpace = WhiteSpace.Normal;
-            name.style.minWidth = 0;
-            return name;
+            var row = new VisualElement();
+            LvnFlow.Wrap(row, Justify.SpaceBetween);
+            row.style.marginBottom = LvnTokens.Space1;
+
+            foreach (var s in stats) row.Add(StatTile(s));
+            return row;
+        }
+
+
+
+        private VisualElement StatTile(Stat s)
+        {
+            var tile = new VisualElement();
+            tile.style.flexGrow = 1;
+            tile.style.flexBasis = Length.Percent(22f);
+            tile.style.minWidth = 120;
+            tile.style.marginBottom = LvnTokens.Space2;
+            tile.style.marginRight = LvnTokens.Space1;
+            tile.style.alignItems = Align.Center;
+            LvnChrome.Card(tile);
+            StageCard(tile);
+            LvnAir.Pad(tile, LvnTokens.Space1, LvnTokens.Space3);
+
+            var value = new Label(s.Value);
+            value.style.color = LvnTokens.Gold;
+            value.style.fontSize = LvnTokens.TextLg;
+            value.style.unityFontStyleAndWeight = FontStyle.Bold;
+            tile.Add(value);
+
+            var caption = new Label(s.Caption);
+            caption.style.color = LvnTokens.TextDim;
+            caption.style.fontSize = LvnTokens.TextXs;
+            caption.style.marginTop = LvnTokens.Tight;
+            caption.style.whiteSpace = WhiteSpace.Normal;
+            caption.style.unityTextAlign = TextAnchor.MiddleCenter;
+            tile.Add(caption);
+
+            return tile;
+        }
+
+        // ── Section 4: achievements grid ───────────────────────────────────
+        private VisualElement BuildAchievements()
+        {
+            var grid = new VisualElement();
+            LvnFlow.Wrap(grid, Justify.FlexStart);
+            grid.style.marginBottom = LvnTokens.Space1;
+
+            foreach (var a in Achievements) grid.Add(Badge(a));
+            return grid;
+        }
+
+        private VisualElement Badge(Achievement a)
+        {
+            var badge = new VisualElement();
+            badge.style.flexBasis = Length.Percent(23f);
+            badge.style.flexGrow = 1;
+            badge.style.minWidth = 110;
+            badge.style.marginRight = LvnTokens.Space1;
+            badge.style.marginBottom = LvnTokens.Space1;
+            badge.style.alignItems = Align.Center;
+            // Единственный ярлык, у которого боковой отступ МЕНЬШЕ
+            // вертикального: значок стоит в плотной сетке достижений.
+            LvnStyler.Chip(badge, a.Unlocked ? LvnTokens.SurfaceHi : LvnTokens.Surface,
+                           padX: LvnTokens.Space1, padY: LvnTokens.Space2);
+            if (!a.Unlocked) badge.style.opacity = 0.55f;
+
+            var icon = LvnIcons.Make(a.Unlocked ? a.Icon : LvnIcon.Lock, 32f,
+                                     a.Unlocked ? LvnTokens.Accent : LvnTokens.TextDim,
+                                     0f, a.Unlocked ? LvnTheme.Current.IconGlow : 0f);
+            icon.style.alignSelf = Align.Center;
+            badge.Add(icon);
+
+            var label = new Label(a.Title);
+            label.style.color = a.Unlocked ? LvnTokens.Text : LvnTokens.TextDim;
+            label.style.fontSize = LvnTokens.TextXs;
+            label.style.marginTop = LvnTokens.Space1;
+            label.style.whiteSpace = WhiteSpace.Normal;
+            label.style.unityTextAlign = TextAnchor.MiddleCenter;
+            badge.Add(label);
+
+            return badge;
         }
 
         // ── Section 5: relationships ───────────────────────────────────────
@@ -330,21 +399,13 @@ namespace Lvn.UI.Screens
         {
             var list = new VisualElement();
             list.style.marginBottom = LvnTokens.Space1;
-            var ordered = new List<Relation>(Relations);
-            ordered.Sort((a, b) =>
-            {
-                int order = b.Affection.CompareTo(a.Affection);
-                if (order == 0) order = StringComparer.OrdinalIgnoreCase.Compare(a.Name, b.Name);
-                if (order == 0) order = StringComparer.Ordinal.Compare(a.Id, b.Id);
-                return order != 0 ? order : StringComparer.Ordinal.Compare(a.Name, b.Name);
-            });
-            foreach (var r in ordered) list.Add(RelationRow(r));
+            foreach (var r in Relations) list.Add(RelationRow(r));
             return list;
         }
 
         private VisualElement RelationRow(Relation r)
         {
-            var row = new VisualElement { name = "profile-relation", userData = r.Id };
+            var row = new VisualElement();
             LvnChrome.Card(row);
             StageCard(row);
             LvnAir.Pad(row, LvnTokens.Space3, LvnTokens.Space2);
@@ -355,30 +416,19 @@ namespace Lvn.UI.Screens
             row.Add(head);
 
             var nameRow = ScreenUi.Row();
-            nameRow.style.flexGrow = 1;
-            nameRow.style.flexShrink = 1;
-            nameRow.style.flexBasis = 0;
-            nameRow.style.minWidth = 0;
-            nameRow.style.marginRight = LvnTokens.Space2;
             var heart = LvnIcons.Make(LvnIcon.Heart, 20f, LvnTokens.Accent);
             heart.style.marginRight = LvnTokens.Space1;
             nameRow.Add(heart);
-            var name = new Label(r.Name) { name = "profile-relation-name" };
+            var name = new Label(r.Name);
             name.style.color = LvnTokens.Text;
             name.style.fontSize = LvnTokens.TextSm;
-            name.style.whiteSpace = WhiteSpace.Normal;
-            name.style.flexGrow = 1;
-            name.style.flexShrink = 1;
-            name.style.flexBasis = 0;
-            name.style.minWidth = 0;
             nameRow.Add(name);
             head.Add(nameRow);
 
-            var pct = new Label($"{Mathf.RoundToInt(r.Affection * 100f)}%") { name = "profile-relation-percent" };
+            var pct = new Label($"{Mathf.RoundToInt(r.Affection * 100f)}%");
             pct.style.color = LvnTokens.Accent;
             pct.style.fontSize = LvnTokens.TextSm;
             pct.style.unityFontStyleAndWeight = FontStyle.Bold;
-            pct.style.flexShrink = 0;
             head.Add(pct);
 
             row.Add(LvnStyler.Bar(14f, r.Affection, LvnTokens.SurfaceHi));
