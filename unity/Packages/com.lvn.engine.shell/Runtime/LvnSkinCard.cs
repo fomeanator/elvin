@@ -273,9 +273,9 @@ namespace Lvn.UI.Screens
         }
 
         /// <summary>ОБЛИК РЕДКОСТИ «КАК В ДОТЕ» (TR-109): подложка имени темнеет в
-        /// цвет ступени, имя пишется этим цветом, понизу — яркая полоса, по
-        /// краю — тонкий ободок. Задник под фото НЕ красится (Илья: «не надо
-        /// окрашивать задник фотки, только имя и подложку имени»).</summary>
+        /// цвет ступени, понизу — яркая полоса, по краю — тонкий ободок. Задник
+        /// под фото НЕ красится, и ИМЯ — БЕЛЫМ (Илья 15.09: «текст в карточке
+        /// белым, перекрашивать только подложку имени и рамку»).</summary>
         private void DressRarity(Color? rarity, Color text)
         {
             if (!rarity.HasValue)
@@ -291,7 +291,7 @@ namespace Lvn.UI.Screens
             LvnChrome.Border(this, c, 2f);
             var tinted = Color.Lerp(PlateDark, c, 0.35f); tinted.a = 0.9f;
             _plate.style.backgroundColor = tinted;
-            _name.style.color = Color.Lerp(c, Color.white, 0.3f);
+            _name.style.color = text;
             _bar.style.backgroundColor = c;
             _bar.style.display = DisplayStyle.Flex;
             ApplyScale();
