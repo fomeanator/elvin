@@ -176,10 +176,6 @@ namespace Lvn.UI.Screens
             bool reduce = LvnPrefs.ReduceMotion;
             await FadeIn(veil, 350, reduce);
             if (_closed || version != _prizeVersion) return;
-            // ЗОЛОТЫЕ ИСКРЫ (Илья: «с шейдером, который золотые искры
-            // разбрасывает»): шейдер на элемент интерфейса не навесить — рой
-            // частиц разлетается от приза двумя волнами, пока он проявляется.
-            if (!reduce) LvnAsync.Fire(SparklesAsync(veil, version, rank >= 5 ? 4 : rank == 4 ? 3 : rank == 3 ? 2 : 1, rarityColor), "GachaSparkles");
             await FadeIn(_rewardArt, 1700, reduce);          // награда проявляется 1,7 с
             if (_closed || version != _prizeVersion) return;
             await Task.Delay(2000);                           // тишина: только приз на чёрном
@@ -188,44 +184,6 @@ namespace Lvn.UI.Screens
             ready = true;
             LvnLog.Info("[lvn-gacha] церемония: название и «Забрать» показаны");
             await Task.WhenAll(FadeIn(_rewardName, 400, reduce), FadeIn(_rewardRarity, 400, reduce), FadeIn(take, 400, reduce));
-        }
-
-        /// <summary>Две волны золотых искр из центра экрана: каждая частица летит
-        /// по своему лучу, гаснет и исчезает. Только частицы интерфейса, без
-        /// шейдеров — работает на любом телефоне.</summary>
-        private async Task SparklesAsync(VisualElement host, int version, int waves = 2, Color? tint = null)
-        {
-            var rnd = new System.Random();
-            var gold = tint ?? LvnTokens.Gold;
-            for (int wave = 0; wave < waves && !_closed && version == _prizeVersion; wave++)
-            {
-                var burst = new List<(VisualElement dot, float ang, float dist, float size)>();
-                for (int i = 0; i < 28; i++)
-                {
-                    float size = LvnStageKit.D(3f + (float)rnd.NextDouble() * 5f);
-                    var dot = new VisualElement { pickingMode = PickingMode.Ignore };
-                    dot.style.position = Position.Absolute;
-                    dot.style.left = Length.Percent(50f); dot.style.top = Length.Percent(45f);
-                    dot.style.width = size; dot.style.height = size;
-                    LvnChrome.Circle(dot, size);
-                    dot.style.backgroundColor = i % 3 == 0 ? Color.white : gold;
-                    dot.style.opacity = 0f;
-                    host.Add(dot);
-                    burst.Add((dot, (float)(rnd.NextDouble() * Mathf.PI * 2), LvnStageKit.D(120f + (float)rnd.NextDouble() * 220f), size));
-                }
-                await LvnMotion.PlayAsync(host, 1100, (el, p) =>
-                {
-                    float k = LvnMotion.Settle(p);
-                    foreach (var b in burst)
-                    {
-                        float x = Mathf.Cos(b.ang) * b.dist * k, y = Mathf.Sin(b.ang) * b.dist * k - LvnStageKit.D(40f) * p;
-                        b.dot.style.translate = new Translate(x, y);
-                        b.dot.style.opacity = p < 0.15f ? p / 0.15f : 1f - (p - 0.15f) / 0.85f;
-                    }
-                });
-                foreach (var b in burst) b.dot.RemoveFromHierarchy();
-                if (wave == 0) await Task.Delay(250);
-            }
         }
 
         private static Task FadeIn(VisualElement el, int ms, bool instant)
@@ -239,6 +197,7 @@ namespace Lvn.UI.Screens
         {
             if (_blackout == null) return;
             _reward.RemoveFromHierarchy();
+            _rewardArt.Q<LvnPrizeGlow>()?.RemoveFromHierarchy();   // сияние не тикает под спрятанным блоком
             _reward.style.marginTop = LvnTokens.Space3;
             _rewardArt.style.opacity = 1f;
             _rewardName.style.opacity = 1f;
@@ -314,8 +273,23 @@ namespace Lvn.UI.Screens
                     LvnLog.Warn($"[lvn-gacha] арт приза не лёг: closed={_closed} version={version}/{_prizeVersion} sprite={(sprite == null ? "null" : "ok")}");
                     return;
                 }
+                // СИЯНИЕ ЗА КАРТИНКОЙ (Илья 15.09): лучи и горящая рамка в цвет
+                // ступени — под картинкой, картинка — отдельным слоем сверху.
                 _rewardArt.Clear();
-                LvnPicture.Paint(_rewardArt, sprite, slice: 0);
+                int rank = LvnRarity.Rank(prize.Rarity);
+                var glow = new LvnPrizeGlow
+                {
+                    name = "gacha-glow",
+                    Tint = rank >= 0 ? LvnRarity.ColorOf(prize.Rarity, RarityPalette) : LvnTokens.Gold,
+                    Aspect = sprite.rect.height > 0 ? sprite.rect.width / sprite.rect.height : 0f,
+                };
+                LvnChrome.Stretch(glow);
+                _rewardArt.Add(glow);
+                var picture = new VisualElement { name = "gacha-picture", pickingMode = PickingMode.Ignore };
+                LvnChrome.Stretch(picture);
+                LvnPicture.Fit(picture, cover: false);
+                LvnPicture.Paint(picture, sprite, slice: 0);
+                _rewardArt.Add(picture);
                 LvnLog.Info($"[lvn-gacha] арт приза показан: {prize.Art} ({sprite.rect.width:0}×{sprite.rect.height:0})");
                 _rewardArt.schedule.Execute(() => LvnLog.Info(
                     $"[lvn-gacha] арт приза: окно {_rewardArt.resolvedStyle.width:0}×{_rewardArt.resolvedStyle.height:0}, "

@@ -640,10 +640,6 @@
   "default": "Come back tomorrow for a free spin"
  },
  {
-  "key": "gacha.contents",
-  "default": "What's inside"
- },
- {
   "key": "gacha.failed",
   "default": "The spin did not go through. Try again."
  },
