@@ -280,6 +280,26 @@ namespace Lvn.UI.Screens
                         result.Price = item.price; result.Currency = item.currency;
                         break;
                     }
+            // МЕТКИ СОСЕДНЕЙ ОСИ В АДРЕСЕ (Илья 15.09: «картинка не показывается»):
+            // арт причёски — hair_orchid_{hair}.png, цвет подставляет гардероб;
+            // крутки брали адрес как есть и не грузили ничего. Подставляем то,
+            // что надето, иначе первый цвет из манифеста.
+            if (!string.IsNullOrEmpty(result.Art) && result.Art.IndexOf('{') >= 0 && _manifest?.sprites != null
+                && _manifest.sprites.TryGetValue(parts[1], out var owner) && owner?.wardrobe != null)
+            {
+                var worn = LvnWardrobe.Equipped(parts[1]);
+                foreach (var kv in owner.wardrobe)
+                {
+                    var token = "{" + kv.Key + "}";
+                    if (!result.Art.Contains(token)) continue;
+                    string value = null;
+                    if (worn != null && worn.TryGetValue(kv.Key, out var w) && !string.IsNullOrEmpty(w) && w != LvnWardrobe.NoneValue) value = w;
+                    else if (kv.Value?.items != null)
+                        foreach (var it in kv.Value.items)
+                            if (!string.IsNullOrEmpty(it.value) && it.value != LvnWardrobe.NoneValue) { value = it.value; break; }
+                    if (value != null) result.Art = result.Art.Replace(token, value);
+                }
+            }
             return result;
         }
 
