@@ -209,6 +209,12 @@ namespace Lvn.UI.Screens
                 _corner.style.position = Position.Absolute;
                 _corner.style.top = 4f * _scale; _corner.style.left = 6f * _scale;
                 _corner.style.color = UiColor.WithAlpha(Color.white, 0.72f);
+                // Угол делит верх плитки с ценником справа: на узкой плитке (пять в
+                // ряд) слова «уже есть» упирались в ценник — пометка не шире половины.
+                _corner.style.maxWidth = Length.Percent(52f);
+                _corner.style.overflow = Overflow.Hidden;
+                _corner.style.textOverflow = TextOverflow.Ellipsis;
+                _corner.style.whiteSpace = WhiteSpace.NoWrap;
                 _corner.style.fontSize = LvnTokens.TextMicro * Text;
                 _corner.style.backgroundColor = LvnTokens.Veil(0.35f);
                 LvnAir.Pad(_corner, LvnTokens.Hair * _scale);
