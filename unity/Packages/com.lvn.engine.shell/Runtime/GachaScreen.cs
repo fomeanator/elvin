@@ -133,6 +133,10 @@ namespace Lvn.UI.Screens
             content.Add(_window);
 
             _strip = new VisualElement { name = "gacha-strip", pickingMode = PickingMode.Ignore };
+            // ЛЕНТА ДВИЖЕТСЯ КАЖДЫЙ КАДР: без этой подсказки UITK перетесселирует
+            // всё поддерево (сотни плиток) на каждый сдвиг — «лагает до жути»
+            // (Илья 15.09). С ней сдвиг — только матрица.
+            _strip.usageHints = UsageHints.DynamicTransform;
             _strip.style.position = Position.Absolute;
             _strip.style.left = 0; _strip.style.top = 0; _strip.style.bottom = 0;
             _strip.style.flexDirection = FlexDirection.Row;
@@ -922,6 +926,7 @@ namespace Lvn.UI.Screens
             LvnChrome.Round(lane.Window, LvnTokens.RadiusSm);
             lane.Window.style.backgroundColor = LvnTokens.Veil(0.35f);
             lane.Strip = new VisualElement { name = "gacha-strip-lane", pickingMode = PickingMode.Ignore };
+            lane.Strip.usageHints = UsageHints.DynamicTransform;   // см. главную ленту
             lane.Strip.style.position = Position.Absolute;
             lane.Strip.style.left = 0; lane.Strip.style.top = 0; lane.Strip.style.bottom = 0;
             lane.Strip.style.flexDirection = FlexDirection.Row;
