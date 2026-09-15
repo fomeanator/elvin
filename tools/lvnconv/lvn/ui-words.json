@@ -1244,6 +1244,10 @@
   "default": "Yours"
  },
  {
+  "key": "skin.got_buy",
+  "default": "Bought for {0}"
+ },
+ {
   "key": "skin.got_gacha",
   "default": "Won in spins"
  },
