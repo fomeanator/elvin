@@ -325,8 +325,6 @@ namespace Lvn.UI.Screens
             // слот главной — и она прыгала бы влево посреди гардероба, где её
             // только что увели в центр.
             var room = LvnTabs.RoomOf(_shell?.Tab ?? LvnTabs.Home);
-            // Комната без героини (крутки): фигура не встаёт, а уходит.
-            if (room == LvnMenuStage.Room.Empty) { Stage.Prima.Leave(sender); return true; }
             if (!Stage.Prima.Stand(sender, z, MenuDollSlot(),
                                    nudge: LvnMenuStage.DollNudge(room), lift: LvnMenuStage.DollLiftFor(room)))
                 return false;
@@ -458,8 +456,7 @@ namespace Lvn.UI.Screens
         private Vector2 _menuPanFrom, _menuPanTo;
         // Куда уходит ГЕРОИНЯ на этих же вкладках: на главной она стоит там,
         // где её поставил автор, на боковых возвращается в центр кадра.
-        private string _menuDollSlot;     // куда едет героиня в этом переезде
-        private bool _menuDollLeave;      // …или уходит со сцены (комната без героини)
+        private string _menuDollSlot;     // куда едет героиня в этом переезде (в крутках — за левый край)
         private float _menuDollNudge;     // …и на сколько правее слота там стоит
         private float _menuDollLift;      // …и на сколько выше кромки (главная по макету)
         private bool _menuDollSent;         // …и послана ли она уже (первым тиком)
@@ -489,7 +486,6 @@ namespace Lvn.UI.Screens
             // раскладывается (до 160 мс), и фигура, посланная сейчас, приехала
             // бы раньше кадра. Тик посылает её один раз — по этому флагу.
             _menuDollSlot = LvnMenuStage.DollSlot(LvnTabs.RoomOf(toTab));
-            _menuDollLeave = LvnTabs.RoomOf(toTab) == LvnMenuStage.Room.Empty;
             _menuDollNudge = LvnMenuStage.DollNudge(LvnTabs.RoomOf(toTab));
             _menuDollLift = LvnMenuStage.DollLiftFor(LvnTabs.RoomOf(toTab));
             _menuDollSent = false;

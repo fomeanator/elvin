@@ -170,8 +170,11 @@ namespace Lvn.UI
         /// не «главная / не главная»: у магазина свои место и план. Какая
         /// вкладка какого рода — знает оболочка (вкладки её), витрина знает
         /// только числа рода.</summary>
-        /// <summary>Empty — героини на сцене нет (комната круток: ленты на купленном фоне).</summary>
+        /// <summary>Empty — героини в кадре нет (комната круток: ленты на купленном
+        /// фоне); она не пропадает, а уезжает за левый край тем же перелётом
+        /// (Илья 15.09: «больно резко исчезает — плавно влево»).</summary>
         public enum Room { Home, Store, Side, Empty }
+        public static string AwayDollSlot = "offscreen_left";
 
         /// <summary>Слот героини для комнаты — словом сцены.</summary>
         public static string DollSlot(Room room)
@@ -180,6 +183,7 @@ namespace Lvn.UI
             {
                 case Room.Home:  return HomeDollSlot;
                 case Room.Store: return StoreDollSlot;
+                case Room.Empty: return AwayDollSlot;
                 default:         return SideDollSlot;
             }
         }

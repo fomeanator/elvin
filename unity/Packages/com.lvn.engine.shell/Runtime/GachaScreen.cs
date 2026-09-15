@@ -114,6 +114,9 @@ namespace Lvn.UI.Screens
             _title = LvnRedress.Bind(new Label(), () => LvnWords.Of("gacha.title", "Spin"));
             var header = ScreenUi.GalleryHeader(_tabMode ? (Action)(() => GoHome?.Invoke()) : Cancel, _title, out var counter);
             _sheet.Add(header);
+            // В комнате шапка лишняя — где ты, говорит нижняя лента; высота уходит
+            // лентам и пулу (Илья 15.09: «модалку круток больше по высоте»).
+            if (_tabMode) header.style.display = DisplayStyle.None;
             var back = header.Q<Button>();
             LvnStyler.IconSlot(back, LvnStageKit.D(44f));
             back.style.fontSize = LvnTokens.TextXl;

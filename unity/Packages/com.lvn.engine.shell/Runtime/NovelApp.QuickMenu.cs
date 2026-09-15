@@ -330,12 +330,11 @@ namespace Lvn.UI.Screens
                 if (!_menuDollSent && !string.IsNullOrEmpty(_menuDollSlot))
                 {
                     _menuDollSent = true;
-                    // В комнату без героини (крутки) фигура уходит со сцены; из
-                    // неё — встаёт в слот следующей комнаты, как всегда.
-                    if (_menuDollLeave) Stage.Prima.Leave(LvnSender.Menu);
-                    else Stage.Prima.Stand(LvnSender.Menu, place: _menuDollSlot,
-                                           seconds: LvnMenuStage.TravelMs / 1000f, nudge: _menuDollNudge,
-                                           lift: _menuDollLift);
+                    // В комнату без героини (крутки) слот — за левым краем: фигура
+                    // уезжает тем же перелётом, из неё — возвращается в слот следующей.
+                    Stage.Prima.Stand(LvnSender.Menu, place: _menuDollSlot,
+                                      seconds: LvnMenuStage.TravelMs / 1000f, nudge: _menuDollNudge,
+                                      lift: _menuDollLift);
                 }
                 if (!Stage.ShowsBackdrop(MenuCanvasUrl()))
                 {
