@@ -209,3 +209,38 @@ func TestSkinsCollectApplyRoundTrip(t *testing.T) {
 		t.Fatalf("после повторного сбора %d скинов, ожидалось 8", len(cfg2.Skins))
 	}
 }
+
+// ВАЛЮТЫ — ОДНО МЕСТО (TR-117): облик из ui.currency_look и картинка из карты
+// значков шапки собираются в каталог, правка раскладывается в обе стороны —
+// и в облик, и в карту шапки (старые сборки читают только её).
+func TestSkinsCurrenciesRoundTrip(t *testing.T) {
+	manifest := map[string]any{}
+	if err := json.Unmarshal([]byte(`{"ui": {
+	  "currency_look": {"crystals": {"name": "Кристаллы", "unit": "кристаллов", "icon": "Gem", "color": "#f0c860"}},
+	  "browse": {"currency_icons": {"crystals": "/ui/crystal.png", "energy": "/ui/watch.png"}}
+	}}`), &manifest); err != nil {
+		t.Fatal(err)
+	}
+	got := collectSkins(manifest, gachaConfig{}, skinsConfig{})
+	if got.Currencies["crystals"].Image != "/ui/crystal.png" || got.Currencies["crystals"].Name != "Кристаллы" {
+		t.Fatalf("кристаллы собраны не целиком: %+v", got.Currencies["crystals"])
+	}
+	if got.Currencies["energy"].Image != "/ui/watch.png" {
+		t.Fatalf("энергия без облика, но с картинкой — должна быть в каталоге: %+v", got.Currencies)
+	}
+	// Правка: новая картинка кристаллов и снятая у энергии.
+	got.Currencies["crystals"] = currencyLook{Name: "Кристаллы", Unit: "кристаллов", Icon: "Gem", Color: "#f0c860", Image: "/ui/crystal-2.png"}
+	got.Currencies["energy"] = currencyLook{Name: "Энергия", Icon: "Energy"}
+	applySkins(got, manifest, &gachaConfig{})
+	look := skinDig(manifest, "ui", "currency_look", "crystals")
+	icons := skinDig(manifest, "ui", "browse", "currency_icons")
+	if skinStr(look, "image") != "/ui/crystal-2.png" || skinStr(icons, "crystals") != "/ui/crystal-2.png" {
+		t.Fatalf("новая картинка не дошла до манифеста: облик %+v, шапка %+v", look, icons)
+	}
+	if _, still := icons["energy"]; still {
+		t.Fatalf("снятая картинка энергии осталась в шапке: %+v", icons)
+	}
+	if skinStr(skinDig(manifest, "ui", "currency_look", "energy"), "name") != "Энергия" {
+		t.Fatal("облик энергии не записан")
+	}
+}

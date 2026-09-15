@@ -150,10 +150,6 @@ namespace Lvn.UI
         public static Color CurrencyColor(string currency)
             => ForCurrency(currency) == LvnIcon.Energy ? LvnTokens.Accent : LvnTokens.Gold;
 
-        /// <summary>Готовый значок валюты нужного размера.</summary>
-        public static VisualElement MakeCurrency(string currency, float size)
-            => Make(ForCurrency(currency), size, CurrencyColor(currency));
-
         /// <summary>Known social links have a local vector fallback when the
         /// manifest supplies no artwork. Unknown links retain their label.</summary>
         public static LvnIcon ForSocial(string url)

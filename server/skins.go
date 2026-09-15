@@ -49,9 +49,22 @@ type skin struct {
 	Cases       []string `json:"cases,omitempty"`        // в каких наборах приз; пусто при gacha — набор по умолчанию
 }
 
+// currencyLook — КАК ВЫГЛЯДИТ ВАЛЮТА (TR-117): имя, единица при сумме, цвет,
+// вектор движка и картинка. Одно место вместо четырёх карт манифеста
+// (ui.currency_look и currency_icons шапки/гардероба/магазина): картинка,
+// заданная здесь, показывается везде — шапка, ценники, плитки, крутки.
+type currencyLook struct {
+	Name  string `json:"name,omitempty"`
+	Unit  string `json:"unit,omitempty"`
+	Icon  string `json:"icon,omitempty"`
+	Color string `json:"color,omitempty"`
+	Image string `json:"image,omitempty"`
+}
+
 type skinsConfig struct {
-	RarityColors  map[string]string  `json:"rarity_colors,omitempty"`
-	RarityWeights map[string]float64 `json:"rarity_weights,omitempty"`
+	RarityColors  map[string]string       `json:"rarity_colors,omitempty"`
+	RarityWeights map[string]float64      `json:"rarity_weights,omitempty"`
+	Currencies    map[string]currencyLook `json:"currencies,omitempty"`
 	// НАБОРЫ КРУТОК — тоже здесь, одно место: имя, описание, обложка, цена,
 	// сектора; призы набора — скины, у которых он назван в cases.
 	Cases []gachaCase `json:"cases,omitempty"`
@@ -150,7 +163,10 @@ func readJSONMap(path string) (map[string]any, error) {
 // collectSkins — каталог из манифеста и барабана. Существующие записи (по sku)
 // остаются как есть: сбор добавляет новое, а не переписывает правленое.
 func collectSkins(manifest map[string]any, gacha gachaConfig, existing skinsConfig) skinsConfig {
-	out := skinsConfig{RarityColors: existing.RarityColors, RarityWeights: existing.RarityWeights}
+	out := skinsConfig{RarityColors: existing.RarityColors, RarityWeights: existing.RarityWeights, Currencies: existing.Currencies}
+	if out.Currencies == nil {
+		out.Currencies = collectCurrencies(manifest)
+	}
 	known := map[string]skin{}
 	for _, sk := range existing.Skins {
 		known[sk.SKU] = sk
@@ -312,6 +328,62 @@ func sortByOrder(items []any) {
 }
 
 // ensureList — список в карте по ключу; нет — создаётся.
+// ensureMap — вложенная карта манифеста: есть — та же, нет — заводится.
+func ensureMap(m map[string]any, key string) map[string]any {
+	if sub, ok := m[key].(map[string]any); ok {
+		return sub
+	}
+	sub := map[string]any{}
+	m[key] = sub
+	return sub
+}
+
+// collectCurrencies — валюты из манифеста: облик из ui.currency_look, картинка
+// — первая найденная по картам значков шапки, гардероба и магазина.
+func collectCurrencies(manifest map[string]any) map[string]currencyLook {
+	out := map[string]currencyLook{}
+	for cur, raw := range skinDig(manifest, "ui", "currency_look") {
+		look, _ := raw.(map[string]any)
+		if look == nil {
+			continue
+		}
+		out[cur] = currencyLook{Name: skinStr(look, "name"), Unit: skinStr(look, "unit"), Icon: skinStr(look, "icon"), Color: skinStr(look, "color"), Image: skinStr(look, "image")}
+	}
+	for _, home := range [][]string{{"ui", "browse", "currency_icons"}, {"ui", "wardrobe", "currency_icons"}, {"ui", "store", "currency_icons"}} {
+		for cur, raw := range skinDig(manifest, home...) {
+			url, _ := raw.(string)
+			look := out[cur]
+			if url != "" && look.Image == "" {
+				look.Image = url
+				out[cur] = look
+			}
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// applyCurrencies — валюты каталога в манифест: облик в ui.currency_look,
+// картинка — и в карту значков шапки (старые сборки читают только её).
+func applyCurrencies(currencies map[string]currencyLook, manifest map[string]any) {
+	if len(currencies) == 0 {
+		return
+	}
+	ui := ensureMap(manifest, "ui")
+	looks := ensureMap(ui, "currency_look")
+	icons := ensureMap(ensureMap(ui, "browse"), "currency_icons")
+	for _, cur := range skinKeys(currencies) {
+		c := currencies[cur]
+		look := ensureMap(looks, cur)
+		for key, v := range map[string]string{"name": c.Name, "unit": c.Unit, "icon": c.Icon, "color": c.Color, "image": c.Image} {
+			setOrDrop(look, key, v, v != "")
+		}
+		setOrDrop(icons, cur, c.Image, c.Image != "")
+	}
+}
+
 func ensureList(m map[string]any, key string) []any {
 	if l, ok := m[key].([]any); ok {
 		return l
@@ -475,6 +547,7 @@ func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) in
 		}
 		wardrobe["rarity_colors"] = colors
 	}
+	applyCurrencies(cfg.Currencies, manifest)
 	// Барабан: наборы из каталога, призы набора — скины, назвавшие его в
 	// cases (gacha без cases — набор по умолчанию). Верхний уровень файла =
 	// набор по умолчанию, чтобы старые клиенты жили как жили.

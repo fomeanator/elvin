@@ -39,6 +39,8 @@ namespace Lvn.UI
             public string Unit;
             /// <summary>Значок валюты.</summary>
             public LvnIcon Icon = LvnIcon.Gem;
+            /// <summary>Картинка валюты из контента; пусто — вектор <see cref="Icon"/>.</summary>
+            public string Image;
             /// <summary>Цвет значка и суммы.</summary>
             public Color Tint = LvnTokens.Gold;
         }
@@ -48,22 +50,65 @@ namespace Lvn.UI
 
         /// <summary>Принять облики валют из манифеста. Зовётся при загрузке
         /// контента — до первого показа цены.</summary>
-        public static void Learn(Dictionary<string, CurrencyLook> from)
+        public static void Learn(Dictionary<string, CurrencyLook> from, params Dictionary<string, string>[] images)
         {
             Looks.Clear();
-            if (from == null) return;
-            foreach (var kv in from)
-            {
-                if (string.IsNullOrEmpty(kv.Key) || kv.Value == null) continue;
-                Looks[kv.Key] = new Look
+            if (from != null)
+                foreach (var kv in from)
                 {
-                    Name = string.IsNullOrEmpty(kv.Value.name) ? kv.Key : kv.Value.name,
-                    Unit = kv.Value.unit,
-                    Icon = ParseIcon(kv.Value.icon, DefaultIcon(kv.Key)),
-                    Tint = string.IsNullOrEmpty(kv.Value.color)
-                        ? DefaultTint(kv.Key) : UiColor.Named(kv.Value.color, DefaultTint(kv.Key)),
-                };
+                    if (string.IsNullOrEmpty(kv.Key) || kv.Value == null) continue;
+                    Looks[kv.Key] = new Look
+                    {
+                        Name = string.IsNullOrEmpty(kv.Value.name) ? kv.Key : kv.Value.name,
+                        Unit = kv.Value.unit,
+                        Icon = ParseIcon(kv.Value.icon, DefaultIcon(kv.Key)),
+                        Tint = string.IsNullOrEmpty(kv.Value.color)
+                            ? DefaultTint(kv.Key) : UiColor.Named(kv.Value.color, DefaultTint(kv.Key)),
+                        Image = kv.Value.image,
+                    };
+                }
+            // КАРТИНКИ ПО ЭКРАНАМ — ЗАПАСНОЙ ИСТОЧНИК (TR-117). Манифест годами
+            // нёс значки валют картами «шапка / гардероб / магазин», и каждый
+            // экран рисовал свой; первая найденная картинка становится общей.
+            if (images == null) return;
+            foreach (var map in images)
+            {
+                if (map == null) continue;
+                foreach (var kv in map)
+                {
+                    if (string.IsNullOrEmpty(kv.Key) || string.IsNullOrEmpty(kv.Value)) continue;
+                    if (!Looks.TryGetValue(kv.Key, out var look))
+                        Looks[kv.Key] = look = new Look
+                        { Name = kv.Key, Icon = DefaultIcon(kv.Key), Tint = DefaultTint(kv.Key) };
+                    if (string.IsNullOrEmpty(look.Image)) look.Image = kv.Value;
+                }
             }
+        }
+
+        /// <summary>Откуда брать картинки валют; без него — вектор.</summary>
+        public static ILvnAssets Assets;
+
+        /// <summary>
+        /// ЗНАЧОК ВАЛЮТЫ — ОДИН НА ВСЁ ПРИЛОЖЕНИЕ (TR-117): картинка из
+        /// манифеста, если есть, иначе вектор по смыслу валюты. Раньше шапка
+        /// показывала картинку, а крутки, плитки и ценники — вектор-заглушку:
+        /// «два значка на одну сущность» (Илья).
+        /// </summary>
+        public static UnityEngine.UIElements.VisualElement Icon(string currency, float size, Color? tint = null)
+        {
+            var look = Of(currency);
+            if (!string.IsNullOrEmpty(look.Image) && Assets != null)
+            {
+                var img = new UnityEngine.UIElements.VisualElement
+                { pickingMode = UnityEngine.UIElements.PickingMode.Ignore };
+                img.style.width = size; img.style.height = size;
+                img.style.flexShrink = 0;
+                LvnPicture.Photo(img, look.Image, Assets, cover: false, what: "currency-icon");
+                return img;
+            }
+            var icon = LvnIcons.Make(look.Icon, size, tint ?? look.Tint);
+            icon.pickingMode = UnityEngine.UIElements.PickingMode.Ignore;
+            return icon;
         }
 
         /// <summary>Облик валюты: из манифеста, иначе разумное умолчание.</summary>
@@ -149,7 +194,7 @@ namespace Lvn.UI
             if (look.Bold) sum.style.unityFontStyleAndWeight = FontStyle.Bold;
 
             float side = look.IconSize > 0f ? look.IconSize : Mathf.Round(look.FontSize * 1.05f);
-            var icon = LvnIcons.Make(l.Icon, side, color);
+            var icon = Icon(currency, side, color);
             if (look.IconFirst) { icon.style.marginRight = look.Gap; row.Add(icon); row.Add(sum); }
             else { icon.style.marginLeft = look.Gap; row.Add(sum); row.Add(icon); }
             return row;

@@ -151,7 +151,7 @@ namespace Lvn.Tests
         public void ЗначокВалютыТожеСветитсяПоТеме()
         {
             LvnTheme.Use("cyber");
-            Assert.AreEqual(LvnTheme.Current.IconGlow, Свечение(LvnIcons.MakeCurrency("energy", 22f)), 1e-4f,
+            Assert.AreEqual(LvnTheme.Current.IconGlow, Свечение(LvnPriceTag.Icon("energy", 22f)), 1e-4f,
                 "значок валюты не берёт свечение у темы — кошелёк выглядит по-разному в трёх местах");
         }
 
