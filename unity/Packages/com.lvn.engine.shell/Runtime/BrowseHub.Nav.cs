@@ -124,12 +124,47 @@ namespace Lvn.UI.Screens
 
         }
 
-        /// <summary>Убрать/вернуть нижнюю ленту вкладок. Зовёт оболочка, когда
-        /// экран просит кадр целиком («Во весь рост» в гардеробе).</summary>
-        public void SetNavHidden(bool hidden)
+        /// <summary>СПРЯТАТЬ ИЛИ ВЕРНУТЬ НИЖНЕЕ МЕНЮ. Зовёт оболочка, когда экран
+        /// просит кадр целиком («Во весь рост» в гардеробе) и в комнате круток.
+        /// Плавно: уезжает вниз и гаснет («чтобы меню плавно вниз уезжало,
+        /// исчезая» — Илья 15.09), возвращается тем же путём.
+        /// <paramref name="instant"/> — без движения: старт главы, сброс ленты.</summary>
+        public void SetNavHidden(bool hidden, bool instant = false)
         {
             if (_bottomNav == null) return;
-            _bottomNav.style.display = hidden ? DisplayStyle.None : DisplayStyle.Flex;
+            int v = ++_navMotion;
+            if (instant || LvnPrefs.ReduceMotion)
+            {
+                _bottomNav.style.display = hidden ? DisplayStyle.None : DisplayStyle.Flex;
+                _bottomNav.style.opacity = 1f;
+                _bottomNav.style.translate = new Translate(0f, 0f);
+                return;
+            }
+            if (!hidden)
+            {
+                // Первый кадр — уже внизу и невидимо: иначе меню мигнёт на месте.
+                _bottomNav.style.opacity = 0f;
+                _bottomNav.style.translate = new Translate(0f, Length.Percent(120f));
+                _bottomNav.style.display = DisplayStyle.Flex;
+            }
+            LvnAsync.Fire(SlideNavAsync(hidden, v), "NavSlide");
+        }
+
+        private int _navMotion;
+
+        private async System.Threading.Tasks.Task SlideNavAsync(bool hidden, int v)
+        {
+            float from = hidden ? 0f : 1f, to = hidden ? 1f : 0f;   // доля ухода вниз
+            await LvnMotion.PlayAsync(_bottomNav, 280, (el, p) =>
+            {
+                if (v != _navMotion) return;
+                float k = Mathf.Lerp(from, to, LvnMotion.Settle(p));
+                el.style.opacity = 1f - k;
+                el.style.translate = new Translate(0f, Length.Percent(120f * k));
+            });
+            if (v != _navMotion) return;
+            if (hidden) ScreenFx.PutAway(_bottomNav);
+            else { _bottomNav.style.opacity = 1f; _bottomNav.style.translate = new Translate(0f, 0f); }
         }
 
         // Табы с живой подсветкой: прошлый гаснет фейдом, новый загорается

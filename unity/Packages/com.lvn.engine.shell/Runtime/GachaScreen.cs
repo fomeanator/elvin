@@ -159,7 +159,7 @@ namespace Lvn.UI.Screens
             if (_tabMode)
             {
                 _sheet.style.backgroundColor = LvnTokens.PanelBg;
-                LvnAir.PadX(_sheet, LvnTokens.Space2);
+                LvnAir.PadX(_sheet, LvnTokens.Space3);   // «чуть паддинга» — воздух по бокам
                 RegisterCallback<GeometryChangedEvent>(_ => PlaceSheet());
             }
             _title = LvnRedress.Bind(new Label(), () => LvnWords.Of("gacha.title", "Spin"));
@@ -182,11 +182,7 @@ namespace Lvn.UI.Screens
             content.contentContainer.style.justifyContent = Justify.FlexStart;
             _sheet.Add(content);
             _window = new VisualElement { name = "gacha-window" };
-            _window.style.overflow = Overflow.Hidden;
-            _window.style.height = LvnStageKit.D(144f);
-            _window.style.flexShrink = 0;
-            LvnChrome.Round(_window, LvnTokens.RadiusSm);
-            _window.style.backgroundColor = LvnTokens.Veil(0.35f);
+            DressWindow(_window, LvnStageKit.D(144f));
             // ВЫБОР НАБОРА (Илья и партнёр 15.09: «крутки на наборы — в крутке
             // выбрать, какой кейс крутить; пока один, потом второй»): ряд над
             // лентой, виден, когда наборов больше одного.
@@ -307,13 +303,16 @@ namespace Lvn.UI.Screens
 
         public override void Settled() => PlaceSheet();
 
-        /// <summary>Лист от низа шапки приложения до низа экрана.</summary>
+        /// <summary>Лист ОТ САМОГО ВЕРХА до низа экрана (Илья 15.09: «чтобы прям до
+        /// самого верха доходило»): глухой фон уходит под шапку приложения, а
+        /// содержимое начинается под ней — полем сверху.</summary>
         private void PlaceSheet()
         {
             if (!_tabMode) return;
-            float top = LvnTopBar.BottomEdge(this);
-            if (!float.IsNaN(top) && top > 0f) _sheet.style.top = top + LvnTokens.Space1;
+            _sheet.style.top = 0;
             _sheet.style.bottom = 0;
+            float bar = LvnTopBar.BottomEdge(this);
+            if (!float.IsNaN(bar) && bar > 0f) _sheet.style.paddingTop = bar + LvnTokens.Space2;
         }
         public override void Hide() { StopPresentation(); base.Hide(); }
         private void StopPresentation()
@@ -350,6 +349,18 @@ namespace Lvn.UI.Screens
             button.Add(label);
             LvnMotion.Tappable(button);
             return button;
+        }
+
+        /// <summary>ЛЕНТА ЧИТАЕТСЯ ОТДЕЛЬНО ОТ ПУЛА (Илья 15.09: «визуально выделить
+        /// ленту»): на глухом фоне комнаты окно ленты обведено золотом и чуть
+        /// темнее вокруг клеток — одно оформление у главной ленты и у добавленных.</summary>
+        private static void DressWindow(VisualElement window, float height)
+        {
+            window.style.overflow = Overflow.Hidden;
+            window.style.height = height;
+            window.style.flexShrink = 0;
+            window.style.backgroundColor = LvnTokens.Veil(0.45f);
+            LvnChrome.Frame(window, LvnTokens.RadiusSm, UiColor.WithAlpha(LvnTokens.Gold, 0.6f), 1.5f);
         }
 
         /// <summary>Указатель ленты — две стрелки, сверху и снизу, к клетке
@@ -557,6 +568,14 @@ namespace Lvn.UI.Screens
             prizes.Sort((a, b) => LvnRarity.Rank(b.Rarity).CompareTo(LvnRarity.Rank(a.Rarity)));
             // СЕТКА — КАК ТАБЛИЦА (Илья 15.09): заполняется слева направо, без
             // центрирования; валюта — теми же плитками после призов.
+            // ПОДПИСЬ НАД ПУЛОМ (Илья 15.09: «около скинов написать „содержимое“,
+            // чуть обозначить»): тихая строка, уезжает и приезжает вместе с пулом.
+            var caption = LvnRedress.Bind(new Label { name = "gacha-pool-title", pickingMode = PickingMode.Ignore },
+                () => LvnWords.Of("gacha.contents", "Contents"));
+            caption.style.color = LvnTokens.TextDim;
+            caption.style.fontSize = LvnTokens.TextSm;
+            caption.style.marginBottom = LvnTokens.Space1;
+            _pool.Add(caption);
             var grid = new VisualElement { name = "gacha-pool-grid" };
             LvnFlow.Wrap(grid, Justify.FlexStart);
             foreach (var p in prizes)
@@ -1024,12 +1043,8 @@ namespace Lvn.UI.Screens
         {
             var lane = new Lane();
             lane.Window = new VisualElement { name = "gacha-window-lane" };
-            lane.Window.style.overflow = Overflow.Hidden;
-            lane.Window.style.height = LvnStageKit.D(144f);
-            lane.Window.style.flexShrink = 0;
+            DressWindow(lane.Window, LvnStageKit.D(144f));
             lane.Window.style.marginTop = LvnTokens.Space1;
-            LvnChrome.Round(lane.Window, LvnTokens.RadiusSm);
-            lane.Window.style.backgroundColor = LvnTokens.Veil(0.35f);
             lane.Strip = new VisualElement { name = "gacha-strip-lane", pickingMode = PickingMode.Ignore };
             lane.Strip.usageHints = UsageHints.DynamicTransform;   // см. главную ленту
             lane.Strip.style.position = Position.Absolute;
