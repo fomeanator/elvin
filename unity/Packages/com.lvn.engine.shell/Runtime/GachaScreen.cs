@@ -42,7 +42,9 @@ namespace Lvn.UI.Screens
         /// «Пополнить» (TR-107). Вешает хозяин витрины.</summary>
         public Func<Task> OpenStore;
         private bool _needTopUp;
-        private const int MaxLanes = 5;   // Илья 15.09: «можно 5 лент максимально»
+        /// <summary>Одна лента (Илья 15.09: «5 открытий не дают никакого процесса,
+        /// моя крутка — как игра, как рыбалка»): каждая крутка — событие.</summary>
+        private const int MaxLanes = 1;
         /// <summary>Такт автокрутки (Илья 15.09: «0,6 крутка, 0,4 показываем,
         /// чтобы секунда была»): лента едет 0,6 с, выпавшая клетка держится
         /// подсвеченной 0,4 с — и только потом следующий ход.</summary>
@@ -338,22 +340,25 @@ namespace Lvn.UI.Screens
             double total = 0, superW = 0;
             foreach (var s in _state.Sectors) { total += s.Weight; if (s.Super) superW += s.Weight; }
             var palette = _manifest?.ui?.wardrobe?.rarity_colors;
+            // Набор не пустеет: шанс есть у КАЖДОГО приза, выбитое падает копией
+            // и продаётся за цену скина; у имеющихся — «есть» и число копий.
             var left = new HashSet<string>();
+            foreach (var p in _state.PrizesLeft ?? new List<LvnGacha.Prize>()) left.Add(p.Sku);
             double weights = 0;
-            foreach (var p in _state.PrizesLeft ?? new List<LvnGacha.Prize>()) { left.Add(p.Sku); weights += p.Weight > 0 ? p.Weight : 1; }
             var prizes = new List<LvnGacha.Prize>();
-            foreach (var p in _state.Prizes ?? new List<LvnGacha.Prize>()) prizes.Add(DescribePrize(p));
+            foreach (var p in _state.Prizes ?? new List<LvnGacha.Prize>()) { var d = DescribePrize(p); prizes.Add(d); weights += d.Weight > 0 ? d.Weight : 1; }
             prizes.Sort((a, b) => LvnRarity.Rank(b.Rarity).CompareTo(LvnRarity.Rank(a.Rarity)));
             var grid = new VisualElement { name = "gacha-pool-grid" };
             LvnFlow.Wrap(grid, Justify.Center);
             foreach (var p in prizes)
             {
-                bool inPool = left.Contains(p.Sku);
-                double share = inPool && total > 0 && weights > 0 ? superW / total * ((p.Weight > 0 ? p.Weight : 1) / weights) * 100.0 : 0;
+                bool owned = !left.Contains(p.Sku) || LvnWallet.Has(p.Sku);
+                double share = total > 0 && weights > 0 ? superW / total * ((p.Weight > 0 ? p.Weight : 1) / weights) * 100.0 : 0;
+                int copies = _state.Copies != null && _state.Copies.TryGetValue(p.Sku, out var n) ? n : 0;
                 var card = new LvnSkinCard();
                 card.style.marginRight = LvnTokens.Space1; card.style.marginBottom = LvnTokens.Space1;
-                card.Bind(InfoFor(p, palette, inPool ? share : (double?)null, owned: !inPool || LvnWallet.Has(p.Sku)), _assets);
-                if (!inPool) card.Art.style.opacity = 0.75f;
+                card.Bind(InfoFor(p, palette, share, owned, copies), _assets);
+                if (owned) card.Art.style.opacity = 0.75f;
                 grid.Add(card);   // своего действия нет — тап и долгое нажатие открывают подробности
             }
             _pool.Add(grid);
@@ -424,7 +429,7 @@ namespace Lvn.UI.Screens
 
         /// <summary>Сведения о призе для общей плитки: кадр по разделу из SKU,
         /// ступень, цена, шанс в углу малозаметно, способ получения словами.</summary>
-        private LvnSkinCard.Info InfoFor(LvnGacha.Prize prize, IReadOnlyDictionary<string, string> palette, double? chance, bool owned)
+        private LvnSkinCard.Info InfoFor(LvnGacha.Prize prize, IReadOnlyDictionary<string, string> palette, double? chance, bool owned, int copies = 0)
         {
             var parts = prize.Sku?.Split(':');
             string axis = parts != null && parts.Length == 4 ? parts[2] : null;
@@ -432,9 +437,11 @@ namespace Lvn.UI.Screens
             var (zoom, ay) = backdrop ? (1f, 0.5f) : LvnWardrobeStage.Framing(axis);
             int rank = LvnRarity.Rank(prize.Rarity);
             string chanceText = chance.HasValue ? LvnWords.Of("skin.get_chance", "chance {0} %", chance.Value.ToString("0.##")) : null;
-            string obtain = owned ? LvnWords.Of("skin.get_owned", "Already yours")
-                : LvnWords.Of("skin.get_gacha", "Drops from spins") + (chanceText != null ? " · " + chanceText : "")
-                  + (prize.Price > 0 ? " · " + LvnWords.Of("skin.get_buy", "Buy: {0}", LvnPriceTag.Full(prize.Currency ?? _state?.SpinCurrency, prize.Price)) : "");
+            string drops = LvnWords.Of("skin.get_gacha", "Drops from spins") + (chanceText != null ? " · " + chanceText : "");
+            string obtain = owned
+                ? LvnWords.Of("skin.get_owned", "Already yours") + (copies > 0 ? " · " + LvnWords.Of("gacha.copies", "copies: {0}", copies) : "")
+                  + (prize.Price > 0 ? " · " + LvnWords.Of("gacha.copy_worth", "a copy sells for {0}", LvnPriceTag.Full(prize.Currency ?? _state?.SpinCurrency, prize.Price)) : "")
+                : drops + (prize.Price > 0 ? " · " + LvnWords.Of("skin.get_buy", "Buy: {0}", LvnPriceTag.Full(prize.Currency ?? _state?.SpinCurrency, prize.Price)) : "");
             return new LvnSkinCard.Info
             {
                 Title = prize.Label ?? prize.Sku, Art = prize.Art, SharpArt = zoom >= 3f,
@@ -443,7 +450,8 @@ namespace Lvn.UI.Screens
                 RarityWord = rank >= 0 ? LvnRarity.Word(prize.Rarity) : null,
                 Price = prize.Price, Currency = prize.Currency ?? _state?.SpinCurrency,
                 Gift = prize.Price <= 0, Owned = owned,
-                Corner = owned ? LvnWords.Of("gacha.owned", "owned") : chance.HasValue ? chance.Value.ToString("0.##") + " %" : null,
+                Corner = owned ? LvnWords.Of("gacha.owned", "owned") + (copies > 0 ? " ×" + (copies + 1) : "")
+                    : chance.HasValue ? chance.Value.ToString("0.##") + " %" : null,
                 Obtain = obtain,
             };
         }
@@ -654,6 +662,7 @@ namespace Lvn.UI.Screens
             var stop = ActionButton("gacha-auto-stop", () => LvnWords.Of("gacha.auto_stop", "Stop"), () => _auto = false);
             LvnStageKit.PlateButton(stop, primary: false);
             more.RemoveFromHierarchy(); stop.RemoveFromHierarchy();
+            if (MaxLanes <= 1) more.style.display = DisplayStyle.None;   // лент больше не бывает — кнопки нет
             var row = ScreenUi.Row();
             more.style.flexGrow = 1; stop.style.flexShrink = 0; stop.style.marginLeft = LvnTokens.Space2;
             row.Add(more); row.Add(stop);
