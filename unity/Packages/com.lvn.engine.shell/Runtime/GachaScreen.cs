@@ -139,7 +139,6 @@ namespace Lvn.UI.Screens
         /// нижней лентой, фон прозрачнее — сквозь него купленный фон меню.</summary>
         private readonly bool _tabMode;
         public Action GoHome;
-        public Func<float> NavHeight;
 
         public GachaScreen(ILvnAssets assets, bool tab = false)
         {
@@ -153,13 +152,19 @@ namespace Lvn.UI.Screens
             _sheet = LvnChrome.Sheet(new VisualElement(), 0f);
             Add(_sheet);
             AdoptSheet(_sheet, fullscreen: true);
-            if (_tabMode) _sheet.style.backgroundColor = LvnTokens.Veil(0.42f);   // фон меню виден сквозь
+            // КОМНАТА ВО ВЕСЬ ЭКРАН (Илья 15.09 со скрином: «в крутке скрывать
+            // нижнее меню и сделать фулскрин с непрозрачным фоном»): глухой фон
+            // вместо стекла, лист от шапки до низа, нижнее меню прячет оболочка
+            // (TabGoTo), выход — стрелкой в шапке круток.
+            if (_tabMode)
+            {
+                _sheet.style.backgroundColor = LvnTokens.PanelBg;
+                LvnAir.PadX(_sheet, LvnTokens.Space2);
+                RegisterCallback<GeometryChangedEvent>(_ => PlaceSheet());
+            }
             _title = LvnRedress.Bind(new Label(), () => LvnWords.Of("gacha.title", "Spin"));
             var header = ScreenUi.GalleryHeader(_tabMode ? (Action)(() => GoHome?.Invoke()) : Cancel, _title, out var counter);
-            _sheet.Add(header);
-            // В комнате шапка лишняя — где ты, говорит нижняя лента; высота уходит
-            // лентам и пулу (Илья 15.09: «модалку круток больше по высоте»).
-            if (_tabMode) header.style.display = DisplayStyle.None;
+            _sheet.Add(header);   // в комнате шапка — единственная дверь назад: нижнего меню там нет
             var back = header.Q<Button>();
             LvnStyler.IconSlot(back, LvnStageKit.D(44f));
             back.style.fontSize = LvnTokens.TextXl;
@@ -253,7 +258,11 @@ namespace Lvn.UI.Screens
             LvnStageKit.TakeSkin(manifest, ref _skin, StageDress);
         }
         private void StageDress()
-            => _stageGlass = LvnStageKit.DressSheet(_sheet, _skin, _assets, _stageGlass, _title);
+        {
+            // Во весь экран стекло и рамка не нужны — только золото заголовка.
+            if (_tabMode) { _title.style.color = LvnTokens.Gold; return; }
+            _stageGlass = LvnStageKit.DressSheet(_sheet, _skin, _assets, _stageGlass, _title);
+        }
 
         public async Task RunAsync()
         {
@@ -296,9 +305,15 @@ namespace Lvn.UI.Screens
             Present(state);
         }
 
-        public override void Settled()
+        public override void Settled() => PlaceSheet();
+
+        /// <summary>Лист от низа шапки приложения до низа экрана.</summary>
+        private void PlaceSheet()
         {
-            if (_tabMode && NavHeight != null) _sheet.style.bottom = NavHeight();   // панель над нижней лентой
+            if (!_tabMode) return;
+            float top = LvnTopBar.BottomEdge(this);
+            if (!float.IsNaN(top) && top > 0f) _sheet.style.top = top + LvnTokens.Space1;
+            _sheet.style.bottom = 0;
         }
         public override void Hide() { StopPresentation(); base.Hide(); }
         private void StopPresentation()

@@ -344,7 +344,6 @@ namespace Lvn.UI.Screens
             // КРУТКИ — КОМНАТА (Илья 15.09): страница между гардеробом и магазином,
             // героиня уходит, ленты на купленном фоне; панель встаёт над нижней лентой.
             GachaTab = new GachaScreen(assets, tab: true);
-            GachaTab.NavHeight = () => Hub?.NavHeight ?? 0f;
             GachaTab.OpenStore = () => OpenPackShopAsync();
             GachaTab.GoHome = () => LvnAsync.Fire(TabGoTo(LvnTabs.Home), "GachaHome");
             Add(GachaTab);
