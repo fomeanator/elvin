@@ -402,9 +402,10 @@ namespace Lvn.UI.Screens
             }), "GachaPoolShow");
         }
 
-        /// <summary>Плитка приза — та же, что в гардеробе (LvnSkinCard), поверх
-        /// неё шанс слева, ценник справа, редкость обликом; тап — крупный показ.</summary>
-        private VisualElement PrizeCard(LvnGacha.Prize prize, double chance, IReadOnlyDictionary<string, string> palette)
+        /// <summary>Плитка приза — та же, что в гардеробе (LvnSkinCard): кадр по
+        /// разделу из SKU, облик редкости, арт мини-вариантом. Одна и та же на
+        /// пул под лентой и на клетки самой ленты.</summary>
+        private LvnSkinCard.Parts SkinCardFor(LvnGacha.Prize prize, IReadOnlyDictionary<string, string> palette)
         {
             var parts = prize.Sku?.Split(':');
             string axis = parts != null && parts.Length == 4 ? parts[2] : null;
@@ -412,16 +413,25 @@ namespace Lvn.UI.Screens
             var (zoom, ay) = backdrop ? (1f, 0.5f) : LvnWardrobeStage.Framing(axis);
             var card = LvnSkinCard.Make(LvnTokens.RadiusSm, zoom, ay, false, () => prize.Label ?? prize.Sku, LvnTokens.Text);
             if (backdrop) LvnPicture.Fit(card.Art, cover: true);
+            int rank = LvnRarity.Rank(prize.Rarity);
+            LvnSkinCard.DressRarity(card.Card, rank >= 0 ? LvnRarity.ColorOf(prize.Rarity, palette) : (Color?)null, LvnTokens.Text);
+            if (!string.IsNullOrEmpty(prize.Art)) LvnAsync.Fire(PaintCardArtAsync(card, prize.Art), "GachaCardArt");
+            return card;
+        }
+
+        /// <summary>Плитка пула: поверх общей плитки — шанс слева, ценник справа,
+        /// «есть» у имеющихся; тап — крупный показ.</summary>
+        private VisualElement PrizeCard(LvnGacha.Prize prize, double chance, IReadOnlyDictionary<string, string> palette)
+        {
+            var card = SkinCardFor(prize, palette);
             card.Card.style.marginRight = LvnTokens.Space1; card.Card.style.marginBottom = LvnTokens.Space1;
             int rank = LvnRarity.Rank(prize.Rarity);
             var color = LvnRarity.ColorOf(prize.Rarity, palette);
-            LvnSkinCard.DressRarity(card.Card, rank >= 0 ? color : (Color?)null, LvnTokens.Text);
             if (prize.Price > 0) card.Card.Add(LvnSkinCard.PriceBadge(prize.Currency ?? _state?.SpinCurrency, prize.Price));
             bool owned = LvnWallet.Has(prize.Sku);
             card.Card.Add(LvnSkinCard.Mark(owned ? LvnWords.Of("gacha.owned", "owned") : chance.ToString("0.##") + " %",
                 owned ? LvnTokens.Gold : rank >= 0 ? Color.Lerp(color, Color.white, 0.3f) : LvnTokens.Text));
             if (owned) card.Art.style.opacity = 0.75f;
-            if (!string.IsNullOrEmpty(prize.Art)) LvnAsync.Fire(PaintCardArtAsync(card, prize.Art), "GachaContentsArt");
             card.Card.RegisterCallback<ClickEvent>(e => { e.StopPropagation(); ShowPrize(prize, chance, palette); });
             LvnMotion.Tappable(card.Card);
             return card.Card;
@@ -493,38 +503,28 @@ namespace Lvn.UI.Screens
                 LvnAsync.Fire(PaintArtAsync(art, prize.Art), "GachaPrizeView");
         }
 
-        /// <summary>Одеть клетку призом: фон и рамка цветом редкости, картинка
-        /// приза (приезжает), название и цена, если продаётся.</summary>
+        /// <summary>Одеть клетку призом — той же плиткой, что в гардеробе (Илья
+        /// 15.09: «в рулетке так же, платиновый задник со скруглёнными краями,
+        /// как в гардеробе точь-в-точь»): платина, арт с кадрированием по
+        /// разделу, подложка имени и имя в цвет ступени, полоса понизу.</summary>
         private void DressPrizeCell(VisualElement cell, LvnGacha.Prize raw)
         {
             cell.Clear();
+            cell.style.backgroundColor = Color.clear;
+            LvnChrome.ClearBorder(cell);
             var prize = raw != null ? DescribePrize(raw) : null;
-            var palette = _manifest?.ui?.wardrobe?.rarity_colors;
-            var color = prize != null && LvnRarity.Rank(prize.Rarity) >= 0 ? LvnRarity.ColorOf(prize.Rarity, palette) : LvnTokens.Gold;
-            cell.style.backgroundColor = UiColor.WithAlpha(color, 0.22f);
-            LvnChrome.Frame(cell, LvnTokens.RadiusSm, color, 2f);
-            var art = new VisualElement { pickingMode = PickingMode.Ignore };
-            art.style.width = Length.Percent(100f); art.style.flexGrow = 1; art.style.minHeight = LvnStageKit.D(40f);
-            art.style.alignItems = Align.Center; art.style.justifyContent = Justify.Center;
-            LvnPicture.Fit(art, cover: false);
-            art.Add(LvnIcons.Make(LvnIcon.Gift, LvnStageKit.D(28f), color));
-            cell.Add(art);
-            var label = new Label(prize?.Label ?? LvnWords.Of("gacha.super", "Rare"));
-            label.style.color = color;
-            label.style.fontSize = LvnTokens.TextSm;
-            label.style.whiteSpace = WhiteSpace.Normal;
-            label.style.unityTextAlign = TextAnchor.MiddleCenter;
-            label.style.marginTop = LvnTokens.Hair;
-            cell.Add(label);
-            if (prize != null && prize.Price > 0)
+            if (prize == null)
             {
-                var price = new Label(LvnPriceTag.Amount(prize.Price)) { pickingMode = PickingMode.Ignore };
-                price.style.color = LvnTokens.TextDim; price.style.fontSize = LvnTokens.TextMicro;
-                price.style.unityTextAlign = TextAnchor.MiddleCenter;
-                cell.Add(price);
+                // Пул пуст, а сектор есть: безликий подарок в золоте.
+                cell.style.backgroundColor = UiColor.WithAlpha(LvnTokens.Gold, 0.22f);
+                LvnChrome.Frame(cell, LvnTokens.RadiusSm, LvnTokens.Gold, 2f);
+                cell.Add(LvnIcons.Make(LvnIcon.Gift, LvnStageKit.D(28f), LvnTokens.Gold));
+                return;
             }
-            if (prize != null && !string.IsNullOrEmpty(prize.Art) && _assets != null)
-                LvnAsync.Fire(PaintArtAsync(art, prize.Art), "GachaCellArt");
+            var card = SkinCardFor(prize, _manifest?.ui?.wardrobe?.rarity_colors);
+            card.Card.style.width = Length.Percent(100f);
+            card.Card.style.height = Length.Percent(100f);
+            cell.Add(card.Card);
         }
 
         /// <summary>Арт в элемент — клетке ленты и крупному показу одинаково:
