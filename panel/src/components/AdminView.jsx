@@ -15,6 +15,7 @@ import Builds from "./admin/Builds.jsx";
 import Feedback from "./admin/Feedback.jsx";
 import Experiments from "./admin/Experiments.jsx";
 import AdminEconomy from "./AdminEconomy.jsx";
+import AdminSkins from "./AdminSkins.jsx";
 import AdminAssets from "./AdminAssets.jsx";
 import AdminManifest from "./AdminManifest.jsx";
 
@@ -141,6 +142,11 @@ export default function AdminView({ creds, notify, section: sectionProp, onSecti
             {section === "economy" && (
               <Page title="Экономика" description="Живые конфиги паков, рекламы и ежедневных наград — применяются без рестарта.">
                 <AdminEconomy token={token} notify={notify} />
+              </Page>
+            )}
+            {section === "skins" && (
+              <Page title="Скины" description="Одно место настройки нарядов, фонов, аватарок и призов круток — применяется без сборки.">
+                <AdminSkins token={token} notify={notify} />
               </Page>
             )}
             {section === "assets" && (
