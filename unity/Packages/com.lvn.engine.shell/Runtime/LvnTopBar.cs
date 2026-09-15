@@ -555,8 +555,12 @@ namespace Lvn.UI.Screens
 
         private bool _pillsFitHooked;
 
-        /// <summary>Ужать блок валют к правому краю, если он лёг на буквы
-        /// логотипа: масштаб от 1 до 0,6 по свободной полосе справа от букв.</summary>
+        /// <summary>ПРИЖАТЬ пилюли друг к другу, если они легли на буквы логотипа
+        /// (TR-116). Раньше блок УЖИМАЛСЯ масштабом до 0,6 — значки и «плюсы»
+        /// покупки становились мелкими («надо было только прижать друг к другу»
+        /// — Илья). Теперь размер значков и цифр не трогается: пилюли теряют
+        /// зазоры между собой и внутри (см. <see cref="LvnWalletPill.SetTight"/>),
+        /// а раздвигаются обратно, когда места снова хватает.</summary>
         private void KeepPillsOffLogo()
         {
             if (_stage == null || _stageLogo == null || _pills == null) return;
@@ -567,16 +571,31 @@ namespace Lvn.UI.Screens
             // и арта разные системы после переездов экранов.
             float lettersRight = art.xMin + art.width * LogoLettersRight;
             float free = pills.xMax - lettersRight - StageD(6f);   // от букв до правого края пилюль
-            float k = Mathf.Clamp(free / pills.width, 0.6f, 1f);
-            if (Mathf.Abs(k - _pillsScale) < 0.01f) return;
-            _pillsScale = k;
-            _pills.style.transformOrigin = new TransformOrigin(Length.Percent(100), Length.Percent(50));
-            _pills.style.scale = new Scale(new Vector2(k, k));
-            LvnLog.Info($"[lvn-topbar] пилюли к краю: строка {row.width:0}, арт {art.xMin:0}+{art.width:0}, "
-                      + $"буквы до {lettersRight:0}, пилюли {pills.xMin:0}–{pills.xMax:0}, k={k:0.00}");
+            // Гистерезис: прижатые пилюли короче — без запаса они бы раздвигались
+            // и снова ложились на буквы каждый кадр.
+            bool tight = _pillsTight ? free < pills.width + StageD(24f) : free < pills.width;
+            if (tight == _pillsTight) return;
+            _pillsTight = tight;
+            foreach (var child in _pills.Children())
+                (child as LvnWalletPill)?.SetTight(tight);
+            LvnLog.Info($"[lvn-topbar] пилюли {(tight ? "ПРИЖАТЫ" : "раздвинуты")}: строка {row.width:0}, арт {art.xMin:0}+{art.width:0}, "
+                      + $"буквы до {lettersRight:0}, пилюли {pills.xMin:0}–{pills.xMax:0}, свободно {free:0}");
         }
 
-        private float _pillsScale = 1f;
+        private bool _pillsTight;
+
+        /// <summary>Круглая кнопка: попадание считается по кругу, вписанному в
+        /// элемент, а не по его прямоугольнику.</summary>
+        private sealed class RoundHit : VisualElement
+        {
+            public override bool ContainsPoint(Vector2 localPoint)
+            {
+                var r = contentRect;
+                float radius = Mathf.Min(r.width, r.height) * 0.5f;
+                if (radius <= 0f) return base.ContainsPoint(localPoint);
+                return (localPoint - r.center).sqrMagnitude <= radius * radius;
+            }
+        }
 
 
         // ── содержимое ────────────────────────────────────────────────────────
@@ -606,7 +625,10 @@ namespace Lvn.UI.Screens
         // Бургер — три полоски (глиф «☰» на Android — tofu, грабля уже ловлена).
         private VisualElement Burger()
         {
-            var b = new VisualElement();
+            // КРУГ И НА ОЩУПЬ (TR-123): зона нажатия у элемента — его прямоугольник,
+            // и тап в пустой угол вокруг круга открывал меню («засчитывает даже
+            // в пустой угол» — Илья). Круглая кнопка сама решает, попали ли в неё.
+            var b = new RoundHit();
             b.name = "burger";   // имя нужно стражу и разбору дерева
             const float size = 52f;   // палец: минимальная зона нажатия с запасом
             b.style.marginLeft = LvnTokens.Space2;
