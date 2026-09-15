@@ -240,6 +240,10 @@ namespace Lvn.UI.Screens
                     return;
                 }
                 LvnLog.Info($"[lvn-gacha] продано: {sku} за {sale.Amount} {sale.Currency}");
+                // Проданный приз снова «не получен»: пул судит по списку ещё не
+                // выбитых, а свежий список придёт только со следующей круткой.
+                if (_state != null && spin.Prize != null && _state.PrizesLeft.TrueForAll(p => p.Sku != sku))
+                    _state.PrizesLeft.Add(spin.Prize);
                 _rewardRarity.text += " · " + LvnWords.Of("gacha.sold", "sold for {0}", LvnPriceTag.Full(sale.Currency, sale.Amount));
                 await WaitOrTapAsync(900);   // итог виден, потом показ закрывается
                 if (_closed || version != _prizeVersion) return;

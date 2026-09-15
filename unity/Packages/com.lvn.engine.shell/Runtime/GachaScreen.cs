@@ -268,6 +268,7 @@ namespace Lvn.UI.Screens
         internal void Present(LvnGacha.Status state)
         {
             _state = state;
+            Say(null);   // «загрузка данных…» снята: дальше говорит только ошибка (скрин Ильи 15.09)
             PaintCases();
             BuildStrip();
             PaintIdle();
@@ -547,10 +548,10 @@ namespace Lvn.UI.Screens
             {
                 bool owned = !left.Contains(p.Sku) || LvnWallet.Has(p.Sku);
                 double share = total > 0 && weights > 0 ? superW / total * ((p.Weight > 0 ? p.Weight : 1) / weights) * 100.0 : 0;
-                int copies = _state.Copies != null && _state.Copies.TryGetValue(p.Sku, out var n) ? n : 0;
+                bool won = !left.Contains(p.Sku);   // выбит здесь, а не куплен в гардеробе
                 var card = new LvnSkinCard();
                 card.style.marginRight = LvnTokens.Space1; card.style.marginBottom = LvnTokens.Space1;
-                card.Bind(InfoFor(p, palette, share, owned, copies), _assets);
+                card.Bind(InfoFor(p, palette, share, owned, won), _assets);
                 if (owned) card.Art.style.opacity = 0.75f;
                 grid.Add(card);   // своего действия нет — тап и долгое нажатие открывают подробности
             }
@@ -581,7 +582,9 @@ namespace Lvn.UI.Screens
             float width = grid.resolvedStyle.width;
             if (float.IsNaN(width) || width <= 1f) return;
             float gap = LvnTokens.Space1;
-            float w = Mathf.Floor((width - gap * (PoolColumns - 1)) / PoolColumns) - 0.5f;
+            // У КАЖДОЙ плитки правое поле, включая последнюю в ряду: считать зазоры
+            // «на один меньше» значило получить четыре в ряд вместо пяти (скрин Ильи).
+            float w = Mathf.Floor((width - gap * PoolColumns) / PoolColumns) - 0.5f;
             float h = w * LvnSkinCard.BaseHeight / LvnSkinCard.BaseWidth;
             foreach (var child in grid.Children())
                 if (child is LvnSkinCard card && Mathf.Abs(card.resolvedStyle.width - w) > 0.6f) card.SetSize(w, h);
@@ -630,7 +633,7 @@ namespace Lvn.UI.Screens
 
         /// <summary>Сведения о призе для общей плитки: кадр по разделу из SKU,
         /// ступень, цена, шанс в углу малозаметно, способ получения словами.</summary>
-        private LvnSkinCard.Info InfoFor(LvnGacha.Prize prize, IReadOnlyDictionary<string, string> palette, double? chance, bool owned, int copies = 0)
+        private LvnSkinCard.Info InfoFor(LvnGacha.Prize prize, IReadOnlyDictionary<string, string> palette, double? chance, bool owned, bool won = false)
         {
             var parts = prize.Sku?.Split(':');
             string axis = parts != null && parts.Length == 4 ? parts[2] : null;
@@ -644,11 +647,14 @@ namespace Lvn.UI.Screens
             // КОПИЙ В ИНВЕНТАРЕ НЕТ (Илья 15.09: «в инвентаре только одна копия,
             // дубль продаётся автоматом»): у имеющегося приза — способ получения
             // и за сколько уйдёт повтор; счётчик копий не показываем.
+            // Имеющийся приз: выбит здесь — «выпало в крутке», иначе куплен в гардеробе.
+            string how = won ? LvnWords.Of("skin.got_gacha", "Won in spins")
+                : prize.Price > 0 ? LvnWords.Of("skin.got_buy", "Bought for {0}", LvnPriceTag.Full(prize.Currency ?? _state?.SpinCurrency, prize.Price))
+                : LvnWords.Of("skin.get_free", "Free");
             string obtain = owned
-                ? LvnWords.Of("skin.get_owned", "Yours") + " · " + LvnWords.Of("skin.got_gacha", "Won in spins")
+                ? LvnWords.Of("skin.get_owned", "Yours") + " · " + how
                   + ((prize.SellPrice > 0 ? prize.SellPrice : prize.Price) > 0 ? " · " + LvnWords.Of("gacha.copy_worth", "a copy sells for {0}", LvnPriceTag.Full(prize.Currency ?? _state?.SpinCurrency, prize.SellPrice > 0 ? prize.SellPrice : prize.Price)) : "")
                 : drops + (sellable ? " · " + LvnWords.Of("skin.get_buy", "Buy: {0}", LvnPriceTag.Full(prize.Currency ?? _state?.SpinCurrency, prize.Price)) : "");
-            _ = copies;   // сервер считает повторы, экрану они больше не нужны
             return new LvnSkinCard.Info
             {
                 Title = prize.Label ?? prize.Sku, Art = prize.Art, SharpArt = zoom >= 3f,
@@ -1017,7 +1023,10 @@ namespace Lvn.UI.Screens
             lane.Window.Add(lane.Strip);
             AddNeedle(lane.Window);
             FillStrip(lane.Strip);
-            lane.Pos = _main.Pos;
+            // ЛЕНТЫ НЕ ХОДЯТ СТРОЕМ: у каждой своя фаза круга (пятая доля на
+            // ленту) — иначе пять дорожек показывают одну и ту же клетку в
+            // клетку («ну сам посмотри» — Илья 15.09 со скрином пяти лент).
+            lane.Pos = _main.Pos + LapLength * (double)(_extraLanes.Count + 1) / MaxLanes;
             var host = _content.contentContainer;
             host.Insert(host.IndexOf(_window) + 1 + _extraLanes.Count, lane.Window);
             _extraLanes.Add(lane);
