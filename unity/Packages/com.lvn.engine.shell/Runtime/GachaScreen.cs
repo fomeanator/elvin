@@ -427,8 +427,10 @@ namespace Lvn.UI.Screens
             var prizes = new List<LvnGacha.Prize>();
             foreach (var p in _state.Prizes ?? new List<LvnGacha.Prize>()) { var d = DescribePrize(p); prizes.Add(d); weights += d.Weight > 0 ? d.Weight : 1; }
             prizes.Sort((a, b) => LvnRarity.Rank(b.Rarity).CompareTo(LvnRarity.Rank(a.Rarity)));
+            // СЕТКА — КАК ТАБЛИЦА (Илья 15.09): заполняется слева направо, без
+            // центрирования; валюта — теми же плитками после призов.
             var grid = new VisualElement { name = "gacha-pool-grid" };
-            LvnFlow.Wrap(grid, Justify.Center);
+            LvnFlow.Wrap(grid, Justify.FlexStart);
             foreach (var p in prizes)
             {
                 bool owned = !left.Contains(p.Sku) || LvnWallet.Has(p.Sku);
@@ -440,29 +442,21 @@ namespace Lvn.UI.Screens
                 if (owned) card.Art.style.opacity = 0.75f;
                 grid.Add(card);   // своего действия нет — тап и долгое нажатие открывают подробности
             }
-            _pool.Add(grid);
-            // Валюта — чипами: значок, сумма, шанс сектора.
-            var chips = new VisualElement();
-            LvnFlow.Wrap(chips, Justify.Center);
-            chips.style.marginTop = LvnTokens.Space2;
             foreach (var s in _state.Sectors)
             {
                 if (s.Super) continue;
-                var chip = ScreenUi.Row();
-                chip.style.backgroundColor = LvnTokens.Surface;
-                LvnChrome.Round(chip, LvnTokens.RadiusSm);
-                LvnAir.Pad(chip, LvnTokens.Space2, LvnTokens.Space1);
-                chip.style.marginRight = LvnTokens.Space1; chip.style.marginBottom = LvnTokens.Space1;
-                chip.Add(LvnIcons.MakeCurrency(s.Currency, LvnStageKit.D(18f)));
-                var amount = new Label("+" + LvnPriceTag.Amount(s.Amount));
-                amount.style.color = LvnTokens.Text; amount.style.marginLeft = LvnTokens.Space1;
-                chip.Add(amount);
-                var chance = new Label((total > 0 ? s.Weight / total * 100.0 : 0).ToString("0.#") + " %");
-                chance.style.color = LvnTokens.TextDim; chance.style.fontSize = LvnTokens.TextSm; chance.style.marginLeft = LvnTokens.Space1;
-                chip.Add(chance);
-                chips.Add(chip);
+                var card = new LvnSkinCard { pickingMode = PickingMode.Ignore };
+                card.style.marginRight = LvnTokens.Space1; card.style.marginBottom = LvnTokens.Space1;
+                card.Bind(new LvnSkinCard.Info
+                {
+                    Title = "+" + LvnPriceTag.Amount(s.Amount),
+                    CurrencyIcon = s.Currency,
+                    Corner = (total > 0 ? s.Weight / total * 100.0 : 0).ToString("0.#") + " %",
+                }, _assets);
+                grid.Add(card);
             }
-            _pool.Add(chips);
+            _pool.Add(grid);
+        }            _pool.Add(chips);
         }
 
         /// <summary>Пул уезжает вниз и гаснет — лента крутится без него.</summary>

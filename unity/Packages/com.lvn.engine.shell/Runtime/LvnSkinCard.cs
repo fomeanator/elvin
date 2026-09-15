@@ -29,6 +29,7 @@ namespace Lvn.UI.Screens
         {
             public string Title;
             public string Art;                 // адрес арта; мини-вариант ищется сам
+            public string CurrencyIcon;        // вместо арта — значок валюты (плитка выигрыша)
             public bool SharpArt;              // сильный зум — сразу чёткий, мини даёт кашу
             public float Frame = 1f, FrameY = 0.5f;   // кадр по разделу: увеличение и якорь по высоте
             public bool Cover;                 // фон — заливкой окна, а не вписыванием
@@ -214,6 +215,20 @@ namespace Lvn.UI.Screens
                 Add(_corner);
             }
 
+            if (!string.IsNullOrEmpty(info.CurrencyIcon))
+            {
+                // ВАЛЮТА — ТОЙ ЖЕ ПЛИТКОЙ (Илья 15.09: «кристаллы показывать ровно
+                // так же, как скины»): значок валюты вместо арта, сумма — именем.
+                _art.style.backgroundImage = StyleKeyword.None;
+                _hanger.Clear();
+                _hanger.Add(LvnIcons.MakeCurrency(info.CurrencyIcon, 64f * _scale));
+                _hanger.style.opacity = 1f;
+                _hanger.style.display = DisplayStyle.Flex;
+                Spinning(false);
+                _artUrl = null;
+                return;
+            }
+            _hanger.style.opacity = 0.55f;
             if (info.None) { ShowGlyph(LvnIcon.Close); _artUrl = null; return; }
             if (string.IsNullOrEmpty(info.Art)) { ShowGlyph(LvnIcon.Wardrobe); _artUrl = null; return; }
             if (info.Art == _artUrl) return;
