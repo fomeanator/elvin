@@ -348,6 +348,11 @@ namespace Lvn.UI.Screens
             GachaTab.OpenStore = () => OpenPackShopAsync();
             GachaTab.GoHome = () => LvnAsync.Fire(TabGoTo(LvnTabs.Home), "GachaHome");
             Add(GachaTab);
+            // СПИСОК НОВЕЛЛ — ТОЖЕ ВКЛАДКА, и живёт в слое вкладок (TR-115).
+            // Лежал в корне: створ прячет слой вкладок и хаб, а список
+            // оставался поверх сцены до самого начала главы («блок с
+            // новеллами остаётся поверх и не убирается вместе с UI» — Илья).
+            Reparent(Titles, tabsLayer);
             Reparent(PackShop, tabsLayer);
             Reparent(WardrobeTab, tabsLayer);
             Reparent(GachaTab, tabsLayer);
