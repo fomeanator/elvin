@@ -60,15 +60,94 @@ func (p gachaPrize) saleOf() int64 {
 	return p.Price
 }
 
+// gachaCase — НАБОР (кейс): свои сектора, призы и цена (Илья и партнёр
+// 15.09: «крутки на наборы, в крутке выбрать какой кейс крутить; пока один,
+// потом второй»). Верхний уровень gacha.json — набор по умолчанию, чтобы
+// старые клиенты и старые файлы жили как жили.
+type gachaCase struct {
+	ID          string        `json:"id"`
+	Name        string        `json:"name,omitempty"`
+	Description string        `json:"description,omitempty"`
+	Cover       string        `json:"cover,omitempty"`
+	Currency    string        `json:"spin_currency,omitempty"`
+	Price       int64         `json:"spin_price,omitempty"`
+	Sectors     []gachaSector `json:"sectors,omitempty"`
+	Prizes      []gachaPrize  `json:"prizes,omitempty"`
+	Order       int           `json:"order,omitempty"`
+	Hidden      bool          `json:"hidden,omitempty"`
+}
+
+const defaultCaseID = "base"
+
 type gachaConfig struct {
 	Sectors  []gachaSector `json:"sectors"`
 	Prizes   []gachaPrize  `json:"prizes"`
 	Currency string        `json:"spin_currency"` // чем платить за платный прокрут
 	Price    int64         `json:"spin_price"`
+	Cases    []gachaCase   `json:"cases,omitempty"`
 	// РАЗНЫЕ ШАНСЫ ПО РЕДКОСТИ (TR-109, Илья 15.09): вес ступени внутри
 	// супер-сектора; ступень без веса и приз без ступени весят 1. Доли, не
 	// проценты: добавить ступень не значит пересчитать остальные.
 	RarityWeights map[string]float64 `json:"rarity_weights"`
+}
+
+// cases — наборы на выбор: названные в файле, иначе один набор по умолчанию
+// из верхнего уровня. Скрытые не показываются.
+func (c gachaConfig) cases() []gachaCase {
+	out := make([]gachaCase, 0, len(c.Cases)+1)
+	for _, k := range c.Cases {
+		if !k.Hidden && k.ID != "" {
+			out = append(out, k)
+		}
+	}
+	if len(out) == 0 {
+		out = append(out, gachaCase{ID: defaultCaseID, Currency: c.Currency, Price: c.Price, Sectors: c.Sectors, Prizes: c.Prizes})
+	}
+	return out
+}
+
+// pick — набор по id (пусто — первый); у набора без своих секторов, призов или
+// цены они берутся с верхнего уровня.
+func (c gachaConfig) pickCase(id string) (gachaConfig, gachaCase, bool) {
+	list := c.cases()
+	var k gachaCase
+	found := false
+	for _, cand := range list {
+		if cand.ID == id || (id == "" && !found) {
+			k, found = cand, true
+			if cand.ID == id {
+				break
+			}
+		}
+	}
+	if !found {
+		return c, k, false
+	}
+	view := c
+	if len(k.Sectors) > 0 {
+		view.Sectors = k.Sectors
+	}
+	if len(k.Prizes) > 0 || len(c.Cases) > 0 {
+		view.Prizes = k.Prizes
+	}
+	if k.Currency != "" {
+		view.Currency = k.Currency
+	}
+	if k.Price > 0 {
+		view.Price = k.Price
+	}
+	return view, k, true
+}
+
+// caseSummaries — то, что видит выбор набора: без секторов и призов.
+func (c gachaConfig) caseSummaries() []map[string]any {
+	out := []map[string]any{}
+	for _, k := range c.cases() {
+		v, _, _ := c.pickCase(k.ID)
+		out = append(out, map[string]any{"id": k.ID, "name": k.Name, "description": k.Description, "cover": k.Cover,
+			"spin_currency": v.Currency, "spin_price": v.Price, "prizes": len(v.Prizes)})
+	}
+	return out
 }
 
 // prizeWeight — вес приза в жеребьёвке супер-сектора: по его ступени, иначе 1.
@@ -250,8 +329,15 @@ func (s *GachaService) handleStatus(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "gacha_unavailable"})
 		return
 	}
-	cfg := s.cfg.Get()
+	all := s.cfg.Get()
+	cfg, k, ok := all.pickCase(r.URL.Query().Get("case"))
+	if !ok {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "no_such_case"})
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
+		"case":          k.ID,
+		"cases":         all.caseSummaries(),
 		"sectors":       cfg.wheel(doc.Taken),
 		"prizes_left":   cfg.left(doc.Taken),
 		"prizes":        cfg.all(),
@@ -281,7 +367,19 @@ func (s *GachaService) handleSpin(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "gacha_unavailable"})
 		return
 	}
-	cfg := s.cfg.Get()
+	// Набор — в теле {"case": id} или в запросе ?case=; пусто — первый.
+	var req struct {
+		Case string `json:"case"`
+	}
+	_ = json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req)
+	if req.Case == "" {
+		req.Case = r.URL.Query().Get("case")
+	}
+	cfg, k, ok := s.cfg.Get().pickCase(req.Case)
+	if !ok {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "no_such_case"})
+		return
+	}
 	wheel := cfg.wheel(doc.Taken)
 	if len(wheel) == 0 {
 		writeJSON(w, http.StatusConflict, map[string]any{"error": "no_sectors"})
@@ -304,7 +402,7 @@ func (s *GachaService) handleSpin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sector := s.draw(wheel)
-	result := map[string]any{"sector": sector.ID, "kind": sector.Kind}
+	result := map[string]any{"sector": sector.ID, "kind": sector.Kind, "case": k.ID}
 	switch sector.Kind {
 	case "super":
 		prize := s.pick(cfg.all())

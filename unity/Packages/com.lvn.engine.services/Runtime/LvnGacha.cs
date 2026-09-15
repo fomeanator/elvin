@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
@@ -42,8 +43,18 @@ namespace Lvn.Services
             public string Currency;  // валюта цены
         }
 
+        /// <summary>НАБОР (кейс) на выбор — что видно в ряду выбора: без секторов и призов.</summary>
+        public sealed class Case
+        {
+            public string Id, Name, Description, Cover, SpinCurrency;
+            public long SpinPrice;
+            public int Prizes;
+        }
+
         public sealed class Status
         {
+            public string CaseId;                       // какой набор пришёл
+            public List<Case> Cases = new List<Case>(); // все наборы на выбор
             public List<Sector> Sectors = new List<Sector>();
             public List<Prize> PrizesLeft = new List<Prize>();
             public List<Prize> Prizes = new List<Prize>();   // весь набор, включая уже выбитые
@@ -71,15 +82,19 @@ namespace Lvn.Services
             public string Error;      // пусто — прокрут состоялся
         }
 
-        public static async Task<Status> GetAsync()
+        public static Task<Status> GetAsync() => GetAsync(null);
+
+        /// <summary>Состояние набора; пусто — первый (или единственный).</summary>
+        public static async Task<Status> GetAsync(string caseId)
         {
-            var (code, body) = await LvnBackend.GetAsync("/v1/gacha");
+            var (code, body) = await LvnBackend.GetAsync("/v1/gacha" + (string.IsNullOrEmpty(caseId) ? "" : "?case=" + Uri.EscapeDataString(caseId)));
             var d = LvnBackend.Json(code, body);
             if (d == null) return null;
             try
             {
                 var st = new Status
                 {
+                    CaseId = (string)d["case"],
                     FreeToday = (bool?)d["free_today"] ?? false,
                     SpinCurrency = (string)d["spin_currency"],
                     SpinPrice = (long?)d["spin_price"] ?? 0,
@@ -88,6 +103,14 @@ namespace Lvn.Services
                 ReadSectors(d["sectors"] as JArray, st.Sectors);
                 ReadPrizes(d["prizes_left"] as JArray, st.PrizesLeft);
                 ReadPrizes(d["prizes"] as JArray, st.Prizes);
+                if (d["cases"] is JArray cases)
+                    foreach (var raw in cases)
+                        if (raw is JObject c && !string.IsNullOrEmpty((string)c["id"]))
+                            st.Cases.Add(new Case
+                            {
+                                Id = (string)c["id"], Name = (string)c["name"], Description = (string)c["description"], Cover = (string)c["cover"],
+                                SpinCurrency = (string)c["spin_currency"], SpinPrice = (long?)c["spin_price"] ?? 0, Prizes = (int?)c["prizes"] ?? 0,
+                            });
                 if (st.Prizes.Count == 0) st.Prizes.AddRange(st.PrizesLeft);   // старый сервер
                 if (d["copies"] is JObject copies)
                     foreach (var kv in copies) st.Copies[kv.Key] = (int?)kv.Value ?? 0;
@@ -98,11 +121,15 @@ namespace Lvn.Services
 
         /// <summary>Прокрутить. Ответ несёт и приз, и новое состояние — второй
         /// запрос за состоянием не нужен, а значит и рассинхрона между ними.</summary>
-        public static async Task<Spin> SpinAsync()
+        public static Task<Spin> SpinAsync() => SpinAsync(null);
+
+        /// <summary>Прокрут набора; пусто — первый.</summary>
+        public static async Task<Spin> SpinAsync(string caseId)
         {
             // Pending story earnings must reach the server before it charges the spin.
             await LvnWallet.FlushAsync();
-            var (code, body) = await LvnBackend.PostAsync("/v1/gacha/spin", "{}");
+            var payload = string.IsNullOrEmpty(caseId) ? "{}" : new JObject { ["case"] = caseId }.ToString(Newtonsoft.Json.Formatting.None);
+            var (code, body) = await LvnBackend.PostAsync("/v1/gacha/spin", payload);
             var spin = ReadSpin(code, body);
             if (!string.IsNullOrEmpty(spin.Error)) return spin;
             // This is a purchase/reward, never a throttled background nudge.

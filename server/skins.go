@@ -30,28 +30,32 @@ import (
 
 // skin — одна вещь, которую можно надеть, показать или включить.
 type skin struct {
-	SKU         string  `json:"sku"`                    // ключ инвентаря кошелька
-	Kind        string  `json:"kind"`                   // wardrobe | backdrop | avatar
-	Name        string  `json:"name,omitempty"`         // подпись
-	Description string  `json:"description,omitempty"`  // описание — в подробностях плитки (Илья 15.09)
-	Art         string  `json:"art,omitempty"`          // полный арт (слой, картина, аватар)
-	Preview     string  `json:"preview,omitempty"`      // мини для витрины (фоны)
-	Rarity      string  `json:"rarity,omitempty"`       // ступень; цвет — у палитры ступеней
-	Price       int64   `json:"price,omitempty"`        // цена скина: покупка в гардеробе и продажа копии
-	Currency    string  `json:"currency,omitempty"`     //
-	Buy         bool    `json:"buy,omitempty"`          // продаётся в гардеробе; false при цене — «только из крутки»
-	SellPrice   int64   `json:"sell_price,omitempty"`   // за сколько продаётся копия из крутки; 0 — за цену
-	Hidden      bool    `json:"hidden,omitempty"`       // не показывать нигде (в инвентаре у игроков остаётся)
-	Order       int     `json:"order,omitempty"`        // порядок показа внутри домена/оси; 0 — как в манифесте
-	Tags        string  `json:"tags,omitempty"`         // метки через запятую — для поиска и будущих наборов
-	Gacha       bool    `json:"gacha,omitempty"`        // выпадает в крутках
-	Weight      float64 `json:"gacha_weight,omitempty"` // свой вес в барабане; 0 — по ступени
+	SKU         string   `json:"sku"`                    // ключ инвентаря кошелька
+	Kind        string   `json:"kind"`                   // wardrobe | backdrop | avatar
+	Name        string   `json:"name,omitempty"`         // подпись
+	Description string   `json:"description,omitempty"`  // описание — в подробностях плитки (Илья 15.09)
+	Art         string   `json:"art,omitempty"`          // полный арт (слой, картина, аватар)
+	Preview     string   `json:"preview,omitempty"`      // мини для витрины (фоны)
+	Rarity      string   `json:"rarity,omitempty"`       // ступень; цвет — у палитры ступеней
+	Price       int64    `json:"price,omitempty"`        // цена скина: покупка в гардеробе и продажа копии
+	Currency    string   `json:"currency,omitempty"`     //
+	Buy         bool     `json:"buy,omitempty"`          // продаётся в гардеробе; false при цене — «только из крутки»
+	SellPrice   int64    `json:"sell_price,omitempty"`   // за сколько продаётся копия из крутки; 0 — за цену
+	Hidden      bool     `json:"hidden,omitempty"`       // не показывать нигде (в инвентаре у игроков остаётся)
+	Order       int      `json:"order,omitempty"`        // порядок показа внутри домена/оси; 0 — как в манифесте
+	Tags        string   `json:"tags,omitempty"`         // метки через запятую — для поиска и будущих наборов
+	Gacha       bool     `json:"gacha,omitempty"`        // выпадает в крутках
+	Weight      float64  `json:"gacha_weight,omitempty"` // свой вес в барабане; 0 — по ступени
+	Cases       []string `json:"cases,omitempty"`        // в каких наборах приз; пусто при gacha — набор по умолчанию
 }
 
 type skinsConfig struct {
 	RarityColors  map[string]string  `json:"rarity_colors,omitempty"`
 	RarityWeights map[string]float64 `json:"rarity_weights,omitempty"`
-	Skins         []skin             `json:"skins"`
+	// НАБОРЫ КРУТОК — тоже здесь, одно место: имя, описание, обложка, цена,
+	// сектора; призы набора — скины, у которых он назван в cases.
+	Cases []gachaCase `json:"cases,omitempty"`
+	Skins []skin      `json:"skins"`
 }
 
 const skinsFile = "skins.json"
@@ -168,6 +172,25 @@ func collectSkins(manifest map[string]any, gacha gachaConfig, existing skinsConf
 	if out.RarityWeights == nil && len(gacha.RarityWeights) > 0 {
 		out.RarityWeights = gacha.RarityWeights
 	}
+	// Наборы: из файла барабана, а верхний уровень — набор по умолчанию.
+	// Правленые наборы каталога остаются как есть.
+	if len(existing.Cases) > 0 {
+		out.Cases = existing.Cases
+	} else {
+		for _, k := range gacha.cases() {
+			k.Prizes = nil // призы набора — у скинов (cases), не второй список
+			if k.ID == defaultCaseID && k.Name == "" {
+				k.Name = "Набор"
+			}
+			out.Cases = append(out.Cases, k)
+		}
+	}
+	memberOf := map[string][]string{}
+	for _, k := range gacha.cases() {
+		for _, p := range k.Prizes {
+			memberOf[p.SKU] = append(memberOf[p.SKU], k.ID)
+		}
+	}
 	add := func(sk skin) {
 		if old, ok := known[sk.SKU]; ok {
 			out.Skins = append(out.Skins, old)
@@ -178,6 +201,12 @@ func collectSkins(manifest map[string]any, gacha gachaConfig, existing skinsConf
 			sk.Gacha = true
 			if sk.Rarity == "" {
 				sk.Rarity = p.Rarity
+			}
+		}
+		if cases := memberOf[sk.SKU]; len(cases) > 0 {
+			sk.Gacha = true
+			if !(len(cases) == 1 && cases[0] == defaultCaseID) {
+				sk.Cases = cases
 			}
 		}
 		out.Skins = append(out.Skins, sk)
@@ -446,16 +475,52 @@ func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) in
 		}
 		wardrobe["rarity_colors"] = colors
 	}
-	// Барабан: призы — все скины с флагом; сектора и цена крутки — как были.
-	prizes := make([]gachaPrize, 0)
-	for _, sk := range cfg.Skins {
-		if !sk.Gacha || sk.Hidden {
-			continue
-		}
-		prizes = append(prizes, gachaPrize{SKU: sk.SKU, Label: sk.Name, Art: sk.Art, Rarity: sk.Rarity,
-			Price: sk.Price, Currency: sk.Currency, Weight: sk.Weight, SellPrice: sk.SellPrice})
+	// Барабан: наборы из каталога, призы набора — скины, назвавшие его в
+	// cases (gacha без cases — набор по умолчанию). Верхний уровень файла =
+	// набор по умолчанию, чтобы старые клиенты жили как жили.
+	prizeOf := func(sk skin) gachaPrize {
+		return gachaPrize{SKU: sk.SKU, Label: sk.Name, Art: sk.Art, Rarity: sk.Rarity,
+			Price: sk.Price, Currency: sk.Currency, Weight: sk.Weight, SellPrice: sk.SellPrice}
 	}
-	gacha.Prizes = prizes
+	cases := cfg.Cases
+	if len(cases) == 0 {
+		cases = []gachaCase{{ID: defaultCaseID, Name: "Набор"}}
+	}
+	inCase := func(sk skin, id string) bool {
+		if !sk.Gacha || sk.Hidden {
+			return false
+		}
+		if len(sk.Cases) == 0 {
+			return id == defaultCaseID || id == cases[0].ID
+		}
+		for _, c := range sk.Cases {
+			if c == id {
+				return true
+			}
+		}
+		return false
+	}
+	applied := make([]gachaCase, 0, len(cases))
+	for _, k := range cases {
+		k.Prizes = nil
+		for _, sk := range cfg.Skins {
+			if inCase(sk, k.ID) {
+				k.Prizes = append(k.Prizes, prizeOf(sk))
+			}
+		}
+		if k.Sectors == nil {
+			k.Sectors = gacha.Sectors // сектора набора по умолчанию — с верхнего уровня
+		}
+		applied = append(applied, k)
+	}
+	gacha.Cases = applied
+	gacha.Prizes = applied[0].Prizes
+	if applied[0].Price > 0 {
+		gacha.Price = applied[0].Price
+	}
+	if applied[0].Currency != "" {
+		gacha.Currency = applied[0].Currency
+	}
 	if len(cfg.RarityWeights) > 0 {
 		gacha.RarityWeights = cfg.RarityWeights
 	}
