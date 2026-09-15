@@ -62,7 +62,7 @@ namespace Lvn.UI.Screens
         // Профиль без фейка (живой репорт): отношения с фаворитами — из
         // РЕАЛЬНЫХ статов. По каждому тайтлу с relationship-статами читаем
         // сохранённые переменные и превращаем в полосы «имя → доля от max».
-        // Пустой прогресс объясняет экран — рисованных процентов нет.
+        // Пустой прогресс честно прячет секцию — рисованных процентов нет.
         private async Task OpenProfileWithRelationsAsync()
         {
             var p = _shell?.Profile;
@@ -91,10 +91,11 @@ namespace Lvn.UI.Screens
                         float max = s.max > 0 ? s.max : 20f;
                         rel.Add(new Lvn.UI.Screens.ProfileScreen.Relation(
                             string.IsNullOrEmpty(s.label) ? s.key : s.label,
-                            Mathf.Clamp01(val / max), t.id + ":" + s.key));
+                            Mathf.Clamp01(val / max)));
                     }
                 }
             }
+            rel.Sort((a, b) => b.Affection.CompareTo(a.Affection));
             p.Relations = rel;
             // Честная цифра прогресса: пройденные главы по всем историям.
             // Считает ПРОГРЕСС — здесь стояла своя формула с двумя зажимами, и
@@ -123,13 +124,14 @@ namespace Lvn.UI.Screens
             p.CutsceneCount = CutsceneCount();
             p.OnOpenCutscenes = () => LvnAsync.Fire(OpenCutscenesAsync(), "OpenCutscenes");
             // ЛИЦО ИГРОКА (TR-79): кружок профиля показывает выбранное и по
-            // нажатию открывает набор или живой портрет героя гардероба.
+            // нажатию открывает набор. Пункта нет, пока новелла не назвала ни
+            // одной аватарки — обещать выбор без набора не за чем.
             p.AvatarUrl = LvnAvatars.Url(_manifest);
             // ПЕРЕДАЧИ ПРОХОЖДЕНИЯ В ПРОФИЛЕ НЕТ (TR-82, Арам 14.09: «лишние два
             // пункта — вырезать»). Тракт TR-17 жив: чужой код принимает диплинк
             // (NovelApp.cs), а экран без обработчиков пункты не строит — вернуть
             // их можно одной строкой здесь.
-            p.OnPickAvatar = LvnAvatars.CanChoose(_manifest)
+            p.OnPickAvatar = LvnAvatars.Offered(_manifest).Count > 0
                 ? () => LvnAsync.Fire(OpenAvatarPickAsync(), "AvatarPick")
                 : (System.Action)null;
             await _shell.TabGoTo(LvnTabs.Profile); // вкладка ленты, не модалка

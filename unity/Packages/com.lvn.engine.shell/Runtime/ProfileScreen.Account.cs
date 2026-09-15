@@ -26,26 +26,20 @@ namespace Lvn.UI.Screens
             LvnAir.MarginY(row, LvnTokens.Space1, LvnTokens.Space2);
             var col = new VisualElement();
             col.style.flexGrow = 1;
-            col.style.flexShrink = 1;
-            col.style.minWidth = 0;
-            col.style.marginRight = LvnTokens.Space2;
             var lbl = Lvn.UI.LvnRedress.Bind(new Label(), label);
             lbl.style.color = LvnTokens.Text;
             lbl.style.fontSize = LvnTokens.TextSm;
-            lbl.style.whiteSpace = WhiteSpace.Normal;
             col.Add(lbl);
             var sub = Lvn.UI.LvnRedress.Bind(new Label(), hint);
             sub.style.color = LvnTokens.TextDim;
             sub.style.fontSize = LvnTokens.TextXs;
             sub.style.marginTop = LvnTokens.Hair;
-            sub.style.whiteSpace = WhiteSpace.Normal;
             col.Add(sub);
             row.Add(col);
             var arrow = new Label("›");
             arrow.style.color = LvnTokens.Accent;
             arrow.style.fontSize = LvnTokens.TextBase;
             arrow.style.unityFontStyleAndWeight = FontStyle.Bold;
-            arrow.style.flexShrink = 0;
             row.Add(arrow);
             row.RegisterCallback<ClickEvent>(_ => { Close(); go(); });
             return row;
@@ -219,28 +213,21 @@ namespace Lvn.UI.Screens
         private VisualElement BuildFooter()
         {
             var footer = ScreenUi.Row(spread: true);
-            footer.name = "profile-footer";
             footer.style.marginTop = LvnTokens.Space1;
             footer.style.paddingTop = LvnTokens.Space2;
             LvnChrome.Divider(footer, LvnSide.Top);
 
             var id = string.IsNullOrEmpty(Uid) ? "u_unknown" : Uid;
-            var idLabel = new Label($"ID: {Shorten(id)}") { name = "profile-id", tooltip = id };
+            var idLabel = new Label($"ID: {Shorten(id)}");
             idLabel.style.color = LvnTokens.TextDim;
             idLabel.style.fontSize = LvnTokens.TextXs;
             idLabel.style.flexGrow = 1;
-            idLabel.style.flexShrink = 1;
-            idLabel.style.minWidth = 0;
-            idLabel.style.whiteSpace = WhiteSpace.Normal;
             footer.Add(idLabel);
 
             var copy = Lvn.UI.LvnRedress.Bind(new Button(), () => LvnWords.Of("settings.copy", "Copy"));
-            copy.name = "profile-copy-id";
             copy.style.fontSize = LvnTokens.TextXs;
-            copy.style.minHeight = LvnTokens.Touch;
-            copy.style.flexShrink = 0;
             LvnAir.Pad(copy, LvnTokens.Space3, LvnTokens.Space2);
-            LvnStyler.Quiet(copy, LvnTokens.RadiusSm);
+            LvnStyler.Primary(copy, LvnTokens.RadiusSm);
             copy.clicked += () =>
             {
                 GUIUtility.systemCopyBuffer = id;
