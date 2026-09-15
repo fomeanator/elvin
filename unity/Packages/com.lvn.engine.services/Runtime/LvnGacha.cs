@@ -146,6 +146,39 @@ namespace Lvn.Services
             return spin;
         }
 
+        /// <summary>Чем кончилась продажа выбитого скина: валюта и сумма, либо ошибка.</summary>
+        public sealed class Sale
+        {
+            public string Currency;
+            public long Amount;
+            public string Error;   // пусто — продано
+        }
+
+        /// <summary>
+        /// ПРОДАТЬ ВЫБИТЫЙ СКИН (TR-124): вещь уходит, валюта копии приходит, и
+        /// скин снова может выпасть как новый. Зовётся из церемонии приза —
+        /// «забрать или продать» (Илья 15.09).
+        /// </summary>
+        public static async Task<Sale> SellAsync(string sku)
+        {
+            if (string.IsNullOrEmpty(sku)) return new Sale { Error = "bad_request" };
+            await LvnWallet.FlushAsync();
+            var payload = new JObject { ["sku"] = sku }.ToString(Newtonsoft.Json.Formatting.None);
+            var (code, body) = await LvnBackend.PostAsync("/v1/gacha/sell", payload);
+            if (code == 0) return new Sale { Error = "offline" };
+            try
+            {
+                var d = JObject.Parse(body ?? "");
+                var err = (string)d["error"];
+                if (!string.IsNullOrEmpty(err)) return new Sale { Error = err };
+                if (!LvnBackend.Ok(code) || !(d["sold"] is JObject sold)) return new Sale { Error = "invalid_response" };
+                var sale = new Sale { Currency = (string)sold["currency"], Amount = (long?)sold["amount"] ?? 0 };
+                await LvnWallet.RefreshAsync();   // вещь ушла, валюта пришла — кошелёк обязан это увидеть
+                return sale;
+            }
+            catch { return new Sale { Error = "invalid_response" }; }
+        }
+
         internal static Spin ReadSpin(long code, string body)
         {
             if (code == 0) return new Spin { Error = "offline" };

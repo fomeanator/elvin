@@ -157,3 +157,39 @@ func TestGachaCasesPick(t *testing.T) {
 		t.Fatalf("у базового набора с cases призы свои (пусто), а не верхнего уровня: %+v", v.Prizes)
 	}
 }
+
+// ПРОДАЖА ВЫБИТОГО (TR-124): вещь изымается ровно один раз, второй раз изъять
+// нечего; приз для продажи находится по sku в любом наборе и уходит за цену
+// копии, а без неё — за цену скина.
+func TestRevokeItemAndPrizeLookup(t *testing.T) {
+	w := testWallet(t)
+	const user = "u_test_sell_0001"
+	if err := w.RevokeItem(user, "wardrobe:a", "gacha sell"); err == nil {
+		t.Fatal("изъяли вещь, которой нет")
+	}
+	if err := w.GrantItem(user, "wardrobe:a", "gacha"); err != nil {
+		t.Fatal(err)
+	}
+	if !w.Owns(user, "wardrobe:a") {
+		t.Fatal("выданная вещь не числится")
+	}
+	if err := w.RevokeItem(user, "wardrobe:a", "gacha sell"); err != nil {
+		t.Fatal(err)
+	}
+	if w.Owns(user, "wardrobe:a") {
+		t.Fatal("проданная вещь осталась в инвентаре")
+	}
+	cfg := gachaConfig{Cases: []gachaCase{
+		{ID: "a", Prizes: []gachaPrize{{SKU: "wardrobe:a", Price: 60, Currency: "crystals"}}},
+		{ID: "b", Prizes: []gachaPrize{{SKU: "wardrobe:b", Price: 90, SellPrice: 30, Currency: "crystals"}}},
+	}}
+	if p, ok := cfg.prizeBySKU("wardrobe:b"); !ok || p.saleOf() != 30 {
+		t.Fatalf("приз второго набора не найден или цена копии не та: %+v %v", p, ok)
+	}
+	if p, ok := cfg.prizeBySKU("wardrobe:a"); !ok || p.saleOf() != 60 {
+		t.Fatalf("без цены копии продажа идёт за цену скина: %+v %v", p, ok)
+	}
+	if _, ok := cfg.prizeBySKU("wardrobe:zzz"); ok {
+		t.Fatal("нашли приз, которого нет")
+	}
+}

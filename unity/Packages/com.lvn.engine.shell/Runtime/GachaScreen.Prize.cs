@@ -61,7 +61,7 @@ namespace Lvn.UI.Screens
             _rewardArt.Clear();
             _rewardArt.style.backgroundImage = StyleKeyword.None;
             _rewardArt.Add(spin.Super ? LvnIcons.Make(LvnIcon.Gift, LvnStageKit.D(96f), LvnTokens.Gold)
-                : LvnIcons.MakeCurrency(spin.Currency, LvnStageKit.D(96f)));
+                : LvnPriceTag.Icon(spin.Currency, LvnStageKit.D(96f)));
             _rewardName.text = spin.Super
                 ? prize.Label ?? prize.Sku
                 : "+" + LvnPriceTag.Amount(spin.Amount);
@@ -167,18 +167,41 @@ namespace Lvn.UI.Screens
                 + (prize.Price > 0 ? " · " + LvnPriceTag.Full(prize.Currency ?? _state?.SpinCurrency, prize.Price) : "")
                 + (spin.Copy > 0
                     ? " · " + (spin.SoldAmount > 0
-                        ? LvnWords.Of("gacha.copy_sold", "copy #{0} sold for {1}", spin.Copy, LvnPriceTag.Full(spin.SoldCurrency, spin.SoldAmount))
-                        : LvnWords.Of("gacha.copy", "copy #{0}", spin.Copy))
+                        ? LvnWords.Of("gacha.copy_sold", "a copy — sold for {0}", LvnPriceTag.Full(spin.SoldCurrency, spin.SoldAmount))
+                        : LvnWords.Of("gacha.copy", "a copy"))
                     : "");
             _rewardRarity.style.color = rarityColor;
             _rewardRarity.style.opacity = 0f;
             _rewardRarity.style.display = rank >= 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            // ЗАБРАТЬ ИЛИ ПРОДАТЬ (TR-124, Илья 15.09): новый скин можно тут же
+            // продать за цену копии — вещь уходит, кристаллы приходят, скин
+            // снова может выпасть. Копия уже продана сервером — второй кнопки
+            // у неё нет. В авто приз забирается сам, продажа — только тапом.
             var take = TakeButton(spin);
             take.RemoveFromHierarchy();
-            take.style.marginTop = LvnTokens.Space3;
-            take.style.opacity = 0f;
+            var actions = ScreenUi.Row();
+            actions.style.marginTop = LvnTokens.Space3;
+            actions.style.opacity = 0f;
+            actions.style.alignSelf = Align.Stretch;
+            actions.style.justifyContent = Justify.Center;
+            take.style.flexGrow = 1; take.style.flexBasis = 0;
+            actions.Add(take);
+            long sale = prize.SellPrice > 0 ? prize.SellPrice : prize.Price;
+            string saleCurrency = prize.Currency ?? _state?.SpinCurrency;
+            Button sell = null;
+            if (spin.Copy == 0 && sale > 0 && !string.IsNullOrEmpty(saleCurrency))
+            {
+                sell = ActionButton("gacha-sell", () => LvnWords.Of("gacha.sell", "Sell for {0}", LvnPriceTag.Full(saleCurrency, sale)),
+                    () => LvnAsync.Fire(SellPrizeAsync(spin, take, version), "GachaSell"));
+                sell.RemoveFromHierarchy();
+                LvnStageKit.PlateButton(sell, primary: false);
+                sell.style.flexGrow = 1; sell.style.flexBasis = 0;
+                sell.style.marginLeft = LvnTokens.Space2;
+                actions.Add(sell);
+            }
+            column.Add(actions);
             take.SetEnabled(false);
-            column.Add(take);
+            sell?.SetEnabled(false);
             bool reduce = LvnPrefs.ReduceMotion;
             await FadeIn(veil, 350, reduce);
             if (_closed || version != _prizeVersion) return;
@@ -187,10 +210,46 @@ namespace Lvn.UI.Screens
             await WaitOrTapAsync(2000);                       // тишина: только приз на чёрном (тап — дальше)
             if (_closed || version != _prizeVersion) return;
             take.SetEnabled(true);
+            sell?.SetEnabled(true);
             ready = true;
             LvnLog.Info("[lvn-gacha] церемония: название и «Забрать» показаны");
-            await Task.WhenAll(FadeIn(_rewardName, 400, reduce), FadeIn(_rewardRarity, 400, reduce), FadeIn(take, 400, reduce));
+            await Task.WhenAll(FadeIn(_rewardName, 400, reduce), FadeIn(_rewardRarity, 400, reduce), FadeIn(actions, 400, reduce));
         }
+
+        /// <summary>Продажа из церемонии: пока сервер отвечает, кнопки заперты и
+        /// авто-забор не торопит; итог — строкой под именем, затем показ
+        /// закрывается как по «Забрать». Отказ — строкой же, приз остаётся.</summary>
+        private async Task SellPrizeAsync(LvnGacha.Spin spin, Button take, int version)
+        {
+            var sku = spin.Prize?.Sku;
+            if (string.IsNullOrEmpty(sku) || _closed || version != _prizeVersion) return;
+            var buttons = _blackout?.Q<Button>("gacha-sell");
+            take.SetEnabled(false);
+            buttons?.SetEnabled(false);
+            _sellingPrize = true;
+            try
+            {
+                LvnGacha.Sale sale = await LvnGacha.SellAsync(sku);
+                if (_closed || version != _prizeVersion) return;
+                if (!string.IsNullOrEmpty(sale.Error))
+                {
+                    LvnLog.Warn($"[lvn-gacha] продажа {sku} не прошла: {sale.Error}");
+                    _rewardRarity.text += " · " + LvnWords.Of("gacha.sell_failed", "could not sell");
+                    take.SetEnabled(true);
+                    buttons?.SetEnabled(true);
+                    return;
+                }
+                LvnLog.Info($"[lvn-gacha] продано: {sku} за {sale.Amount} {sale.Currency}");
+                _rewardRarity.text += " · " + LvnWords.Of("gacha.sold", "sold for {0}", LvnPriceTag.Full(sale.Currency, sale.Amount));
+                await WaitOrTapAsync(900);   // итог виден, потом показ закрывается
+                if (_closed || version != _prizeVersion) return;
+                TakeNow(spin);
+            }
+            finally { _sellingPrize = false; }
+        }
+
+        /// <summary>Идёт продажа приза — авто-забор ждёт её конца.</summary>
+        private bool _sellingPrize;
 
         /// <summary>Проявление, которое можно протапать: тап ставит конечную
         /// прозрачность, и оставшиеся кадры прежнего хода её уже не трогают.</summary>
