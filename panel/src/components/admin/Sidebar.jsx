@@ -56,6 +56,7 @@ export const NAV = [
     { key: "feedback", label: "Отзывы", icon: "feedback" },
     { key: "experiments", label: "Эксперименты", icon: "experiments" },
     { key: "economy", label: "Экономика", icon: "economy" },
+    { key: "skins", label: "Скины", icon: "economy" },
     { key: "assets", label: "Ассеты", icon: "assets" },
     { key: "manifest", label: "Манифест", icon: "manifest" },
   ]},
