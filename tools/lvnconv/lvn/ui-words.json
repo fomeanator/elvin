@@ -632,8 +632,8 @@
   "default": "Stop"
  },
  {
-  "key": "gacha.close",
-  "default": "Close"
+  "key": "gacha.chance",
+  "default": "Chance"
  },
  {
   "key": "gacha.come_back",

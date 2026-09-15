@@ -252,7 +252,8 @@ namespace Lvn.UI.Screens
         // Resolve their actual name/art from the same catalog as the wardrobe.
         internal LvnGacha.Prize DescribePrize(LvnGacha.Prize prize)
         {
-            var result = new LvnGacha.Prize { Sku = prize.Sku, Label = prize.Label, Art = prize.Art };
+            var result = new LvnGacha.Prize { Sku = prize.Sku, Label = prize.Label, Art = prize.Art, Rarity = prize.Rarity, Weight = prize.Weight,
+                Price = prize.Price, Currency = prize.Currency };
             var parts = prize.Sku?.Split(':');
             if (parts == null || parts.Length != 4 || parts[0] != "wardrobe") return result;
             if (parts[2] == WardrobeSheet.BackdropAxis)
@@ -263,7 +264,8 @@ namespace Lvn.UI.Screens
                     {
                         result.Label = LvnWords.Name("skin", option.id, option.title ?? result.Label);
                         if (string.IsNullOrEmpty(result.Art)) result.Art = string.IsNullOrEmpty(option.preview) ? option.url : option.preview;
-                        result.Rarity = option.rarity; result.Price = option.price; result.Currency = option.currency;
+                        if (!string.IsNullOrEmpty(option.rarity)) result.Rarity = option.rarity;
+                        result.Price = option.price; result.Currency = option.currency;
                         break;
                     }
             }
@@ -274,7 +276,8 @@ namespace Lvn.UI.Screens
                     {
                         result.Label = LvnWords.Name("skin", item.value, item.name);
                         if (string.IsNullOrEmpty(result.Art)) result.Art = item.icon;
-                        result.Rarity = item.rarity; result.Price = item.price; result.Currency = item.currency;
+                        if (!string.IsNullOrEmpty(item.rarity)) result.Rarity = item.rarity;
+                        result.Price = item.price; result.Currency = item.currency;
                         break;
                     }
             return result;
