@@ -456,7 +456,23 @@ namespace Lvn.UI.Screens
                 grid.Add(card);
             }
             _pool.Add(grid);
-        }            _pool.Add(chips);
+            // ПЯТЬ В РЯД (Илья): ширина плитки — от ширины сетки, высота — по
+            // пропорции плитки гардероба; пересчёт при смене геометрии.
+            grid.RegisterCallback<GeometryChangedEvent>(_ => FitPoolCards(grid));
+            FitPoolCards(grid);
+        }
+
+        private const int PoolColumns = 5;
+
+        private static void FitPoolCards(VisualElement grid)
+        {
+            float width = grid.resolvedStyle.width;
+            if (float.IsNaN(width) || width <= 1f) return;
+            float gap = LvnTokens.Space1;
+            float w = Mathf.Floor((width - gap * (PoolColumns - 1)) / PoolColumns) - 0.5f;
+            float h = w * LvnSkinCard.BaseHeight / LvnSkinCard.BaseWidth;
+            foreach (var child in grid.Children())
+                if (child is LvnSkinCard card && Mathf.Abs(card.resolvedStyle.width - w) > 0.6f) card.SetSize(w, h);
         }
 
         /// <summary>Пул уезжает вниз и гаснет — лента крутится без него.</summary>
