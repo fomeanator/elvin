@@ -11,6 +11,8 @@ namespace Lvn.UI.Screens
     /// тап где угодно закрывает.</summary>
     public static class LvnSkinDetail
     {
+        private const float DetailZoom = 1.35f;
+
         public static void Show(VisualElement from, LvnSkinCard.Info info, ILvnAssets assets)
         {
             var root = from?.panel?.visualTree;
@@ -35,7 +37,9 @@ namespace Lvn.UI.Screens
             art.SetSize(h * LvnSkinCard.BaseWidth / LvnSkinCard.BaseHeight, h);
             art.Bind(new LvnSkinCard.Info
             {
-                Title = info.Title, Art = info.Art, SharpArt = true, Frame = info.Frame, FrameY = info.FrameY, Cover = info.Cover,
+                // Ближе, чем на плитке (Илья: «показывать скин приближенным, как
+                // в гардеробе»): тот же якорь, кадр крупнее.
+                Title = info.Title, Art = info.Art, SharpArt = true, Frame = info.Frame * DetailZoom, FrameY = info.FrameY, Cover = info.Cover,
                 None = info.None, Rarity = info.Rarity, Owned = true, Radius = info.Radius, TextColor = info.TextColor,
             }, assets);
             column.Add(art);
