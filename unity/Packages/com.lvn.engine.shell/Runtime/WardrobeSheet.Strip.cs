@@ -193,6 +193,7 @@ namespace Lvn.UI.Screens
                 Price = item.price, Currency = item.currency,
                 Gift = gift, Owned = owned,
                 Obtain = Obtain(item, owned),
+                Description = item.description,
                 Radius = _radius, TextColor = _text,
             }, _assets);
         }

@@ -48,7 +48,7 @@ namespace Lvn.UI.Screens
             if (raw == null) return list;
             foreach (var a in raw)
             {
-                if (a == null || string.IsNullOrEmpty(a.url)) continue;
+                if (a == null || string.IsNullOrEmpty(a.url) || a.hidden) continue;   // «скрыт» из админки
                 list.Add(new Choice
                 {
                     Id = string.IsNullOrEmpty(a.id) ? a.url : a.id,

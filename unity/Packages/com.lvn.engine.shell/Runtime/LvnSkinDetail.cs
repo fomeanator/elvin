@@ -55,6 +55,14 @@ namespace Lvn.UI.Screens
                 column.Add(meta);
             }
             if (!string.IsNullOrEmpty(info.Obtain)) column.Add(Meta(info.Obtain, LvnTokens.TextDim, LvnTokens.TextSm));
+            // ОПИСАНИЕ (Илья 15.09: «у скина должно быть описание, правится в
+            // админке») — текст автора под сведениями, обычным цветом.
+            if (!string.IsNullOrEmpty(info.Description))
+            {
+                var about = Meta(info.Description, LvnTokens.Text, LvnTokens.TextBase);
+                about.style.marginTop = LvnTokens.Space2;
+                column.Add(about);
+            }
 
             veil.Add(column);
             root.Add(veil);

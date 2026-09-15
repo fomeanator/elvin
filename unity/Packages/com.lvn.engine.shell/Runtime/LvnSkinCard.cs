@@ -42,6 +42,7 @@ namespace Lvn.UI.Screens
             public bool PriceAlways;           // …кроме мест, где цена — справка (пул круток: «есть» не прячет цену)
             public string Corner;              // малозаметная пометка в углу (шанс)
             public string Obtain;              // как получить: покупка, крутки, бесплатно
+            public string Description;         // описание — в подробностях (Илья 15.09)
             public float? Radius; public Color? TextColor;
         }
 

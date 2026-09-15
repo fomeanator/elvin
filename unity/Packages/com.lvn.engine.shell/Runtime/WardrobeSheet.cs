@@ -135,7 +135,7 @@ namespace Lvn.UI.Screens
             if (opts == null) return;
             var items = new List<LvnWardrobeItem>();
             foreach (var o in opts)
-                if (o != null && !string.IsNullOrEmpty(o.id) && !string.IsNullOrEmpty(o.url))
+                if (o != null && !string.IsNullOrEmpty(o.id) && !string.IsNullOrEmpty(o.url) && !o.hidden)
                     items.Add(new LvnWardrobeItem
                     {
                         value = o.id,

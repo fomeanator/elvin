@@ -17,10 +17,13 @@ namespace Lvn.Services
     {
         public sealed class Skin
         {
-            public string Sku, Kind, Name, Art, Preview, Rarity, Currency;
+            public string Sku, Kind, Name, Description, Art, Preview, Rarity, Currency;
             public long Price;
-            public bool Buy, Gacha;
+            public bool Buy, Gacha, Hidden;
             public double Weight;
+            public long SellPrice;   // своя цена копии; 0 — за цену скина
+            public int Order;
+            public string Tags;
             /// <summary>Только из крутки: в крутке есть, а не продаётся (цена — за копию).</summary>
             public bool GachaOnly => Gacha && !Buy;
         }
@@ -54,11 +57,12 @@ namespace Lvn.Services
                         if (raw is JObject o && !string.IsNullOrEmpty((string)o["sku"]))
                             skins.Add(new Skin
                             {
-                                Sku = (string)o["sku"], Kind = (string)o["kind"], Name = (string)o["name"],
+                                Sku = (string)o["sku"], Kind = (string)o["kind"], Name = (string)o["name"], Description = (string)o["description"],
                                 Art = (string)o["art"], Preview = (string)o["preview"], Rarity = (string)o["rarity"],
                                 Price = (long?)o["price"] ?? 0, Currency = (string)o["currency"],
-                                Buy = (bool?)o["buy"] ?? false, Gacha = (bool?)o["gacha"] ?? false,
-                                Weight = (double?)o["gacha_weight"] ?? 0,
+                                Buy = (bool?)o["buy"] ?? false, Gacha = (bool?)o["gacha"] ?? false, Hidden = (bool?)o["hidden"] ?? false,
+                                Weight = (double?)o["gacha_weight"] ?? 0, SellPrice = (long?)o["sell_price"] ?? 0,
+                                Order = (int?)o["order"] ?? 0, Tags = (string)o["tags"],
                             });
                 var colors = new Dictionary<string, string>();
                 if (d["rarity_colors"] is JObject rc) foreach (var kv in rc) colors[kv.Key] = (string)kv.Value;

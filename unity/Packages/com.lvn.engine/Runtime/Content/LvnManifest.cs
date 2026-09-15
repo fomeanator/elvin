@@ -253,6 +253,8 @@ namespace Lvn.Content
     {
         public string value;    // the axis value this item sets (required)
         public string name;     // display name; default: the value
+        public string description; // описание — в подробностях плитки (каталог скинов, TR-114)
+        public bool hidden;        // скрыт из админки: не показывать, у игроков остаётся
         public string icon;     // content url (a layer png works fine)
         public string currency; // price currency; with price>0 the item is bought
         public long price;

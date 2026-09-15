@@ -591,7 +591,7 @@ namespace Lvn.UI.Screens
             bool sellable = prize.Price > 0 && !prize.GachaOnly;   // «только из крутки» не покупается и при цене
             string obtain = owned
                 ? LvnWords.Of("skin.get_owned", "Already yours") + (copies > 0 ? " · " + LvnWords.Of("gacha.copies", "copies: {0}", copies) : "")
-                  + (prize.Price > 0 ? " · " + LvnWords.Of("gacha.copy_worth", "a copy sells for {0}", LvnPriceTag.Full(prize.Currency ?? _state?.SpinCurrency, prize.Price)) : "")
+                  + ((prize.SellPrice > 0 ? prize.SellPrice : prize.Price) > 0 ? " · " + LvnWords.Of("gacha.copy_worth", "a copy sells for {0}", LvnPriceTag.Full(prize.Currency ?? _state?.SpinCurrency, prize.SellPrice > 0 ? prize.SellPrice : prize.Price)) : "")
                 : drops + (sellable ? " · " + LvnWords.Of("skin.get_buy", "Buy: {0}", LvnPriceTag.Full(prize.Currency ?? _state?.SpinCurrency, prize.Price)) : "");
             return new LvnSkinCard.Info
             {
@@ -604,6 +604,7 @@ namespace Lvn.UI.Screens
                 Corner = owned ? LvnWords.Of("gacha.owned", "owned") + (copies > 0 ? " ×" + (copies + 1) : "")
                     : chance.HasValue ? chance.Value.ToString("0.##") + " %" : null,
                 Obtain = obtain,
+                Description = prize.Description,
             };
         }
 
