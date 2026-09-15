@@ -112,7 +112,8 @@ namespace Lvn.UI.Screens
             if (!spin.WalletSynced) LvnAsync.Fire(LvnWallet.RefreshAsync(), "GachaWalletRetry");
             _prizeVersion++;
             DismissCeremony();
-            PaintIdle();   // лента остаётся где стояла (TR-108)
+            if (_auto) { _reward.style.display = DisplayStyle.None; _poolDirty = true; }   // авто едет дальше, ленты на месте
+            else PaintIdle();   // лента остаётся где стояла (TR-108)
             _taken?.TrySetResult(true);
         }
 
@@ -136,7 +137,8 @@ namespace Lvn.UI.Screens
             bool ready = false;
             veil.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
             veil.RegisterCallback<PointerUpEvent>(e => e.StopPropagation());
-            veil.RegisterCallback<ClickEvent>(e => { e.StopPropagation(); if (ready) TakeNow(spin); });
+            // До «Забрать» тап торопит церемонию (протапать можно всё), после — забирает.
+            veil.RegisterCallback<ClickEvent>(e => { e.StopPropagation(); if (ready) TakeNow(spin); else _skipAsked = true; });
             Add(veil);
             veil.BringToFront();
             _blackout = veil;
@@ -176,14 +178,26 @@ namespace Lvn.UI.Screens
             bool reduce = LvnPrefs.ReduceMotion;
             await FadeIn(veil, 350, reduce);
             if (_closed || version != _prizeVersion) return;
-            await FadeIn(_rewardArt, 1700, reduce);          // награда проявляется 1,7 с
+            await RevealAsync(_rewardArt, 1700, reduce);     // награда проявляется 1,7 с (тап — сразу)
             if (_closed || version != _prizeVersion) return;
-            await Task.Delay(2000);                           // тишина: только приз на чёрном
+            await WaitOrTapAsync(2000);                       // тишина: только приз на чёрном (тап — дальше)
             if (_closed || version != _prizeVersion) return;
             take.SetEnabled(true);
             ready = true;
             LvnLog.Info("[lvn-gacha] церемония: название и «Забрать» показаны");
             await Task.WhenAll(FadeIn(_rewardName, 400, reduce), FadeIn(_rewardRarity, 400, reduce), FadeIn(take, 400, reduce));
+        }
+
+        /// <summary>Проявление, которое можно протапать: тап ставит конечную
+        /// прозрачность, и оставшиеся кадры прежнего хода её уже не трогают.</summary>
+        private async Task RevealAsync(VisualElement el, int ms, bool instant)
+        {
+            if (instant) { el.style.opacity = 1f; return; }
+            bool done = false;
+            var play = LvnMotion.PlayAsync(el, ms, (e, p) => { if (!done) e.style.opacity = LvnMotion.Settle(p); });
+            await Task.WhenAny(play, WaitOrTapAsync(ms));
+            done = true;
+            el.style.opacity = 1f;
         }
 
         private static Task FadeIn(VisualElement el, int ms, bool instant)

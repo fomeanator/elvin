@@ -42,12 +42,13 @@ namespace Lvn.UI.Screens
         /// «Пополнить» (TR-107). Вешает хозяин витрины.</summary>
         public Func<Task> OpenStore;
         private bool _needTopUp;
-        private const int MaxLanes = 3;
+        private const int MaxLanes = 5;   // Илья 15.09: «можно 5 лент максимально»
         /// <summary>Такт автокрутки (Илья 15.09: «0,6 крутка, 0,4 показываем,
         /// чтобы секунда была»): лента едет 0,6 с, выпавшая клетка держится
         /// подсвеченной 0,4 с — и только потом следующий ход.</summary>
         private const float FastSpinSeconds = 0.6f;
         private const int AutoShowMs = 400;
+        private const int AutoTakeMs = 2400, AutoResumeMs = 400;
         /// <summary>«Крутим…» не должно висеть вечно (TR-106): ответ дольше —
         /// считается неудачей, кнопка возвращается.</summary>
         private const int SpinTimeoutMs = 15000;
@@ -251,9 +252,11 @@ namespace Lvn.UI.Screens
             if (sectors == null || sectors.Count == 0) return;
             var supers = new List<LvnGacha.Sector>(); var plain = new List<LvnGacha.Sector>();
             foreach (var s in sectors) (s.Super ? supers : plain).Add(s);
+            // В ленте — ВЕСЬ набор, и выбитое тоже (Илья: «почему только 3?»):
+            // лента — витрина, садится она всё равно на то, что выдал сервер.
             var prizes = new List<LvnGacha.Prize>();
-            if (supers.Count > 0 && _state.PrizesLeft != null)
-                foreach (var p in _state.PrizesLeft) prizes.Add(DescribePrize(p));
+            if (supers.Count > 0 && _state.Prizes != null)
+                foreach (var p in _state.Prizes) prizes.Add(DescribePrize(p));
             prizes.Sort((a, b) => LvnRarity.Rank(b.Rarity).CompareTo(LvnRarity.Rank(a.Rarity)));
             var mixed = new List<LvnGacha.Prize>(prizes.Count);
             for (int lo = 0, hi = prizes.Count - 1; lo <= hi; lo++, hi--)
@@ -309,8 +312,19 @@ namespace Lvn.UI.Screens
         }
 
         private VisualElement _pool;
-        private bool _poolHidden;
+        private bool _poolHidden, _poolDirty;
         private int _poolMotion;
+
+        /// <summary>ПАУЗА, КОТОРУЮ МОЖНО ПРОТАПАТЬ (Илья 15.09: «тапы ускоряют любую
+        /// часть, чтобы можно было протапать всё, если нет терпения»): ждём срок
+        /// или тап по листу — что раньше. Каждая пауза берёт свой тап.</summary>
+        private async Task WaitOrTapAsync(int ms)
+        {
+            _skipAsked = false;
+            float until = Time.realtimeSinceStartup + ms / 1000f;
+            while (!_closed && !_skipAsked && Time.realtimeSinceStartup < until) await Task.Yield();
+            _skipAsked = false;
+        }
 
         /// <summary>Собрать пул: сетка плиток призов от бессмертных к обычным —
         /// тем же обликом, что гардероб, — и чипы валюты со своими шансами.
@@ -324,17 +338,23 @@ namespace Lvn.UI.Screens
             double total = 0, superW = 0;
             foreach (var s in _state.Sectors) { total += s.Weight; if (s.Super) superW += s.Weight; }
             var palette = _manifest?.ui?.wardrobe?.rarity_colors;
-            var left = _state.PrizesLeft ?? new List<LvnGacha.Prize>();
-            var prizes = new List<LvnGacha.Prize>(left.Count);
+            var left = new HashSet<string>();
             double weights = 0;
-            foreach (var p in left) { var d = DescribePrize(p); prizes.Add(d); weights += d.Weight > 0 ? d.Weight : 1; }
+            foreach (var p in _state.PrizesLeft ?? new List<LvnGacha.Prize>()) { left.Add(p.Sku); weights += p.Weight > 0 ? p.Weight : 1; }
+            var prizes = new List<LvnGacha.Prize>();
+            foreach (var p in _state.Prizes ?? new List<LvnGacha.Prize>()) prizes.Add(DescribePrize(p));
             prizes.Sort((a, b) => LvnRarity.Rank(b.Rarity).CompareTo(LvnRarity.Rank(a.Rarity)));
             var grid = new VisualElement { name = "gacha-pool-grid" };
             LvnFlow.Wrap(grid, Justify.Center);
             foreach (var p in prizes)
             {
-                double share = total > 0 && weights > 0 ? superW / total * ((p.Weight > 0 ? p.Weight : 1) / weights) * 100.0 : 0;
-                grid.Add(PrizeCard(p, share, palette));
+                bool inPool = left.Contains(p.Sku);
+                double share = inPool && total > 0 && weights > 0 ? superW / total * ((p.Weight > 0 ? p.Weight : 1) / weights) * 100.0 : 0;
+                var card = new LvnSkinCard();
+                card.style.marginRight = LvnTokens.Space1; card.style.marginBottom = LvnTokens.Space1;
+                card.Bind(InfoFor(p, palette, inPool ? share : (double?)null, owned: !inPool || LvnWallet.Has(p.Sku)), _assets);
+                if (!inPool) card.Art.style.opacity = 0.75f;
+                grid.Add(card);   // своего действия нет — тап и долгое нажатие открывают подробности
             }
             _pool.Add(grid);
             // Валюта — чипами: значок, сумма, шанс сектора.
@@ -402,111 +422,36 @@ namespace Lvn.UI.Screens
             }), "GachaPoolShow");
         }
 
-        /// <summary>Плитка приза — та же, что в гардеробе (LvnSkinCard): кадр по
-        /// разделу из SKU, облик редкости, арт мини-вариантом. Одна и та же на
-        /// пул под лентой и на клетки самой ленты.</summary>
-        private LvnSkinCard.Parts SkinCardFor(LvnGacha.Prize prize, IReadOnlyDictionary<string, string> palette)
+        /// <summary>Сведения о призе для общей плитки: кадр по разделу из SKU,
+        /// ступень, цена, шанс в углу малозаметно, способ получения словами.</summary>
+        private LvnSkinCard.Info InfoFor(LvnGacha.Prize prize, IReadOnlyDictionary<string, string> palette, double? chance, bool owned)
         {
             var parts = prize.Sku?.Split(':');
             string axis = parts != null && parts.Length == 4 ? parts[2] : null;
             bool backdrop = axis == WardrobeSheet.BackdropAxis;
             var (zoom, ay) = backdrop ? (1f, 0.5f) : LvnWardrobeStage.Framing(axis);
-            var card = LvnSkinCard.Make(LvnTokens.RadiusSm, zoom, ay, false, () => prize.Label ?? prize.Sku, LvnTokens.Text);
-            if (backdrop) LvnPicture.Fit(card.Art, cover: true);
             int rank = LvnRarity.Rank(prize.Rarity);
-            LvnSkinCard.DressRarity(card.Card, rank >= 0 ? LvnRarity.ColorOf(prize.Rarity, palette) : (Color?)null, LvnTokens.Text);
-            if (!string.IsNullOrEmpty(prize.Art)) LvnAsync.Fire(PaintCardArtAsync(card, prize.Art), "GachaCardArt");
-            return card;
-        }
-
-        /// <summary>Плитка пула: поверх общей плитки — шанс слева, ценник справа,
-        /// «есть» у имеющихся; тап — крупный показ.</summary>
-        private VisualElement PrizeCard(LvnGacha.Prize prize, double chance, IReadOnlyDictionary<string, string> palette)
-        {
-            var card = SkinCardFor(prize, palette);
-            card.Card.style.marginRight = LvnTokens.Space1; card.Card.style.marginBottom = LvnTokens.Space1;
-            int rank = LvnRarity.Rank(prize.Rarity);
-            var color = LvnRarity.ColorOf(prize.Rarity, palette);
-            if (prize.Price > 0) card.Card.Add(LvnSkinCard.PriceBadge(prize.Currency ?? _state?.SpinCurrency, prize.Price));
-            bool owned = LvnWallet.Has(prize.Sku);
-            card.Card.Add(LvnSkinCard.Mark(owned ? LvnWords.Of("gacha.owned", "owned") : chance.ToString("0.##") + " %",
-                owned ? LvnTokens.Gold : rank >= 0 ? Color.Lerp(color, Color.white, 0.3f) : LvnTokens.Text));
-            if (owned) card.Art.style.opacity = 0.75f;
-            card.Card.RegisterCallback<ClickEvent>(e => { e.StopPropagation(); ShowPrize(prize, chance, palette); });
-            LvnMotion.Tappable(card.Card);
-            return card.Card;
-        }
-
-        /// <summary>Арт плитки: сначала мини-вариант (как в гардеробе), иначе
-        /// полный; вешалка уходит, когда картинка легла.</summary>
-        private async Task PaintCardArtAsync(LvnSkinCard.Parts card, string url)
-        {
-            if (_assets == null) return;
-            Sprite sprite = null;
-            var mini = Lvn.Content.DownloadPolicy.MiniVariant(url);
-            try { if (!string.IsNullOrEmpty(mini)) sprite = await _assets.LoadSpriteAsync(mini, _artCancel.Token); }
-            catch (System.OperationCanceledException) { return; }
-            catch (System.Exception) { /* мини нет — ниже полный */ }
-            if (sprite == null)
+            string chanceText = chance.HasValue ? LvnWords.Of("skin.get_chance", "chance {0} %", chance.Value.ToString("0.##")) : null;
+            string obtain = owned ? LvnWords.Of("skin.get_owned", "Already yours")
+                : LvnWords.Of("skin.get_gacha", "Drops from spins") + (chanceText != null ? " · " + chanceText : "")
+                  + (prize.Price > 0 ? " · " + LvnWords.Of("skin.get_buy", "Buy: {0}", LvnPriceTag.Full(prize.Currency ?? _state?.SpinCurrency, prize.Price)) : "");
+            return new LvnSkinCard.Info
             {
-                try { sprite = await _assets.LoadSpriteAsync(url, _artCancel.Token); }
-                catch (System.OperationCanceledException) { return; }
-                catch (System.Exception ex) { LvnLog.Warn("[lvn-gacha] арт плитки: " + ex.Message); return; }
-            }
-            if (_closed || sprite == null) return;
-            card.Placeholder.style.display = DisplayStyle.None;
-            LvnPicture.Paint(card.Art, sprite, slice: 0);
-        }
-
-        /// <summary>КРУПНЫЙ ПОКАЗ ПРИЗА (Илья: «когда кликаешь на элемент, надо
-        /// показывать его»): чёрный экран, арт во всю ширину, имя цветом
-        /// ступени, под ним редкость, цена и шанс; тап где угодно закрывает.</summary>
-        private void ShowPrize(LvnGacha.Prize prize, double chance, IReadOnlyDictionary<string, string> palette)
-        {
-            var veil = new VisualElement { name = "gacha-prize-view" };
-            LvnChrome.Stretch(veil);
-            veil.style.backgroundColor = UiColor.WithAlpha(Color.black, 0.96f);
-            veil.style.alignItems = Align.Center; veil.style.justifyContent = Justify.Center;
-            veil.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
-            veil.RegisterCallback<ClickEvent>(e => { e.StopPropagation(); veil.RemoveFromHierarchy(); });
-            var column = new VisualElement();
-            column.style.width = Length.Percent(88f);
-            column.style.alignItems = Align.Center;
-            var art = new VisualElement { pickingMode = PickingMode.Ignore };
-            art.style.alignSelf = Align.Stretch;   // ширина своя — иначе процент от «ничего» (урок TR-102)
-            art.style.height = LvnStageKit.D(320f);
-            art.style.alignItems = Align.Center; art.style.justifyContent = Justify.Center;
-            LvnPicture.Fit(art, cover: false);
-            int rank = LvnRarity.Rank(prize.Rarity);
-            var color = rank >= 0 ? LvnRarity.ColorOf(prize.Rarity, palette) : LvnTokens.Gold;
-            art.Add(LvnIcons.Make(LvnIcon.Gift, LvnStageKit.D(96f), color));
-            column.Add(art);
-            var name = new Label(prize.Label ?? prize.Sku) { pickingMode = PickingMode.Ignore };
-            LvnFonts.Apply(name, LvnFonts.Display);
-            name.style.fontSize = LvnTokens.TextXl; name.style.color = color;
-            name.style.whiteSpace = WhiteSpace.Normal; name.style.unityTextAlign = TextAnchor.MiddleCenter;
-            name.style.alignSelf = Align.Stretch; name.style.marginTop = LvnTokens.Space2;
-            column.Add(name);
-            var line = new List<string>();
-            if (rank >= 0) line.Add(LvnRarity.Word(prize.Rarity));
-            if (prize.Price > 0) line.Add(LvnPriceTag.Full(prize.Currency ?? _state?.SpinCurrency, prize.Price));
-            line.Add(LvnWords.Of("gacha.chance", "Chance") + " " + chance.ToString("0.##") + " %");
-            var meta = new Label(string.Join(" · ", line)) { pickingMode = PickingMode.Ignore };
-            meta.style.fontSize = LvnTokens.TextBase; meta.style.color = color;
-            meta.style.whiteSpace = WhiteSpace.Normal; meta.style.unityTextAlign = TextAnchor.MiddleCenter;
-            meta.style.alignSelf = Align.Stretch; meta.style.marginTop = LvnTokens.Hair;
-            column.Add(meta);
-            veil.Add(column);
-            Add(veil);
-            veil.BringToFront();
-            if (!string.IsNullOrEmpty(prize.Art) && _assets != null)
-                LvnAsync.Fire(PaintArtAsync(art, prize.Art), "GachaPrizeView");
+                Title = prize.Label ?? prize.Sku, Art = prize.Art, SharpArt = zoom >= 3f,
+                Frame = zoom, FrameY = ay, Cover = backdrop,
+                Rarity = rank >= 0 ? LvnRarity.ColorOf(prize.Rarity, palette) : (Color?)null,
+                RarityWord = rank >= 0 ? LvnRarity.Word(prize.Rarity) : null,
+                Price = prize.Price, Currency = prize.Currency ?? _state?.SpinCurrency,
+                Gift = prize.Price <= 0, Owned = owned,
+                Corner = owned ? LvnWords.Of("gacha.owned", "owned") : chance.HasValue ? chance.Value.ToString("0.##") + " %" : null,
+                Obtain = obtain,
+            };
         }
 
         /// <summary>Одеть клетку призом — той же плиткой, что в гардеробе (Илья
         /// 15.09: «в рулетке так же, платиновый задник со скруглёнными краями,
-        /// как в гардеробе точь-в-точь»): платина, арт с кадрированием по
-        /// разделу, подложка имени и имя в цвет ступени, полоса понизу.</summary>
+        /// как в гардеробе точь-в-точь»): плитка заполняет клетку и сама
+        /// подбирает размер шрифтов под высоту ленты.</summary>
         private void DressPrizeCell(VisualElement cell, LvnGacha.Prize raw)
         {
             cell.Clear();
@@ -521,25 +466,9 @@ namespace Lvn.UI.Screens
                 cell.Add(LvnIcons.Make(LvnIcon.Gift, LvnStageKit.D(28f), LvnTokens.Gold));
                 return;
             }
-            var card = SkinCardFor(prize, _manifest?.ui?.wardrobe?.rarity_colors);
-            card.Card.style.width = Length.Percent(100f);
-            card.Card.style.height = Length.Percent(100f);
-            cell.Add(card.Card);
-        }
-
-        /// <summary>Арт в элемент — клетке ленты и крупному показу одинаково:
-        /// значок остаётся, если картинка не приехала.</summary>
-        private async Task PaintArtAsync(VisualElement art, string url)
-        {
-            try
-            {
-                var sprite = await _assets.LoadSpriteAsync(url, _artCancel.Token);
-                if (_closed || sprite == null) return;
-                art.Clear();
-                LvnPicture.Paint(art, sprite, slice: 0);
-            }
-            catch (System.OperationCanceledException) { /* экран закрыт — рисовать некуда */ }
-            catch (System.Exception) { /* клетка останется со значком */ }
+            var card = new LvnSkinCard { pickingMode = PickingMode.Ignore }.Fill();
+            card.Bind(InfoFor(prize, _manifest?.ui?.wardrobe?.rarity_colors, null, owned: false), _assets);
+            cell.Add(card);
         }
 
         /// <summary>Клетка круга, на которую сядет лента: приз — его клетка,
@@ -623,6 +552,8 @@ namespace Lvn.UI.Screens
             DismissCeremony();
             RemoveLanes();
             if (_sectorsDirty) BuildStrip();   // секторы изменились (кончились редкие) — только тогда
+            else if (_poolDirty) BuildPool();  // приз выбит — в пуле он теперь «есть», лента не трогается
+            _poolDirty = false;
             _actions.Clear();
             _reward.style.display = DisplayStyle.None;
             _window.style.display = DisplayStyle.Flex;
@@ -762,7 +693,9 @@ namespace Lvn.UI.Screens
         private void ApplyLaneHeights()
         {
             int lanes = 1 + _extraLanes.Count;
-            float h = LvnStageKit.D(lanes >= 3 ? 92f : lanes == 2 ? 112f : 144f);
+            // Одна 144, две по 112, три по 92, четыре по 76, пять по 64 dp —
+            // ряд кнопок остаётся на экране при любом числе лент.
+            float h = LvnStageKit.D(lanes >= 5 ? 64f : lanes == 4 ? 76f : lanes == 3 ? 92f : lanes == 2 ? 112f : 144f);
             _window.style.height = h;
             foreach (var lane in _extraLanes) lane.Window.style.height = h;
         }
@@ -822,7 +755,7 @@ namespace Lvn.UI.Screens
                     {
                         var lane = i == 0 ? _main : (i - 1 < _extraLanes.Count ? _extraLanes[i - 1] : null);
                         if (lane == null) continue;
-                        if (ok[i].Super) _sectorsDirty = true;   // приз ушёл из пула — круг пересобрать на покое
+                        if (ok[i].Super) _poolDirty = true;   // в пуле приз станет «есть»; лента не сбрасывается
                         rolls.Add(RollLaneAsync(lane, LandingIndex(ok[i], lane), 1, FastSpinSeconds));
                     }
                     await Task.WhenAll(rolls);
@@ -846,19 +779,21 @@ namespace Lvn.UI.Screens
                     }
                     await Task.WhenAll(shows);
                     if (_closed) return;
-                    if (rares.Count > 0)
+                    // НЕСКОЛЬКО РЕДКИХ ЗА ХОД (Илья: «что будет, если несколько
+                    // редких?»): церемонии идут по очереди. В АВТОКРУТКЕ (Илья
+                    // 15.09) приз принимается сам: после «Забрать» ждём 2,4 с
+                    // (тап — раньше), закрываем, через 0,4 с лента едет дальше;
+                    // ленты и их положение не сбрасываются.
+                    foreach (var rare in rares)
                     {
-                        // НЕСКОЛЬКО РЕДКИХ ЗА ХОД (Илья: «что будет, если несколько
-                        // редких?»): церемонии идут по очереди, каждая ждёт «Забрать».
-                        _auto = false; _spinning = false;
-                        foreach (var rare in rares)
-                        {
-                            _taken = new TaskCompletionSource<bool>();
-                            await RevealPrizeAsync(rare);
-                            await _taken.Task;
-                            if (_closed) return;
-                        }
-                        return;
+                        _taken = new TaskCompletionSource<bool>();
+                        await RevealPrizeAsync(rare);
+                        if (_closed) return;
+                        await Task.WhenAny(_taken.Task, WaitOrTapAsync(AutoTakeMs));
+                        if (_closed) return;
+                        if (!_taken.Task.IsCompleted) TakeNow(rare);
+                        await WaitOrTapAsync(AutoResumeMs);
+                        if (_closed) return;
                     }
                     if (error != null) break;                // часть лент упёрлась в кошелёк
                 }
@@ -891,7 +826,7 @@ namespace Lvn.UI.Screens
                         : LvnWords.Of("gacha.failed", "The spin did not go through. Try again.");
                     return;
                 }
-                if (spin.Super) _sectorsDirty = true;   // приз ушёл из пула — круг пересобрать на покое
+                if (spin.Super) _poolDirty = true;   // в пуле приз станет «есть»; лента не сбрасывается
                 await RollLaneAsync(_main, LandingIndex(spin, _main), SpinLaps, SpinSeconds);
                 if (_closed) return;
                 _state.FreeToday = spin.FreeToday;
@@ -951,7 +886,7 @@ namespace Lvn.UI.Screens
         private async Task ShowLandingAsync(Lane lane, int ms, LvnGacha.Prize prize)
         {
             var cell = LandedCell(lane);
-            if (cell == null) { await Task.Delay(ms); return; }
+            if (cell == null) { await WaitOrTapAsync(ms); return; }
             var described = prize != null ? DescribePrize(prize) : null;
             var color = described != null && LvnRarity.Rank(described.Rarity) >= 0
                 ? LvnRarity.ColorOf(described.Rarity, _manifest?.ui?.wardrobe?.rarity_colors) : LvnTokens.Gold;
@@ -962,7 +897,7 @@ namespace Lvn.UI.Screens
             cell.Add(glow);
             float lift = LvnPrefs.ReduceMotion ? 1f : 1.1f;
             cell.style.scale = new Scale(new Vector2(lift, lift));
-            try { await Task.Delay(ms); }
+            try { await WaitOrTapAsync(ms); }
             finally
             {
                 glow.RemoveFromHierarchy();

@@ -48,7 +48,7 @@ namespace Lvn.UI.Screens
         // (Илья 26.08). Въезд принадлежит появлению ленты — смене раздела,
         // персонажа, открытию листа.
         /// <summary>Рост плитки — одно число на карточку и на пустую ленту.</summary>
-        private const float StripCardH = LvnSkinCard.Height;
+        private const float StripCardH = LvnSkinCard.BaseHeight;
 
         private void RebuildStrip(bool animate = true)
         {
@@ -165,61 +165,45 @@ namespace Lvn.UI.Screens
         }
 
         /// <summary>
-        /// ОБНОВИТЬ ЖИВУЮ КАРТОЧКУ вместо рождения новой.
-        ///
-        /// <para>От состояния в ней зависят ровно три вещи: бейдж цены (пока не
-        /// куплено), арт (у шаблонной иконки он меняется вместе с соседней
-        /// осью — причёска показывает выбранный цвет) и подпись. Всё остальное
-        /// — геометрия, кадрирование, обработчик тапа — от состояния не зависит
-        /// и переживает обновление вместе с элементом.</para>
+        /// ОБНОВИТЬ ЖИВУЮ КАРТОЧКУ вместо рождения новой: плитка (LvnSkinCard)
+        /// получает свежие сведения — ценник, арт (у шаблонной иконки он
+        /// меняется вместе с соседней осью), подпись, ступень — и сама решает,
+        /// что перерисовать; арт перегружается, только если сменился адрес.
         /// </summary>
         private void RefreshCard(VisualElement card, string axis, LvnWardrobeItem item)
         {
-            if (card == null) return;
+            if (!(card is LvnSkinCard skin)) return;
+            var (zoom, ay) = LvnWardrobeStage.Framing(axis);
             bool owned = IsOwnedIn(axis, item);
-
-            // Ярлык цены пересобирается целиком: внутри значок валюты, и при
-            // смене предмета меняется не только число, но и он.
-            var badge = card.Q("card-price");
-            badge?.RemoveFromHierarchy();
-            if (!owned) card.Add(PriceBadge(item));
-
-            var name = card.Q<Label>("card-name");
-            // Название наряда — подпись, а не идентификатор: в английском
-            // интерфейсе «Орхидея» читается как недоделанный перевод.
-            if (name != null) name.text = Lvn.Content.LvnWords.Name("skin", item.value, item.name);
-
-            // РЕДКОСТЬ ПРЕДМЕТА — цветной ободок карточки. Поле `rarity` у
-            // предмета и палитра `rarity_colors` в конфигурации гардероба
-            // существовали с самого начала, автор разметил ими три десятка
-            // вещей — и не читал их НИКТО: описание связи жило в комментарии
-            // рядом с полем, а кода за ним не стояло.
-            //
-            // Ободок ставится на обновлении, а не при рождении карточки:
-            // редкость приходит из данных предмета и может смениться вместе с
-            // ними (переимпорт, правка манифеста).
-            DressRarity(card, Rarity(item));
-
-            // Арт переназначается, ТОЛЬКО если сменился адрес: иначе каждая
-            // сверка снова гоняла бы загрузку и гасила плитку под плейсхолдер.
-            var art = card.Q<VisualElement>("card-art");
-            var ph = card.Q<VisualElement>("card-ph");
-            var url = ResolveIcon(item.icon);
-            if (art != null && !string.IsNullOrEmpty(url) && (art.userData as string) != url)
+            bool gift = item.gacha && item.price <= 0;
+            skin.Bind(new LvnSkinCard.Info
             {
-                art.userData = url;
-                var (zoom, _) = LvnWardrobeStage.Framing(axis);
-                LvnAsync.Fire(AssignCardArtAsync(art, ph ?? new VisualElement(), url, sharp: zoom >= 3f),
-                    "WardrobeCard");
-            }
+                // Название наряда — подпись, а не идентификатор: в английском
+                // интерфейсе «Орхидея» читается как недоделанный перевод.
+                Title = Lvn.Content.LvnWords.Name("skin", item.value, item.name),
+                Art = ResolveIcon(item.icon),
+                // Сильный зум (украшения) на 256px-мини даёт кашу — такой кадр
+                // берёт чёткий арт (@2k) сразу.
+                SharpArt = zoom >= 3f,
+                Frame = zoom, FrameY = ay,
+                None = item.value == LvnWardrobe.NoneValue,
+                Rarity = Rarity(item), RarityWord = LvnRarity.Word(item.rarity),
+                Price = item.price, Currency = item.currency,
+                Gift = gift, Owned = owned,
+                Obtain = Obtain(item, owned),
+                Radius = _radius, TextColor = _text,
+            }, _assets);
         }
 
-        /// <summary>ОБЛИК РЕДКОСТИ «КАК В ДОТЕ» (TR-109, Илья 15.09: «хочу скины
-        /// в цвет Доты»). Не один ободок: задник плитки уходит в цвет ступени,
-        /// подложка имени темнеет в него же, имя пишется этим цветом, понизу —
-        /// яркая полоса. У обычного всё почти платиновое, у бессмертного —
-        /// золото: ступень видна с расстояния, а не по тонкой рамке.</summary>
-        private void DressRarity(VisualElement card, Color? rarity) => LvnSkinCard.DressRarity(card, rarity, _text);
+        /// <summary>Способ получения словами (Илья 15.09: «надо у скинов писать
+        /// их способы получения»): есть · крутки · покупка · бесплатно.</summary>
+        private static string Obtain(LvnWardrobeItem item, bool owned)
+        {
+            if (owned) return Lvn.Content.LvnWords.Of("skin.get_owned", "Already yours");
+            if (item.gacha) return Lvn.Content.LvnWords.Of("skin.get_gacha", "Drops from spins");
+            if (item.price > 0) return Lvn.Content.LvnWords.Of("skin.get_buy", "Buy: {0}", PriceText(item));
+            return Lvn.Content.LvnWords.Of("skin.get_free", "Free");
+        }
 
         /// <summary>Цвет редкости предмета, если автор его назвал: ключ у
         /// предмета (<c>rarity: "rare"</c>) ищется в палитре гардероба
@@ -241,76 +225,32 @@ namespace Lvn.UI.Screens
         private static string PriceText(LvnWardrobeItem item)
             => Lvn.UI.LvnPriceTag.Full(item?.currency, item?.price ?? 0);
 
-        /// <summary>
-        /// Бейдж цены — общий для рождения карточки и её обновления: два
-        /// одинаковых бейджа в двух местах разъезжаются на первой же правке
-        /// стиля.
-        ///
-        /// <para>Цвет берётся у ЦЕННИКА по валюте предмета. Здесь стоял
-        /// прибитый ромб «◆» и золото — то есть предмет за энергию всё равно
-        /// выглядел как проданный за самоцветы: роль была выделена, а бейдж
-        /// ходил мимо неё (шестой признак канона).</para>
-        /// </summary>
-        private VisualElement PriceBadge(LvnWardrobeItem item)
-            => item.gacha && item.price <= 0 ? LvnSkinCard.GiftBadge() : LvnSkinCard.PriceBadge(item.currency, item.price);
-
-        // Карточка: арт скина во всю плитку, цена бейджем ПРЯМО на арте
-        // (у купленных и бесплатных бейджа нет), имя на серой подложке снизу.
+        // Карточка — общая плитка (LvnSkinCard): облик и загрузка арта у неё,
+        // здесь — имя элемента, сведения и что делать по тапу.
         private VisualElement StripCard(string axis, int i, LvnWardrobeItem item)
         {
-            bool owned = IsOwnedIn(axis, item);
-            // Крупнее (Илья 27.08): плитка подросла, арт занимает почти всю
-            // её площадь (~+70%), имя заметно больше (~+50%).
-            // ОБЛИК — у общего дома плитки (LvnSkinCard): тот же вид стоит в
-            // «Что внутри» круток. Здесь — имя карточки, арт и поведение.
-            // ЗУМ ВИТРИНЫ ПО РАЗДЕЛУ (Илья 27.08): причёска кадрируется к
-            // голове, украшения — к шее, платье — к корпусу; «Все» — фигура
-            // целиком. Элемент больше карточки, карточка клипует излишек.
-            var (zoom, ay) = LvnWardrobeStage.Framing(axis);
-            bool none = item.value == LvnWardrobe.NoneValue;
-            var parts = LvnSkinCard.Make(_radius, zoom, ay, none,
-                () => Lvn.Content.LvnWords.Name("skin", item.value, item.name), _text);
-            var card = parts.Card;
             // КАРТОЧКА НАЗЫВАЕТ СЕБЯ. На витрине «Моё» лента собрана из разных
             // осей, а подсветка искала текущую по НОМЕРУ в пределах вкладки —
             // номер там ничего не значит, и зелёная отметка не появлялась
             // вовсе (живой репорт 01.09). По имени видно, что это за вещь.
-            card.name = "card-" + axis + "/" + item.value;
+            var card = new LvnSkinCard { name = "card-" + axis + "/" + item.value };
             card.style.marginRight = LvnTokens.Space2;
-            if (!string.IsNullOrEmpty(item.icon))
-            {
-                // Сильный зум (украшения) на 256px-мини даёт кашу — такой кадр
-                // берёт чёткий арт (@2k) сразу. Адрес запоминаем на элементе:
-                // по нему сверка узнаёт, менялся ли арт вообще.
-                var url = ResolveIcon(item.icon);
-                parts.Art.userData = url;
-                LvnAsync.Fire(AssignCardArtAsync(parts.Art, parts.Placeholder, url, sharp: zoom >= 3f), "WardrobeCard");
-            }
-
-            if (!owned) card.Add(PriceBadge(item));
-            // Облик редкости — С РОЖДЕНИЯ, а не только при обновлении: карточка,
-            // рождённая при смене раздела, приходила без цвета ступени до
-            // первой сверки (Илья 15.09: «не во всех категориях есть»).
-            DressRarity(card, Rarity(item));
-
+            RefreshCard(card, axis, item);
             if (i < 0)
             {
                 // Сборный таб «Все»: подсветка надетого рисуется сразу —
                 // карусельного индекса у этой ленты нет.
-                LvnStyler.Chosen(card, IsWornIn(axis, item.value), _accent);
+                card.SetChosen(IsWornIn(axis, item.value), ChosenInk);
             }
             // ОДИН ОБРАБОТЧИК НА ОБЕ ЛЕНТЫ, И РЕШАЕТ ОН В МОМЕНТ ТАПА.
             // Монтажёр сверяет карточки ПО КЛЮЧУ «ось/значение», а ключ у
             // «Моё» и у раздела ОДИН И ТОТ ЖЕ — значит один и тот же элемент
-            // служит обеим лентам. Обработчиков было два: свой рождался только
-            // при СОЗДАНИИ карточки, а переиспользованная приходила с чужим.
-            // Раздельный «если это «Моё» — выйти» и делал строку мёртвой:
-            // игрок открывал «Фон», возвращался в «Моё» — и тапы проваливались
-            // в никуда («после переключения перса строка в моём становится
-            // некликабельной» — Илья 08.09). Кто карточку родил, теперь неважно.
+            // служит обеим лентам. Раздельный «если это «Моё» — выйти» делал
+            // строку мёртвой (Илья 08.09). Кто карточку родил, теперь неважно.
+            // Долгое нажатие — подробности, их плитка показывает сама.
             var a2 = axis; var v2 = item.value;
             var n2 = Lvn.Content.LvnWords.Name("skin", item.value, item.name);
-            card.RegisterCallback<ClickEvent>(_ =>
+            card.Tapped += () =>
             {
                 if (_tab == null) return;
                 if (_tab == AllTab)
@@ -333,7 +273,7 @@ namespace Lvn.UI.Screens
                 if (at < 0) return;
                 _index[_tab] = at;
                 ShowItem(); // примерка + имя в карусели + подсветка — одно состояние
-            });
+            };
             return card;
         }
 
@@ -341,49 +281,18 @@ namespace Lvn.UI.Screens
         private bool IsWornIn(string axis, string value)
             => LvnCostumer.Wearing(_entity, axis, value, _def?.defaults);
 
-        // Арт карточки — МИНИ-ВЕРСИЯ (Илья 27.08: «не тянуть огромные, если
-        // юзер даже не тыкнет»): витрина живёт на @mini, полноразмер грузит
-        // только примерка на кукле. Пока не доехал (или мини нет и доезжает
-        // полный) — стоит плейсхолдер-вешалка.
-        private async Task AssignCardArtAsync(VisualElement art, VisualElement ph, string icon,
-            bool sharp = false)
+        /// <summary>Арт в чужой элемент (свотчи и ряд поднастроек): тот же тракт,
+        /// что у плитки — мини-вариант, иначе полный, — и та же сверка адреса:
+        /// за чем ходили, то и ставим, иначе побеждает не последняя загрузка, а
+        /// та, что доехала позже.</summary>
+        private async Task AssignCardArtAsync(VisualElement art, VisualElement ph, string icon, bool sharp = false)
         {
-            Sprite s = null;
-            var mini = sharp ? null : Lvn.Content.DownloadPolicy.MiniVariant(icon);
-            string via = "mini";
-            try { if (!string.IsNullOrEmpty(mini)) s = await _assets.LoadSpriteAsync(mini, CancellationToken.None); }
-            catch (Exception ex) { Debug.LogWarning($"[lvn-card-art] mini {mini}: {ex.Message}"); }
-            if (s == null)
-            {
-                via = "full";
-                try { s = await _assets.LoadSpriteAsync(icon, CancellationToken.None); }
-                catch (Exception ex) { Debug.LogWarning($"[lvn-card-art] full {icon}: {ex.Message}"); }
-            }
-            // Полный файловый след тракта витрины: какой url пробовали, чем
-            // кончилось — «одни вешалки» разбираются по этому логу, а не
-            // догадками (просьба Ильи 27.08).
-            if (s == null)
-            {
-                Debug.LogWarning($"[lvn-card-art] ПУСТО: mini={mini ?? "-"} и full={icon} не дали спрайта");
-                return;
-            }
-            LvnLog.Trace($"[lvn-card-art] ok via {via}: {(via == "mini" ? mini : icon)} ({s.texture?.width}x{s.texture?.height})");
-            // НЕ проверять art.panel: мгновенный кэш-хит завершается ДО того,
-            // как RebuildStrip добавил карточку в панель, и страж по panel
-            // молча выбрасывал арт — «показались, а при возврате на таб
-            // пропали» (живой скрин 27.08).
-            //
-            // А ВОТ АДРЕС ПРОВЕРИТЬ ОБЯЗАТЕЛЬНО. Карточка причёски меняет свой
-            // арт вслед за свотчем цвета, и два быстрых тапа посылают за одну и
-            // ту же карточку две загрузки. Побеждала не последняя, а та, что
-            // доехала позже: выбран чёрный — на карточке рыжий, до следующей
-            // пересборки ленты. Сцена от этого класса гонок закрыта поколениями
-            // (LvnStageClock), витрина — вот этой сверкой: адрес, за которым
-            // ходили, обязан быть тем же, что запрошен сейчас.
+            var s = await LvnSkinCard.LoadSpriteAsync(_assets, icon, sharp);
+            if (s == null) return;
             if (art.userData is string want && want != icon) return;
-            art.style.backgroundImage = new StyleBackground(s);
+            Lvn.UI.LvnPicture.Paint(art, s, slice: 0);
             Lvn.UI.LvnPicture.Pin(art, s, _assets); // видимый арт LRU не трогает
-            ph.style.display = DisplayStyle.None;
+            if (ph != null) ph.style.display = DisplayStyle.None;
         }
 
         // Подсветка текущего и доводка ленты: выбранная карточка всегда в кадре
@@ -396,8 +305,7 @@ namespace Lvn.UI.Screens
                 // На «Моё» отмечается НАДЕТОЕ, а не k-я карточка: лента там из
                 // разных осей, и номер вкладки к ней отношения не имеет.
                 bool on = _tab == AllTab ? IsWornCard(_stripCards[k]) : k == cur;
-                LvnStyler.Chosen(_stripCards[k], on, ChosenInk);
-                if (!on) LvnSkinCard.RestoreRing(_stripCards[k]);   // ободок ступени переживает «тихую» грань
+                (_stripCards[k] as LvnSkinCard)?.SetChosen(on, ChosenInk);
             }
             // Довозим В КАДР ТУ ЖЕ карточку, что и отметили, — иначе на «Моё»
             // лента уезжала к безразличной k-й, а отмеченная оставалась за краем.

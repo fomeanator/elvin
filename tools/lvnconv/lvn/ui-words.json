@@ -632,10 +632,6 @@
   "default": "Stop"
  },
  {
-  "key": "gacha.chance",
-  "default": "Chance"
- },
- {
   "key": "gacha.come_back",
   "default": "Come back tomorrow for a free spin"
  },
@@ -1198,6 +1194,26 @@
  {
   "key": "shop.value",
   "default": "BEST VALUE"
+ },
+ {
+  "key": "skin.get_buy",
+  "default": "Buy: {0}"
+ },
+ {
+  "key": "skin.get_chance",
+  "default": "chance {0} %"
+ },
+ {
+  "key": "skin.get_free",
+  "default": "Free"
+ },
+ {
+  "key": "skin.get_gacha",
+  "default": "Drops from spins"
+ },
+ {
+  "key": "skin.get_owned",
+  "default": "Already yours"
  },
  {
   "key": "slot",

@@ -95,6 +95,9 @@ func TestGachaPickWeighsRarity(t *testing.T) {
 	if left[0].Weight != 40 || left[1].Weight != 1 || left[2].Weight != 1 {
 		t.Fatalf("веса призов: %+v", left)
 	}
+	if all := cfg.all(); len(all) != 3 || all[0].Weight != 40 {
+		t.Fatalf("весь набор с весами: %+v", all)
+	}
 	svc := &GachaService{roll: func() float64 { return 0.1 }}
 	if got := svc.pick(left); got.SKU != "a" {
 		t.Fatalf("бросок 0.1 при весах 40/1/1 должен дать обычный, дал %s", got.SKU)
