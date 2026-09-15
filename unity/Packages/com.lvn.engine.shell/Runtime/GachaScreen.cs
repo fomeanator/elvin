@@ -70,6 +70,7 @@ namespace Lvn.UI.Screens
         {
             public VisualElement Window, Strip;
             public double Pos;   // позиция барабана в ячейках, только растёт
+            public bool[] Shown; // какие клетки круга сейчас в окне (включены)
         }
         private readonly List<Lane> _extraLanes = new List<Lane>();
         /// <summary>БЕСКОНЕЧНЫЙ БАРАБАН (TR-108, Илья 15.09): позиция ленты —
@@ -79,7 +80,12 @@ namespace Lvn.UI.Screens
         /// останавливается на нужном секторе. Остановка и есть открытие.</summary>
         private readonly Lane _main = new Lane();
         private bool _sectorsDirty;
-        private const int RenderLaps = 3;
+        /// <summary>ОДИН КРУГ В ДЕРЕВЕ, В КАДРЕ — ТОЛЬКО ОКНО (Илья 15.09: «лагает
+        /// до жути»): было три копии круга на ленту (сотни плиток на пяти
+        /// лентах), и UITK тянул их все каждый кадр. Теперь клетки круга стоят
+        /// в дереве по одной, а Render ставит на место лишь те ~7, что попадают
+        /// в окно, остальные выключены.</summary>
+        private const int RenderLaps = 1;
         private const float PrizeShare = 0.3f;   // доля призовых клеток в круге ленты
         private const int Visible = 4;
         private const float SpinSeconds = 7f;
@@ -352,15 +358,19 @@ namespace Lvn.UI.Screens
         {
             strip.Clear();
             for (int i = 0; i < _cells.Count * RenderLaps; i++) strip.Add(Cell(_cells[i % _cells.Count]));
+            var lane = strip == _strip ? _main : _extraLanes.Find(l => l.Strip == strip);
+            if (lane != null) lane.Shown = new bool[strip.childCount];
         }
 
         private VisualElement Cell(ReelCell info)
         {
             var sector = info.Sector;
             var cell = new VisualElement { pickingMode = PickingMode.Ignore };
+            cell.usageHints = UsageHints.DynamicTransform;   // едет каждый кадр — только матрица
+            cell.style.position = Position.Absolute;
+            cell.style.top = 0; cell.style.bottom = 0; cell.style.left = 0;
             cell.style.width = CellWidth;
-            cell.style.flexShrink = 0;
-            cell.style.marginRight = LvnTokens.Space1;
+            cell.style.display = DisplayStyle.None;   // включит Render, когда клетка войдёт в окно
             cell.style.alignItems = Align.Center;
             cell.style.justifyContent = Justify.Center;
             cell.style.backgroundColor = LvnTokens.Surface;
@@ -635,11 +645,7 @@ namespace Lvn.UI.Screens
             }
             if (spin.Super && fallback >= 0 && spin.Prize != null)
             {
-                for (int lap = 0; lap < RenderLaps; lap++)
-                {
-                    int idx = lap * n + fallback;
-                    if (idx < lane.Strip.childCount) DressPrizeCell(lane.Strip[idx], spin.Prize);
-                }
+                if (fallback < lane.Strip.childCount) DressPrizeCell(lane.Strip[fallback], spin.Prize);
                 return fallback;
             }
             return fallback >= 0 ? fallback : cur;
@@ -655,13 +661,27 @@ namespace Lvn.UI.Screens
         private void Render(Lane lane)
         {
             if (lane?.Strip == null) return;
-            int n = LapLength;
+            int n = lane.Strip.childCount;
+            if (n == 0) return;
+            if (lane.Shown == null || lane.Shown.Length != n) lane.Shown = new bool[n];
             float step = CellWidth + LvnTokens.Space1;
-            double o = ((lane.Pos % n) + n) % n * step;
-            // Сдвиг — ПРЕОБРАЗОВАНИЕМ, а не полем left: left перекладывает
-            // разметку всех плиток ленты каждый кадр (Илья: «лагает лента»),
-            // translate двигает готовую картинку.
-            lane.Strip.style.translate = new Translate((float)(-(o + n * step) + WindowWidth * 0.5f - CellWidth * 0.5f), 0f);
+            float centre = WindowWidth * 0.5f - CellWidth * 0.5f;
+            float reach = WindowWidth * 0.5f + CellWidth;   // дальше этого клетка за окном
+            for (int i = 0; i < n; i++)
+            {
+                // Кратчайшее расстояние по кругу от позиции барабана до клетки.
+                double d = i - lane.Pos;
+                d -= System.Math.Round(d / n) * n;
+                float x = (float)(d * step);
+                var cell = lane.Strip[i];
+                bool inWindow = Mathf.Abs(x) <= reach;
+                if (inWindow)
+                {
+                    cell.style.translate = new Translate(centre + x, 0f);
+                    if (!lane.Shown[i]) { cell.style.display = DisplayStyle.Flex; lane.Shown[i] = true; }
+                }
+                else if (lane.Shown[i]) { cell.style.display = DisplayStyle.None; lane.Shown[i] = false; }
+            }
         }
 
         private void LayoutStrip()
@@ -1137,9 +1157,10 @@ namespace Lvn.UI.Screens
         private VisualElement LandedCell(Lane lane)
         {
             if (lane?.Strip == null) return null;
-            int n = LapLength;
-            int idx = n + (int)((((long)System.Math.Round(lane.Pos)) % n + n) % n);
-            return idx < 0 || idx >= lane.Strip.childCount ? null : lane.Strip[idx];
+            int n = lane.Strip.childCount;
+            if (n == 0) return null;
+            int idx = (int)((((long)System.Math.Round(lane.Pos)) % n + n) % n);
+            return lane.Strip[idx];
         }
 
         /// <summary>ПОКАЗ ВЫПАВШЕГО В ЛЕНТЕ (Илья 15.09): клетка под стрелкой
