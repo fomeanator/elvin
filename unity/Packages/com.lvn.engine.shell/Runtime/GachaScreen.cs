@@ -208,6 +208,7 @@ namespace Lvn.UI.Screens
         {
             Say(LvnWords.Of("boot.loading_data", "loading data…"));
             var shown = ShowAsync();
+            if (!LvnSkins.Loaded) await LvnSkins.RefreshAsync();   // описания призов — из каталога
             _state = await LvnGacha.GetAsync();
             if (!_closed) Present(_state);
             await shown;
@@ -236,6 +237,7 @@ namespace Lvn.UI.Screens
         private async Task ReloadAsync()
         {
             Say(LvnWords.Of("boot.loading_data", "loading data…"));
+            if (!LvnSkins.Loaded) await LvnSkins.RefreshAsync();
             var state = await LvnGacha.GetAsync();
             if (_closed) return;
             Present(state);
@@ -580,8 +582,9 @@ namespace Lvn.UI.Screens
         {
             var parts = prize.Sku?.Split(':');
             string axis = parts != null && parts.Length == 4 ? parts[2] : null;
-            bool backdrop = axis == WardrobeSheet.BackdropAxis;
-            var (zoom, ay) = backdrop ? (1f, 0.5f) : LvnWardrobeStage.Framing(axis);
+            bool backdrop = axis == WardrobeSheet.BackdropAxis || prize.Kind == "backdrop";
+            bool avatar = prize.Kind == "avatar" || (prize.Sku != null && prize.Sku.StartsWith("avatar."));
+            var (zoom, ay) = backdrop || avatar ? (1f, 0.5f) : LvnWardrobeStage.Framing(axis);
             int rank = LvnRarity.Rank(prize.Rarity);
             string chanceText = chance.HasValue ? LvnWords.Of("skin.get_chance", "chance {0} %", chance.Value.ToString("0.##")) : null;
             string drops = LvnWords.Of("skin.get_gacha", "Drops from spins") + (chanceText != null ? " · " + chanceText : "");
@@ -593,7 +596,7 @@ namespace Lvn.UI.Screens
             return new LvnSkinCard.Info
             {
                 Title = prize.Label ?? prize.Sku, Art = prize.Art, SharpArt = zoom >= 3f,
-                Frame = zoom, FrameY = ay, Cover = backdrop,
+                Frame = zoom, FrameY = ay, Cover = backdrop || avatar,   // фон и аватарка — заливкой
                 Rarity = rank >= 0 ? LvnRarity.ColorOf(prize.Rarity, palette) : (Color?)null,
                 RarityWord = rank >= 0 ? LvnRarity.Word(prize.Rarity) : null,
                 Price = prize.Price, Currency = prize.Currency ?? _state?.SpinCurrency,

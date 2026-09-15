@@ -34,6 +34,7 @@ namespace Lvn.Services
             public string Art;
             public string Rarity;    // ключ редкости (сервер или манифест)
             public bool GachaOnly;   // в гардеробе не продаётся — только из крутки (флаг gacha у наряда)
+            public string Kind;      // домен по каталогу: wardrobe | backdrop | avatar
             public double Weight;    // вес внутри «Редкого» — для шанса
             public long Price;       // цена в гардеробе, 0 — не продаётся
             public string Currency;  // валюта цены

@@ -232,6 +232,19 @@ namespace Lvn.UI.Screens
             var result = new LvnGacha.Prize { Sku = prize.Sku, Label = prize.Label, Art = prize.Art, Rarity = prize.Rarity, Weight = prize.Weight,
                 Price = prize.Price, Currency = prize.Currency };
             var parts = prize.Sku?.Split(':');
+            // КАТАЛОГ — ПЕРВЫМ (TR-114): одна запись на приз любого домена, включая
+            // аватарки, которых в манифесте по sku не найти. Манифест — запасной
+            // путь: офлайн или старый сервер.
+            var known = LvnSkins.Find(prize.Sku);
+            if (known != null)
+            {
+                string value = parts != null && parts.Length == 4 ? parts[3] : known.Sku;
+                result.Label = LvnWords.Name("skin", value, known.Name ?? result.Label);
+                if (string.IsNullOrEmpty(result.Art)) result.Art = string.IsNullOrEmpty(known.Preview) && known.Kind != "backdrop" ? known.Art : (known.Kind == "backdrop" && !string.IsNullOrEmpty(known.Preview) ? known.Preview : known.Art);
+                if (!string.IsNullOrEmpty(known.Rarity)) result.Rarity = known.Rarity;
+                result.Price = known.Price; result.Currency = known.Currency;
+                result.GachaOnly = known.GachaOnly; result.Kind = known.Kind;
+            }
             if (parts == null || parts.Length != 4 || parts[0] != "wardrobe") return result;
             if (parts[2] == WardrobeSheet.BackdropAxis)
             {
