@@ -202,10 +202,16 @@ namespace Lvn.UI.Screens
         /// их способы получения»): есть · крутки · покупка · бесплатно.</summary>
         private static string Obtain(LvnWardrobeItem item, bool owned)
         {
-            if (owned) return Lvn.Content.LvnWords.Of("skin.get_owned", "Already yours");
-            if (item.gacha) return Lvn.Content.LvnWords.Of("skin.get_gacha", "Drops from spins");
-            if (item.price > 0) return Lvn.Content.LvnWords.Of("skin.get_buy", "Buy: {0}", PriceText(item));
-            return Lvn.Content.LvnWords.Of("skin.get_free", "Free");
+            // СПОСОБ ПОЛУЧЕНИЯ — ВСЕГДА, «есть» — приставкой (TR-118). Слово
+            // «уже есть» вместо способа ничего не говорило о вещи («надо писать,
+            // как получено, и описание» — Илья): у имеющегося наряда способ
+            // тот же, только в прошедшем времени.
+            string how = item.gacha
+                ? Lvn.Content.LvnWords.Of(owned ? "skin.got_gacha" : "skin.get_gacha", owned ? "Won in spins" : "Drops from spins")
+                : item.price > 0
+                    ? Lvn.Content.LvnWords.Of(owned ? "skin.got_buy" : "skin.get_buy", owned ? "Bought for {0}" : "Buy: {0}", PriceText(item))
+                    : Lvn.Content.LvnWords.Of("skin.get_free", "Free");
+            return owned ? Lvn.Content.LvnWords.Of("skin.get_owned", "Yours") + " · " + how : how;
         }
 
         /// <summary>Цвет редкости предмета, если автор его назвал: ключ у
