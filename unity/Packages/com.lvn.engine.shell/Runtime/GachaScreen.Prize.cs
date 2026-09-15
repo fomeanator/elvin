@@ -24,6 +24,10 @@ namespace Lvn.UI.Screens
             _reward.style.flexShrink = 0;
             _reward.style.marginTop = LvnTokens.Space3;
             _reward.style.alignItems = Align.Center;
+            // ШИРИНА — СВОЯ. В церемонии награда стоит в центрирующей колонке,
+            // и без растяжки блок ужимался до ширины подписи: картинка на 100 %
+            // от «ничего» — ноль, приз не показывался (Илья 15.09).
+            _reward.style.alignSelf = Align.Stretch;
             _rewardArt = new VisualElement { name = "gacha-reward-art", pickingMode = PickingMode.Ignore };
             _rewardArt.style.height = 240f;
             _rewardArt.style.width = Length.Percent(100f);
@@ -290,6 +294,9 @@ namespace Lvn.UI.Screens
                 _rewardArt.Clear();
                 LvnPicture.Paint(_rewardArt, sprite, slice: 0);
                 LvnLog.Info($"[lvn-gacha] арт приза показан: {prize.Art} ({sprite.rect.width:0}×{sprite.rect.height:0})");
+                _rewardArt.schedule.Execute(() => LvnLog.Info(
+                    $"[lvn-gacha] арт приза: окно {_rewardArt.resolvedStyle.width:0}×{_rewardArt.resolvedStyle.height:0}, "
+                    + $"opacity {_rewardArt.resolvedStyle.opacity:0.00}, блок {_reward.resolvedStyle.width:0}×{_reward.resolvedStyle.height:0}")).StartingIn(60);
             }
             catch (System.OperationCanceledException) { /* the reward screen was closed */ }
             catch (System.Exception ex) { LvnLog.Warn("[lvn-gacha] prize art unavailable: " + ex.Message); }

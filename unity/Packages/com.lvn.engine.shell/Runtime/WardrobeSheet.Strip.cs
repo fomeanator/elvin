@@ -49,6 +49,10 @@ namespace Lvn.UI.Screens
         // персонажа, открытию листа.
         /// <summary>Рост плитки — одно число на карточку и на пустую ленту.</summary>
         private const float StripCardH = 208f;
+        // Платина #D1D1D6 (Илья 26.08) вместо прежней тускло-серой заливки:
+        // арт скинов тёмный, и светлый задник держит его силуэт.
+        private static readonly Color Platinum = UiColor.Named("#D1D1D6", new Color(0.82f, 0.82f, 0.84f));
+        private static readonly Color PlateDark = new Color(0.16f, 0.16f, 0.19f, 0.85f);
 
         private void RebuildStrip(bool animate = true)
         {
@@ -198,9 +202,7 @@ namespace Lvn.UI.Screens
             // Ободок ставится на обновлении, а не при рождении карточки:
             // редкость приходит из данных предмета и может смениться вместе с
             // ними (переимпорт, правка манифеста).
-            var ring = Rarity(item);
-            if (ring.HasValue) LvnChrome.Border(card, ring.Value, 2f);
-            else LvnChrome.ClearBorder(card);
+            DressRarity(card, Rarity(item));
 
             // Арт переназначается, ТОЛЬКО если сменился адрес: иначе каждая
             // сверка снова гоняла бы загрузку и гасила плитку под плейсхолдер.
@@ -214,6 +216,38 @@ namespace Lvn.UI.Screens
                 LvnAsync.Fire(AssignCardArtAsync(art, ph ?? new VisualElement(), url, sharp: zoom >= 3f),
                     "WardrobeCard");
             }
+        }
+
+        /// <summary>ОБЛИК РЕДКОСТИ «КАК В ДОТЕ» (TR-109, Илья 15.09: «хочу скины
+        /// в цвет Доты»). Не один ободок: задник плитки уходит в цвет ступени,
+        /// подложка имени темнеет в него же, имя пишется этим цветом, понизу —
+        /// яркая полоса. У обычного всё почти платиновое, у бессмертного —
+        /// золото: ступень видна с расстояния, а не по тонкой рамке.</summary>
+        private void DressRarity(VisualElement card, Color? rarity)
+        {
+            var plate = card.Q("card-plate");
+            var name = card.Q<Label>("card-name");
+            var bar = card.Q("card-rarity");
+            if (!rarity.HasValue)
+            {
+                LvnChrome.ClearBorder(card);
+                card.style.backgroundColor = Platinum;
+                if (plate != null) { plate.style.backgroundColor = PlateDark; plate.style.paddingBottom = LvnTokens.Space1; }
+                if (name != null) name.style.color = _text;
+                if (bar != null) bar.style.display = DisplayStyle.None;
+                return;
+            }
+            var c = rarity.Value;
+            LvnChrome.Border(card, c, 2f);
+            card.style.backgroundColor = Color.Lerp(Platinum, c, 0.45f);
+            if (plate != null)
+            {
+                var tinted = Color.Lerp(PlateDark, c, 0.35f); tinted.a = 0.9f;
+                plate.style.backgroundColor = tinted;
+                plate.style.paddingBottom = LvnTokens.Space1 + 4f;   // место под полосу
+            }
+            if (name != null) name.style.color = Color.Lerp(c, Color.white, 0.3f);
+            if (bar != null) { bar.style.backgroundColor = c; bar.style.display = DisplayStyle.Flex; }
         }
 
         /// <summary>Цвет редкости предмета, если автор его назвал: ключ у
@@ -292,9 +326,7 @@ namespace Lvn.UI.Screens
             card.style.width = 150; card.style.height = StripCardH;
             card.style.marginRight = LvnTokens.Space2;
             card.style.flexShrink = 0;
-            // Платина #D1D1D6 (Илья 26.08) вместо прежней тускло-серой заливки:
-            // арт скинов тёмный, и светлый задник держит его силуэт.
-            card.style.backgroundColor = UiColor.Named("#D1D1D6", new Color(0.82f, 0.82f, 0.84f));
+            card.style.backgroundColor = Platinum;
             LvnChrome.Round(card, _radius);
             card.style.overflow = Overflow.Hidden; // арт и подложка не выходят за скругление
 
@@ -337,11 +369,17 @@ namespace Lvn.UI.Screens
                 LvnAsync.Fire(AssignCardArtAsync(art, ph, url, sharp: zoom >= 3f), "WardrobeCard");
             }
 
-            var plate = new VisualElement { pickingMode = PickingMode.Ignore };
+            var plate = new VisualElement { name = "card-plate", pickingMode = PickingMode.Ignore };
             LvnChrome.BottomStrip(plate);
-            plate.style.backgroundColor = new Color(0.16f, 0.16f, 0.19f, 0.85f);
+            plate.style.backgroundColor = PlateDark;
             LvnAir.Pad(plate, LvnTokens.Space1);
             card.Add(plate);
+            // Полоса редкости понизу — как у карточек Доты; зажигает DressRarity.
+            var bar = new VisualElement { name = "card-rarity", pickingMode = PickingMode.Ignore };
+            LvnChrome.BottomStrip(bar);
+            bar.style.height = 4f;
+            bar.style.display = DisplayStyle.None;
+            card.Add(bar);
 
             var name = Lvn.UI.LvnRedress.Bind(new Label { pickingMode = PickingMode.Ignore },
                 () => Lvn.Content.LvnWords.Name("skin", item.value, item.name));

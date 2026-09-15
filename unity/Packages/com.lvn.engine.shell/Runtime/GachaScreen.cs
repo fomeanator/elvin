@@ -34,7 +34,11 @@ namespace Lvn.UI.Screens
         public Func<Task> OpenStore;
         private bool _needTopUp;
         private const int MaxLanes = 3;
-        private const float FastSpinSeconds = 0.5f;
+        /// <summary>Такт автокрутки (Илья 15.09: «0,6 крутка, 0,4 показываем,
+        /// чтобы секунда была»): лента едет 0,6 с, выпавшая клетка держится
+        /// подсвеченной 0,4 с — и только потом следующий ход.</summary>
+        private const float FastSpinSeconds = 0.6f;
+        private const int AutoShowMs = 400;
         /// <summary>«Крутим…» не должно висеть вечно (TR-106): ответ дольше —
         /// считается неудачей, кнопка возвращается.</summary>
         private const int SpinTimeoutMs = 15000;
@@ -646,6 +650,18 @@ namespace Lvn.UI.Screens
                         if (sp.Super) { rares.Add(sp); continue; }
                         sum += sp.Amount; cur ??= sp.Currency;
                     }
+                    if (rares.Count == 0)
+                        _status.text = LvnWords.Of("gacha.won_currency", "You got: {0}", LvnPriceTag.Full(cur, sum));
+                    // ПОКАЗ ВЫПАВШЕГО: клетки под стрелками горят 0,4 с — в каждой
+                    // ленте своя; редкое тоже показывается в ленте, а уже потом церемония.
+                    var shows = new List<Task>();
+                    for (int i = 0; i < ok.Count; i++)
+                    {
+                        var lane = i == 0 ? _main : (i - 1 < _extraLanes.Count ? _extraLanes[i - 1] : null);
+                        if (lane != null) shows.Add(ShowLandingAsync(lane, AutoShowMs, ok[i].Super ? ok[i].Prize : null));
+                    }
+                    await Task.WhenAll(shows);
+                    if (_closed) return;
                     if (rares.Count > 0)
                     {
                         // НЕСКОЛЬКО РЕДКИХ ЗА ХОД (Илья: «что будет, если несколько
@@ -660,8 +676,6 @@ namespace Lvn.UI.Screens
                         }
                         return;
                     }
-                    _status.text = LvnWords.Of("gacha.won_currency", "You got: {0}", LvnPriceTag.Full(cur, sum));
-                    await Task.Delay(200);
                     if (error != null) break;                // часть лент упёрлась в кошелёк
                 }
             }
@@ -744,14 +758,47 @@ namespace Lvn.UI.Screens
             Render(lane);
         }
 
+        /// <summary>Клетка, на которой стоит лента, — та, что под стрелкой.</summary>
+        private VisualElement LandedCell(Lane lane)
+        {
+            if (lane?.Strip == null) return null;
+            int n = SectorCount;
+            int idx = n + (int)((((long)System.Math.Round(lane.Pos)) % n + n) % n);
+            return idx < 0 || idx >= lane.Strip.childCount ? null : lane.Strip[idx];
+        }
+
+        /// <summary>ПОКАЗ ВЫПАВШЕГО В ЛЕНТЕ (Илья 15.09): клетка под стрелкой
+        /// приподнимается и загорается ободком — золотым, у приза цветом его
+        /// редкости — и держится так всё время показа. Без паузы автокрутка
+        /// сливалась в мелькание: что выпало, было не разглядеть.</summary>
+        private async Task ShowLandingAsync(Lane lane, int ms, LvnGacha.Prize prize)
+        {
+            var cell = LandedCell(lane);
+            if (cell == null) { await Task.Delay(ms); return; }
+            var described = prize != null ? DescribePrize(prize) : null;
+            var color = described != null && LvnRarity.Rank(described.Rarity) >= 0
+                ? LvnRarity.ColorOf(described.Rarity, _manifest?.ui?.wardrobe?.rarity_colors) : LvnTokens.Gold;
+            var glow = new VisualElement { name = "gacha-landing", pickingMode = PickingMode.Ignore };
+            LvnChrome.Stretch(glow);
+            LvnChrome.Frame(glow, LvnTokens.RadiusSm, color, 3f);
+            glow.style.backgroundColor = UiColor.WithAlpha(color, 0.18f);
+            cell.Add(glow);
+            float lift = LvnPrefs.ReduceMotion ? 1f : 1.1f;
+            cell.style.scale = new Scale(new Vector2(lift, lift));
+            try { await Task.Delay(ms); }
+            finally
+            {
+                glow.RemoveFromHierarchy();
+                cell.style.scale = new Scale(Vector2.one);
+            }
+        }
+
         /// <summary>Ячейка под стрелкой коротко «вспыхивает» — момент остановки читается как открытие.</summary>
         private async Task StopFlashAsync(Lane lane)
         {
-            if (LvnPrefs.ReduceMotion || lane?.Strip == null) return;
-            int n = SectorCount;
-            int idx = n + (int)((((long)System.Math.Round(lane.Pos)) % n + n) % n);
-            if (idx < 0 || idx >= lane.Strip.childCount) return;
-            var cell = lane.Strip[idx];
+            if (LvnPrefs.ReduceMotion) return;
+            var cell = LandedCell(lane);
+            if (cell == null) return;
             await LvnMotion.PlayAsync(cell, 320, (el, p) =>
             {
                 float k = Mathf.Sin(p * Mathf.PI);
