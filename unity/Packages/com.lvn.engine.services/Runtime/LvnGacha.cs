@@ -32,7 +32,8 @@ namespace Lvn.Services
             public string Sku;
             public string Label;
             public string Art;
-            public string Rarity;    // ключ редкости (из манифеста, на клиенте)
+            public string Rarity;    // ключ редкости (сервер или манифест)
+            public double Weight;    // вес внутри «Редкого» — для шанса
             public long Price;       // цена в гардеробе, 0 — не продаётся
             public string Currency;  // валюта цены
         }
@@ -124,7 +125,7 @@ namespace Lvn.Services
                     FreeToday = (bool?)d["free_today"] ?? false,
                 };
                 if (d["prize"] is JObject p)
-                    spin.Prize = new Prize { Sku = (string)p["sku"], Label = (string)p["label"], Art = (string)p["art"] };
+                    spin.Prize = ReadPrize(p);
                 ReadPrizes(d["prizes_left"] as JArray, spin.PrizesLeft);
                 if (spin.Super ? string.IsNullOrEmpty(spin.Prize?.Sku) : string.IsNullOrEmpty(spin.Currency))
                     return new Spin { Error = "invalid_response" };
@@ -153,7 +154,13 @@ namespace Lvn.Services
         {
             if (src == null) return;
             foreach (var p in src)
-                into.Add(new Prize { Sku = (string)p["sku"], Label = (string)p["label"], Art = (string)p["art"] });
+                if (p is JObject o) into.Add(ReadPrize(o));
         }
+
+        private static Prize ReadPrize(JObject p) => new Prize
+        {
+            Sku = (string)p["sku"], Label = (string)p["label"], Art = (string)p["art"],
+            Rarity = (string)p["rarity"], Weight = (double?)p["weight"] ?? 0,
+        };
     }
 }

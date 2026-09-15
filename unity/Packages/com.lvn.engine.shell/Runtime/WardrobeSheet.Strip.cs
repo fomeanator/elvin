@@ -48,11 +48,7 @@ namespace Lvn.UI.Screens
         // (Илья 26.08). Въезд принадлежит появлению ленты — смене раздела,
         // персонажа, открытию листа.
         /// <summary>Рост плитки — одно число на карточку и на пустую ленту.</summary>
-        private const float StripCardH = 208f;
-        // Платина #D1D1D6 (Илья 26.08) вместо прежней тускло-серой заливки:
-        // арт скинов тёмный, и светлый задник держит его силуэт.
-        private static readonly Color Platinum = UiColor.Named("#D1D1D6", new Color(0.82f, 0.82f, 0.84f));
-        private static readonly Color PlateDark = new Color(0.16f, 0.16f, 0.19f, 0.85f);
+        private const float StripCardH = LvnSkinCard.Height;
 
         private void RebuildStrip(bool animate = true)
         {
@@ -223,32 +219,7 @@ namespace Lvn.UI.Screens
         /// подложка имени темнеет в него же, имя пишется этим цветом, понизу —
         /// яркая полоса. У обычного всё почти платиновое, у бессмертного —
         /// золото: ступень видна с расстояния, а не по тонкой рамке.</summary>
-        private void DressRarity(VisualElement card, Color? rarity)
-        {
-            var plate = card.Q("card-plate");
-            var name = card.Q<Label>("card-name");
-            var bar = card.Q("card-rarity");
-            if (!rarity.HasValue)
-            {
-                LvnChrome.ClearBorder(card);
-                card.style.backgroundColor = Platinum;
-                if (plate != null) { plate.style.backgroundColor = PlateDark; plate.style.paddingBottom = LvnTokens.Space1; }
-                if (name != null) name.style.color = _text;
-                if (bar != null) bar.style.display = DisplayStyle.None;
-                return;
-            }
-            var c = rarity.Value;
-            LvnChrome.Border(card, c, 2f);
-            card.style.backgroundColor = Color.Lerp(Platinum, c, 0.45f);
-            if (plate != null)
-            {
-                var tinted = Color.Lerp(PlateDark, c, 0.35f); tinted.a = 0.9f;
-                plate.style.backgroundColor = tinted;
-                plate.style.paddingBottom = LvnTokens.Space1 + 4f;   // место под полосу
-            }
-            if (name != null) name.style.color = Color.Lerp(c, Color.white, 0.3f);
-            if (bar != null) { bar.style.backgroundColor = c; bar.style.display = DisplayStyle.Flex; }
-        }
+        private void DressRarity(VisualElement card, Color? rarity) => LvnSkinCard.DressRarity(card, rarity, _text);
 
         /// <summary>Цвет редкости предмета, если автор его назвал: ключ у
         /// предмета (<c>rarity: "rare"</c>) ищется в палитре гардероба
@@ -281,34 +252,7 @@ namespace Lvn.UI.Screens
         /// ходил мимо неё (шестой признак канона).</para>
         /// </summary>
         private VisualElement PriceBadge(LvnWardrobeItem item)
-        {
-            // ПРИЗ КРУТОК (TR-93): цены у него нет, и ценник «0» врал —
-            // читалось как «бесплатно», а кнопка звала покупать за ноль.
-            // Значок подарка говорит правду: это выигрывают.
-            if (item.gacha && item.price <= 0)
-            {
-                var gift = new VisualElement { name = "card-price", pickingMode = PickingMode.Ignore };
-                gift.style.position = Position.Absolute;
-                gift.style.top = 6; gift.style.right = 6;
-                gift.style.backgroundColor = LvnTokens.Veil(0.62f);
-                LvnAir.Pad(gift, LvnTokens.Space1, LvnTokens.Hair);
-                LvnChrome.Round(gift, LvnTokens.RadiusSm);
-                gift.Add(LvnIcons.Make(LvnIcon.Gift, 20f, LvnTokens.Gold));
-                return gift;
-            }
-            // ЗНАЧОК, А НЕ СЛОВО. Со словом («1 200 кристаллов») ярлык шире
-            // плитки, а прижат он к правому краю — число уезжало за левый край,
-            // и на карточке оставалось голое «кристаллов» (Илья, 28.08).
-            var badge = Lvn.UI.LvnPriceTag.Tag(item.currency, item.price,
-                new Lvn.UI.LvnPriceTag.Row { FontSize = 19f, Gap = 3f });
-            badge.name = "card-price";
-            badge.style.position = Position.Absolute;
-            badge.style.top = 6; badge.style.right = 6;
-            badge.style.backgroundColor = LvnTokens.Veil(0.62f);
-            LvnAir.Pad(badge, LvnTokens.Space1, LvnTokens.Hair);
-            LvnChrome.Round(badge, LvnTokens.RadiusSm);
-            return badge;
-        }
+            => item.gacha && item.price <= 0 ? LvnSkinCard.GiftBadge() : LvnSkinCard.PriceBadge(item.currency, item.price);
 
         // Карточка: арт скина во всю плитку, цена бейджем ПРЯМО на арте
         // (у купленных и бесплатных бейджа нет), имя на серой подложке снизу.
@@ -317,80 +261,31 @@ namespace Lvn.UI.Screens
             bool owned = IsOwnedIn(axis, item);
             // Крупнее (Илья 27.08): плитка подросла, арт занимает почти всю
             // её площадь (~+70%), имя заметно больше (~+50%).
-            var card = new VisualElement();
+            // ОБЛИК — у общего дома плитки (LvnSkinCard): тот же вид стоит в
+            // «Что внутри» круток. Здесь — имя карточки, арт и поведение.
+            // ЗУМ ВИТРИНЫ ПО РАЗДЕЛУ (Илья 27.08): причёска кадрируется к
+            // голове, украшения — к шее, платье — к корпусу; «Все» — фигура
+            // целиком. Элемент больше карточки, карточка клипует излишек.
+            var (zoom, ay) = LvnWardrobeStage.Framing(axis);
+            bool none = item.value == LvnWardrobe.NoneValue;
+            var parts = LvnSkinCard.Make(_radius, zoom, ay, none,
+                () => Lvn.Content.LvnWords.Name("skin", item.value, item.name), _text);
+            var card = parts.Card;
             // КАРТОЧКА НАЗЫВАЕТ СЕБЯ. На витрине «Моё» лента собрана из разных
             // осей, а подсветка искала текущую по НОМЕРУ в пределах вкладки —
             // номер там ничего не значит, и зелёная отметка не появлялась
             // вовсе (живой репорт 01.09). По имени видно, что это за вещь.
             card.name = "card-" + axis + "/" + item.value;
-            card.style.width = 150; card.style.height = StripCardH;
             card.style.marginRight = LvnTokens.Space2;
-            card.style.flexShrink = 0;
-            card.style.backgroundColor = Platinum;
-            LvnChrome.Round(card, _radius);
-            card.style.overflow = Overflow.Hidden; // арт и подложка не выходят за скругление
-
-            // ЗУМ ВИТРИНЫ ПО РАЗДЕЛУ (Илья 27.08): причёска кадрируется к
-            // голове, украшения — к шее, платье — к корпусу; «Все» — фигура
-            // целиком. Элемент больше карточки, карточка клипует излишек.
-            var (zoom, ay) = LvnWardrobeStage.Framing(axis);
-            var art = new VisualElement { pickingMode = PickingMode.Ignore };
-            art.name = "card-art";
-            art.style.position = Position.Absolute;
-            art.style.width = Length.Percent(zoom * 100f);
-            art.style.height = Length.Percent(zoom * 100f);
-            art.style.left = Length.Percent(50f - zoom * 100f * 0.50f); // якорь X в центре окна
-            art.style.top = Length.Percent(50f - zoom * 100f * ay);    // якорь Y в центре окна
-            LvnPicture.Fit(art, cover: false);
-            card.Add(art);
-            // Плейсхолдер-вешалка, пока арт едет (Илья 27.08): пустая чёрная
-            // плитка читалась как «не грузит». Пункт «Нет» живёт с постоянным
-            // глифом «×» — у снятия арта нет по определению.
-            bool none = item.value == LvnWardrobe.NoneValue;
-            // Тёмный глиф: задник плитки светлый (платина), светлый значок на
-            // нём растворялся бы.
-            var ph = LvnIcons.Make(none ? LvnIcon.Close : LvnIcon.Wardrobe, 42f,
-                new Color(0.18f, 0.18f, 0.22f));
-            ph.pickingMode = PickingMode.Ignore;
-            ph.name = "card-ph";
-            ph.style.position = Position.Absolute;
-            ph.style.left = Length.Percent(50f);
-            ph.style.top = Length.Percent(38f);
-            ph.style.translate = new Translate(Length.Percent(-50f), Length.Percent(-50f));
-            ph.style.opacity = 0.55f;
-            card.Add(ph);
             if (!string.IsNullOrEmpty(item.icon))
             {
                 // Сильный зум (украшения) на 256px-мини даёт кашу — такой кадр
                 // берёт чёткий арт (@2k) сразу. Адрес запоминаем на элементе:
                 // по нему сверка узнаёт, менялся ли арт вообще.
                 var url = ResolveIcon(item.icon);
-                art.userData = url;
-                LvnAsync.Fire(AssignCardArtAsync(art, ph, url, sharp: zoom >= 3f), "WardrobeCard");
+                parts.Art.userData = url;
+                LvnAsync.Fire(AssignCardArtAsync(parts.Art, parts.Placeholder, url, sharp: zoom >= 3f), "WardrobeCard");
             }
-
-            var plate = new VisualElement { name = "card-plate", pickingMode = PickingMode.Ignore };
-            LvnChrome.BottomStrip(plate);
-            plate.style.backgroundColor = PlateDark;
-            LvnAir.Pad(plate, LvnTokens.Space1);
-            card.Add(plate);
-            // Полоса редкости понизу — как у карточек Доты; зажигает DressRarity.
-            var bar = new VisualElement { name = "card-rarity", pickingMode = PickingMode.Ignore };
-            LvnChrome.BottomStrip(bar);
-            bar.style.height = 4f;
-            bar.style.display = DisplayStyle.None;
-            card.Add(bar);
-
-            var name = Lvn.UI.LvnRedress.Bind(new Label { pickingMode = PickingMode.Ignore },
-                () => Lvn.Content.LvnWords.Name("skin", item.value, item.name));
-            name.name = "card-name";
-            name.style.color = _text;
-            name.style.fontSize = LvnTokens.TextSm;
-            name.style.unityTextAlign = TextAnchor.MiddleCenter;
-            name.style.overflow = Overflow.Hidden;
-            name.style.textOverflow = TextOverflow.Ellipsis;
-            name.style.whiteSpace = WhiteSpace.NoWrap;
-            plate.Add(name);
 
             if (!owned) card.Add(PriceBadge(item));
 

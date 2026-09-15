@@ -33,10 +33,16 @@ type gachaSector struct {
 }
 
 // gachaPrize — награда супер-сектора: наряд, фон, аватарка.
+//
+// Rarity — ступень редкости (common … immortal, как в манифесте у предмета);
+// Weight — вес приза внутри супер-сектора, сервер заполняет его из
+// rarity_weights и отдаёт клиенту, чтобы «Что внутри» показывало честный шанс.
 type gachaPrize struct {
-	SKU   string `json:"sku"`
-	Label string `json:"label"`
-	Art   string `json:"art"`
+	SKU    string  `json:"sku"`
+	Label  string  `json:"label"`
+	Art    string  `json:"art"`
+	Rarity string  `json:"rarity,omitempty"`
+	Weight float64 `json:"weight,omitempty"`
 }
 
 type gachaConfig struct {
@@ -44,6 +50,18 @@ type gachaConfig struct {
 	Prizes   []gachaPrize  `json:"prizes"`
 	Currency string        `json:"spin_currency"` // чем платить за платный прокрут
 	Price    int64         `json:"spin_price"`
+	// РАЗНЫЕ ШАНСЫ ПО РЕДКОСТИ (TR-109, Илья 15.09): вес ступени внутри
+	// супер-сектора; ступень без веса и приз без ступени весят 1. Доли, не
+	// проценты: добавить ступень не значит пересчитать остальные.
+	RarityWeights map[string]float64 `json:"rarity_weights"`
+}
+
+// prizeWeight — вес приза в жеребьёвке супер-сектора: по его ступени, иначе 1.
+func (c gachaConfig) prizeWeight(p gachaPrize) float64 {
+	if w, ok := c.RarityWeights[p.Rarity]; ok && w > 0 {
+		return w
+	}
+	return 1
 }
 
 type gachaDoc struct {
@@ -114,10 +132,31 @@ func (c gachaConfig) left(taken []string) []gachaPrize {
 			}
 		}
 		if !got {
+			p.Weight = c.prizeWeight(p)
 			out = append(out, p)
 		}
 	}
 	return out
+}
+
+// pick — приз из оставшихся по весам ступеней: бессмертное выпадает реже
+// обычного, а не поровну со всеми.
+func (s *GachaService) pick(left []gachaPrize) gachaPrize {
+	total := 0.0
+	for _, p := range left {
+		total += p.Weight
+	}
+	if total <= 0 {
+		return left[int(s.roll()*float64(len(left)))%len(left)]
+	}
+	point := s.roll() * total
+	for _, p := range left {
+		point -= p.Weight
+		if point <= 0 {
+			return p
+		}
+	}
+	return left[len(left)-1]
 }
 
 // wheel — секторы, которые участвуют в этой жеребьёвке. Опустевший супер
@@ -203,7 +242,7 @@ func (s *GachaService) handleSpin(w http.ResponseWriter, r *http.Request) {
 	switch sector.Kind {
 	case "super":
 		left := cfg.left(doc.Taken)
-		prize := left[int(s.roll()*float64(len(left)))%len(left)]
+		prize := s.pick(left)
 		if err := s.wallet.GrantItem(userID, prize.SKU, "gacha"); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "grant_failed"})
 			return

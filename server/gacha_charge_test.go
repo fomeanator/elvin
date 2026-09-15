@@ -78,3 +78,29 @@ func TestSuperSectorLeavesTheWheelWhenPrizesRunOut(t *testing.T) {
 		t.Fatal("выбитый приз остался в списке доступных")
 	}
 }
+
+// TestGachaPickWeighsRarity — бессмертный приз с весом 1 против обычного с
+// весом 40: при броске у нижней границы выпадает обычный, у верхней — бессмертный,
+// и клиенту уходит вес каждого приза.
+func TestGachaPickWeighsRarity(t *testing.T) {
+	cfg := gachaConfig{
+		Prizes: []gachaPrize{
+			{SKU: "a", Rarity: "common"},
+			{SKU: "b", Rarity: "immortal"},
+			{SKU: "c"}, // без ступени — вес 1
+		},
+		RarityWeights: map[string]float64{"common": 40, "immortal": 1},
+	}
+	left := cfg.left(nil)
+	if left[0].Weight != 40 || left[1].Weight != 1 || left[2].Weight != 1 {
+		t.Fatalf("веса призов: %+v", left)
+	}
+	svc := &GachaService{roll: func() float64 { return 0.1 }}
+	if got := svc.pick(left); got.SKU != "a" {
+		t.Fatalf("бросок 0.1 при весах 40/1/1 должен дать обычный, дал %s", got.SKU)
+	}
+	svc.roll = func() float64 { return 0.97 }
+	if got := svc.pick(left); got.SKU != "b" {
+		t.Fatalf("бросок 0.97 при весах 40/1/1 должен дать бессмертный, дал %s", got.SKU)
+	}
+}
