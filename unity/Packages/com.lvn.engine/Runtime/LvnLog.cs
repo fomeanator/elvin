@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace Lvn
@@ -33,12 +34,19 @@ namespace Lvn
         /// поддержка живого игрока).</summary>
         public static bool Verbose = Application.isEditor || Debug.isDebugBuild;
 
+        /// <summary>Куда уходит Trace, когда Verbose выключен: чёрный ящик на
+        /// устройстве (LvnBlackBox, TR-86) подписывается и пишет всё к себе. При
+        /// Verbose строка идёт в Debug.Log, и ящик берёт её оттуда — событие не
+        /// зовётся, чтобы не удвоить.</summary>
+        public static event Action<string> Traced;
+
         /// <summary>Разговор движка с собой: шаги тракта, состояния, дампы.
         /// Строка собирается ТОЛЬКО когда её будут слышать — интерполяция в
         /// молчащем логе стоит ровно столько же, сколько в слышимом.</summary>
         public static void Trace(string message)
         {
             if (Verbose) Debug.Log(message);
+            else Traced?.Invoke(message);
         }
 
         /// <summary>Веха, важная и в поле: штамп сборки, выбранный контент,

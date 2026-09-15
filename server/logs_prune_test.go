@@ -1,8 +1,12 @@
 package main
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -59,5 +63,50 @@ func TestClientLogsKeepOnlyRecentDays(t *testing.T) {
 	svc.pruneOldDays(now.AddDate(0, 0, 1))
 	if _, err := os.Stat(old); err == nil {
 		t.Errorf("новые сутки наступили, а уборка не прошла")
+	}
+}
+
+// ПУЛЬТ ПОДРОБНОГО ЛОГА (TR-86): указание для устройства живёт свой срок,
+// уезжает в ответе на пачку именно этого устройства, снимается нулём часов
+// и переживает новый экземпляр сервиса (файл рядом с дневниками).
+func TestLogDirectiveTravelsWithIngestResponse(t *testing.T) {
+	dir := t.TempDir()
+	svc, err := NewClientLogService(filepath.Join(dir, "client-logs"), "tok")
+	if err != nil {
+		t.Fatal(err)
+	}
+	put := func(body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPut, "/v1/admin/log-level", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer tok")
+		rec := httptest.NewRecorder()
+		svc.handleLogLevel(rec, req)
+		return rec
+	}
+	if rec := put(`{"device":"dev-a","hours":24}`); rec.Code != http.StatusOK {
+		t.Fatalf("указание не принято: %d %s", rec.Code, rec.Body.String())
+	}
+	ingest := func(s *ClientLogService, dev string) map[string]any {
+		body := `{"device":{"id":"` + dev + `","session":"s"},"lines":[{"level":"info","msg":"[x] hi"}]}`
+		req := httptest.NewRequest(http.MethodPost, "/v1/log/client", strings.NewReader(body))
+		req.RemoteAddr = "10.0.0.1:1"
+		rec := httptest.NewRecorder()
+		s.handleIngest(rec, req)
+		var out map[string]any
+		_ = json.Unmarshal(rec.Body.Bytes(), &out)
+		return out
+	}
+	if out := ingest(svc, "dev-a"); out["log"] == nil {
+		t.Fatalf("устройство с указанием не получило log.until: %v", out)
+	}
+	if out := ingest(svc, "dev-b"); out["log"] != nil {
+		t.Fatalf("чужое устройство получило указание: %v", out)
+	}
+	again, _ := NewClientLogService(filepath.Join(dir, "client-logs"), "tok")
+	if out := ingest(again, "dev-a"); out["log"] == nil {
+		t.Fatalf("указание не пережило новый экземпляр: %v", out)
+	}
+	put(`{"device":"dev-a","hours":0}`)
+	if out := ingest(svc, "dev-a"); out["log"] != nil {
+		t.Fatalf("снятое указание продолжает ехать: %v", out)
 	}
 }

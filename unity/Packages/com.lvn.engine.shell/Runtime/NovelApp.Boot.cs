@@ -189,6 +189,9 @@ namespace Lvn.UI.Screens
             // device's crash is readable via /v1/admin/client-logs, no adb.
             Lvn.Services.LvnBackend.BaseUrl = ServerUrl;
             Lvn.Services.LvnLogShip.Boot();
+            // Чёрный ящик: всё, включая Trace, на устройство; обрыв прошлого
+            // запуска уезжает отклонением с хвостом (TR-86).
+            Lvn.Services.LvnBlackBox.Boot();
 
             // Промахи ассетов — в аналитику. Движок про неё не знает и знать не
             // должен, поэтому он лишь сообщает о неудаче, а отнести её к новелле
@@ -406,6 +409,9 @@ namespace Lvn.UI.Screens
                 Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.FirstScreen,
                     ("boot_ms", bootClock.ElapsedMilliseconds),
                     ("offline", LvnNetworkStatus.IsOffline));
+                // Долгий старт — отклонение: уезжает с хвостом чёрного ящика (TR-86).
+                if (bootClock.ElapsedMilliseconds > 8000)
+                    LvnLog.Warn($"[lvn-deviation] старт {bootClock.ElapsedMilliseconds} мс дольше 8 с");
             }
             catch (Exception ex)
             {
@@ -435,6 +441,7 @@ namespace Lvn.UI.Screens
                 Lvn.Services.LvnUsage.Flush();
                 LvnAsync.Fire(Lvn.Services.LvnAnalytics.FlushAsync(), "UsageFlush");
             }
+            Lvn.Services.LvnBlackBox.Pause(paused);   // чистый конец сессии / возврат (TR-86)
         }
 
         private CoalescingWork _contentChanges;

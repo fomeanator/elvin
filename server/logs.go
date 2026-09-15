@@ -26,6 +26,10 @@ type ClientLogService struct {
 	mu         sync.Mutex
 	dir        string
 	adminToken string
+	// ПУЛЬТ ПОДРОБНОГО ЛОГА (TR-86): устройство → до какого момента слать
+	// Trace. Указание уезжает в ответе на каждую пачку этого устройства;
+	// хранится в файле рядом с дневниками и переживает рестарт.
+	directives map[string]time.Time
 	// pruned — за какой день уборка уже прошла. Пустая строка значит «в этой
 	// жизни процесса ещё не прибирались».
 	pruned string
@@ -57,6 +61,101 @@ func (s *ClientLogService) Routes(mux *http.ServeMux) {
 	// Падения, сгруппированные по сути, а не по строкам (crashes.go): то же,
 	// зачем ставят Sentry, на данных, которые уже собираются.
 	mux.HandleFunc("/v1/admin/crashes", s.handleCrashes)
+	mux.HandleFunc("/v1/admin/log-level", s.handleLogLevel) // подробный лог с устройства по указанию (TR-86)
+}
+
+func (s *ClientLogService) directivesPath() string {
+	return filepath.Join(s.dir, "..", "log-directives.json")
+}
+
+// loadDirectives — под замком; просроченные указания выбрасываются.
+func (s *ClientLogService) loadDirectives(now time.Time) {
+	if s.directives != nil {
+		return
+	}
+	s.directives = map[string]time.Time{}
+	data, err := os.ReadFile(s.directivesPath())
+	if err != nil {
+		return
+	}
+	var raw map[string]string
+	if json.Unmarshal(data, &raw) != nil {
+		return
+	}
+	for dev, until := range raw {
+		if t, err := time.Parse(time.RFC3339, until); err == nil && t.After(now) {
+			s.directives[dev] = t
+		}
+	}
+}
+
+func (s *ClientLogService) saveDirectives() {
+	raw := map[string]string{}
+	for dev, t := range s.directives {
+		raw[dev] = t.UTC().Format(time.RFC3339)
+	}
+	data, _ := json.Marshal(raw)
+	_ = os.WriteFile(s.directivesPath(), data, 0o600)
+}
+
+// directiveFor — живое указание для устройства (под замком).
+func (s *ClientLogService) directiveFor(dev string, now time.Time) (time.Time, bool) {
+	s.loadDirectives(now)
+	t, ok := s.directives[dev]
+	if !ok {
+		return time.Time{}, false
+	}
+	if !t.After(now) {
+		delete(s.directives, dev)
+		s.saveDirectives()
+		return time.Time{}, false
+	}
+	return t, true
+}
+
+// GET /v1/admin/log-level — живые указания; PUT {"device","hours"} — слать
+// Trace с устройства столько часов (0 — снять). Устройство узнаёт об этом с
+// первой же пачкой логов и шлёт всё до срока.
+func (s *ClientLogService) handleLogLevel(w http.ResponseWriter, r *http.Request) {
+	if !adminAllowed(w, r, s.adminToken) {
+		return
+	}
+	now := time.Now().UTC()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.loadDirectives(now)
+	switch r.Method {
+	case http.MethodGet:
+	case http.MethodPut:
+		var req struct {
+			Device string  `json:"device"`
+			Hours  float64 `json:"hours"`
+		}
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil || req.Device == "" {
+			http.Error(w, `{"device": id, "hours": 24} required`, http.StatusBadRequest)
+			return
+		}
+		dev := clip(req.Device, 64)
+		if req.Hours <= 0 {
+			delete(s.directives, dev)
+		} else {
+			if req.Hours > 24*7 {
+				req.Hours = 24 * 7
+			}
+			s.directives[dev] = now.Add(time.Duration(req.Hours * float64(time.Hour)))
+		}
+		s.saveDirectives()
+	default:
+		http.Error(w, "GET or PUT", http.StatusMethodNotAllowed)
+		return
+	}
+	list := []map[string]string{}
+	for dev, t := range s.directives {
+		if t.After(now) {
+			list = append(list, map[string]string{"device": dev, "until": t.UTC().Format(time.RFC3339)})
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"directives": list})
 }
 
 type clientLogBatch struct {
@@ -69,7 +168,8 @@ type clientLogLine struct {
 	Level string `json:"level,omitempty"` // exception | error | warning | info
 	Msg   string `json:"msg"`
 	Stack string `json:"stack,omitempty"`
-	N     int    `json:"n,omitempty"` // collapse count for repeated lines
+	Tail  string `json:"tail,omitempty"` // хвост чёрного ящика при отклонении (TR-86)
+	N     int    `json:"n,omitempty"`    // collapse count for repeated lines
 	// Server-stamped:
 	Dev     string `json:"dev,omitempty"`
 	Session string `json:"session,omitempty"`
@@ -136,6 +236,7 @@ func (s *ClientLogService) handleIngest(w http.ResponseWriter, r *http.Request) 
 		}
 		ln.Msg = clip(ln.Msg, 4096)
 		ln.Stack = clip(ln.Stack, 8192)
+		ln.Tail = clip(ln.Tail, 48<<10)
 		ln.Level = clip(ln.Level, 16)
 		if ln.TS == "" {
 			ln.TS = now.Format(time.RFC3339)
@@ -148,7 +249,11 @@ func (s *ClientLogService) handleIngest(w http.ResponseWriter, r *http.Request) 
 			accepted++
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]int{"accepted": accepted})
+	resp := map[string]any{"accepted": accepted}
+	if until, ok := s.directiveFor(dev, now); ok {
+		resp["log"] = map[string]string{"until": until.Format(time.RFC3339), "level": "trace"}
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func clip(s string, max int) string {

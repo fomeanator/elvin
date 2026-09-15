@@ -91,6 +91,45 @@ namespace Lvn.Services
                 Enqueue("info", Lvn.LvnPerf.SessionInfo, null, persist: false);
         }
 
+        // ── ОТКЛОНЕНИЯ И ПОДРОБНЫЙ ЛОГ (TR-86) ──
+        // Отклонение — исключение, ошибка, строка с приставкой «[lvn-deviation]»
+        // (старт дольше 8 с, обрыв прошлого запуска) или кадр дольше 500 мс:
+        // к нему прикладывается хвост чёрного ящика — последние 200 строк
+        // вместе с Trace, которого на сервере иначе не бывает.
+        private const string DeviationTag = "[lvn-deviation]";
+        private const double SlowFrameTailMs = 500;
+
+        /// <summary>До какого момента слать Trace целиком — указание сервера
+        /// (ответ /v1/log/client: log.until). Пусто — обычный режим.</summary>
+        public static DateTime TraceUntil { get; private set; }
+        private static bool TraceMode => TraceUntil > DateTime.UtcNow;
+
+        /// <summary>Строка Trace от чёрного ящика — уезжает только в подробном режиме.</summary>
+        internal static void TraceLine(string message)
+        {
+            if (!_booted || !TraceMode || message == null) return;
+            Enqueue("trace", message, null, persist: false);
+            if (_box.Count >= 150) Lvn.LvnAsync.Fire(_box.FlushAsync(), "TraceFlush");
+        }
+
+        /// <summary>Отклонение с готовым хвостом (обрыв прошлого запуска).</summary>
+        internal static void Deviation(string message, string tail)
+        {
+            if (!_booted) return;
+            Enqueue("warning", message, null, persist: true, tail: tail);
+        }
+
+        private static bool SlowFrameTail(string message)
+        {
+            if (message == null || !message.StartsWith("[lvn-perf] S ", StringComparison.Ordinal)) return false;
+            int i = message.IndexOf(" ms=", StringComparison.Ordinal);
+            if (i < 0) return false;
+            int j = message.IndexOf(' ', i + 4);
+            var num = j < 0 ? message.Substring(i + 4) : message.Substring(i + 4, j - i - 4);
+            return double.TryParse(num, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var ms) && ms > SlowFrameTailMs;
+        }
+
         private static void OnLog(string message, string stack, LogType type)
         {
             string level;
@@ -102,20 +141,24 @@ namespace Lvn.Services
                 case LogType.Warning: level = "warning"; break;
                 default:
                     // Info ships only our own bracketed telemetry ([lvn-boot],
-                    // [lvn-perf], [novelapp]…) — not the whole Debug.Log firehose.
-                    if (message == null || message.Length == 0 || message[0] != '[') return;
+                    // [lvn-perf], [novelapp]…) — not the whole Debug.Log firehose;
+                    // в подробном режиме (указание сервера) едет всё.
+                    if (message == null || message.Length == 0 || (message[0] != '[' && !TraceMode)) return;
                     level = "info";
                     break;
             }
+            bool deviation = type == LogType.Exception || type == LogType.Error
+                || (message != null && message.StartsWith(DeviationTag, StringComparison.Ordinal))
+                || SlowFrameTail(message);
             // СТЕК — ТОЛЬКО У ОШИБКИ (TR-86): у info-строк Unity прикладывает свой
             // стек вызовов, и он весил больше самой строки — на сервере это были
             // сотни байт мусора на каждую запись о переодевании.
             bool keepStack = type == LogType.Exception || type == LogType.Error;
             Enqueue(level, message, keepStack && !string.IsNullOrEmpty(stack) ? stack : null,
-                persist: keepStack);
+                persist: keepStack, tail: deviation ? LvnBlackBox.Tail() : null);
         }
 
-        private static void Enqueue(string level, string msg, string stack, bool persist)
+        private static void Enqueue(string level, string msg, string stack, bool persist, string tail = null)
         {
             using var perf = Lvn.LvnPerf.Measure(Lvn.LvnPerf.Part.LogEnqueue);
             bool collapsed = false;
@@ -137,6 +180,7 @@ namespace Lvn.Services
                     ["msg"] = msg,
                 };
                 if (stack != null) line["stack"] = stack;
+                if (!string.IsNullOrEmpty(tail)) line["tail"] = tail;
             });
             if (collapsed) return;
 
@@ -150,6 +194,28 @@ namespace Lvn.Services
 
         /// <summary>Отправить накопленное; при отказе очередь остаётся.</summary>
         public static Task FlushAsync() => _box.FlushAsync();
+
+        /// <summary>Указание сервера в ответе на пачку: {"log": {"until": ts}} —
+        /// слать Trace до этого момента. Сервер отвечает так каждой пачке, пока
+        /// указание живо; без него — обычный режим.</summary>
+        private static void ApplyDirective(string body)
+        {
+            if (string.IsNullOrEmpty(body)) return;
+            try
+            {
+                var o = JObject.Parse(body);
+                var until = (string)o["log"]?["until"];
+                if (string.IsNullOrEmpty(until)) { TraceUntil = default; return; }
+                if (DateTime.TryParse(until, System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var t)
+                    && t != TraceUntil)
+                {
+                    TraceUntil = t;
+                    LvnLog.Info("[lvn-logship] подробный лог по указанию сервера до " + t.ToString("u"));
+                }
+            }
+            catch { /* не JSON — не указание */ }
+        }
 
         // Тело пачки: от устройства — то, без чего строка лога не читается на
         // той стороне (какой телефон, какая сессия, какая сборка).
@@ -170,8 +236,12 @@ namespace Lvn.Services
             string json;
             using (Lvn.LvnPerf.Measure(Lvn.LvnPerf.Part.LogSerialize))
                 json = body.ToString(Newtonsoft.Json.Formatting.None);
-            var (code, _) = await LvnBackend.PostAsync("/v1/log/client", json);
-            if (LvnBackend.Ok(code)) { _lastMsg = null; _lastLine = null; }
+            var (code, reply) = await LvnBackend.PostAsync("/v1/log/client", json);
+            if (LvnBackend.Ok(code))
+            {
+                _lastMsg = null; _lastLine = null;
+                ApplyDirective(reply);
+            }
             return code;
         }
     }

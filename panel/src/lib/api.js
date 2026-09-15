@@ -343,6 +343,12 @@ export const analyticsSlides = (query, title, chapter, token, by) =>
     "&chapter=" + encodeURIComponent(chapter || "") +
     (by ? "&by=" + encodeURIComponent(by) : ""), token);
 
+// Пульт подробного лога с устройства (TR-86): GET — живые указания,
+// PUT {device, hours} — слать Trace столько часов (0 — снять).
+export const adminLogLevel = (token) => adminFetch("/v1/admin/log-level", token);
+export const adminSetLogLevel = (device, hours, token) =>
+  adminFetch("/v1/admin/log-level", token, { method: "PUT", body: JSON.stringify({ device, hours }) });
+
 // GET /v1/analytics/usage — чем пользуются: экраны по времени, тапы по
 // элементам (TR-126).
 export const analyticsUsage = (query, token) =>
