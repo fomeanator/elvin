@@ -128,9 +128,6 @@ namespace Lvn.UI
         /// под верхней строкой — чтобы не липнуть к ней вплотную.</summary>
         public static float EmotionsTopFraction = 0.10f;
 
-        /// <summary>И занимает эту долю зазора: на всю высоту колонка закрывала
-        /// бы куклу, остальные лица доступны прокруткой.</summary>
-        public static float EmotionsHeightFraction = 0.575f;
 
         /// <summary>Применить настройки новеллы (<c>ui.wardrobe.framing</c>):
         /// ось → кадр. Пусто — остаются движковые значения.</summary>

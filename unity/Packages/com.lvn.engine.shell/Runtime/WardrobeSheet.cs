@@ -33,10 +33,8 @@ namespace Lvn.UI.Screens
         private readonly VisualElement _tabs;
         private readonly Label _itemName;
         private Button _prevBtn, _nextBtn;
-        private VisualElement _emoBar, _emoThumb;
-        private const float EmoBarWidth = 6f;    // сама дорожка
-        private const float EmoBarLane = 16f;    // полоса, которую колонка ей уступает
-        private const int EmoBarSegments = 4;
+        private LvnSlimScroll _emoBar;
+        private const float EmoBarLane = 16f;    // полоса, которую колонка уступает индикатору
         private readonly Button _confirm;
         private readonly Button _cancel;
 
