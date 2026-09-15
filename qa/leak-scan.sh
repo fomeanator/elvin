@@ -53,7 +53,9 @@ SELF=':!qa/leak-scan.sh'
 
 msgs=$(git log --format="%h %s%n%b" "$RANGE" 2>/dev/null || true)
 adds=$(git diff "$RANGE" --unified=0 -- . "$SELF" 2>/dev/null | grep '^+' || true)
-bins=$(git diff "$RANGE" --numstat -- . "$SELF" 2>/dev/null | awk '$1=="-"' || true)
+# Удалённый двоичный файл утечь не может — его в диапазоне больше нет
+# (--diff-filter=d: без удалений); добавленные и изменённые — по-прежнему стоп.
+bins=$(git diff "$RANGE" --numstat --diff-filter=d -- . "$SELF" 2>/dev/null | awk '$1=="-"' || true)
 
 n1=$(count "$msgs" "$CONTENT")
 n2=$(count "$adds" "$CONTENT")
