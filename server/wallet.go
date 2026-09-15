@@ -607,6 +607,36 @@ func (s *WalletService) GrantItem(userID, sku, reason string) error {
 // это ПОКУПКА: не хватает денег — отказ, а не списание до нуля. Начисление
 // накопительного запаса делается до проверки, чтобы игрок не платил дважды за
 // то, что натикало минуту назад.
+// RevokeItem — ЗАБРАТЬ ВЕЩЬ обратно: игрок продал выбитый в крутке скин
+// (TR-124). Зеркало GrantItem: та же запись инвентаря, та же история, только
+// со знаком «продано». Нет вещи — нечего и забирать: ошибка, не молчание.
+func (s *WalletService) RevokeItem(userID, sku, reason string) error {
+	if !reUserFile.MatchString(userID) || sku == "" {
+		return fmt.Errorf("bad revoke item: user %q sku %q", userID, sku)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	doc, err := s.load(userID)
+	if err != nil {
+		return err
+	}
+	if doc.Inventory[sku] <= 0 {
+		return fmt.Errorf("revoke item: user %q has no %q", userID, sku)
+	}
+	// НОЛЬ ОСТАЁТСЯ В КАРТЕ, а не удаляется: запись инвентаря живёт строкой
+	// в базе и пишется upsert-ом — исчезнувший из карты ключ строку не трогает,
+	// и вещь воскресала бы при следующем чтении. Ноль — честный ответ «нет».
+	doc.Inventory[sku]--
+	if doc.Inventory[sku] < 0 {
+		doc.Inventory[sku] = 0
+	}
+	doc.History = append(doc.History, walletEntry{
+		TS: time.Now().UTC().Format(time.RFC3339), Type: "sell",
+		SKU: sku, Reason: reason,
+	})
+	return s.save(userID, doc)
+}
+
 func (s *WalletService) Charge(userID, currency string, amount int64, reason string) error {
 	if !reUserFile.MatchString(userID) || currency == "" || amount <= 0 {
 		return fmt.Errorf("bad charge: user %q %s %d", userID, currency, amount)

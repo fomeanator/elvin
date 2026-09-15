@@ -224,6 +224,78 @@ func NewGachaService(db *sql.DB, auth *AuthService, wallet *WalletService, cfgPa
 func (s *GachaService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/gacha", s.handleStatus)
 	mux.HandleFunc("/v1/gacha/spin", s.handleSpin)
+	mux.HandleFunc("/v1/gacha/sell", s.handleSell)
+}
+
+// prizeBySKU — приз по sku в любом наборе: продать можно всё, что выбито.
+func (c gachaConfig) prizeBySKU(sku string) (gachaPrize, bool) {
+	for _, k := range c.cases() {
+		for _, p := range k.Prizes {
+			if p.SKU == sku {
+				return p, true
+			}
+		}
+	}
+	return gachaPrize{}, false
+}
+
+// handleSell — ПРОДАТЬ ВЫБИТЫЙ СКИН (TR-124, Илья 15.09: «при показе скина —
+// выбор забрать или продать»). Вещь изымается, валюта копии начисляется, и
+// скин снова может выпасть как новый — он больше не «есть». Продаётся только
+// выбитое в крутке (список taken): купленное в гардеробе сюда не идёт.
+func (s *GachaService) handleSell(w http.ResponseWriter, r *http.Request) {
+	if !onlyMethod(w, r, http.MethodPost) {
+		return
+	}
+	userID := s.auth.UserFromRequest(r)
+	if userID == "" || !reUserFile.MatchString(userID) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	var req struct {
+		SKU string `json:"sku"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil || req.SKU == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "bad_request"})
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	doc, err := s.load(userID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "gacha_unavailable"})
+		return
+	}
+	if !doc.has(req.SKU) || !s.wallet.Owns(userID, req.SKU) {
+		writeJSON(w, http.StatusConflict, map[string]any{"error": "not_won"})
+		return
+	}
+	prize, ok := s.cfg.Get().prizeBySKU(req.SKU)
+	sale := prize.saleOf()
+	if !ok || sale <= 0 || prize.Currency == "" {
+		writeJSON(w, http.StatusConflict, map[string]any{"error": "not_sellable"})
+		return
+	}
+	if err := s.wallet.RevokeItem(userID, req.SKU, "gacha sell"); err != nil {
+		writeJSON(w, http.StatusConflict, map[string]any{"error": "not_won"})
+		return
+	}
+	if err := s.wallet.Grant(userID, prize.Currency, sale, "gacha sell"); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "grant_failed"})
+		return
+	}
+	kept := doc.Taken[:0]
+	for _, t := range doc.Taken {
+		if t != req.SKU {
+			kept = append(kept, t)
+		}
+	}
+	doc.Taken = kept
+	if err := s.save(userID, doc); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "gacha_save_failed"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"sku": req.SKU, "sold": map[string]any{"currency": prize.Currency, "amount": sale}})
 }
 
 func (s *GachaService) load(userID string) (*gachaDoc, error) {

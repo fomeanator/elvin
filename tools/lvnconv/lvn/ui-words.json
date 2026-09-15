@@ -632,16 +632,12 @@
   "default": "Come back tomorrow for a free spin"
  },
  {
-  "key": "gacha.copies",
-  "default": "copies: {0}"
- },
- {
   "key": "gacha.copy",
-  "default": "copy #{0}"
+  "default": "a copy"
  },
  {
   "key": "gacha.copy_sold",
-  "default": "copy #{0} sold for {1}"
+  "default": "a copy — sold for {0}"
  },
  {
   "key": "gacha.copy_worth",
@@ -686,6 +682,18 @@
  {
   "key": "gacha.pack_failed",
   "default": "The purchase did not go through. Try again."
+ },
+ {
+  "key": "gacha.sell",
+  "default": "Sell for {0}"
+ },
+ {
+  "key": "gacha.sell_failed",
+  "default": "could not sell"
+ },
+ {
+  "key": "gacha.sold",
+  "default": "sold for {0}"
  },
  {
   "key": "gacha.spin",
@@ -1233,7 +1241,11 @@
  },
  {
   "key": "skin.get_owned",
-  "default": "Already yours"
+  "default": "Yours"
+ },
+ {
+  "key": "skin.got_gacha",
+  "default": "Won in spins"
  },
  {
   "key": "slot",

@@ -441,7 +441,7 @@ namespace Lvn.UI.Screens
                 DressPrizeCell(cell, info.Prize);
                 return cell;
             }
-            cell.Add(LvnIcons.MakeCurrency(sector.Currency, LvnStageKit.D(32f)));
+            cell.Add(LvnPriceTag.Icon(sector.Currency, LvnStageKit.D(32f)));
             var label = new Label(LvnPriceTag.Amount(sector.Amount));
             label.style.color = LvnTokens.Text;
             label.style.fontSize = LvnTokens.TextLg;
@@ -479,7 +479,7 @@ namespace Lvn.UI.Screens
                 amount.style.fontSize = LvnTokens.TextLg;
                 LvnAir.MarginX(amount, LvnTokens.Space1);
                 row.Add(amount);
-                row.Add(LvnIcons.MakeCurrency(kv.Key, LvnStageKit.D(22f)));
+                row.Add(LvnPriceTag.Icon(kv.Key, LvnStageKit.D(22f)));
             }
             return row;
         }
@@ -500,7 +500,7 @@ namespace Lvn.UI.Screens
             cost.style.color = LvnTokens.Gold;
             cost.style.marginLeft = LvnTokens.Space2;
             row.Add(cost);
-            row.Add(LvnIcons.MakeCurrency(_state.SpinCurrency, LvnStageKit.D(20f)));
+            row.Add(LvnPriceTag.Icon(_state.SpinCurrency, LvnStageKit.D(20f)));
             return row;
         }
 
@@ -641,10 +641,14 @@ namespace Lvn.UI.Screens
             string chanceText = chance.HasValue ? LvnWords.Of("skin.get_chance", "chance {0} %", chance.Value.ToString("0.##")) : null;
             string drops = LvnWords.Of("skin.get_gacha", "Drops from spins") + (chanceText != null ? " · " + chanceText : "");
             bool sellable = prize.Price > 0 && !prize.GachaOnly;   // «только из крутки» не покупается и при цене
+            // КОПИЙ В ИНВЕНТАРЕ НЕТ (Илья 15.09: «в инвентаре только одна копия,
+            // дубль продаётся автоматом»): у имеющегося приза — способ получения
+            // и за сколько уйдёт повтор; счётчик копий не показываем.
             string obtain = owned
-                ? LvnWords.Of("skin.get_owned", "Already yours") + (copies > 0 ? " · " + LvnWords.Of("gacha.copies", "copies: {0}", copies) : "")
+                ? LvnWords.Of("skin.get_owned", "Yours") + " · " + LvnWords.Of("skin.got_gacha", "Won in spins")
                   + ((prize.SellPrice > 0 ? prize.SellPrice : prize.Price) > 0 ? " · " + LvnWords.Of("gacha.copy_worth", "a copy sells for {0}", LvnPriceTag.Full(prize.Currency ?? _state?.SpinCurrency, prize.SellPrice > 0 ? prize.SellPrice : prize.Price)) : "")
                 : drops + (sellable ? " · " + LvnWords.Of("skin.get_buy", "Buy: {0}", LvnPriceTag.Full(prize.Currency ?? _state?.SpinCurrency, prize.Price)) : "");
+            _ = copies;   // сервер считает повторы, экрану они больше не нужны
             return new LvnSkinCard.Info
             {
                 Title = prize.Label ?? prize.Sku, Art = prize.Art, SharpArt = zoom >= 3f,
@@ -653,7 +657,7 @@ namespace Lvn.UI.Screens
                 RarityWord = rank >= 0 ? LvnRarity.Word(prize.Rarity) : null,
                 Price = prize.Price, Currency = prize.Currency ?? _state?.SpinCurrency,
                 Gift = !sellable, Owned = owned, PriceAlways = sellable,   // «есть» не прячет цену (Илья); только из крутки — подарок
-                Corner = owned ? LvnWords.Of("gacha.owned", "owned") + (copies > 0 ? " ×" + (copies + 1) : "")
+                Corner = owned ? LvnWords.Of("gacha.owned", "owned")
                     : chance.HasValue ? chance.Value.ToString("0.##") + " %" : null,
                 Obtain = obtain,
                 Description = prize.Description,
@@ -856,7 +860,7 @@ namespace Lvn.UI.Screens
                 amount.style.color = LvnTokens.TextDim;
                 amount.style.fontSize = LvnTokens.TextSm;
                 cost.Add(amount);
-                cost.Add(LvnIcons.MakeCurrency(_state.SpinCurrency, LvnStageKit.D(16f)));
+                cost.Add(LvnPriceTag.Icon(_state.SpinCurrency, LvnStageKit.D(16f)));
                 col.Add(cost);
                 b.Add(col);
                 if (row.childCount > 0) b.style.marginLeft = LvnTokens.Space1;
@@ -1139,6 +1143,9 @@ namespace Lvn.UI.Screens
                 if (auto)
                 {
                     await Task.WhenAny(_taken.Task, WaitOrTapAsync(AutoTakeMs));
+                    if (_closed) return "closed";
+                    // Игрок нажал «Продать» — авто не закрывает показ у него под рукой (TR-124).
+                    while (_sellingPrize && !_closed) await Task.Yield();
                     if (_closed) return "closed";
                     if (!_taken.Task.IsCompleted) TakeNow(rare);
                     await WaitOrTapAsync(AutoResumeMs);
