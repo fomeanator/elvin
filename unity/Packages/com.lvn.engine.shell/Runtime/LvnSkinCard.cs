@@ -87,10 +87,11 @@ namespace Lvn.UI.Screens
         }
 
         /// <summary>ОБЛИК РЕДКОСТИ «КАК В ДОТЕ» (TR-109, Илья 15.09: «хочу скины
-        /// в цвет Доты»). Не один ободок: задник плитки уходит в цвет ступени,
-        /// подложка имени темнеет в него же, имя пишется этим цветом, понизу —
-        /// яркая полоса. У обычного всё почти платиновое, у бессмертного —
-        /// золото: ступень видна с расстояния, а не по тонкой рамке.</summary>
+        /// в цвет Доты»): подложка имени темнеет в цвет ступени, имя пишется
+        /// этим цветом, понизу — яркая полоса, по краю — тонкий ободок. Задник
+        /// под фото НЕ красится (Илья: «не надо окрашивать задник фотки, только
+        /// имя и подложку имени») — арт стоит на платине, ступень читается по
+        /// низу плитки.</summary>
         public static void DressRarity(VisualElement card, Color? rarity, Color text)
         {
             var plate = card.Q("card-plate");
@@ -107,7 +108,7 @@ namespace Lvn.UI.Screens
             }
             var c = rarity.Value;
             LvnChrome.Border(card, c, 2f);
-            card.style.backgroundColor = Color.Lerp(Platinum, c, 0.45f);
+            card.style.backgroundColor = Platinum;
             if (plate != null)
             {
                 var tinted = Color.Lerp(PlateDark, c, 0.35f); tinted.a = 0.9f;
