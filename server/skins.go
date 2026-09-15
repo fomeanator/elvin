@@ -36,8 +36,9 @@ type skin struct {
 	Art      string  `json:"art,omitempty"`          // полный арт (слой, картина, аватар)
 	Preview  string  `json:"preview,omitempty"`      // мини для витрины (фоны)
 	Rarity   string  `json:"rarity,omitempty"`       // ступень; цвет — у палитры ступеней
-	Price    int64   `json:"price,omitempty"`        // 0 — не продаётся (бесплатно или только крутка)
+	Price    int64   `json:"price,omitempty"`        // цена скина: покупка в гардеробе и продажа копии
 	Currency string  `json:"currency,omitempty"`     //
+	Buy      bool    `json:"buy,omitempty"`          // продаётся в гардеробе; false при цене — «только из крутки»
 	Gacha    bool    `json:"gacha,omitempty"`        // выпадает в крутках
 	Weight   float64 `json:"gacha_weight,omitempty"` // свой вес в барабане; 0 — по ступени
 }
@@ -187,9 +188,12 @@ func collectSkins(manifest map[string]any, gacha gachaConfig, existing skinsConf
 				if it == nil || value == "" || value == "__none__" {
 					continue
 				}
+				// В гардеробе флаг gacha значит «только из крутки, не купить» (TR-93).
+				price := int64(skinNum(it, "price"))
 				add(skin{SKU: wardrobeSKU(entity, axis, value), Kind: "wardrobe",
 					Name: skinStr(it, "name"), Art: skinStr(it, "icon"), Rarity: skinStr(it, "rarity"),
-					Price: int64(skinNum(it, "price")), Currency: skinStr(it, "currency"), Gacha: skinBool(it, "gacha")})
+					Price: price, Currency: skinStr(it, "currency"), Gacha: skinBool(it, "gacha"),
+					Buy: price > 0 && !skinBool(it, "gacha")})
 			}
 		}
 	}
@@ -200,7 +204,7 @@ func collectSkins(manifest map[string]any, gacha gachaConfig, existing skinsConf
 		}
 		add(skin{SKU: backdropSKU(skinStr(o, "id")), Kind: "backdrop", Name: skinStr(o, "title"),
 			Art: skinStr(o, "url"), Preview: skinStr(o, "preview"), Rarity: skinStr(o, "rarity"),
-			Price: int64(skinNum(o, "price")), Currency: skinStr(o, "currency")})
+			Price: int64(skinNum(o, "price")), Currency: skinStr(o, "currency"), Buy: skinNum(o, "price") > 0})
 	}
 	for _, raw := range skinList(skinDig(manifest, "ui", "browse"), "avatars") {
 		a, _ := raw.(map[string]any)
@@ -208,7 +212,7 @@ func collectSkins(manifest map[string]any, gacha gachaConfig, existing skinsConf
 			continue
 		}
 		add(skin{SKU: avatarSKU(skinStr(a, "id"), skinStr(a, "sku")), Kind: "avatar", Name: skinStr(a, "id"),
-			Art: skinStr(a, "url"), Price: int64(skinNum(a, "price")), Currency: skinStr(a, "currency")})
+			Art: skinStr(a, "url"), Price: int64(skinNum(a, "price")), Currency: skinStr(a, "currency"), Buy: skinNum(a, "price") > 0})
 	}
 	// Правленые записи, которых в манифесте уже нет, — не теряем.
 	for _, sku := range skinKeysOf(known) {
@@ -279,9 +283,9 @@ func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) in
 				setOrDrop(it, "price", sk.Price, sk.Price > 0)
 				setIf(it, "currency", sk.Currency)
 				// ФЛАГ gacha В ГАРДЕРОБЕ ЗНАЧИТ «ТОЛЬКО ИЗ КРУТКИ — не покупается»
-				// (TR-93). Скин с ценой и в крутке продаётся как прежде, и на ленте
-				// тоже есть; флаг ставим лишь тем, у кого цены нет.
-				setOrDrop(it, "gacha", true, sk.Gacha && sk.Price <= 0)
+				// (TR-93): его несут скины из крутки, которые не продаются (buy
+				// false); цена у них остаётся — за неё продаётся копия.
+				setOrDrop(it, "gacha", true, sk.Gacha && !sk.Buy)
 				placed++
 			}
 		}

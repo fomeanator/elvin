@@ -55,8 +55,11 @@ func TestSkinsCollectApplyRoundTrip(t *testing.T) {
 	if g := by["wardrobe:victoria:outfit:gift"]; !g.Gacha || g.Rarity != "mythical" {
 		t.Fatalf("приз барабана не помечен «в крутке» со ступенью из барабана: %+v", g)
 	}
-	if o := by["wardrobe:victoria:outfit:orchid"]; o.Price != 60 || o.Rarity != "rare" || o.Kind != "wardrobe" {
-		t.Fatalf("наряд собран неверно: %+v", o)
+	if o := by["wardrobe:victoria:outfit:orchid"]; o.Price != 60 || o.Rarity != "rare" || o.Kind != "wardrobe" || !o.Buy {
+		t.Fatalf("наряд собран неверно (с ценой и без флага — продаётся): %+v", o)
+	}
+	if g := by["wardrobe:victoria:outfit:gift"]; g.Buy {
+		t.Fatalf("приз с флагом gacha в манифесте не продаётся: %+v", g)
 	}
 	if b := by["wardrobe:menu:backdrop:hall"]; b.Kind != "backdrop" || b.Name != "Зал" || b.Price != 120 {
 		t.Fatalf("фон собран неверно: %+v", b)
@@ -92,7 +95,7 @@ func TestSkinsCollectApplyRoundTrip(t *testing.T) {
 	items := skinList(skinDig(m, "sprites", "victoria", "wardrobe", "outfit"), "items")
 	orchid := items[1].(map[string]any)
 	if skinNum(orchid, "price") != 99 || skinBool(orchid, "gacha") {
-		t.Fatalf("наряд с ценой и в крутке: цена 99, а флаг gacha (только из крутки) стоять не должен: %+v", orchid)
+		t.Fatalf("продаваемый наряд и в крутке: цена 99, а флаг gacha (только из крутки) стоять не должен: %+v", orchid)
 	}
 	gift := items[2].(map[string]any)
 	if !skinBool(gift, "gacha") || gift["price"] != nil {
