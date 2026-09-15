@@ -67,8 +67,25 @@ namespace Lvn.UI.Screens
         private readonly Look _look;
         private readonly Label _amount;
         private readonly Label _timer;
+        private VisualElement _icon, _plus;
 
         public string Currency => _currency;
+
+        /// <summary>
+        /// ПРИЖАТЬ, А НЕ УЖАТЬ (TR-116). Когда пилюлям тесно (буквы логотипа
+        /// рядом), они сдвигаются друг к другу: зазор до соседа и зазоры внутри
+        /// — между значком, числом и «плюсом» — становятся вдвое меньше. Размер
+        /// значков и цифр не трогается: масштаб делал значки покупки мелкими
+        /// («надо было только прижать друг к другу» — Илья).
+        /// </summary>
+        public void SetTight(bool tight)
+        {
+            float k = tight ? 0.4f : 1f;
+            style.marginLeft = _look.MarginLeft * k;
+            float gap = (_look.Gap ?? LvnTokens.Space1) * (tight ? 0.5f : 1f);
+            if (_icon != null) _icon.style.marginRight = gap;
+            if (_plus != null) _plus.style.marginLeft = (_look.Gap ?? LvnTokens.Tight) * (tight ? 0.5f : 1f);
+        }
 
         public LvnWalletPill(string currency, Look look, ILvnAssets assets = null,
                              Action onTap = null, Action onPlus = null)
@@ -86,7 +103,8 @@ namespace Lvn.UI.Screens
             style.backgroundColor = _look.Background;
             if (_look.Edge) LvnChrome.Edged(this, _look.Radius);
 
-            Add(BuildIcon(assets));
+            _icon = BuildIcon(assets);
+            Add(_icon);
 
             _amount = new Label(LvnWallet.Display(_currency)) { pickingMode = PickingMode.Ignore };
             _amount.style.color = _look.TextColor;
@@ -130,7 +148,7 @@ namespace Lvn.UI.Screens
             // Refill is live even in compact headers without a visible timer.
             schedule.Execute(Refresh).Every(1000);
 
-            if (onPlus != null) Add(PlusButton(onPlus, assets));
+            if (onPlus != null) { _plus = PlusButton(onPlus, assets); Add(_plus); }
 
             if (onTap != null)
             {
@@ -155,12 +173,10 @@ namespace Lvn.UI.Screens
             // его в манифесте (`ui.currency_look[…].icon`), и пилюля этого
             // раньше не видела — в магазине стоял авторский значок, а в строке
             // состояния догаданный. Оттенок так же: свой, если назван.
-            var look = LvnPriceTag.Of(_currency);
-            var tint = _look.IconTint ?? look.Tint;
-            var ic = LvnIcons.Make(look.Icon, _look.IconSize, tint);
-            ic.pickingMode = PickingMode.Ignore;
+            // Без своей картинки — общий значок валюты (TR-117): картинка из
+            // манифеста, если она есть, иначе вектор по смыслу валюты.
+            var ic = LvnPriceTag.Icon(_currency, _look.IconSize, _look.IconTint);
             ic.style.marginRight = _look.Gap ?? LvnTokens.Space1;
-            ic.style.flexShrink = 0;
             return ic;
         }
 
