@@ -291,7 +291,7 @@ namespace Lvn.UI.Screens
             }
             _tab = LvnTabs.Home;
             _tabCanvasX = 0f;
-            Hub?.SetNavHidden(false);   // из круток в главу — меню обязано вернуться к возвращению
+            Hub?.SetNavHidden(false, instant: true);   // из круток в главу — меню обязано вернуться к возвращению
             Hub?.SetActiveTab(LvnTabs.Home, instant: true);
         }
 

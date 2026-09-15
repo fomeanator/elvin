@@ -632,6 +632,10 @@
   "default": "Come back tomorrow for a free spin"
  },
  {
+  "key": "gacha.contents",
+  "default": "Contents"
+ },
+ {
   "key": "gacha.copy",
   "default": "a copy"
  },
