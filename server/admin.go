@@ -76,8 +76,7 @@ func (s *AdminService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/admin/stats/spend", s.handleSpendStats)
 	mux.HandleFunc("/v1/admin/rollback", s.handleRollback)
 	mux.HandleFunc("/v1/admin/files", s.handleFiles)
-	mux.HandleFunc("/v1/admin/skins/collect", s.handleSkinsCollect)
-	mux.HandleFunc("/v1/admin/skins/apply", s.handleSkinsApply)
+	mux.HandleFunc("/v1/admin/skins/", s.handleSkins) // collect | apply
 	mux.HandleFunc("/v1/admin/import-templates", s.handleImportTemplates)
 	mux.HandleFunc("/v1/admin/import-templates/", s.handleImportTemplateDetail)
 }
