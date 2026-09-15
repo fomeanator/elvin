@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { analyticsSummary, analyticsFunnel, analyticsHealth, analyticsMoney, analyticsSlides, withSegment, adminCrashes, adminSpendStats } from "../../lib/api.js";
+import { analyticsSummary, analyticsFunnel, analyticsHealth, analyticsMoney, analyticsSlides, withSegment, adminCrashes, adminSpendStats, analyticsUsage } from "../../lib/api.js";
 import { useAsync, fmt } from "../adminShared.jsx";
 import { Page, LoadState, Empty, Kpi } from "./ui.jsx";
 import {
@@ -26,6 +26,7 @@ const VIEWS = [
   { key: "health", label: "Здоровье" },
   { key: "money", label: "Деньги" },
   { key: "spend", label: "Траты валют" },
+  { key: "usage", label: "Использование" },
 ];
 
 export default function Analytics({ token }) {
@@ -98,6 +99,7 @@ export default function Analytics({ token }) {
       {view === "health" && <Health token={token} q={q} />}
       {view === "money" && <Money token={token} q={q} />}
       {view === "spend" && <SpendStats token={token} />}
+      {view === "usage" && <Usage token={token} q={q} />}
     </Page>
   );
 }
@@ -587,10 +589,15 @@ function Crashes({ token, q }) {
 // поэтому не смешаны: слайды — «где перестали читать», развилки — «где увидели
 // выбор и ушли, не выбрав».
 function ChapterSlides({ token, q, title, chapter }) {
-  const rep = useAsync(() => analyticsSlides(q, title, chapter, token), [q, title, chapter, token]);
+  // ПО МЕТКАМ ИЛИ ПО СТРОКАМ (TR-126, Илья: «0-ю строку увидели 100, дальше
+  // кликнули 97…»): строки — каждая реплика и развилка, дошедшие считаются
+  // из концов сессий; метки — крупнее и живут с label_reach.
+  const [by, setBy] = useState("label");
+  const rep = useAsync(() => analyticsSlides(q, title, chapter, token, by === "line" ? "line" : ""), [q, title, chapter, token, by]);
   const d = rep.data || {};
   const slides = d.slides || [];
   const choices = d.choices || [];
+  const lines = d.lines || [];
 
   return (
     <section className="adm-panel">
@@ -599,6 +606,11 @@ function ChapterSlides({ token, q, title, chapter }) {
         <span className="adm-dim">
           вошли {fmt(d.starts || 0)} · дочитали {fmt(d.finishes || 0)} · ушли {fmt(d.abandons || 0)}
         </span>
+        <div className="adm-rowbtns">
+          {[["label", "По меткам"], ["line", "По строкам"]].map(([k, l]) => (
+            <button key={k} className={"btn-ghost sm" + (by === k ? " active" : "")} onClick={() => setBy(k)}>{l}</button>
+          ))}
+        </div>
       </header>
       <LoadState loading={rep.loading} error={rep.error}>
         {d.balance && <p className="adm-dim">{d.balance}</p>}
@@ -611,7 +623,29 @@ function ChapterSlides({ token, q, title, chapter }) {
           </p>
         )}
 
-        {!slides.length ? <Empty text="Событий меток за это окно нет — они приезжают со сборкой, где включён label_reach." /> : (
+        {by === "line" && (
+          !lines.length ? <Empty text="Строк нет: скрипт главы не найден или в окне нет ни одной сессии." /> : (
+            <div className="adm-tablewrap">
+              <table className="adm-table">
+                <thead><tr><th>#</th><th>строка</th><th className="num">дошло</th><th>от входа</th><th className="num">от прошлой</th><th className="num">потеряно</th></tr></thead>
+                <tbody>
+                  {lines.map((r) => (
+                    <tr key={r.at} className={r.lost >= Math.max(3, (d.starts || 0) * 0.05) ? "row-warn" : ""}>
+                      <td className="muted">{r.at}</td>
+                      <td>{r.who && <span className="adm-cell-main">{r.who}: </span>}<span className={r.op === "say" ? "" : "muted"}>{r.line}</span></td>
+                      <td className="num">{fmt(r.reached)}</td>
+                      <td><Meter value={r.of_start} /></td>
+                      <td className="num muted">{Math.round((r.of_prev || 0) * 100)}%</td>
+                      <td className={"num" + (r.lost ? " amt-minus" : " muted")}>{r.lost ? "−" + fmt(r.lost) : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        )}
+
+        {by === "label" && (!slides.length ? <Empty text="Событий меток за это окно нет — они приезжают со сборкой, где включён label_reach." /> : (
           <div className="adm-tablewrap">
             <table className="adm-table">
               <thead><tr><th>метка</th><th>что на экране</th><th className="num">дошло</th><th>от входа</th><th className="num">потеряно</th></tr></thead>
@@ -628,7 +662,7 @@ function ChapterSlides({ token, q, title, chapter }) {
               </tbody>
             </table>
           </div>
-        )}
+        ))}
 
         {choices.length > 0 && (
           <div className="adm-tablewrap">
@@ -828,6 +862,52 @@ function Health({ token, q }) {
         схема v{(d.rollup || {}).schema}
       </p>
     </LoadState>
+  );
+}
+
+// ── Использование ───────────────────────────────────────────────────────────
+//
+// Чем пользуются (TR-126): экраны по времени, у каждого — во что жмут и
+// сколько раз. Источник — минутные события ui_use с устройства.
+function Usage({ token, q }) {
+  const rep = useAsync(() => analyticsUsage(q, token), [q, token]);
+  const d = rep.data || {};
+  const screens = d.screens || [];
+  const [open, setOpen] = useState(null);
+  const mmss = (s) => Math.floor((s || 0) / 60) + ":" + String((s || 0) % 60).padStart(2, "0");
+  return (
+    <section className="adm-panel">
+      <header className="adm-panel-head">
+        <h2>Использование</h2>
+        <span className="adm-dim">время на экранах {mmss(d.total_seconds)} · тапов {fmt(d.total_taps || 0)}</span>
+      </header>
+      <LoadState loading={rep.loading} error={rep.error}>
+        {d.note && <p className="adm-dim">⚠ {d.note}</p>}
+        {!screens.length ? <Empty text="Событий использования за это окно нет." /> : (
+          <div className="adm-tablewrap">
+            <table className="adm-table">
+              <thead><tr><th>экран</th><th className="num">время</th><th>доля</th><th className="num">тапов</th><th>во что жмут</th></tr></thead>
+              <tbody>
+                {screens.map((r) => (
+                  <tr key={r.screen} onClick={() => setOpen(open === r.screen ? null : r.screen)} style={{ cursor: "pointer" }}>
+                    <td><span className="adm-cell-main">{r.screen}</span></td>
+                    <td className="num">{mmss(r.seconds)}</td>
+                    <td><Meter value={r.share} /></td>
+                    <td className="num">{fmt(r.taps)}</td>
+                    <td className="muted">
+                      {(r.elements || []).slice(0, open === r.screen ? 40 : 4).map((e) => (
+                        <span key={e.name} style={{ marginRight: 10, whiteSpace: "nowrap" }}>{e.name} <b>{fmt(e.count)}</b></span>
+                      ))}
+                      {(r.elements || []).length > 4 && open !== r.screen && <span>…</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </LoadState>
+    </section>
   );
 }
 

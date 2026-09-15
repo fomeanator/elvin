@@ -91,7 +91,8 @@ const (
 	evLabelReach     = "label_reach"  // дошёл до авторской метки — слайд главы
 	evChoiceShown    = "choice_shown"
 	evChoicePick     = "choice_pick"
-	evTrack          = "track" // авторская метка конверсии: track "имя" в .lvns
+	evTrack          = "track"  // авторская метка конверсии: track "имя" в .lvns
+	evUsage          = "ui_use" // минута использования: тапы по элементам и секунды по экранам (LvnUsage, TR-126)
 )
 
 // rollupEvent is the read-side view of a logged event. Props stay raw: the
@@ -125,7 +126,9 @@ type dayRollup struct {
 	Ops      map[string]int         `json:"ops,omitempty"`    // unknown/unclaimed ops
 	Assets   map[string]int         `json:"assets,omitempty"` // assets that failed to load
 	Hours    [24]int                `json:"hours"`
-	Trunc    map[string]bool        `json:"trunc,omitempty"`
+	// Использование по экранам (TR-126): секунды и тапы по элементам.
+	Usage map[string]*usageRoll `json:"usage,omitempty"`
+	Trunc map[string]bool       `json:"trunc,omitempty"`
 
 	persistedAt time.Time // in-memory only: throttles checkpoint writes
 
@@ -134,6 +137,68 @@ type dayRollup struct {
 	// это способ её прочитать, а не отдельные данные. Вынуть одну группу из
 	// уже сложенных сумм нельзя, поэтому сегмент складывает сырьё заново.
 	keep func(uid string) bool
+}
+
+// usageRoll — экран интерфейса: сколько секунд на нём провели и сколько раз
+// во что тапнули. Складывается из минутных событий ui_use (TR-126).
+type usageRoll struct {
+	Seconds int            `json:"s"`
+	Taps    map[string]int `json:"t,omitempty"`
+}
+
+const maxRollupUsageScreens = 200
+const maxRollupUsageTaps = 300
+
+func (r *dayRollup) usage(screen string) *usageRoll {
+	if r.Usage == nil {
+		r.Usage = map[string]*usageRoll{}
+	}
+	u := r.Usage[screen]
+	if u == nil {
+		if len(r.Usage) >= maxRollupUsageScreens {
+			screen = "…"
+			if u = r.Usage[screen]; u != nil {
+				return u
+			}
+		}
+		u = &usageRoll{}
+		r.Usage[screen] = u
+	}
+	return u
+}
+
+// foldUsage — одно минутное событие: time {экран: секунды}, taps
+// {экран/элемент: раз}. Ключи тапов делятся на экран и элемент по первому
+// «/», чтобы тапы легли под свой экран.
+func (r *dayRollup) foldUsage(props map[string]json.RawMessage) {
+	var timeMap map[string]float64
+	if raw, ok := props["time"]; ok {
+		_ = json.Unmarshal(raw, &timeMap)
+	}
+	for screen, secs := range timeMap {
+		if screen == "" || secs <= 0 || secs > 3600 {
+			continue
+		}
+		r.usage(clip(screen, 64)).Seconds += int(secs)
+	}
+	var taps map[string]int
+	if raw, ok := props["taps"]; ok {
+		_ = json.Unmarshal(raw, &taps)
+	}
+	for key, n := range taps {
+		if n <= 0 || n > 100000 {
+			continue
+		}
+		screen, element, ok := strings.Cut(key, "/")
+		if !ok || screen == "" || element == "" {
+			continue
+		}
+		u := r.usage(clip(screen, 64))
+		if u.Taps == nil {
+			u.Taps = map[string]int{}
+		}
+		r.bump(u.Taps, "usage", clip(element, 64), n, maxRollupUsageTaps)
+	}
 }
 
 type titleRoll struct {
@@ -365,6 +430,9 @@ func (r *dayRollup) foldLine(line []byte) {
 
 	r.Events++
 	r.bump(r.Names, "names", name, 1, maxRollupNames)
+	if name == evUsage {
+		r.foldUsage(ev.Props)
+	}
 	if fail {
 		r.bump(r.Fails, "names", name, 1, maxRollupNames)
 	}
@@ -622,6 +690,16 @@ func (r *dayRollup) mergeFrom(o *dayRollup) {
 	}
 	for k, v := range o.Assets {
 		r.bump(r.Assets, "assets", k, v, maxRollupAssets)
+	}
+	for screen, ou := range o.Usage {
+		u := r.usage(screen)
+		u.Seconds += ou.Seconds
+		for k, v := range ou.Taps {
+			if u.Taps == nil {
+				u.Taps = map[string]int{}
+			}
+			r.bump(u.Taps, "usage", k, v, maxRollupUsageTaps)
+		}
 	}
 	for id, ot := range o.Titles {
 		t := r.title(id)

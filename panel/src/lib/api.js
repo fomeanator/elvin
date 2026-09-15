@@ -337,10 +337,16 @@ export const analyticsHealth = (query, token) =>
   adminFetch("/v1/analytics/health" + (query ? "?" + query : ""), token);
 
 // GET /v1/analytics/slides — воронка ВНУТРИ главы: метки и развилки.
-export const analyticsSlides = (query, title, chapter, token) =>
+export const analyticsSlides = (query, title, chapter, token, by) =>
   adminFetch("/v1/analytics/slides?" + (query ? query + "&" : "") +
     "title=" + encodeURIComponent(title || "") +
-    "&chapter=" + encodeURIComponent(chapter || ""), token);
+    "&chapter=" + encodeURIComponent(chapter || "") +
+    (by ? "&by=" + encodeURIComponent(by) : ""), token);
+
+// GET /v1/analytics/usage — чем пользуются: экраны по времени, тапы по
+// элементам (TR-126).
+export const analyticsUsage = (query, token) =>
+  adminFetch("/v1/analytics/usage" + (query ? "?" + query : ""), token);
 
 // GET /v1/analytics/money — конверсия в платящего, ARPU, ARPPU, разбивка по
 // пакам и когортам. Сумма — оценка по прайсу каталога, не выручка из стора.

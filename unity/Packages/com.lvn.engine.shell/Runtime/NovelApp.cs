@@ -652,6 +652,7 @@ namespace Lvn.UI.Screens
             {
                 _perfSurface = surface; _perfChapter = chapter; _perfLabel = label; _perfAt = at;
                 _perfContext = surface + ",chapter=" + chapter + ",label=" + label + ",step=" + at;
+                Lvn.Services.LvnUsage.Screen = surface;   // время и тапы считаются по этому экрану (TR-126)
             }
             return _perfContext;
         }
