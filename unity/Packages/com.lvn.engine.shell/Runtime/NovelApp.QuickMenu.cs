@@ -330,9 +330,12 @@ namespace Lvn.UI.Screens
                 if (!_menuDollSent && !string.IsNullOrEmpty(_menuDollSlot))
                 {
                     _menuDollSent = true;
-                    Stage.Prima.Stand(LvnSender.Menu, place: _menuDollSlot,
-                                      seconds: LvnMenuStage.TravelMs / 1000f, nudge: _menuDollNudge,
-                                      lift: _menuDollLift);
+                    // В комнату без героини (крутки) фигура уходит со сцены; из
+                    // неё — встаёт в слот следующей комнаты, как всегда.
+                    if (_menuDollLeave) Stage.Prima.Leave(LvnSender.Menu);
+                    else Stage.Prima.Stand(LvnSender.Menu, place: _menuDollSlot,
+                                           seconds: LvnMenuStage.TravelMs / 1000f, nudge: _menuDollNudge,
+                                           lift: _menuDollLift);
                 }
                 if (!Stage.ShowsBackdrop(MenuCanvasUrl()))
                 {
@@ -411,6 +414,7 @@ namespace Lvn.UI.Screens
                 // ГАРДЕРОБ ОДИН: в меню — вкладка вокруг общей героини,
                 // в игре — прежний сценический шит (квик-меню/оп wardrobe_show).
                 _shell.Hub.OnWardrobe = () => _shell.TabGoTo(LvnTabs.Wardrobe);
+                _shell.Hub.OnGacha = () => _shell.TabGoTo(LvnTabs.Gacha);   // комната круток
                 _shell.Hub.OnGallery = OpenGalleryForRealAsync;
                 _shell.Hub.OnProfile = () => OpenProfileWithRelationsAsync();
                 // TR-25: партнёр прячет ежедневную награду данными; сама
@@ -436,12 +440,12 @@ namespace Lvn.UI.Screens
                 _shell.Hub.AdPlacement = manifest.ui?.store?.ad_placement;
                 _shell.Hub.OnAdTap = () => LvnAsync.Fire(OpenAdRewardAsync(), "AdReward");
                 // Крутки (TR-47): решает сервер, показывает экран.
-                _shell.Hub.OnSpin = () => LvnAsync.Fire(OpenGachaAsync(), "Gacha");
+                _shell.Hub.OnSpin = () => LvnAsync.Fire(_shell.TabGoTo(LvnTabs.Gacha), "Gacha");   // в меню — комната, не модаль
                 // Столбик героев в гардеробе меняет куклу витрины сразу, а не
                 // при следующей пересборке меню (иначе стоят двое).
                 if (_shell.WardrobeTab != null) _shell.WardrobeTab.OnFavoriteChanged = SwapMenuHeroine;
                 // Приз круток в гардеробе зовёт барабан (TR-93): та же дверь, что у кнопки «Крутка».
-                if (_shell.WardrobeTab != null) _shell.WardrobeTab.OpenGacha = () => OpenGachaAsync();
+                if (_shell.WardrobeTab != null) _shell.WardrobeTab.OpenGacha = () => _shell.TabGoTo(LvnTabs.Gacha);
             }
         }
 

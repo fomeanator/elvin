@@ -25,6 +25,7 @@ namespace Lvn.UI.Screens
             LvnTabs.Titles => (Titles, Titles),
             LvnTabs.Store => (PackShop, PackShop),
             LvnTabs.Wardrobe => (WardrobeTab, WardrobeTab),
+            LvnTabs.Gacha => (GachaTab, GachaTab),
             LvnTabs.Profile => (Profile, Profile),
             _ => (null, null),
         };

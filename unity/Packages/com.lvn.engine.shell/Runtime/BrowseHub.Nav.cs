@@ -59,6 +59,7 @@ namespace Lvn.UI.Screens
                 case LvnTabs.Home: return () => OnHomeNav?.Invoke();
                 case LvnTabs.Store: return () => { if (OnStore != null) LvnAsync.Fire(OnStore(), "OpenStore"); };
                 case LvnTabs.Wardrobe: return () => { if (OnWardrobe != null) LvnAsync.Fire(OnWardrobe(), "OpenWardrobe"); };
+                case LvnTabs.Gacha: return () => { if (OnGacha != null) LvnAsync.Fire(OnGacha(), "OpenGacha"); };
                 case LvnTabs.Gallery: return () => { if (OnGallery != null) LvnAsync.Fire(OnGallery(), "OpenGallery"); };
                 case LvnTabs.Profile: return () => { if (OnProfile != null) LvnAsync.Fire(OnProfile(), "OpenProfile"); };
                 default: return null;

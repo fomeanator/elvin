@@ -170,7 +170,8 @@ namespace Lvn.UI
         /// не «главная / не главная»: у магазина свои место и план. Какая
         /// вкладка какого рода — знает оболочка (вкладки её), витрина знает
         /// только числа рода.</summary>
-        public enum Room { Home, Store, Side }
+        /// <summary>Empty — героини на сцене нет (комната круток: ленты на купленном фоне).</summary>
+        public enum Room { Home, Store, Side, Empty }
 
         /// <summary>Слот героини для комнаты — словом сцены.</summary>
         public static string DollSlot(Room room)

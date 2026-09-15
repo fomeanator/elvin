@@ -15,7 +15,7 @@ namespace Lvn.UI.Screens
         private Label _rewardName, _rewardRarity;
         private IReadOnlyDictionary<string, string> RarityPalette => _manifest?.ui?.wardrobe?.rarity_colors;
         private int _prizeVersion;
-        private readonly CancellationTokenSource _artCancel = new CancellationTokenSource();
+        private CancellationTokenSource _artCancel = new CancellationTokenSource();   // вкладка заводит новый на каждый показ
 
         private void BuildReward(VisualElement content)
         {
