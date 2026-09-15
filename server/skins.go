@@ -215,21 +215,13 @@ func collectSkins(manifest map[string]any, gacha gachaConfig, existing skinsConf
 			Art: skinStr(a, "url"), Price: int64(skinNum(a, "price")), Currency: skinStr(a, "currency"), Buy: skinNum(a, "price") > 0})
 	}
 	// Правленые записи, которых в манифесте уже нет, — не теряем.
-	for _, sku := range skinKeysOf(known) {
+	for _, sku := range skinKeys(known) {
 		out.Skins = append(out.Skins, known[sku])
 	}
 	return out
 }
 
-func skinKeys(m map[string]any) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
-}
-func skinKeysOf(m map[string]skin) []string {
+func skinKeys[T any](m map[string]T) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -428,7 +420,8 @@ func (s *SkinsService) Apply() (int, error) {
 
 // ── ручки админки ───────────────────────────────────────────────────────────
 
-func (s *AdminService) handleSkinsCollect(w http.ResponseWriter, r *http.Request) {
+// handleSkins — «собрать» и «применить» одной ручкой: действие в хвосте пути.
+func (s *AdminService) handleSkins(w http.ResponseWriter, r *http.Request) {
 	if !s.ok(w, r) || !onlyMethod(w, r, http.MethodPost) {
 		return
 	}
@@ -436,28 +429,22 @@ func (s *AdminService) handleSkinsCollect(w http.ResponseWriter, r *http.Request
 		http.Error(w, "skins service is off", http.StatusServiceUnavailable)
 		return
 	}
-	cfg, err := s.skins.Collect()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	switch strings.TrimPrefix(r.URL.Path, "/v1/admin/skins/") {
+	case "collect":
+		cfg, err := s.skins.Collect()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"collected": len(cfg.Skins)})
+	case "apply":
+		placed, err := s.skins.Apply()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"applied": placed})
+	default:
+		http.Error(w, "collect or apply", http.StatusNotFound)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"collected": len(cfg.Skins)})
 }
-
-func (s *AdminService) handleSkinsApply(w http.ResponseWriter, r *http.Request) {
-	if !s.ok(w, r) || !onlyMethod(w, r, http.MethodPost) {
-		return
-	}
-	if s.skins == nil {
-		http.Error(w, "skins service is off", http.StatusServiceUnavailable)
-		return
-	}
-	placed, err := s.skins.Apply()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"applied": placed})
-}
-
-var _ = strings.TrimSpace
