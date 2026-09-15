@@ -27,29 +27,28 @@ namespace Lvn.UI.Screens
             column.style.alignItems = Align.Center;
             var color = info.Rarity ?? LvnTokens.Gold;
 
-            // Арт — той же плиткой, только большой и без подложки имени: у неё
-            // свой лоадер с крутилкой и тот же кадр по разделу.
+            // Арт — той же плиткой, только большой: имя — на картинке, в её
+            // подложке, как у маленькой (Илья 15.09 со скрином); у плитки свой
+            // лоадер с крутилкой и тот же кадр по разделу.
             var art = new LvnSkinCard { pickingMode = PickingMode.Ignore };
             float h = LvnStageKit.D(320f);
             art.SetSize(h * LvnSkinCard.BaseWidth / LvnSkinCard.BaseHeight, h);
             art.Bind(new LvnSkinCard.Info
             {
-                Art = info.Art, SharpArt = true, Frame = info.Frame, FrameY = info.FrameY, Cover = info.Cover,
+                Title = info.Title, Art = info.Art, SharpArt = true, Frame = info.Frame, FrameY = info.FrameY, Cover = info.Cover,
                 None = info.None, Rarity = info.Rarity, Owned = true, Radius = info.Radius, TextColor = info.TextColor,
             }, assets);
             column.Add(art);
 
-            var name = new Label(info.Title ?? "") { pickingMode = PickingMode.Ignore };
-            LvnFonts.Apply(name, LvnFonts.Display);
-            name.style.fontSize = LvnTokens.TextXl; name.style.color = color;
-            name.style.whiteSpace = WhiteSpace.Normal; name.style.unityTextAlign = TextAnchor.MiddleCenter;
-            name.style.alignSelf = Align.Stretch; name.style.marginTop = LvnTokens.Space2;
-            column.Add(name);
-
             var line = new List<string>();
             if (!string.IsNullOrEmpty(info.RarityWord)) line.Add(info.RarityWord);
             if (info.Price > 0) line.Add(LvnPriceTag.Full(info.Currency, info.Price));
-            if (line.Count > 0) column.Add(Meta(string.Join(" · ", line), color, LvnTokens.TextBase));
+            if (line.Count > 0)
+            {
+                var meta = Meta(string.Join(" · ", line), color, LvnTokens.TextBase);
+                meta.style.marginTop = LvnTokens.Space2;
+                column.Add(meta);
+            }
             if (!string.IsNullOrEmpty(info.Obtain)) column.Add(Meta(info.Obtain, LvnTokens.TextDim, LvnTokens.TextSm));
 
             veil.Add(column);
