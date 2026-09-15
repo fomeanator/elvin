@@ -636,6 +636,22 @@
   "default": "Come back tomorrow for a free spin"
  },
  {
+  "key": "gacha.copies",
+  "default": "copies: {0}"
+ },
+ {
+  "key": "gacha.copy",
+  "default": "copy #{0}"
+ },
+ {
+  "key": "gacha.copy_sold",
+  "default": "copy #{0} sold for {1}"
+ },
+ {
+  "key": "gacha.copy_worth",
+  "default": "a copy sells for {0}"
+ },
+ {
   "key": "gacha.failed",
   "default": "The spin did not go through. Try again."
  },

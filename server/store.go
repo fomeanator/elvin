@@ -264,6 +264,11 @@ var migrations = []string{
 	);
 	CREATE INDEX IF NOT EXISTS shares_owner ON shares (owner);
 	`,
+	// Копии призов круток (Илья 15.09): выбитое из набора не уходит, повтор —
+	// копия, продаётся за цену скина; счёт копий — под будущий крафт.
+	`
+	ALTER TABLE gacha_players ADD COLUMN copies TEXT NOT NULL DEFAULT '';
+	`,
 }
 
 func migrate(db *sql.DB) error {

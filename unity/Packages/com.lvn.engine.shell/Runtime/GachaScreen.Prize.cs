@@ -164,8 +164,15 @@ namespace Lvn.UI.Screens
             int rank = LvnRarity.Rank(prize.Rarity);
             _rewardName.style.color = rank >= 0 ? rarityColor : LvnTokens.Gold;
             // Цена рядом с именем (Илья): «Мифический · 350 кристаллов».
+            // КОПИЯ (Илья 15.09): скин уже есть — копия продана за цену скина,
+            // и это сказано прямо под именем, вместе с кристаллами.
             _rewardRarity.text = LvnRarity.Word(prize.Rarity)
-                + (prize.Price > 0 ? " · " + LvnPriceTag.Full(prize.Currency ?? _state?.SpinCurrency, prize.Price) : "");
+                + (prize.Price > 0 ? " · " + LvnPriceTag.Full(prize.Currency ?? _state?.SpinCurrency, prize.Price) : "")
+                + (spin.Copy > 0
+                    ? " · " + (spin.SoldAmount > 0
+                        ? LvnWords.Of("gacha.copy_sold", "copy #{0} sold for {1}", spin.Copy, LvnPriceTag.Full(spin.SoldCurrency, spin.SoldAmount))
+                        : LvnWords.Of("gacha.copy", "copy #{0}", spin.Copy))
+                    : "");
             _rewardRarity.style.color = rarityColor;
             _rewardRarity.style.opacity = 0f;
             _rewardRarity.style.display = rank >= 0 ? DisplayStyle.Flex : DisplayStyle.None;

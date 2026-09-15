@@ -56,10 +56,10 @@ func TestChargeRefusesWhenShort(t *testing.T) {
 	}
 }
 
-// ОПУСТЕВШИЙ СУПЕР-СЕКТОР УХОДИТ С БАРАБАНА. Жеребьёвка берёт приз из списка
-// оставшихся по остатку от деления — на пустом списке это паника, то есть
-// отказ всей ручки. Значит колесо обязано выкинуть сектор заранее.
-func TestSuperSectorLeavesTheWheelWhenPrizesRunOut(t *testing.T) {
+// СУПЕР-СЕКТОР НЕ ПУСТЕЕТ: выбитый приз остаётся в наборе (Илья 15.09:
+// «неправильно убирать скин, если выбил — лента лысеет»), повтор — копия.
+// Сектор уходит с барабана только если призов в наборе нет вовсе.
+func TestSuperSectorStaysWhilePrizesExist(t *testing.T) {
 	cfg := gachaConfig{
 		Sectors: []gachaSector{
 			{ID: "super", Kind: "super", Weight: 10},
@@ -70,12 +70,31 @@ func TestSuperSectorLeavesTheWheelWhenPrizesRunOut(t *testing.T) {
 	if len(cfg.wheel(nil)) != 2 {
 		t.Fatal("пока приз есть, супер-сектор обязан быть на барабане")
 	}
-	wheel := cfg.wheel([]string{"wardrobe:a"})
-	if len(wheel) != 1 || wheel[0].ID != "cr5" {
-		t.Fatalf("выбитый приз не убрал супер-сектор: %+v", wheel)
+	if wheel := cfg.wheel([]string{"wardrobe:a"}); len(wheel) != 2 {
+		t.Fatalf("выбитый приз убрал супер-сектор, а должен остаться копией: %+v", wheel)
 	}
 	if len(cfg.left([]string{"wardrobe:a"})) != 0 {
-		t.Fatal("выбитый приз остался в списке доступных")
+		t.Fatal("выбитый приз остался в списке ещё не полученных")
+	}
+	empty := gachaConfig{Sectors: cfg.Sectors}
+	if wheel := empty.wheel(nil); len(wheel) != 1 || wheel[0].ID != "cr5" {
+		t.Fatalf("без призов супер-сектор обязан уйти: %+v", wheel)
+	}
+}
+
+// КОПИИ ПОМНЯТСЯ И ПЕРЕЖИВАЮТ ЗАПИСЬ: строка «sku:n» туда и обратно.
+func TestGachaCopiesRoundTrip(t *testing.T) {
+	m := map[string]int{"wardrobe:a": 2, "wardrobe:b": 1, "zero": 0}
+	text := copiesText(m)
+	if text != "wardrobe:a:2,wardrobe:b:1" {
+		t.Fatalf("копии в строку: %q", text)
+	}
+	back := parseCopies(text)
+	if back["wardrobe:a"] != 2 || back["wardrobe:b"] != 1 || len(back) != 2 {
+		t.Fatalf("копии из строки: %+v", back)
+	}
+	if len(parseCopies("")) != 0 {
+		t.Fatal("пустая строка — пустые копии")
 	}
 }
 

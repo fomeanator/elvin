@@ -43,6 +43,7 @@ namespace Lvn.Services
             public List<Sector> Sectors = new List<Sector>();
             public List<Prize> PrizesLeft = new List<Prize>();
             public List<Prize> Prizes = new List<Prize>();   // весь набор, включая уже выбитые
+            public Dictionary<string, int> Copies = new Dictionary<string, int>();   // sku → сколько копий
             public bool FreeToday;
             public string SpinCurrency;
             public long SpinPrice;
@@ -57,6 +58,9 @@ namespace Lvn.Services
             public string Currency;
             public long Amount;
             public Prize Prize;
+            public int Copy;              // 0 — новый скин; n — n-я копия
+            public string SoldCurrency;   // копия продана: валюта и сумма
+            public long SoldAmount;
             public bool FreeToday;
             public List<Prize> PrizesLeft = new List<Prize>();
             public bool WalletSynced;
@@ -81,6 +85,8 @@ namespace Lvn.Services
                 ReadPrizes(d["prizes_left"] as JArray, st.PrizesLeft);
                 ReadPrizes(d["prizes"] as JArray, st.Prizes);
                 if (st.Prizes.Count == 0) st.Prizes.AddRange(st.PrizesLeft);   // старый сервер
+                if (d["copies"] is JObject copies)
+                    foreach (var kv in copies) st.Copies[kv.Key] = (int?)kv.Value ?? 0;
                 return st;
             }
             catch { return null; }
@@ -129,6 +135,12 @@ namespace Lvn.Services
                 };
                 if (d["prize"] is JObject p)
                     spin.Prize = ReadPrize(p);
+                spin.Copy = (int?)d["copy"] ?? 0;
+                if (d["sold"] is JObject sold)
+                {
+                    spin.SoldCurrency = (string)sold["currency"];
+                    spin.SoldAmount = (long?)sold["amount"] ?? 0;
+                }
                 ReadPrizes(d["prizes_left"] as JArray, spin.PrizesLeft);
                 if (spin.Super ? string.IsNullOrEmpty(spin.Prize?.Sku) : string.IsNullOrEmpty(spin.Currency))
                     return new Spin { Error = "invalid_response" };
@@ -164,6 +176,7 @@ namespace Lvn.Services
         {
             Sku = (string)p["sku"], Label = (string)p["label"], Art = (string)p["art"],
             Rarity = (string)p["rarity"], Weight = (double?)p["weight"] ?? 0,
+            Price = (long?)p["price"] ?? 0, Currency = (string)p["currency"],
         };
     }
 }

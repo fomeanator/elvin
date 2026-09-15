@@ -16,6 +16,8 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -43,6 +45,9 @@ type gachaPrize struct {
 	Art    string  `json:"art"`
 	Rarity string  `json:"rarity,omitempty"`
 	Weight float64 `json:"weight,omitempty"`
+	// Цена скина в гардеробе — за неё продаётся КОПИЯ (см. handleSpin).
+	Price    int64  `json:"price,omitempty"`
+	Currency string `json:"currency,omitempty"`
 }
 
 type gachaConfig struct {
@@ -65,9 +70,45 @@ func (c gachaConfig) prizeWeight(p gachaPrize) float64 {
 }
 
 type gachaDoc struct {
-	Taken   []string // выбитые супер-призы
-	FreeDay string   // YYYY-MM-DD последнего бесплатного прокрута
+	Taken   []string       // выбитые супер-призы (что уже есть)
+	Copies  map[string]int // сколько раз приз выпал СВЕРХ первого — копии
+	FreeDay string         // YYYY-MM-DD последнего бесплатного прокрута
 	Spins   int
+}
+
+func (d *gachaDoc) has(sku string) bool {
+	for _, t := range d.Taken {
+		if t == sku {
+			return true
+		}
+	}
+	return false
+}
+
+// copiesText / parseCopies — копии в одной строке "sku:n,sku:n" (как taken).
+func copiesText(m map[string]int) string {
+	parts := make([]string, 0, len(m))
+	for sku, n := range m {
+		if n > 0 {
+			parts = append(parts, sku+":"+strconv.Itoa(n))
+		}
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, ",")
+}
+
+func parseCopies(text string) map[string]int {
+	out := map[string]int{}
+	for _, part := range strings.Split(text, ",") {
+		i := strings.LastIndex(part, ":")
+		if i <= 0 {
+			continue
+		}
+		if n, err := strconv.Atoi(part[i+1:]); err == nil && n > 0 {
+			out[part[:i]] = n
+		}
+	}
+	return out
 }
 
 type GachaService struct {
@@ -97,10 +138,10 @@ func (s *GachaService) Routes(mux *http.ServeMux) {
 }
 
 func (s *GachaService) load(userID string) (*gachaDoc, error) {
-	doc := &gachaDoc{}
-	var taken string
-	err := s.db.QueryRow(`SELECT taken, free_day, spins FROM gacha_players WHERE user_id = ?`, userID).
-		Scan(&taken, &doc.FreeDay, &doc.Spins)
+	doc := &gachaDoc{Copies: map[string]int{}}
+	var taken, copies string
+	err := s.db.QueryRow(`SELECT taken, copies, free_day, spins FROM gacha_players WHERE user_id = ?`, userID).
+		Scan(&taken, &copies, &doc.FreeDay, &doc.Spins)
 	if errors.Is(err, sql.ErrNoRows) {
 		return doc, nil // ещё не крутил — это не ошибка
 	}
@@ -110,13 +151,14 @@ func (s *GachaService) load(userID string) (*gachaDoc, error) {
 	if taken != "" {
 		doc.Taken = strings.Split(taken, ",")
 	}
+	doc.Copies = parseCopies(copies)
 	return doc, nil
 }
 
 func (s *GachaService) save(userID string, doc *gachaDoc) error {
-	_, err := s.db.Exec(`INSERT INTO gacha_players (user_id, taken, free_day, spins) VALUES (?, ?, ?, ?)
-		ON CONFLICT(user_id) DO UPDATE SET taken = excluded.taken, free_day = excluded.free_day, spins = excluded.spins`,
-		userID, strings.Join(doc.Taken, ","), doc.FreeDay, doc.Spins)
+	_, err := s.db.Exec(`INSERT INTO gacha_players (user_id, taken, copies, free_day, spins) VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(user_id) DO UPDATE SET taken = excluded.taken, copies = excluded.copies, free_day = excluded.free_day, spins = excluded.spins`,
+		userID, strings.Join(doc.Taken, ","), copiesText(doc.Copies), doc.FreeDay, doc.Spins)
 	return err
 }
 
@@ -170,10 +212,11 @@ func (s *GachaService) pick(left []gachaPrize) gachaPrize {
 	return left[len(left)-1]
 }
 
-// wheel — секторы, которые участвуют в этой жеребьёвке. Опустевший супер
-// уходит из рулетки: обещать сектор, из которого нечего достать, — обман.
+// wheel — секторы, которые участвуют в этой жеребьёвке. Супер-сектор стоит,
+// пока в наборе вообще есть призы: выбитое из крутки НЕ уходит (Илья 15.09:
+// «неправильно убирать скин, если выбил — лента лысеет»), повтор — копия.
 func (c gachaConfig) wheel(taken []string) []gachaSector {
-	superLeft := len(c.left(taken)) > 0
+	superLeft := len(c.Prizes) > 0
 	out := make([]gachaSector, 0, len(c.Sectors))
 	for _, sec := range c.Sectors {
 		if sec.Kind == "super" && !superLeft {
@@ -202,6 +245,7 @@ func (s *GachaService) handleStatus(w http.ResponseWriter, r *http.Request) {
 		"sectors":       cfg.wheel(doc.Taken),
 		"prizes_left":   cfg.left(doc.Taken),
 		"prizes":        cfg.all(),
+		"copies":        doc.Copies,
 		"free_today":    doc.FreeDay != s.today(),
 		"spin_currency": cfg.Currency,
 		"spin_price":    cfg.Price,
@@ -253,14 +297,31 @@ func (s *GachaService) handleSpin(w http.ResponseWriter, r *http.Request) {
 	result := map[string]any{"sector": sector.ID, "kind": sector.Kind}
 	switch sector.Kind {
 	case "super":
-		left := cfg.left(doc.Taken)
-		prize := s.pick(left)
-		if err := s.wallet.GrantItem(userID, prize.SKU, "gacha"); err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "grant_failed"})
-			return
-		}
-		doc.Taken = append(doc.Taken, prize.SKU)
+		prize := s.pick(cfg.all())
 		result["prize"] = prize
+		if doc.has(prize.SKU) {
+			// КОПИЯ (Илья 15.09): скин уже есть — копия продаётся за его цену в
+			// гардеробе, кристаллы падают сразу («тогда это прям рулетка»).
+			// Копии считаются — под крафт (5 одной ступени → 1 следующей).
+			if doc.Copies == nil {
+				doc.Copies = map[string]int{}
+			}
+			doc.Copies[prize.SKU]++
+			result["copy"] = doc.Copies[prize.SKU]
+			if prize.Price > 0 && prize.Currency != "" {
+				if err := s.wallet.Grant(userID, prize.Currency, prize.Price, "gacha duplicate"); err != nil {
+					writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "grant_failed"})
+					return
+				}
+				result["sold"] = map[string]any{"currency": prize.Currency, "amount": prize.Price}
+			}
+		} else {
+			if err := s.wallet.GrantItem(userID, prize.SKU, "gacha"); err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "grant_failed"})
+				return
+			}
+			doc.Taken = append(doc.Taken, prize.SKU)
+		}
 	default:
 		if err := s.wallet.Grant(userID, sector.Currency, sector.Amount, "gacha"); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "grant_failed"})
