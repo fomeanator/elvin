@@ -156,32 +156,37 @@ namespace Lvn.UI.Screens
         {
             _body.Clear();
             _body.Add(BuildIdentityCard());
-            if (Minimal)
+            // МИНИМАЛЬНЫЙ ПРОФИЛЬ (TR-25, ui.browse.profile_full=false) прячет
+            // ТОЛЬКО выдуманные разделы — статы, прогресс, достижения. Отношения,
+            // ссылки (катсцены, настройки, выход, удаление) и ID остаются: в
+            // переносе версии Вани Minimal обрубал всё до имени и ID («где
+            // пункты?» — Илья 15.09).
+            if (!Minimal)
             {
-                _body.Add(BuildFooter());
-                return;
+                _body.Add(StageHeader(ScreenUi.SectionHeader(LvnWords.Of("profile.stats", "Story stats"))));
+                _body.Add(Stats.Count > 0 ? BuildStatRow() : HintCard(
+                    LvnWords.Of("profile.stats_empty", "Your story stats will appear here."), "stats"));
+
+                _body.Add(StageHeader(ScreenUi.SectionHeader(LvnWords.Of("profile.progress", "Reading"))));
+                _body.Add(ChaptersDone > 0 ? ProgressLine() : HintCard(
+                    LvnWords.Of("profile.progress_empty", "No chapters completed yet."), "progress"));
             }
-
-            _body.Add(StageHeader(ScreenUi.SectionHeader(LvnWords.Of("profile.stats", "Story stats"))));
-            _body.Add(Stats.Count > 0 ? BuildStatRow() : HintCard(
-                LvnWords.Of("profile.stats_empty", "Your story stats will appear here."), "stats"));
-
-            _body.Add(StageHeader(ScreenUi.SectionHeader(LvnWords.Of("profile.progress", "Reading"))));
-            _body.Add(ChaptersDone > 0 ? ProgressLine() : HintCard(
-                LvnWords.Of("profile.progress_empty", "No chapters completed yet."), "progress"));
 
             // КОШЕЛЬКА ЗДЕСЬ НЕТ. Балансы живут в шапке — она видна всегда и
             // обновляется сама; вторая копия в профиле показывала те же числа
             // с задержкой на открытие экрана и расходилась с шапкой ровно в тот
             // момент, когда игрок сверял их глазами (решение Ильи, 28.08).
 
-            _body.Add(StageHeader(ScreenUi.SectionHeader(LvnWords.Of("profile.achievements", "Achievements"))));
-            if (Achievements.Count == 0) _body.Add(HintCard(
-                LvnWords.Of("profile.achievements_empty", "No achievements to display yet."), "achievements"));
-            _body.Add(BuildAchievements());
+            if (!Minimal)
+            {
+                _body.Add(StageHeader(ScreenUi.SectionHeader(LvnWords.Of("profile.achievements", "Achievements"))));
+                if (Achievements.Count == 0) _body.Add(HintCard(
+                    LvnWords.Of("profile.achievements_empty", "No achievements to display yet."), "achievements"));
+                _body.Add(BuildAchievements());
+            }
 
-            // Полный профиль объясняет отсутствие встреч; Minimal выше
-            // завершился до всех разделов и служебных ссылок.
+            // Отношения — реальные данные, показываются и в минимальном
+            // профиле: это то, ради чего игрок сюда заходит.
             _body.Add(StageHeader(ScreenUi.SectionHeader(LvnWords.Of("profile.relations", "Relationships"))));
             if (Relations.Count > 0) _body.Add(BuildRelations());
             else _body.Add(HintCard(
@@ -240,12 +245,6 @@ namespace Lvn.UI.Screens
             LvnAir.Pad(card, LvnTokens.Space3);
             card.style.marginBottom = LvnTokens.Space3;
 
-            if (Minimal)
-            {
-                card.Add(PlayerName());
-                return card;
-            }
-
             var dossier = Lvn.UI.LvnRedress.Bind(new Label(), () => LvnWords.Of("profile.dossier", "STORY RECORD"));
             dossier.style.color = LvnTokens.Gold;
             dossier.style.fontSize = LvnTokens.TextMicro;
@@ -289,6 +288,7 @@ namespace Lvn.UI.Screens
             col.style.minWidth = 0;
             identity.Add(col);
             col.Add(PlayerName());
+            if (Minimal) return card; // TR-25: профиль = кружок аватара + имя + ID, без уровня и XP
             // Уровня нет — секции нет: пустая полоса опыта врёт не меньше
             // выдуманной, а «Уровень 0» выглядит поломкой.
             if (Level <= 0 && XpNext <= 0) return card;
