@@ -37,7 +37,8 @@ namespace Lvn.UI.Screens
             public string RarityWord;
             public long Price; public string Currency;
             public bool Gift;                  // приз круток: подарок вместо цены
-            public bool Owned;                 // есть у игрока: ценника нет
+            public bool Owned;                 // есть у игрока: ценника нет…
+            public bool PriceAlways;           // …кроме мест, где цена — справка (пул круток: «есть» не прячет цену)
             public string Corner;              // малозаметная пометка в углу (шанс)
             public string Obtain;              // как получить: покупка, крутки, бесплатно
             public float? Radius; public Color? TextColor;
@@ -197,7 +198,7 @@ namespace Lvn.UI.Screens
 
             _price?.RemoveFromHierarchy(); _price = null;
             if (!info.Owned && info.Gift) Add(_price = GiftBadge(_scale));
-            else if (!info.Owned && info.Price > 0) Add(_price = PriceBadge(info.Currency, info.Price, _scale));
+            else if ((!info.Owned || info.PriceAlways) && info.Price > 0) Add(_price = PriceBadge(info.Currency, info.Price, _scale));
 
             _corner?.RemoveFromHierarchy(); _corner = null;
             if (!string.IsNullOrEmpty(info.Corner))
