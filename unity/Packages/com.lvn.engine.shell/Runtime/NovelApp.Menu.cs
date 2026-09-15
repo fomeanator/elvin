@@ -587,12 +587,15 @@ namespace Lvn.UI.Screens
             // НА ВКЛАДКЕ ФОНА ГЕРОИНИ НЕТ. Выбирают картину — она и должна быть
             // видна целиком; уменьшать фигуру бессмысленно (мелкая читается как
             // сбой), а снимать со сцены дорого — облик и примерка живут на ней.
-            float cast = Lvn.UI.LvnWardrobeStage.KindOf(axis) == Lvn.UI.LvnWardrobeAxisKind.Backdrop
-                       ? 0f : 1f;
+            // ФОН СМОТРЯТ БЕЗ ГЕРОИНИ — ОНА ОТХОДИТ, А НЕ ГАСНЕТ (TR-119).
+            // Гашение фигур слоем растворяло послойную куклу неровно («героиня
+            // исчезает — как-то не круто, надо её в бок отодвигать» — Илья):
+            // фигуры уезжают за левый край на ширину кадра тем же временем, что
+            // и зум раздела, и возвращаются на место на любом другом разделе.
+            bool backdrop = Lvn.UI.LvnWardrobeStage.KindOf(axis) == Lvn.UI.LvnWardrobeAxisKind.Backdrop;
             LvnLog.Trace($"[lvn-menu] раздел «{axis}» ({Lvn.UI.LvnWardrobeStage.KindOf(axis)}): "
-                       + $"зум {z:0.00}, фигуры {(cast <= 0f ? "УБИРАЕМ" : "показываем")}");
-            Stage.ApplyStage(new Newtonsoft.Json.Linq.JObject
-            { ["op"] = "camera", ["action"] = "cast", ["alpha"] = cast, ["duration"] = 0.35 }, LvnSender.Menu);
+                       + $"зум {z:0.00}, фигуры {(backdrop ? "ОТВОДИМ за край" : "на месте")}");
+            Stage.SetCastShift(backdrop ? -1f : 0f, 0.55f);
         }
 
         /// <summary>Слот героини для текущей вкладки — по роду её комнаты:
