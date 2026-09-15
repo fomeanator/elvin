@@ -22,7 +22,7 @@ func TestSkinsCollectApplyRoundTrip(t *testing.T) {
 	    }
 	  },
 	  "sprites": {
-	    "victoria": {"wardrobe": {"outfit": {"items": [
+	    "hero": {"wardrobe": {"outfit": {"items": [
 	      {"value": "__none__", "name": "Снять"},
 	      {"value": "orchid", "name": "Орхидея", "icon": "/sprites/orchid.png", "price": 60, "currency": "crystals", "rarity": "rare"},
 	      {"value": "gift", "name": "Подарочный", "icon": "/sprites/gift.png", "gacha": true}
@@ -31,7 +31,7 @@ func TestSkinsCollectApplyRoundTrip(t *testing.T) {
 	}`
 	gacha := `{"spin_currency": "crystals", "spin_price": 50,
 	  "sectors": [{"id": "super", "kind": "super", "weight": 1}],
-	  "prizes": [{"sku": "wardrobe:victoria:outfit:gift", "label": "Подарочный", "art": "/sprites/gift.png", "rarity": "mythical"}],
+	  "prizes": [{"sku": "wardrobe:hero:outfit:gift", "label": "Подарочный", "art": "/sprites/gift.png", "rarity": "mythical"}],
 	  "rarity_weights": {"rare": 16, "mythical": 10}}`
 	must := func(err error) {
 		t.Helper()
@@ -52,13 +52,13 @@ func TestSkinsCollectApplyRoundTrip(t *testing.T) {
 	for _, sk := range cfg.Skins {
 		by[sk.SKU] = sk
 	}
-	if g := by["wardrobe:victoria:outfit:gift"]; !g.Gacha || g.Rarity != "mythical" {
+	if g := by["wardrobe:hero:outfit:gift"]; !g.Gacha || g.Rarity != "mythical" {
 		t.Fatalf("приз барабана не помечен «в крутке» со ступенью из барабана: %+v", g)
 	}
-	if o := by["wardrobe:victoria:outfit:orchid"]; o.Price != 60 || o.Rarity != "rare" || o.Kind != "wardrobe" || !o.Buy {
+	if o := by["wardrobe:hero:outfit:orchid"]; o.Price != 60 || o.Rarity != "rare" || o.Kind != "wardrobe" || !o.Buy {
 		t.Fatalf("наряд собран неверно (с ценой и без флага — продаётся): %+v", o)
 	}
-	if g := by["wardrobe:victoria:outfit:gift"]; g.Buy {
+	if g := by["wardrobe:hero:outfit:gift"]; g.Buy {
 		t.Fatalf("приз с флагом gacha в манифесте не продаётся: %+v", g)
 	}
 	if b := by["wardrobe:menu:backdrop:hall"]; b.Kind != "backdrop" || b.Name != "Зал" || b.Price != 120 {
@@ -74,7 +74,7 @@ func TestSkinsCollectApplyRoundTrip(t *testing.T) {
 	// Правка в каталоге: орхидея дорожает и идёт в крутку, фон — необычный.
 	for i := range cfg.Skins {
 		switch cfg.Skins[i].SKU {
-		case "wardrobe:victoria:outfit:orchid":
+		case "wardrobe:hero:outfit:orchid":
 			cfg.Skins[i].Price = 99
 			cfg.Skins[i].Gacha = true
 		case "wardrobe:menu:backdrop:hall":
@@ -92,7 +92,7 @@ func TestSkinsCollectApplyRoundTrip(t *testing.T) {
 	}
 	m, err := readJSONMap(filepath.Join(dir, "manifest.json"))
 	must(err)
-	items := skinList(skinDig(m, "sprites", "victoria", "wardrobe", "outfit"), "items")
+	items := skinList(skinDig(m, "sprites", "hero", "wardrobe", "outfit"), "items")
 	orchid := items[1].(map[string]any)
 	if skinNum(orchid, "price") != 99 || skinBool(orchid, "gacha") {
 		t.Fatalf("продаваемый наряд и в крутке: цена 99, а флаг gacha (только из крутки) стоять не должен: %+v", orchid)
@@ -131,7 +131,7 @@ func TestSkinsCollectApplyRoundTrip(t *testing.T) {
 	cfg2, err := svc.Collect()
 	must(err)
 	for _, sk := range cfg2.Skins {
-		if sk.SKU == "wardrobe:victoria:outfit:orchid" && sk.Price != 99 {
+		if sk.SKU == "wardrobe:hero:outfit:orchid" && sk.Price != 99 {
 			t.Fatalf("сбор затёр правку цены: %+v", sk)
 		}
 	}
