@@ -21,6 +21,9 @@ namespace Lvn.UI.Screens
             _gachaOpen = true;
             var screen = new GachaScreen(_assets);
             screen.SetContent(_manifest);
+            // Дверь в магазин: «Пополнить» и быстрые пакеты (TR-107 — кнопка
+            // была мёртвой, потому что дверь никто не подключал).
+            screen.OpenStore = () => _shell.OpenPackShopAsync();
             root.Add(screen);
             try { await screen.RunAsync(); }
             finally

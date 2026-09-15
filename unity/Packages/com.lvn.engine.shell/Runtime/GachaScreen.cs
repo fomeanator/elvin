@@ -88,6 +88,7 @@ namespace Lvn.UI.Screens
         {
             _assets = assets;
             name = "gacha-screen";
+            BuySpins = TestBuySpinsAsync;
             // ВО ВЕСЬ ЭКРАН под навбаром, как магазин и профиль (Илья 15.09:
             // «крутку на полный экран»): раздел, а не окно — лентам и пулу
             // нужно всё место.
@@ -671,9 +672,7 @@ namespace Lvn.UI.Screens
             if (broke)
             {
                 _needTopUp = false;
-                var topUp = ActionButton("gacha-topup", () => LvnWords.Of("gacha.top_up", "Top up"), () =>
-                    LvnAsync.Fire(TopUpAsync(), "GachaTopUp"));
-                topUp.SetEnabled(OpenStore != null);
+                PaintTopUp();
                 return;
             }
             _actions.Add(ModeRow());
@@ -703,6 +702,70 @@ namespace Lvn.UI.Screens
             row.Add(LaneStepper(enabled: true));
             _actions.Add(row);
         }
+
+        /// <summary>БЫСТРОЕ ПОПОЛНЕНИЕ В КРУТКАХ (Илья 15.09: «5 круток, 10 круток,
+        /// 50 круток»): три пакета ровно на N ходов по текущей цене — покупка тем
+        /// же путём, что в магазине (сейчас тестовое зачисление, реальный
+        /// биллинг сменит только транспорт); ниже — дверь в магазин.</summary>
+        internal static readonly int[] QuickPacks = { 5, 10, 50 };
+        internal Func<int, long, Task<bool>> BuySpins;
+
+        private void PaintTopUp()
+        {
+            _actions.Add(ModeRow());
+            var row = ScreenUi.Row();
+            foreach (var n in QuickPacks)
+            {
+                int spins = n;
+                var b = ActionButton("gacha-pack-" + n, () => "", () => LvnAsync.Fire(BuyPackAsync(spins), "GachaPack"));
+                b.RemoveFromHierarchy();
+                b.text = "";
+                b.style.flexGrow = 1; b.style.flexShrink = 1;
+                b.style.fontSize = LvnTokens.TextBase;
+                LvnAir.Pad(b, LvnTokens.Space2, LvnTokens.Space1);
+                var col = new VisualElement { pickingMode = PickingMode.Ignore };
+                col.style.alignItems = Align.Center;
+                var title = LvnRedress.Bind(new Label { pickingMode = PickingMode.Ignore }, () => LvnWords.Of("gacha.spins_pack", "{0} spins", spins));
+                title.style.color = LvnTokens.Gold;
+                col.Add(title);
+                var cost = ScreenUi.Row();
+                cost.pickingMode = PickingMode.Ignore;
+                var amount = new Label(LvnPriceTag.Amount(_state.SpinPrice * spins)) { pickingMode = PickingMode.Ignore };
+                amount.style.color = LvnTokens.TextDim;
+                amount.style.fontSize = LvnTokens.TextSm;
+                cost.Add(amount);
+                cost.Add(LvnIcons.MakeCurrency(_state.SpinCurrency, LvnStageKit.D(16f)));
+                col.Add(cost);
+                b.Add(col);
+                if (row.childCount > 0) b.style.marginLeft = LvnTokens.Space1;
+                row.Add(b);
+            }
+            _actions.Add(row);
+            var store = ActionButton("gacha-topup", () => LvnWords.Of("gacha.top_up", "Top up"), () => LvnAsync.Fire(TopUpAsync(), "GachaTopUp"));
+            LvnStageKit.PlateButton(store, primary: false);
+            store.SetEnabled(OpenStore != null);
+            store.style.marginTop = LvnTokens.Space1;
+        }
+
+        private async Task BuyPackAsync(int spins)
+        {
+            if (_state == null || _spinning || BuySpins == null) return;
+            long amount = _state.SpinPrice * spins;
+            _actions.SetEnabled(false);
+            bool ok = false;
+            try { ok = await BuySpins(spins, amount); }
+            finally { _actions.SetEnabled(true); }
+            if (_closed) return;
+            if (ok) await LvnWallet.RefreshAsync();
+            if (_closed) return;
+            if (!ok) Say(LvnWords.Of("gacha.pack_failed", "The purchase did not go through. Try again."));
+            PaintIdle();
+        }
+
+        /// <summary>Тестовое зачисление — тот же путь, что у магазина без биллинга:
+        /// кристаллы реально ложатся в серверный кошелёк.</summary>
+        private Task<bool> TestBuySpinsAsync(int spins, long amount)
+            => LvnWallet.EarnAsync(_state.SpinCurrency, amount, "gacha_pack_test:" + spins);
 
         private async Task TopUpAsync()
         {
