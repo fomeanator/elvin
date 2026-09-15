@@ -359,6 +359,9 @@ namespace Lvn.UI.Screens
             // (валюты, «Глава», подписи движка, имена актёров) меняются вместе с
             // контентом, и без этой строки они оставались от прошлой выкладки.
             TeachHousesFrom(manifest);
+            // Каталог скинов (TR-114) едет вместе с контентом: цены, ступени и
+            // флаги призов — с сервера, а не из четырёх мест манифеста.
+            LvnAsync.Fire(Lvn.Services.LvnSkins.RefreshAsync(), "Skins");
             ApplyMenuStaging(manifest);
             _assets.Set3DSetCatalog(manifest.sets3d);
             // СЮЖЕТНЫЙ ГАРДЕРОБ живёт манифестом наравне с экранами оболочки,

@@ -105,6 +105,10 @@ namespace Lvn.UI.Screens
         }
 
         /// <summary>Куплена ли платная аватарка. Бесплатная доступна всегда.</summary>
+        /// <summary>Только из крутки (каталог TR-114): купить нельзя, выпадает в крутках.</summary>
+        public static bool GachaOnly(Choice c)
+            => c != null && c.Paid && (Lvn.Services.LvnSkins.Find(c.Item)?.GachaOnly ?? false);
+
         public static bool Owned(Choice c)
         {
             if (c == null) return false;
@@ -129,6 +133,7 @@ namespace Lvn.UI.Screens
                 if (choice == null) return false;
                 if (!Owned(choice))
                 {
+                    if (GachaOnly(choice)) return false;   // только из крутки — покупки нет
                     if (!await Lvn.Services.LvnWallet.SpendAsync(choice.Currency, choice.Price, "avatar", choice.Item)) return false;
                     await Lvn.Services.LvnWallet.FlushAsync();
                     if (owner != Lvn.LvnKeep.Owner || !Owned(choice)) return false;

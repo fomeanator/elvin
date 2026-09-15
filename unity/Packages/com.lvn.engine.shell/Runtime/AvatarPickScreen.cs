@@ -114,6 +114,7 @@ namespace Lvn.UI.Screens
             string caption = current ? LvnWords.Of("avatar.current", "Selected")
                 : choice == null ? LvnWords.Of("avatar.self", "My look")
                 : LvnAvatars.Owned(choice) ? LvnWords.Of("avatar.owned", "Available")
+                : LvnAvatars.GachaOnly(choice) ? LvnWords.Of("skin.get_gacha", "Drops from spins")
                 : LvnPriceTag.Full(choice.Currency, choice.Price);
             var label = new Label(caption) { pickingMode = PickingMode.Ignore };
             label.style.color = LvnTokens.Gold;
@@ -147,12 +148,14 @@ namespace Lvn.UI.Screens
             var choice = LvnAvatars.Offered(_manifest).Find(c => c.Id == _selected);
             bool valid = choice != null || (_selected == LvnAvatars.SelfId && LvnHeroPortrait.Layers(_manifest) != null);
             bool owned = choice == null || LvnAvatars.Owned(choice);
+            bool gachaOnly = !owned && LvnAvatars.GachaOnly(choice);
             bool current = valid && owned && _selected == Effective;
             _apply.text = _busy ? LvnWords.Of("avatar.applying", "Applying…")
                 : current ? LvnWords.Of("avatar.current", "Selected")
                 : owned ? LvnWords.Of("avatar.apply", "Set picture")
+                : gachaOnly ? LvnWords.Of("skin.get_gacha", "Drops from spins")
                 : LvnWords.Of("avatar.buy", "Buy and set · {0}", LvnPriceTag.Full(choice.Currency, choice.Price));
-            _apply.SetEnabled(valid && !current && !_busy);
+            _apply.SetEnabled(valid && !current && !_busy && !gachaOnly);
         }
 
         internal async Task ApplyAsync()
