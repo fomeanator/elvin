@@ -242,6 +242,9 @@ func main() {
 	analyticsSvc.Routes(mux)
 	dailySvc.Routes(mux)
 	gachaSvc.Routes(mux)
+	skinsSvc := NewSkinsService(*contentDir)
+	skinsSvc.Routes(mux)
+	adminSvc.skins = skinsSvc
 	// Передача прохождения (TR-17): игрок отдаёт свой снимок по ссылке.
 	shareSvc := NewShareService(db, authSvc)
 	shareSvc.Routes(mux)
