@@ -255,6 +255,7 @@ namespace Lvn.UI.Screens
                         if (string.IsNullOrEmpty(result.Art)) result.Art = item.icon;
                         if (!string.IsNullOrEmpty(item.rarity)) result.Rarity = item.rarity;
                         result.Price = item.price; result.Currency = item.currency;
+                        result.GachaOnly = item.gacha;
                         break;
                     }
             // МЕТКИ СОСЕДНЕЙ ОСИ В АДРЕСЕ (Илья 15.09: «картинка не показывается»):
