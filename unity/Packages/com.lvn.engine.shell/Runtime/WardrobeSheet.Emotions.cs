@@ -61,34 +61,12 @@ namespace Lvn.UI.Screens
 
             // ГДЕ МЫ В СПИСКЕ ЛИЦ (Илья 26.08: «показывать кружками скролл —
             // полупрозрачными прямоугольниками модными, справа место есть»):
-            // сегментированная дорожка у правого края, по ней плавно скользит
-            // бегунок. Своя, а не штатный скроллбар: колонка живёт поверх
-            // куклы, и серая полоса Unity выбивалась бы из оболочки.
-            _emoBar = new VisualElement { pickingMode = PickingMode.Ignore };
-            _emoBar.style.position = Position.Absolute;
+            // тонкая полоса у правого края — общий дом LvnSlimScroll (TR-121),
+            // та же стоит в настройках. Своя, а не штатный скроллбар: колонка
+            // живёт поверх куклы, и серая полоса Unity выбивалась бы из оболочки.
+            _emoBar = new LvnSlimScroll(_emotions);
             _emoBar.style.right = 4;
-            _emoBar.style.width = EmoBarWidth;
-            _emoBar.style.display = DisplayStyle.None;
             Add(_emoBar);
-            for (int s = 0; s < EmoBarSegments; s++)
-            {
-                var seg = new VisualElement { pickingMode = PickingMode.Ignore };
-                seg.style.flexGrow = 1;
-                seg.style.marginBottom = s == EmoBarSegments - 1 ? 0 : 4;
-                seg.style.backgroundColor = LvnTokens.Track;
-                LvnChrome.Pill(seg, EmoBarWidth);
-                _emoBar.Add(seg);
-            }
-            _emoThumb = new VisualElement { pickingMode = PickingMode.Ignore };
-            _emoThumb.style.position = Position.Absolute;
-            _emoThumb.style.left = 0; _emoThumb.style.right = 0;
-            _emoThumb.style.backgroundColor = new Color(1f, 1f, 1f, 0.62f);
-            LvnChrome.Pill(_emoThumb, EmoBarWidth);
-            Smooth(_emoThumb, LvnMotion.Quick, "top", "height");
-            _emoBar.Add(_emoThumb);
-            // Скроллеры спрятаны, но живут — их значение и есть позиция.
-            _emotions.verticalScroller.valueChanged += _ => UpdateEmoScrollBar();
-            _emotions.RegisterCallback<GeometryChangedEvent>(_ => UpdateEmoScrollBar());
             // ПОД НАВБАРОМ (Илья 28.08: «баблы перекрываются — по топу, под
             // навбаром лучше»): колонка, растущая от плашки вверх, наезжала на
             // неё, когда лиц больше, чем зазора. Теперь верх колонки прибит к
@@ -125,13 +103,15 @@ namespace Lvn.UI.Screens
             float navBottom = LvnTopBar.BottomEdge(this) + 10f;
             float gap = Mathf.Max(0f, floor - navBottom - 12f);
             // Отступ от навбара — десятая доля зазора (Илья 26.08: «чуть ниже
-            // на 10 процентов»), высота — та же половина зазора плюс 15%.
+            // на 10 процентов»).
             float top = navBottom + gap * LvnWardrobeStage.EmotionsTopFraction;
-            float height = Mathf.Max(120f, gap * LvnWardrobeStage.EmotionsHeightFraction);
+            // ДО ПОЛКИ, КАК ГЕРОИ (TR-120). Колонка занимала долю зазора и
+            // обрывалась посреди кадра — читалось как обрезанный список
+            // («визуально обрезано посередине» — Илья); лишние лица
+            // по-прежнему за прокруткой, просто окно длиннее.
+            float height = Mathf.Max(120f, floor - top - 8f);
             _emotions.style.top = top - sheetTop;
             _emotions.style.bottom = StyleKeyword.Auto;
-            // ПОЛОВИНА зазора (Илья 28.08: «слишком много — сократи в 2 раза»):
-            // колонка на всю высоту закрывала куклу; остальные лица скроллятся.
             _emotions.style.maxHeight = height;
             if (_emoBar != null)
             {
@@ -141,17 +121,15 @@ namespace Lvn.UI.Screens
             // Герои — та же полка у левого края: две колонки читаются как пара.
             if (_rosterRow != null)
             {
-                // СТОЛБИК ГЕРОЕВ ВЫШЕ СТОЛБИКА ЭМОЦИЙ: ему можно вниз до самого
-                // листа — эмоции держат долю, чтобы не лечь на лицо, а плитки
-                // стоят слева от фигуры («боковушкам высоту увеличь, они
-                // срезаются» — Илья 08.09).
+                // Столбик героев — до самого листа, как и лица («боковушкам
+                // высоту увеличь, они срезаются» — Илья 08.09).
                 float rosterHeight = Mathf.Max(120f, floor - top - 8f);
                 _rosterRow.style.top = top - sheetTop;
                 _rosterRow.style.maxHeight = rosterHeight;
                 _rosterRow.style.overflow = Overflow.Hidden;
                 FitRoster(rosterHeight);
             }
-            UpdateEmoScrollBar();
+            _emoBar?.Track();
         }
 
         /// <summary>Где полкам кончаться: верх панели-хозяина (в покое, без
@@ -179,29 +157,6 @@ namespace Lvn.UI.Screens
                 if (!float.IsNaN(t)) sum += t;
             }
             return sum;
-        }
-
-        // Бегунок дорожки: длина — доля видимого списка, положение — доля
-        // прокрутки. Дорожка прячется целиком, когда лица помещаются разом:
-        // индикатор, который нечего индицировать, — просто шум.
-        private void UpdateEmoScrollBar()
-        {
-            if (_emoBar == null || _emoThumb == null || _emotions == null) return;
-            float view = _emotions.contentViewport.layout.height;
-            float content = _emotions.contentContainer.layout.height;
-            bool visible = _emotions.style.display != DisplayStyle.None;
-            if (!visible || float.IsNaN(view) || float.IsNaN(content) || content <= view + 1f)
-            {
-                _emoBar.style.display = DisplayStyle.None;
-                return;
-            }
-            _emoBar.style.display = DisplayStyle.Flex;
-            float barH = _emoBar.layout.height;
-            if (float.IsNaN(barH) || barH <= 1f) return;
-            float thumbH = Mathf.Clamp(barH * (view / content), 26f, barH);
-            float p = Mathf.Clamp01(_emotions.scrollOffset.y / Mathf.Max(1f, content - view));
-            _emoThumb.style.height = thumbH;
-            _emoThumb.style.top = (barH - thumbH) * p;
         }
 
         // ── баблики эмоций: примерка лица на живую куклу ─────────────────────

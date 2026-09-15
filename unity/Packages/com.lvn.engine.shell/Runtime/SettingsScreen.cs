@@ -95,7 +95,7 @@ namespace Lvn.UI.Screens
 
             // Полоса видна: в настройках она подсказывает, что список
             // длиннее экрана (живой репорт «не видно, что есть куда скроллить»).
-            _list = Lvn.UI.LvnScroll.Vertical(showScroller: true);
+            _list = Lvn.UI.LvnScroll.Vertical();
             // A vertical list fits the viewport after the scrollbar takes its
             // share. Intrinsic child width must not create hidden horizontal overflow.
             _list.contentContainer.style.width = Length.Percent(100);
@@ -105,7 +105,16 @@ namespace Lvn.UI.Screens
             // половине настроек: лента длиннее экрана, а признака этого нет
             // (Илья 28.08 — «чтобы видно было, что есть куда скроллить»).
             _list.style.flexGrow = 1;
-            sheet.Add(_list);
+            // ТОНКАЯ ПОЛОСА ВМЕСТО ШТАТНОГО СКРОЛЛЕРА (TR-121, Илья: «прокрут как
+            // на эмоциях в гардеробе, модным»): список в коробке, полоса у её
+            // правого края во всю высоту; содержимое уступает ей поле справа.
+            var listBox = new VisualElement();
+            listBox.style.flexGrow = 1;
+            listBox.style.minHeight = 0;
+            listBox.Add(_list);
+            _list.contentContainer.style.paddingRight = LvnSlimScroll.Width + LvnTokens.Space1;
+            LvnSlimScroll.Beside(listBox, _list);
+            sheet.Add(listBox);
 
             _closeButton = Lvn.UI.LvnRedress.Bind(new Button(Close),
                 () => LvnWords.Pick("common.close", _cfg.close_text, "Close"));

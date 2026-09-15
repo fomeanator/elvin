@@ -128,12 +128,10 @@ namespace Lvn.UI
             // начертание — заголовочное, отдельным файлом.
             new Family("roboto-condensed", "Roboto Condensed",
                        "Fonts/RobotoCondensed-Regular", "Fonts/RobotoCondensed-Medium"),
-            // Характерные — их видно с первого слова. Ради этого они и есть:
-            // настройка, которую нельзя проверить взглядом, ощущается сломанной.
-            new Family("ruslan",  "Вязь",       "Fonts/RuslanDisplay", "Fonts/RuslanDisplay"),
-            new Family("caveat",  "От руки",    "Fonts/Caveat",        "Fonts/Caveat"),
-            new Family("pixel",   "Пиксель",    "Fonts/PressStart2P",  "Fonts/PressStart2P"),
-            new Family("rubik",   "Плакат",     "Fonts/RubikMonoOne",  "Fonts/RubikMonoOne"),
+            // Характерных (вязь, от руки, пиксель, плакат) больше нет (TR-121,
+            // Илья: «убрать бесполезные шрифты»): длинный текст ими не читают,
+            // а в списке они занимали половину строки. Выбранный прежде ключ
+            // тихо падает на первую гарнитуру (FamilyOf).
         };
 
         /// <summary>Гарнитура по ключу настройки; неизвестный ключ и пустой —

@@ -46,9 +46,9 @@ namespace Lvn.Tests
             LvnPrefs.FontFamily = "";
             Assert.IsFalse(LvnFonts.PlayerPicked, "пусто — гарнитуру выбирает новелла");
 
-            LvnPrefs.FontFamily = "caveat";
+            LvnPrefs.FontFamily = "literata";
             Assert.IsTrue(LvnFonts.PlayerPicked);
-            Assert.AreEqual("caveat", LvnFonts.Chosen.Id);
+            Assert.AreEqual("literata", LvnFonts.Chosen.Id);
 
             LvnPrefs.FontFamily = "";
             Assert.IsFalse(LvnFonts.PlayerPicked, "«как в игре» обязано возвращать тему, а не прошлый выбор");
@@ -160,7 +160,7 @@ namespace Lvn.Tests
         [Test]
         public void SizeNeverCollapsesToZero()
         {
-            LvnPrefs.FontFamily = "pixel";
+            LvnPrefs.FontFamily = "roboto-condensed";
             Assert.GreaterOrEqual(LvnFonts.Size(1), 1, "кегль ноль — это невидимый текст");
         }
 
