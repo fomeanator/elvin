@@ -77,6 +77,8 @@ func TestSkinsCollectApplyRoundTrip(t *testing.T) {
 		case "wardrobe:hero:outfit:orchid":
 			cfg.Skins[i].Price = 99
 			cfg.Skins[i].Gacha = true
+			cfg.Skins[i].Description = "Шёлк и орхидеи"
+
 		case "wardrobe:menu:backdrop:hall":
 			cfg.Skins[i].Rarity = "uncommon"
 		}
@@ -94,6 +96,9 @@ func TestSkinsCollectApplyRoundTrip(t *testing.T) {
 	must(err)
 	items := skinList(skinDig(m, "sprites", "hero", "wardrobe", "outfit"), "items")
 	orchid := items[1].(map[string]any)
+	if skinStr(orchid, "description") != "Шёлк и орхидеи" {
+		t.Fatalf("описание не дошло до наряда: %+v", orchid)
+	}
 	if skinNum(orchid, "price") != 99 || skinBool(orchid, "gacha") {
 		t.Fatalf("продаваемый наряд и в крутке: цена 99, а флаг gacha (только из крутки) стоять не должен: %+v", orchid)
 	}
@@ -118,6 +123,37 @@ func TestSkinsCollectApplyRoundTrip(t *testing.T) {
 		t.Fatalf("барабан: призов %d (ждали 2), сектора и цена должны остаться: %+v", len(g.Prizes), g)
 	}
 
+	// Новые записи из каталога заводятся в манифесте; скрытое не идёт в барабан;
+	// порядок расставляет списки; цена копии — своя.
+	cfg.Skins = append(cfg.Skins,
+		skin{SKU: "avatar.newbie", Kind: "avatar", Name: "Новичок", Art: "/art/n.png", Order: 1},
+		skin{SKU: "wardrobe:menu:backdrop:lake", Kind: "backdrop", Name: "Озеро", Art: "/bg/lake.jpg", Gacha: true, Hidden: true},
+		skin{SKU: "wardrobe:hero:outfit:cape", Kind: "wardrobe", Name: "Плащ", Art: "/sprites/cape.png", Price: 10, Buy: true, Order: 1, SellPrice: 4})
+	data, _ = json.MarshalIndent(cfg, "", "  ")
+	must(os.WriteFile(filepath.Join(dir, skinsFile), data, 0o644))
+	_, err = svc.Apply()
+	must(err)
+	m, err = readJSONMap(filepath.Join(dir, "manifest.json"))
+	must(err)
+	avatars := skinList(skinDig(m, "ui", "browse"), "avatars")
+	if len(avatars) != 3 || skinStr(avatars[0].(map[string]any), "id") != "newbie" {
+		t.Fatalf("новая аватарка не заведена или порядок не сработал: %+v", avatars)
+	}
+	if opts := skinList(skinDig(m, "ui", "browse"), "canvas_options"); len(opts) != 2 || !skinBool(opts[1].(map[string]any), "hidden") {
+		t.Fatalf("новый фон не заведён или не скрыт: %+v", opts)
+	}
+	outfits := skinList(skinDig(m, "sprites", "hero", "wardrobe", "outfit"), "items")
+	if len(outfits) != 4 || skinStr(outfits[0].(map[string]any), "value") != "cape" || skinNum(outfits[0].(map[string]any), "sell_price") != 4 {
+		t.Fatalf("новый наряд не заведён первым с ценой копии: %+v", outfits)
+	}
+	g, err = readGacha(filepath.Join(dir, "gacha.json"))
+	must(err)
+	for _, p := range g.Prizes {
+		if p.SKU == "wardrobe:menu:backdrop:lake" {
+			t.Fatal("скрытый скин попал в барабан")
+		}
+	}
+
 	// Повторное применение — без изменений на диске.
 	before, _ := os.ReadFile(filepath.Join(dir, "manifest.json"))
 	_, err = svc.Apply()
@@ -135,7 +171,7 @@ func TestSkinsCollectApplyRoundTrip(t *testing.T) {
 			t.Fatalf("сбор затёр правку цены: %+v", sk)
 		}
 	}
-	if len(cfg2.Skins) != 5 {
-		t.Fatalf("после повторного сбора %d скинов, ожидалось 5", len(cfg2.Skins))
+	if len(cfg2.Skins) != 8 {
+		t.Fatalf("после повторного сбора %d скинов, ожидалось 8", len(cfg2.Skins))
 	}
 }

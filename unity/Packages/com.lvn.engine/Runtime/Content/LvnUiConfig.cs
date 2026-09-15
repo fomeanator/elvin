@@ -377,6 +377,8 @@ namespace Lvn.Content
     {
         public string id;
         public string url;
+        public string description; // описание — в подробностях плитки
+        public bool hidden;        // скрыт из админки
         public string currency;   // пусто — бесплатная
         public long? price;
         public string sku;
@@ -628,6 +630,8 @@ namespace Lvn.Content
     {
         public string id;
         public string title;
+        public string description; // описание — в подробностях плитки
+        public bool hidden;        // скрыт из админки
         public string url;
         public string preview;    // маленькая картинка для витрины; пусто — берём url
         public string currency;   // ключ кошелька; пусто — валюта по умолчанию

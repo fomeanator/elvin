@@ -327,7 +327,7 @@ namespace Lvn.UI.Screens
                 if (slot.removable == true)
                     list.Add(new LvnWardrobeItem { value = LvnWardrobe.NoneValue, name = LvnWords.Of("wardrobe.none", "None") });
                 foreach (var it in slot.items)
-                    if (it != null && !string.IsNullOrEmpty(it.value)
+                    if (it != null && !string.IsNullOrEmpty(it.value) && !it.hidden   // «скрыт» из админки (TR-114)
                         && (!OnlySeen || Encountered(axis, it.value)))
                         list.Add(it);
             }

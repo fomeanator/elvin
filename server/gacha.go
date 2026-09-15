@@ -45,9 +45,19 @@ type gachaPrize struct {
 	Art    string  `json:"art"`
 	Rarity string  `json:"rarity,omitempty"`
 	Weight float64 `json:"weight,omitempty"`
-	// Цена скина в гардеробе — за неё продаётся КОПИЯ (см. handleSpin).
-	Price    int64  `json:"price,omitempty"`
-	Currency string `json:"currency,omitempty"`
+	// Цена скина в гардеробе — за неё продаётся КОПИЯ (см. handleSpin), если
+	// не названа своя цена копии.
+	Price     int64  `json:"price,omitempty"`
+	Currency  string `json:"currency,omitempty"`
+	SellPrice int64  `json:"sell_price,omitempty"`
+}
+
+// saleOf — за сколько уходит копия: своя цена копии, иначе цена скина.
+func (p gachaPrize) saleOf() int64 {
+	if p.SellPrice > 0 {
+		return p.SellPrice
+	}
+	return p.Price
 }
 
 type gachaConfig struct {
@@ -308,12 +318,12 @@ func (s *GachaService) handleSpin(w http.ResponseWriter, r *http.Request) {
 			}
 			doc.Copies[prize.SKU]++
 			result["copy"] = doc.Copies[prize.SKU]
-			if prize.Price > 0 && prize.Currency != "" {
-				if err := s.wallet.Grant(userID, prize.Currency, prize.Price, "gacha duplicate"); err != nil {
+			if sale := prize.saleOf(); sale > 0 && prize.Currency != "" {
+				if err := s.wallet.Grant(userID, prize.Currency, sale, "gacha duplicate"); err != nil {
 					writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "grant_failed"})
 					return
 				}
-				result["sold"] = map[string]any{"currency": prize.Currency, "amount": prize.Price}
+				result["sold"] = map[string]any{"currency": prize.Currency, "amount": sale}
 			}
 		} else {
 			if err := s.wallet.GrantItem(userID, prize.SKU, "gacha"); err != nil {

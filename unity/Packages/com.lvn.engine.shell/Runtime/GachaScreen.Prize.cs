@@ -230,7 +230,7 @@ namespace Lvn.UI.Screens
         internal LvnGacha.Prize DescribePrize(LvnGacha.Prize prize)
         {
             var result = new LvnGacha.Prize { Sku = prize.Sku, Label = prize.Label, Art = prize.Art, Rarity = prize.Rarity, Weight = prize.Weight,
-                Price = prize.Price, Currency = prize.Currency };
+                Price = prize.Price, Currency = prize.Currency, SellPrice = prize.SellPrice };
             var parts = prize.Sku?.Split(':');
             // КАТАЛОГ — ПЕРВЫМ (TR-114): одна запись на приз любого домена, включая
             // аватарки, которых в манифесте по sku не найти. Манифест — запасной
@@ -244,6 +244,8 @@ namespace Lvn.UI.Screens
                 if (!string.IsNullOrEmpty(known.Rarity)) result.Rarity = known.Rarity;
                 result.Price = known.Price; result.Currency = known.Currency;
                 result.GachaOnly = known.GachaOnly; result.Kind = known.Kind;
+                result.Description = known.Description;
+                if (known.SellPrice > 0) result.SellPrice = known.SellPrice;
             }
             if (parts == null || parts.Length != 4 || parts[0] != "wardrobe") return result;
             if (parts[2] == WardrobeSheet.BackdropAxis)
@@ -256,6 +258,7 @@ namespace Lvn.UI.Screens
                         if (string.IsNullOrEmpty(result.Art)) result.Art = string.IsNullOrEmpty(option.preview) ? option.url : option.preview;
                         if (!string.IsNullOrEmpty(option.rarity)) result.Rarity = option.rarity;
                         result.Price = option.price; result.Currency = option.currency;
+                        if (string.IsNullOrEmpty(result.Description)) result.Description = option.description;
                         break;
                     }
             }
@@ -269,6 +272,7 @@ namespace Lvn.UI.Screens
                         if (!string.IsNullOrEmpty(item.rarity)) result.Rarity = item.rarity;
                         result.Price = item.price; result.Currency = item.currency;
                         result.GachaOnly = item.gacha;
+                        if (string.IsNullOrEmpty(result.Description)) result.Description = item.description;
                         break;
                     }
             // МЕТКИ СОСЕДНЕЙ ОСИ В АДРЕСЕ (Илья 15.09: «картинка не показывается»):

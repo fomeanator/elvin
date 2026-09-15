@@ -34,6 +34,8 @@
   },
   "AvatarChoice": {
     "currency": "string",
+    "description": "string",
+    "hidden": "bool",
     "id": "string",
     "price": "long",
     "sku": "string",
@@ -124,7 +126,9 @@
   },
   "CanvasOption": {
     "currency": "string",
+    "description": "string",
     "gacha": "bool",
+    "hidden": "bool",
     "id": "string",
     "preview": "string",
     "price": "long",
@@ -472,7 +476,9 @@
   "LvnWardrobeItem": {
     "color": "string",
     "currency": "string",
+    "description": "string",
     "gacha": "bool",
+    "hidden": "bool",
     "icon": "string",
     "name": "string",
     "price": "long",

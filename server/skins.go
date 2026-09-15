@@ -30,17 +30,22 @@ import (
 
 // skin — одна вещь, которую можно надеть, показать или включить.
 type skin struct {
-	SKU      string  `json:"sku"`                    // ключ инвентаря кошелька
-	Kind     string  `json:"kind"`                   // wardrobe | backdrop | avatar
-	Name     string  `json:"name,omitempty"`         // подпись
-	Art      string  `json:"art,omitempty"`          // полный арт (слой, картина, аватар)
-	Preview  string  `json:"preview,omitempty"`      // мини для витрины (фоны)
-	Rarity   string  `json:"rarity,omitempty"`       // ступень; цвет — у палитры ступеней
-	Price    int64   `json:"price,omitempty"`        // цена скина: покупка в гардеробе и продажа копии
-	Currency string  `json:"currency,omitempty"`     //
-	Buy      bool    `json:"buy,omitempty"`          // продаётся в гардеробе; false при цене — «только из крутки»
-	Gacha    bool    `json:"gacha,omitempty"`        // выпадает в крутках
-	Weight   float64 `json:"gacha_weight,omitempty"` // свой вес в барабане; 0 — по ступени
+	SKU         string  `json:"sku"`                    // ключ инвентаря кошелька
+	Kind        string  `json:"kind"`                   // wardrobe | backdrop | avatar
+	Name        string  `json:"name,omitempty"`         // подпись
+	Description string  `json:"description,omitempty"`  // описание — в подробностях плитки (Илья 15.09)
+	Art         string  `json:"art,omitempty"`          // полный арт (слой, картина, аватар)
+	Preview     string  `json:"preview,omitempty"`      // мини для витрины (фоны)
+	Rarity      string  `json:"rarity,omitempty"`       // ступень; цвет — у палитры ступеней
+	Price       int64   `json:"price,omitempty"`        // цена скина: покупка в гардеробе и продажа копии
+	Currency    string  `json:"currency,omitempty"`     //
+	Buy         bool    `json:"buy,omitempty"`          // продаётся в гардеробе; false при цене — «только из крутки»
+	SellPrice   int64   `json:"sell_price,omitempty"`   // за сколько продаётся копия из крутки; 0 — за цену
+	Hidden      bool    `json:"hidden,omitempty"`       // не показывать нигде (в инвентаре у игроков остаётся)
+	Order       int     `json:"order,omitempty"`        // порядок показа внутри домена/оси; 0 — как в манифесте
+	Tags        string  `json:"tags,omitempty"`         // метки через запятую — для поиска и будущих наборов
+	Gacha       bool    `json:"gacha,omitempty"`        // выпадает в крутках
+	Weight      float64 `json:"gacha_weight,omitempty"` // свой вес в барабане; 0 — по ступени
 }
 
 type skinsConfig struct {
@@ -191,9 +196,10 @@ func collectSkins(manifest map[string]any, gacha gachaConfig, existing skinsConf
 				// В гардеробе флаг gacha значит «только из крутки, не купить» (TR-93).
 				price := int64(skinNum(it, "price"))
 				add(skin{SKU: wardrobeSKU(entity, axis, value), Kind: "wardrobe",
-					Name: skinStr(it, "name"), Art: skinStr(it, "icon"), Rarity: skinStr(it, "rarity"),
+					Name: skinStr(it, "name"), Description: skinStr(it, "description"), Art: skinStr(it, "icon"), Rarity: skinStr(it, "rarity"),
 					Price: price, Currency: skinStr(it, "currency"), Gacha: skinBool(it, "gacha"),
-					Buy: price > 0 && !skinBool(it, "gacha")})
+					Buy: price > 0 && !skinBool(it, "gacha"), Hidden: skinBool(it, "hidden"),
+					SellPrice: int64(skinNum(it, "sell_price")), Order: int(skinNum(it, "order")), Tags: skinStr(it, "tags")})
 			}
 		}
 	}
@@ -202,17 +208,19 @@ func collectSkins(manifest map[string]any, gacha gachaConfig, existing skinsConf
 		if o == nil || skinStr(o, "id") == "" {
 			continue
 		}
-		add(skin{SKU: backdropSKU(skinStr(o, "id")), Kind: "backdrop", Name: skinStr(o, "title"),
+		add(skin{SKU: backdropSKU(skinStr(o, "id")), Kind: "backdrop", Name: skinStr(o, "title"), Description: skinStr(o, "description"),
 			Art: skinStr(o, "url"), Preview: skinStr(o, "preview"), Rarity: skinStr(o, "rarity"),
-			Price: int64(skinNum(o, "price")), Currency: skinStr(o, "currency"), Buy: skinNum(o, "price") > 0})
+			Price: int64(skinNum(o, "price")), Currency: skinStr(o, "currency"), Buy: skinNum(o, "price") > 0,
+			Hidden: skinBool(o, "hidden"), SellPrice: int64(skinNum(o, "sell_price")), Order: int(skinNum(o, "order")), Tags: skinStr(o, "tags")})
 	}
 	for _, raw := range skinList(skinDig(manifest, "ui", "browse"), "avatars") {
 		a, _ := raw.(map[string]any)
 		if a == nil || skinStr(a, "id") == "" {
 			continue
 		}
-		add(skin{SKU: avatarSKU(skinStr(a, "id"), skinStr(a, "sku")), Kind: "avatar", Name: skinStr(a, "id"),
-			Art: skinStr(a, "url"), Price: int64(skinNum(a, "price")), Currency: skinStr(a, "currency"), Buy: skinNum(a, "price") > 0})
+		add(skin{SKU: avatarSKU(skinStr(a, "id"), skinStr(a, "sku")), Kind: "avatar", Name: skinStr(a, "id"), Description: skinStr(a, "description"),
+			Art: skinStr(a, "url"), Price: int64(skinNum(a, "price")), Currency: skinStr(a, "currency"), Buy: skinNum(a, "price") > 0,
+			Hidden: skinBool(a, "hidden"), SellPrice: int64(skinNum(a, "sell_price")), Order: int(skinNum(a, "order")), Tags: skinStr(a, "tags")})
 	}
 	// Правленые записи, которых в манифесте уже нет, — не теряем.
 	for _, sku := range skinKeys(known) {
@@ -248,10 +256,49 @@ func setOrDrop(m map[string]any, key string, value any, keep bool) {
 	}
 }
 
+// applyCommon — поля, одинаковые у всех домов манифеста: описание, ступень,
+// цена, «скрыт», порядок, метки, цена копии.
+func applyCommon(m map[string]any, sk skin) {
+	setOrDrop(m, "description", sk.Description, sk.Description != "")
+	setOrDrop(m, "rarity", sk.Rarity, sk.Rarity != "")
+	setOrDrop(m, "price", sk.Price, sk.Price > 0)
+	setIf(m, "currency", sk.Currency)
+	setOrDrop(m, "hidden", true, sk.Hidden)
+	setOrDrop(m, "order", sk.Order, sk.Order != 0)
+	setOrDrop(m, "tags", sk.Tags, sk.Tags != "")
+	setOrDrop(m, "sell_price", sk.SellPrice, sk.SellPrice > 0)
+}
+
+// sortByOrder — записи с порядком встают по нему, остальные — как были, после.
+func sortByOrder(items []any) {
+	sort.SliceStable(items, func(i, j int) bool {
+		a, _ := items[i].(map[string]any)
+		b, _ := items[j].(map[string]any)
+		oa, ob := int(skinNum(a, "order")), int(skinNum(b, "order"))
+		if oa == 0 || ob == 0 {
+			return oa != 0 && ob == 0
+		}
+		return oa < ob
+	})
+}
+
+// ensureList — список в карте по ключу; нет — создаётся.
+func ensureList(m map[string]any, key string) []any {
+	if l, ok := m[key].([]any); ok {
+		return l
+	}
+	l := []any{}
+	m[key] = l
+	return l
+}
+
 // applySkins — разложить каталог по манифесту и барабану. Возвращает, сколько
-// скинов нашли своё место в манифесте.
+// скинов нашли своё место в манифесте. Аватарки и фоны, которых в манифесте
+// нет, заводятся (Илья: «через админку по максимуму»); наряд заводится, если
+// есть его герой и ось.
 func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) int {
 	bySKU := map[string]skin{}
+	seen := map[string]bool{}
 	for _, sk := range cfg.Skins {
 		bySKU[sk.SKU] = sk
 	}
@@ -269,11 +316,10 @@ func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) in
 				if !ok {
 					continue
 				}
+				seen[sk.SKU] = true
 				setIf(it, "name", sk.Name)
 				setIf(it, "icon", sk.Art)
-				setOrDrop(it, "rarity", sk.Rarity, sk.Rarity != "")
-				setOrDrop(it, "price", sk.Price, sk.Price > 0)
-				setIf(it, "currency", sk.Currency)
+				applyCommon(it, sk)
 				// ФЛАГ gacha В ГАРДЕРОБЕ ЗНАЧИТ «ТОЛЬКО ИЗ КРУТКИ — не покупается»
 				// (TR-93): его несут скины из крутки, которые не продаются (buy
 				// false); цена у них остаётся — за неё продаётся копия.
@@ -282,7 +328,47 @@ func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) in
 			}
 		}
 	}
-	for _, raw := range skinList(skinDig(manifest, "ui", "browse"), "canvas_options") {
+	// Новые наряды из каталога — в существующие ось и героя.
+	for _, sk := range cfg.Skins {
+		if sk.Kind != "wardrobe" || seen[sk.SKU] {
+			continue
+		}
+		parts := strings.Split(sk.SKU, ":")
+		if len(parts) != 4 {
+			continue
+		}
+		slot := skinDig(sprites, parts[1], "wardrobe", parts[2])
+		if slot == nil {
+			continue
+		}
+		it := map[string]any{"value": parts[3]}
+		setIf(it, "name", sk.Name)
+		setIf(it, "icon", sk.Art)
+		applyCommon(it, sk)
+		setOrDrop(it, "gacha", true, sk.Gacha && !sk.Buy)
+		slot["items"] = append(ensureList(slot, "items"), it)
+		seen[sk.SKU] = true
+		placed++
+	}
+	for entity := range sprites {
+		wardrobe := skinDig(sprites, entity, "wardrobe")
+		for axis := range wardrobe {
+			if slot := skinDig(wardrobe, axis); slot != nil {
+				sortByOrder(skinList(slot, "items"))
+			}
+		}
+	}
+	browse := skinDig(manifest, "ui", "browse")
+	if browse == nil {
+		ui, _ := manifest["ui"].(map[string]any)
+		if ui == nil {
+			ui = map[string]any{}
+			manifest["ui"] = ui
+		}
+		browse = map[string]any{}
+		ui["browse"] = browse
+	}
+	for _, raw := range skinList(browse, "canvas_options") {
 		o, _ := raw.(map[string]any)
 		if o == nil {
 			continue
@@ -291,15 +377,14 @@ func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) in
 		if !ok {
 			continue
 		}
+		seen[sk.SKU] = true
 		setIf(o, "title", sk.Name)
 		setIf(o, "url", sk.Art)
 		setIf(o, "preview", sk.Preview)
-		setOrDrop(o, "rarity", sk.Rarity, sk.Rarity != "")
-		setOrDrop(o, "price", sk.Price, sk.Price > 0)
-		setIf(o, "currency", sk.Currency)
+		applyCommon(o, sk)
 		placed++
 	}
-	for _, raw := range skinList(skinDig(manifest, "ui", "browse"), "avatars") {
+	for _, raw := range skinList(browse, "avatars") {
 		a, _ := raw.(map[string]any)
 		if a == nil {
 			continue
@@ -308,15 +393,42 @@ func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) in
 		if !ok {
 			continue
 		}
+		seen[sk.SKU] = true
 		setIf(a, "url", sk.Art)
-		if sk.Price > 0 {
-			a["price"] = sk.Price
-			setIf(a, "currency", sk.Currency)
-		} else {
+		applyCommon(a, sk)
+		if sk.Price <= 0 {
 			delete(a, "price")
 		}
 		placed++
 	}
+	// Новые фоны и аватарки из каталога — заводятся в манифесте.
+	for _, sk := range cfg.Skins {
+		if seen[sk.SKU] || sk.Art == "" {
+			continue
+		}
+		switch sk.Kind {
+		case "backdrop":
+			o := map[string]any{"id": strings.TrimPrefix(sk.SKU, "wardrobe:menu:backdrop:"), "url": sk.Art}
+			setIf(o, "title", sk.Name)
+			setIf(o, "preview", sk.Preview)
+			applyCommon(o, sk)
+			browse["canvas_options"] = append(ensureList(browse, "canvas_options"), o)
+			placed++
+		case "avatar":
+			a := map[string]any{"id": strings.TrimPrefix(sk.SKU, "avatar."), "url": sk.Art}
+			if !strings.HasPrefix(sk.SKU, "avatar.") {
+				a["sku"] = sk.SKU
+			}
+			applyCommon(a, sk)
+			if sk.Price <= 0 {
+				delete(a, "price")
+			}
+			browse["avatars"] = append(ensureList(browse, "avatars"), a)
+			placed++
+		}
+	}
+	sortByOrder(skinList(browse, "canvas_options"))
+	sortByOrder(skinList(browse, "avatars"))
 	if len(cfg.RarityColors) > 0 {
 		ui, _ := manifest["ui"].(map[string]any)
 		if ui == nil {
@@ -337,11 +449,11 @@ func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) in
 	// Барабан: призы — все скины с флагом; сектора и цена крутки — как были.
 	prizes := make([]gachaPrize, 0)
 	for _, sk := range cfg.Skins {
-		if !sk.Gacha {
+		if !sk.Gacha || sk.Hidden {
 			continue
 		}
 		prizes = append(prizes, gachaPrize{SKU: sk.SKU, Label: sk.Name, Art: sk.Art, Rarity: sk.Rarity,
-			Price: sk.Price, Currency: sk.Currency, Weight: sk.Weight})
+			Price: sk.Price, Currency: sk.Currency, Weight: sk.Weight, SellPrice: sk.SellPrice})
 	}
 	gacha.Prizes = prizes
 	if len(cfg.RarityWeights) > 0 {

@@ -35,6 +35,8 @@ namespace Lvn.Services
             public string Rarity;    // ключ редкости (сервер или манифест)
             public bool GachaOnly;   // в гардеробе не продаётся — только из крутки (флаг gacha у наряда)
             public string Kind;      // домен по каталогу: wardrobe | backdrop | avatar
+            public string Description;
+            public long SellPrice;   // своя цена копии; 0 — за цену
             public double Weight;    // вес внутри «Редкого» — для шанса
             public long Price;       // цена в гардеробе, 0 — не продаётся
             public string Currency;  // валюта цены
@@ -179,6 +181,7 @@ namespace Lvn.Services
             Sku = (string)p["sku"], Label = (string)p["label"], Art = (string)p["art"],
             Rarity = (string)p["rarity"], Weight = (double?)p["weight"] ?? 0,
             Price = (long?)p["price"] ?? 0, Currency = (string)p["currency"],
+            SellPrice = (long?)p["sell_price"] ?? 0,
         };
     }
 }

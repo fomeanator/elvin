@@ -103,9 +103,13 @@ export default function AdminSkins({ token, notify }) {
             <table className="adm-table dense">
               <thead>
                 <tr>
-                  <th>sku</th><th>Имя</th><th>Арт</th>{kind === "backdrop" && <th>Мини</th>}
+                  <th>sku</th><th>Имя</th><th>Описание</th><th>Арт</th>{kind === "backdrop" && <th>Мини</th>}
                   <th>Ступень</th><th>Цена</th><th>Валюта</th><th title="продаётся в гардеробе">Прод.</th>
                   <th title="выпадает в крутках">Крутка</th><th title="свой вес в барабане; 0 — по ступени">Вес</th>
+                  <th title="за сколько продаётся копия из крутки; 0 — за цену">Копия</th>
+                  <th title="порядок показа; 0 — как в манифесте">Поряд.</th>
+                  <th title="метки через запятую">Метки</th>
+                  <th title="не показывать нигде; у игроков остаётся">Скрыт</th>
                 </tr>
               </thead>
               <tbody>
@@ -113,6 +117,7 @@ export default function AdminSkins({ token, notify }) {
                   <tr key={s.sku}>
                     <td className="muted" title={s.sku}>{shortSku(s)}</td>
                     <td><input className="field" value={s.name || ""} onChange={(e) => edit(i, { name: e.target.value })} /></td>
+                    <td><input className="field" style={{ minWidth: 200 }} value={s.description || ""} placeholder="текст в подробностях" onChange={(e) => edit(i, { description: e.target.value })} title={s.description || ""} /></td>
                     <td><input className="field" value={s.art || ""} onChange={(e) => edit(i, { art: e.target.value })} title={s.art || ""} /></td>
                     {kind === "backdrop" && <td><input className="field" value={s.preview || ""} onChange={(e) => edit(i, { preview: e.target.value })} /></td>}
                     <td>
@@ -130,12 +135,18 @@ export default function AdminSkins({ token, notify }) {
                     <td className="num"><input type="checkbox" checked={!!s.buy} onChange={(e) => edit(i, { buy: e.target.checked })} /></td>
                     <td className="num"><input type="checkbox" checked={!!s.gacha} onChange={(e) => edit(i, { gacha: e.target.checked })} /></td>
                     <td className="num"><input className="field" type="number" min="0" step="0.1" style={{ width: 70 }} value={s.gacha_weight || 0} onChange={(e) => edit(i, { gacha_weight: Number(e.target.value) || 0 })} /></td>
+                    <td className="num"><input className="field" type="number" min="0" style={{ width: 80 }} value={s.sell_price || 0} onChange={(e) => edit(i, { sell_price: Number(e.target.value) || 0 })} /></td>
+                    <td className="num"><input className="field" type="number" min="0" style={{ width: 64 }} value={s.order || 0} onChange={(e) => edit(i, { order: Number(e.target.value) || 0 })} /></td>
+                    <td><input className="field" style={{ minWidth: 110 }} value={s.tags || ""} onChange={(e) => edit(i, { tags: e.target.value })} /></td>
+                    <td className="num"><input type="checkbox" checked={!!s.hidden} onChange={(e) => edit(i, { hidden: e.target.checked })} /></td>
                   </tr>
                 ))}
-                {rows.length === 0 && <tr><td colSpan="10" className="muted">Пусто — нажмите «Собрать из манифеста»</td></tr>}
+                {rows.length === 0 && <tr><td colSpan="15" className="muted">Пусто — нажмите «Собрать из манифеста»</td></tr>}
               </tbody>
             </table>
           </div>
+
+          <NewSkinForm kind={kind} onAdd={(sk) => { const next = structuredClone(live); next.skins.push(sk); setDoc(next); }} existing={live.skins || []} />
 
           <h3 style={{ marginTop: 18 }}>Ступени: цвет и вес в крутке</h3>
           <p className="admin-hint">Цвет плиток, рамок и церемонии — у ступени. Вес — доля ступени внутри «Редкого» (сумма любая): чем меньше, тем реже выпадает приз этой ступени.</p>
@@ -164,6 +175,33 @@ export default function AdminSkins({ token, notify }) {
   );
 }
 
+// НОВЫЙ СКИН ИЗ АДМИНКИ (Илья: «по максимуму»): аватарка и фон заводятся в
+// манифесте при применении, наряд — если у героя есть такая ось.
+function NewSkinForm({ kind, onAdd, existing }) {
+  const [f, setF] = useState({ entity: "", axis: "", id: "", name: "", art: "" });
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const sku = kind === "wardrobe" ? (f.entity && f.axis && f.id ? `wardrobe:${f.entity}:${f.axis}:${f.id}` : "")
+    : kind === "backdrop" ? (f.id ? `wardrobe:menu:backdrop:${f.id}` : "")
+    : (f.id ? `avatar.${f.id}` : "");
+  const taken = sku && existing.some((s) => s.sku === sku);
+  const ok = sku && !taken && f.art;
+  return (
+    <div className="admin-rowbtns" style={{ marginTop: 10, gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+      <span className="muted">Новый:</span>
+      {kind === "wardrobe" && <input className="field" style={{ width: 120 }} placeholder="герой (id)" value={f.entity} onChange={set("entity")} />}
+      {kind === "wardrobe" && <input className="field" style={{ width: 110 }} placeholder="ось (outfit…)" value={f.axis} onChange={set("axis")} />}
+      <input className="field" style={{ width: 130 }} placeholder={kind === "wardrobe" ? "значение" : "id"} value={f.id} onChange={set("id")} />
+      <input className="field" style={{ width: 160 }} placeholder="имя" value={f.name} onChange={set("name")} />
+      <input className="field" style={{ width: 260 }} placeholder="арт: /content/…" value={f.art} onChange={set("art")} />
+      <button className="btn-ghost sm" disabled={!ok} title={taken ? "такой sku уже есть" : sku} onClick={() => {
+        onAdd({ sku, kind, name: f.name, art: f.art, currency: "crystals" });
+        setF({ entity: "", axis: "", id: "", name: "", art: "" });
+      }}>Добавить</button>
+      {sku && <span className="muted">{sku}</span>}
+    </div>
+  );
+}
+
 function normalize(data) {
   const d = data && typeof data === "object" ? data : {};
   return { rarity_colors: d.rarity_colors || {}, rarity_weights: d.rarity_weights || {}, skins: Array.isArray(d.skins) ? d.skins : [] };
@@ -176,11 +214,9 @@ function clean(doc) {
     rarity_weights: doc.rarity_weights,
     skins: doc.skins.map((s) => {
       const out = { sku: s.sku, kind: s.kind };
-      for (const k of ["name", "art", "preview", "rarity", "currency"]) if (s[k]) out[k] = s[k];
-      if (s.price) out.price = s.price;
-      if (s.buy) out.buy = true;
-      if (s.gacha) out.gacha = true;
-      if (s.gacha_weight) out.gacha_weight = s.gacha_weight;
+      for (const k of ["name", "description", "art", "preview", "rarity", "currency", "tags"]) if (s[k]) out[k] = s[k];
+      for (const k of ["price", "gacha_weight", "sell_price", "order"]) if (s[k]) out[k] = s[k];
+      for (const k of ["buy", "gacha", "hidden"]) if (s[k]) out[k] = true;
       return out;
     }),
   };
