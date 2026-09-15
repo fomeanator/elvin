@@ -121,6 +121,10 @@ namespace Lvn.UI.Screens
                 // уже уехавшая на главную, отскакивала вправо («героиня ходуном
                 // ходит… по центру, а становится справа» — Илья 08.09).
                 _tab = target;
+                // КРУТКИ — ВО ВЕСЬ ЭКРАН, БЕЗ НИЖНЕГО МЕНЮ (Илья 15.09): уходя из
+                // них, меню возвращается до перелёта, чтобы ехать вместе с
+                // приходящей комнатой; приезжая — прячется по прибытии.
+                if (leaving == LvnTabs.Gacha) Hub?.SetNavHidden(false);
                 float w = _root.resolvedStyle.width;
                 if (w <= 0f || float.IsNaN(w)) w = 1080f;
                 // ЭКРАНЫ СТОЯТ В ПРОСТРАНСТВЕ, ЛЕТИТ КАМЕРА. Раньше каждая
@@ -208,6 +212,7 @@ namespace Lvn.UI.Screens
                 to.el.style.translate = new Translate(0f, 0f);
                 to.el.style.scale = new Scale(Vector2.one);
                 to.scr?.Settled();   // экран на месте — можно считать раскладку
+                if (target == LvnTabs.Gacha) Hub?.SetNavHidden(true);
                 _ = dir;   // направление больше не решает: решает место кнопки
             }
             finally { _tabBusy = false; }
@@ -286,6 +291,7 @@ namespace Lvn.UI.Screens
             }
             _tab = LvnTabs.Home;
             _tabCanvasX = 0f;
+            Hub?.SetNavHidden(false);   // из круток в главу — меню обязано вернуться к возвращению
             Hub?.SetActiveTab(LvnTabs.Home, instant: true);
         }
 
