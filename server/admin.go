@@ -27,6 +27,8 @@ type AdminService struct {
 	// Служба ссылок на прохождения: админка спрашивает у неё сводку, а не
 	// лезет в её таблицу — счёт живёт там же, где хранение.
 	shares *ShareService
+	// Каталог скинов: сохранение skins.json из админки применяется само.
+	skins *SkinsService
 	// Именованные учётки панели. Пусто — значит вход только по токену
 	// (первый запуск, пока никого не завели).
 	users *AdminUsers
@@ -74,6 +76,8 @@ func (s *AdminService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/admin/stats/spend", s.handleSpendStats)
 	mux.HandleFunc("/v1/admin/rollback", s.handleRollback)
 	mux.HandleFunc("/v1/admin/files", s.handleFiles)
+	mux.HandleFunc("/v1/admin/skins/collect", s.handleSkinsCollect)
+	mux.HandleFunc("/v1/admin/skins/apply", s.handleSkinsApply)
 	mux.HandleFunc("/v1/admin/import-templates", s.handleImportTemplates)
 	mux.HandleFunc("/v1/admin/import-templates/", s.handleImportTemplateDetail)
 }
@@ -290,6 +294,7 @@ var adminConfigs = map[string]bool{
 	"ads.json":           true, // rewarded placements (currency/amount/daily_cap)
 	"daily-rewards.json": true, // streak rewards, day by day
 	"gacha.json":         true, // барабан круток: секторы, веса, призы, цена
+	"skins.json":         true, // ОДНО МЕСТО настройки скинов (TR-114): наряды, фоны, аватарки, призы
 }
 
 // GET/PUT /v1/admin/config/<name> — validated JSON, atomic write. Services
@@ -328,6 +333,17 @@ func (s *AdminService) handleConfig(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			http.Error(w, "write failed: "+err.Error(), http.StatusInternalServerError)
 			return
+		}
+		// СОХРАНИЛ — ПРИМЕНИЛ: каталог скинов сам раскладывается по манифесту
+		// и барабану, иначе «одно место» было бы вторым местом.
+		if name == skinsFile && s.skins != nil {
+			if placed, err := s.skins.Apply(); err != nil {
+				http.Error(w, "saved, but not applied: "+err.Error(), http.StatusInternalServerError)
+				return
+			} else {
+				writeJSON(w, http.StatusOK, map[string]any{"saved": true, "applied": placed})
+				return
+			}
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"saved": true})
 	default:

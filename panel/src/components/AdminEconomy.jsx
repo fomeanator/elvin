@@ -14,7 +14,9 @@ const CONFIGS = [
   { file: "daily-rewards.json", title: "Ежедневные награды (стрик)",
     hint: '[ {"currency","amount"}, … день за днём; последний повторяется ]' },
   { file: "gacha.json", title: "Барабан круток",
-    hint: '{ "currency","price", "sectors":[{"id","kind":"currency|super","currency","amount","weight","label"}], "prizes":[{"sku","label"}] }. Вес — доля, а не проценты: сумма любая' },
+    hint: '{ "currency","price", "sectors":[{"id","kind":"currency|super","currency","amount","weight","label"}] }. Вес — доля, а не проценты: сумма любая. Призы правятся в skins.json (флаг gacha) — при сохранении каталога сюда раскладываются сами' },
+  { file: "skins.json", title: "Скины — одно место настройки",
+    hint: '{ "rarity_colors": {"common":"#…"}, "rarity_weights": {"common":40,…}, "skins":[{"sku","kind":"wardrobe|backdrop|avatar","name","art","preview","rarity","price","currency","gacha","gacha_weight"}] }. Сохранение раскладывает цены, ступени, арт и «в крутке» по манифесту и барабану; цвет — у ступени' },
 ];
 
 export default function AdminEconomy({ token, notify }) {
