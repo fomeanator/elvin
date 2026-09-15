@@ -175,7 +175,9 @@ namespace Lvn.UI.Screens
             if (!(card is LvnSkinCard skin)) return;
             var (zoom, ay) = LvnWardrobeStage.Framing(axis);
             bool owned = IsOwnedIn(axis, item);
-            bool gift = item.gacha && item.price <= 0;
+            // «ТОЛЬКО ИЗ КРУТКИ» (флаг gacha, TR-93) — подарок вместо ценника и при
+            // цене: цена у такого скина — за продажу копии, а не за покупку.
+            bool gift = item.gacha;
             skin.Bind(new LvnSkinCard.Info
             {
                 // Название наряда — подпись, а не идентификатор: в английском

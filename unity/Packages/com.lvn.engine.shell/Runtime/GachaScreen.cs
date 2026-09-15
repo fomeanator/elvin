@@ -585,10 +585,11 @@ namespace Lvn.UI.Screens
             int rank = LvnRarity.Rank(prize.Rarity);
             string chanceText = chance.HasValue ? LvnWords.Of("skin.get_chance", "chance {0} %", chance.Value.ToString("0.##")) : null;
             string drops = LvnWords.Of("skin.get_gacha", "Drops from spins") + (chanceText != null ? " · " + chanceText : "");
+            bool sellable = prize.Price > 0 && !prize.GachaOnly;   // «только из крутки» не покупается и при цене
             string obtain = owned
                 ? LvnWords.Of("skin.get_owned", "Already yours") + (copies > 0 ? " · " + LvnWords.Of("gacha.copies", "copies: {0}", copies) : "")
                   + (prize.Price > 0 ? " · " + LvnWords.Of("gacha.copy_worth", "a copy sells for {0}", LvnPriceTag.Full(prize.Currency ?? _state?.SpinCurrency, prize.Price)) : "")
-                : drops + (prize.Price > 0 ? " · " + LvnWords.Of("skin.get_buy", "Buy: {0}", LvnPriceTag.Full(prize.Currency ?? _state?.SpinCurrency, prize.Price)) : "");
+                : drops + (sellable ? " · " + LvnWords.Of("skin.get_buy", "Buy: {0}", LvnPriceTag.Full(prize.Currency ?? _state?.SpinCurrency, prize.Price)) : "");
             return new LvnSkinCard.Info
             {
                 Title = prize.Label ?? prize.Sku, Art = prize.Art, SharpArt = zoom >= 3f,
@@ -596,7 +597,7 @@ namespace Lvn.UI.Screens
                 Rarity = rank >= 0 ? LvnRarity.ColorOf(prize.Rarity, palette) : (Color?)null,
                 RarityWord = rank >= 0 ? LvnRarity.Word(prize.Rarity) : null,
                 Price = prize.Price, Currency = prize.Currency ?? _state?.SpinCurrency,
-                Gift = prize.Price <= 0, Owned = owned, PriceAlways = true,   // «есть» не прячет цену (Илья)
+                Gift = !sellable, Owned = owned, PriceAlways = sellable,   // «есть» не прячет цену (Илья); только из крутки — подарок
                 Corner = owned ? LvnWords.Of("gacha.owned", "owned") + (copies > 0 ? " ×" + (copies + 1) : "")
                     : chance.HasValue ? chance.Value.ToString("0.##") + " %" : null,
                 Obtain = obtain,
