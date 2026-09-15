@@ -73,7 +73,16 @@ namespace Lvn.Services
                     LvnWallet.NoteUser(UserId);
                     return true;
                 }
-                if (mine != 401) return SignedIn; // outages/rate limits must not silently switch accounts
+                if (mine != 401)
+                {
+                    // Сбой или лимит сети не меняет учётку молча — пропуск остаётся
+                    // нашим, и ВЛАДЕЛЕЦ ТОТ ЖЕ (Ваня, 12.09): без этих строк
+                    // офлайн-запуск жил за первого владельца, и записанное до
+                    // ответа сервера ложилось в чужой ящик.
+                    Lvn.LvnKeep.NoteOwner(UserId);
+                    LvnWallet.NoteUser(UserId);
+                    return SignedIn;
+                }
             }
             // Метка устройства — у ПАСПОРТИСТА: её потеря регистрирует НОВУЮ
             // учётку, то есть отнимает кошелёк и покупки, поэтому дома два.
