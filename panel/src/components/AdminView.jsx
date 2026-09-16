@@ -14,6 +14,7 @@ import People from "./admin/People.jsx";
 import Builds from "./admin/Builds.jsx";
 import Feedback from "./admin/Feedback.jsx";
 import Experiments from "./admin/Experiments.jsx";
+import Logs from "./admin/Logs.jsx";
 import AdminEconomy from "./AdminEconomy.jsx";
 import AdminSkins from "./AdminSkins.jsx";
 import AdminAssets from "./AdminAssets.jsx";
@@ -139,6 +140,11 @@ export default function AdminView({ creds, notify, section: sectionProp, onSecti
             {section === "builds" && <Builds token={token} notify={notify} />}
             {section === "feedback" && <Feedback token={token} />}
             {section === "experiments" && <Experiments token={token} notify={notify} />}
+            {section === "logs" && (
+              <Page title="Логи с устройств" description="Что прислали устройства: сессии, отклонения с хвостом, кадры; пульт — подробный лог на срок и кусок чёрного ящика за период.">
+                <Logs token={token} />
+              </Page>
+            )}
             {section === "economy" && (
               <Page title="Экономика" description="Живые конфиги паков, рекламы и ежедневных наград — применяются без рестарта.">
                 <AdminEconomy token={token} notify={notify} />

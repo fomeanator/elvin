@@ -110,3 +110,48 @@ func TestLogDirectiveTravelsWithIngestResponse(t *testing.T) {
 		t.Fatalf("снятое указание продолжает ехать: %v", out)
 	}
 }
+
+// КУСОК КОЛЬЦА ЗАДНИМ ЧИСЛОМ (TR-86, этап 2): запрос периода едет устройству
+// в ответе на пачку, снимается подтверждением «fetched» вместе с самим куском,
+// строки куска ложатся с исходным временем уровнем ring.
+func TestLogFetchRangeTravelsAndIsAcknowledged(t *testing.T) {
+	dir := t.TempDir()
+	svc, err := NewClientLogService(filepath.Join(dir, "client-logs"), "tok")
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPut, "/v1/admin/log-fetch",
+		strings.NewReader(`{"device":"dev-a","from":"2026-09-15T10:00:00Z","to":"2026-09-15T11:00:00Z"}`))
+	req.Header.Set("Authorization", "Bearer tok")
+	rec := httptest.NewRecorder()
+	svc.handleLogFetch(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"fetch"`) {
+		t.Fatalf("запрос периода не принят: %d %s", rec.Code, rec.Body.String())
+	}
+	ingest := func(body string) map[string]any {
+		r := httptest.NewRequest(http.MethodPost, "/v1/log/client", strings.NewReader(body))
+		r.RemoteAddr = "10.0.0.2:1"
+		w := httptest.NewRecorder()
+		svc.handleIngest(w, r)
+		var out map[string]any
+		_ = json.Unmarshal(w.Body.Bytes(), &out)
+		return out
+	}
+	out := ingest(`{"device":{"id":"dev-a","session":"s"},"lines":[{"level":"info","msg":"[x] hi"}]}`)
+	logd, _ := out["log"].(map[string]any)
+	if logd == nil || logd["fetch"] == nil {
+		t.Fatalf("устройство не получило запрос периода: %v", out)
+	}
+	out = ingest(`{"device":{"id":"dev-a","session":"s"},"fetched":{"from":"2026-09-15T10:00:00Z","to":"2026-09-15T11:00:00Z"},"lines":[{"level":"ring","ts":"2026-09-15T10:30:00Z","msg":"[lvn-stage] шаг"}]}`)
+	if out["log"] != nil {
+		t.Fatalf("после подтверждения запрос должен быть снят: %v", out)
+	}
+	// строка куска лежит с исходным временем
+	r := httptest.NewRequest(http.MethodGet, "/v1/admin/client-logs?level=ring", nil)
+	r.Header.Set("Authorization", "Bearer tok")
+	w := httptest.NewRecorder()
+	svc.handleTail(w, r)
+	if !strings.Contains(w.Body.String(), `"ts":"2026-09-15T10:30:00Z"`) {
+		t.Fatalf("кусок кольца не лёг с исходным временем: %s", w.Body.String())
+	}
+}

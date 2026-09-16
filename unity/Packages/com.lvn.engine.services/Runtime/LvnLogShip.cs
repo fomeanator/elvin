@@ -195,6 +195,11 @@ namespace Lvn.Services
         /// <summary>Отправить накопленное; при отказе очередь остаётся.</summary>
         public static Task FlushAsync() => _box.FlushAsync();
 
+        // Периоды, которые уже высылаются или высланы в этой сессии: сервер
+        // повторяет запрос, пока не получит подтверждение, а слать дважды незачем.
+        private static readonly System.Collections.Generic.HashSet<string> _fetching
+            = new System.Collections.Generic.HashSet<string>();
+
         /// <summary>Указание сервера в ответе на пачку: {"log": {"until": ts}} —
         /// слать Trace до этого момента. Сервер отвечает так каждой пачке, пока
         /// указание живо; без него — обычный режим.</summary>
@@ -204,6 +209,14 @@ namespace Lvn.Services
             try
             {
                 var o = JObject.Parse(body);
+                // Куски кольца за периоды — этап 2: каждый уезжает своим ходом.
+                if (o["log"]?["fetch"] is JArray ranges)
+                    foreach (var r in ranges)
+                    {
+                        string from = (string)r["from"], to = (string)r["to"];
+                        if (string.IsNullOrEmpty(from) || string.IsNullOrEmpty(to) || !_fetching.Add(from + ".." + to)) continue;
+                        Lvn.LvnAsync.Fire(LvnBlackBox.ShipRangeAsync(from, to), "RingFetch");
+                    }
                 var until = (string)o["log"]?["until"];
                 if (string.IsNullOrEmpty(until)) { TraceUntil = default; return; }
                 if (DateTime.TryParse(until, System.Globalization.CultureInfo.InvariantCulture,
@@ -219,7 +232,11 @@ namespace Lvn.Services
 
         // Тело пачки: от устройства — то, без чего строка лога не читается на
         // той стороне (какой телефон, какая сессия, какая сборка).
-        private static async Task<long> SendAsync(JArray lines)
+        private static Task<long> SendAsync(JArray lines) => SendRawAsync(lines, null);
+
+        /// <summary>Пачка с заголовком устройства; <paramref name="fetched"/> —
+        /// подтверждение куска кольца за период (этап 2).</summary>
+        internal static async Task<long> SendRawAsync(JArray lines, JObject fetched)
         {
             var body = new JObject
             {
@@ -233,6 +250,7 @@ namespace Lvn.Services
                 },
                 ["lines"] = lines,
             };
+            if (fetched != null) body["fetched"] = fetched;
             string json;
             using (Lvn.LvnPerf.Measure(Lvn.LvnPerf.Part.LogSerialize))
                 json = body.ToString(Newtonsoft.Json.Formatting.None);

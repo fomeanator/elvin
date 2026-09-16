@@ -202,6 +202,64 @@ namespace Lvn.Services
             catch (Exception ex) { LvnLog.Warn("[lvn-blackbox] уборка не удалась: " + ex.Message); }
         }
 
+        /// <summary>
+        /// КУСОК КОЛЬЦА ЗА ПЕРИОД — ЗАДНИМ ЧИСЛОМ (TR-86, этап 2). Сервер просит
+        /// «с … до …», устройство читает свои файлы по дням, отбирает строки по
+        /// времени и высылает пачками по 200 строк уровнем ring с исходным
+        /// временем; последняя пачка несёт подтверждение, и сервер снимает
+        /// запрос. Не больше 5000 строк на период — дальше просят другой.
+        /// </summary>
+        internal static async System.Threading.Tasks.Task ShipRangeAsync(string fromIso, string toIso)
+        {
+            if (_dir == null) return;
+            if (!DateTime.TryParse(fromIso, System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var from)
+                || !DateTime.TryParse(toIso, System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var to)
+                || to <= from) return;
+            FlushNow();
+            var lines = new List<(DateTime ts, string text)>();
+            await System.Threading.Tasks.Task.Run(() =>
+            {
+                for (var day = from.Date; day <= to.Date; day = day.AddDays(1))
+                {
+                    var path = Path.Combine(_dir, day.ToString("yyyy-MM-dd") + ".log");
+                    if (!File.Exists(path)) continue;
+                    try
+                    {
+                        foreach (var l in File.ReadLines(path))
+                        {
+                            if (l.Length < 14 || !TimeSpan.TryParseExact(l.AsSpan(0, 12), @"hh\:mm\:ss\.fff",
+                                    System.Globalization.CultureInfo.InvariantCulture, out var t)) continue;
+                            var ts = day + t;
+                            if (ts < from || ts > to) continue;
+                            lines.Add((ts, l.Substring(13)));
+                            if (lines.Count >= 5000) return;
+                        }
+                    }
+                    catch (Exception ex) { LvnLog.Warn("[lvn-blackbox] чтение " + path + ": " + ex.Message); }
+                }
+            });
+            var fetched = new Newtonsoft.Json.Linq.JObject { ["from"] = fromIso, ["to"] = toIso };
+            if (lines.Count == 0)
+                lines.Add((from, "i [lvn-blackbox] за период строк нет"));
+            for (int i = 0; i < lines.Count; i += 200)
+            {
+                var batch = new Newtonsoft.Json.Linq.JArray();
+                for (int j = i; j < lines.Count && j < i + 200; j++)
+                    batch.Add(new Newtonsoft.Json.Linq.JObject
+                    {
+                        ["ts"] = lines[j].ts.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"),
+                        ["level"] = "ring",
+                        ["msg"] = lines[j].text,
+                    });
+                bool last = i + 200 >= lines.Count;
+                long code = await LvnLogShip.SendRawAsync(batch, last ? fetched : null);
+                if (!LvnBackend.Ok(code)) { LvnLog.Warn("[lvn-blackbox] кусок кольца не ушёл: " + code); return; }
+            }
+            LvnLog.Info("[lvn-blackbox] кусок кольца выслан: " + lines.Count + " строк, " + fromIso + " … " + toIso);
+        }
+
         /// <summary>Хвост последнего файла — что было перед обрывом прошлого запуска.</summary>
         private static string ReadPreviousTail()
         {
