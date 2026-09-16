@@ -26,7 +26,10 @@ namespace Lvn.Services
         // аналитическое: что считать событием и какие поля к нему приложить.
         private static readonly LvnOutbox _box = new LvnOutbox(
             "analytics", PQueue, cap: QueueCap, flushAt: FlushAt, everySec: FlushEverySec,
-            durable: false,      // карандашом: теряется разве что хвост
+            // НАБЕЛО (Илья 16.09: «а если убьёт приложение?»): карандаш фиксировался
+            // только на паузе, и обрыв без паузы уносил всю сессию событий — старт
+            // главы, выборы, покупки. Событий немного, запись на каждое дёшева.
+            durable: true,
             batchMax: 100,
             send: async batch =>
             {

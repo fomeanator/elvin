@@ -159,6 +159,7 @@ namespace Lvn.UI.Screens
         private void AnnounceChapterFinish(LvnTitle title, LvnChapter finished)
         {
             ChapterFinished?.Invoke(title, finished);
+            Lvn.Services.LvnBlackBox.ClearOpenChapter();   // глава закрыта штатно
             // ПЛАВНОСТЬ — ВЕЛИЧИНА, А НЕ ОЩУЩЕНИЕ. Счёт запинок уходит вместе с
             // концом главы: по нему видно, стало ли лучше после правки, — раньше
             // это можно было только почувствовать.
@@ -200,6 +201,7 @@ namespace Lvn.UI.Screens
         /// </summary>
         private void AnnounceChapterAbandon(LvnTitle title, LvnChapter chapter)
         {
+            Lvn.Services.LvnBlackBox.ClearOpenChapter();   // уход отправляем сами — задним числом закрывать нечего
             var snap = Stage?.Player?.Save();
             // Брошенная глава — самый интересный случай для плавности: уходят
             // чаще всего оттуда, где дёргается.

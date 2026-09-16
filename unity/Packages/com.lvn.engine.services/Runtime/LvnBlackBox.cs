@@ -260,6 +260,45 @@ namespace Lvn.Services
             LvnLog.Info("[lvn-blackbox] кусок кольца выслан: " + lines.Count + " строк, " + fromIso + " … " + toIso);
         }
 
+        // ── НЕЗАКРЫТАЯ ГЛАВА (Илья 16.09: «а если пользователь приложение закроет
+        // или телефон вырубит?») ── на паузе оболочка кладёт сюда, где стоит
+        // игрок (глава, строка, секунды по строкам); конец главы или уход это
+        // стирают. Если на следующем запуске запись жива, значит, прошлый
+        // запуск кончился посреди главы без «ушёл» — оболочка отправляет его
+        // сама, той строкой и с тем временем. Файл рядом с журналами, не запись
+        // об игроке: без имени и без сохранений.
+        private const string OpenChapterFile = "chapter.open";
+
+        private static string OpenChapterPath => _dir == null ? null : Path.Combine(_dir, OpenChapterFile);
+
+        /// <summary>Где стоит игрок сейчас — переписывается на каждой паузе.</summary>
+        public static void NoteOpenChapter(string json)
+        {
+            if (OpenChapterPath == null || string.IsNullOrEmpty(json)) return;
+            try { File.WriteAllText(OpenChapterPath, json); } catch { /* без записи — без закрытия задним числом */ }
+        }
+
+        /// <summary>Глава закончилась или её покинули штатно — записи больше нет.</summary>
+        public static void ClearOpenChapter()
+        {
+            if (OpenChapterPath == null) return;
+            try { File.Delete(OpenChapterPath); } catch { /* уже нет */ }
+        }
+
+        /// <summary>Забрать запись прошлого запуска (и стереть): пусто — главы не было.</summary>
+        public static string TakeOpenChapter()
+        {
+            if (OpenChapterPath == null) return null;
+            try
+            {
+                if (!File.Exists(OpenChapterPath)) return null;
+                var json = File.ReadAllText(OpenChapterPath);
+                File.Delete(OpenChapterPath);
+                return string.IsNullOrEmpty(json) ? null : json;
+            }
+            catch { return null; }
+        }
+
         /// <summary>Хвост последнего файла — что было перед обрывом прошлого запуска.</summary>
         private static string ReadPreviousTail()
         {

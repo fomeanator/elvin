@@ -373,6 +373,7 @@ namespace Lvn.UI.Screens
             {
                 _shell.TopBar?.SetProgress(Stage.Player.ProgressIndex, Stage.Player.ProgressTotal);
                 DwellTick(Stage.Player.Index);
+                NoteOpenChapterThrottled();
                 await Task.Yield();
             }
             DwellTick(-1);   // закрыть последнюю строку
