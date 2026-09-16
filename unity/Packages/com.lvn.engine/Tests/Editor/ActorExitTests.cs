@@ -81,6 +81,7 @@ namespace Lvn.Tests
             public void PlayAnim(string id, string channel, LvnAnim anim) { }
             public void PlayAnimQueued(string id, string channel, LvnAnim anim) { }
             public void StopAnim(string id, string target) { }
+            public void StopScriptAnims() { }
             public void Talk(string id, LvnAnim talk, bool on) { }
             public void HighlightSpeaker(string who) { }
             public void Shake(float amplitude, float seconds) { }

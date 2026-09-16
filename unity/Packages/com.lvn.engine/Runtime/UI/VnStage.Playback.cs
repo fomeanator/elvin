@@ -620,6 +620,13 @@ namespace Lvn.UI
             // would float over the new scene — dismiss it with the old one.
             if (_panelHost != null) LvnAsync.Fire(_panelHost.HideAsync(), "Hide");
             _talkAnims.Clear();
+            // АНИМАЦИИ СКРИПТА УХОДЯТ С ГЛАВОЙ. Уборка (RemoveAll) гасила их
+            // вместе с актёрами, а передача кадра (HandOver) оставляет героиню
+            // живой — и с ней жила зацикленная `anim … yoyo` из главы: в меню
+            // героиня «дышала» чужим ритмом поверх своей постановки (тестер
+            // 16.09: «свойство с рассказчика передалось на ГГ»). Гасим здесь,
+            // в общем списке того, что уносит уходящая глава.
+            _renderer?.StopScriptAnims();
             _particles?.Set("rain", false);
             _particles?.Set("snow", false);
             _fx?.Clear(0f);
