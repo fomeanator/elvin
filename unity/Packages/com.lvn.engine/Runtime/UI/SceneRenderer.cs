@@ -63,6 +63,9 @@ namespace Lvn.UI
         void PlayAnim(string id, string channel, LvnAnim anim);
         void PlayAnimQueued(string id, string channel, LvnAnim anim);
         void StopAnim(string id, string target);
+        /// <summary>Погасить script-дорожки у ВСЕХ актёров — уходит глава.
+        /// Двигательные дорожки движка (покой, моргание, речь) не трогает.</summary>
+        void StopScriptAnims();
         void Talk(string id, LvnAnim talk, bool on);
         void HighlightSpeaker(string who);
 
@@ -243,6 +246,7 @@ namespace Lvn.UI
         public void PlayAnim(string id, string channel, LvnAnim anim) => _scene.PlayAnim(id, channel, anim);
         public void PlayAnimQueued(string id, string channel, LvnAnim anim) => _scene.PlayAnimQueued(id, channel, anim);
         public void StopAnim(string id, string target) => _scene.StopAnim(id, target);
+        public void StopScriptAnims() => _scene.StopScriptAnims();
         public void Talk(string id, LvnAnim talk, bool on) => _scene.Talk(id, talk, on);
         public void HighlightSpeaker(string who) => _scene.HighlightSpeaker(who);
 

@@ -898,6 +898,7 @@ namespace Lvn.UI.World
         public void PlayAnim(string id, string channel, LvnAnim anim) { if (!string.IsNullOrEmpty(channel) && anim != null) ActorFor(id)?.Play(channel, anim); }
         public void PlayAnimQueued(string id, string channel, LvnAnim anim) { if (!string.IsNullOrEmpty(channel) && anim != null) ActorFor(id)?.PlayQueued(channel, anim); }
         public void StopAnim(string id, string target) { var a = ActorFor(id); if (a == null) return; if (string.IsNullOrEmpty(target) || target == "all") a.StopScript(); else a.StopTarget(target); }
+        public void StopScriptAnims() { foreach (var kv in _slots) kv.Value.Actor?.StopScript(); }
         public void EnsureIdle(string id, LvnAnim idle) => ActorFor(id)?.EnsureIdle(id, idle);
         public void EnsureBlink(string id, LvnAnim blink) => ActorFor(id)?.EnsureBlink(id, blink);
         public void Talk(string id, LvnAnim talk, bool on) => ActorFor(id)?.Talk(talk, on);

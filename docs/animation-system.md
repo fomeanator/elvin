@@ -131,6 +131,11 @@ channel makes conflicts rare by construction.
   chapter (a documented footgun in Naninovel we design out). ✓
 - **Stop**: `anim id=x stop` clears all `script:*` lanes; `anim id=x stop=<channel>`
   clears one. Hiding the entity or a structural hot-reload also clears. ◻ stop op
+- **Chapter end clears every `script:*` lane on every actor** — including the
+  actor the host keeps alive across the chapter→menu hand-over (the heroine).
+  A looping `anim … yoyo` authored in a chapter must not keep "breathing" in the
+  menu on top of the menu's own placement (TR-135, 16.09). Engine lanes (idle,
+  blink, talk) are re-established by the next placement, not carried over. ✓
 - **Transitions vs animation**: scene swaps (`fade`/`dim`/`flash`/`tint`) are a
   separate concept from per-entity property animation (Ren'Py `with` vs ATL).
   Keep them distinct; don't express a cross-fade as an `anim`. ✓
