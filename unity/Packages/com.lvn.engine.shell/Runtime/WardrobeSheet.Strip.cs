@@ -188,6 +188,10 @@ namespace Lvn.UI.Screens
                 // берёт чёткий арт (@2k) сразу.
                 SharpArt = zoom >= 3f,
                 Frame = zoom, FrameY = ay,
+                // Фон — заливкой окна плитки, как в наборе круток: вписанная
+                // обложка оставляла белую полоску подложки («надо cover делать
+                // для фонов в карточке скина» — Илья 16.09).
+                Cover = LvnWardrobeStage.KindOf(axis) == LvnWardrobeAxisKind.Backdrop,
                 None = item.value == LvnWardrobe.NoneValue,
                 Rarity = Rarity(item), RarityWord = LvnRarity.Word(item.rarity),
                 Price = item.price, Currency = item.currency,

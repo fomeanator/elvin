@@ -485,6 +485,7 @@ func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) in
 		setIf(o, "url", sk.Art)
 		setIf(o, "preview", sk.Preview)
 		setOrDrop(o, "spine", sk.Spine, sk.Spine != "")
+		setOrDrop(o, "gacha", true, sk.Gacha && !sk.Buy) // «только из крутки» — подарок вместо цены, как у нарядов
 		if sk.Still != nil {
 			o["still"] = *sk.Still
 		} else {
@@ -521,6 +522,7 @@ func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) in
 			setIf(o, "title", sk.Name)
 			setIf(o, "preview", sk.Preview)
 			setOrDrop(o, "spine", sk.Spine, sk.Spine != "")
+			setOrDrop(o, "gacha", true, sk.Gacha && !sk.Buy) // «только из крутки» — подарок вместо цены, как у нарядов
 			if sk.Still != nil {
 				o["still"] = *sk.Still
 			} else {
