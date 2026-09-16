@@ -100,7 +100,7 @@ namespace Lvn.UiLab
             try
             {
                 var desktop = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-                var copy = Path.Combine(desktop, $"timeromance-{_tag}-{name}-{tex.width}x{tex.height}.png");
+                var copy = Path.Combine(desktop, $"partner-title-{_tag}-{name}-{tex.width}x{tex.height}.png");
                 File.WriteAllBytes(copy, png);
                 Debug.Log($"[shots] копия: {copy}");
             }

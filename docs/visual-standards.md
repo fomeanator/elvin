@@ -81,7 +81,7 @@ Rules that follow from it:
 - A **figure that is not standing** — lying, fallen, a body on the ground —
   is not measured by height at all: its extent runs along the floor, and a
   standing height would stretch it up the frame. Leave `meters` unset for
-  those. On Time Romance 21 of the 24 entities without a height are exactly
+  those. On a partner title 21 of the 24 entities without a height are exactly
   this case, which is why the default must never be applied silently.
 - The showcase menu is a **shelf, not a room**: its doll is measured by the
   showcase frame (`ui.browse.doll_height`) unless the menu names metres itself.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the Time Romance nine-slice texture set.
+"""Generate the romance-theme nine-slice texture set.
 
 The recipe is deterministic and renders @1x and @3x independently.  The @3x
 files are never resized from the @1x files.

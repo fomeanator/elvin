@@ -1,4 +1,4 @@
-scene exp_victoria
+scene exp_mira
 
 // ═══════════ EXPEDITION (type=expedition) ═══════════
 // Partner test flow: branching (a choice sets a flag), condition (the flag forks
@@ -45,10 +45,10 @@ Count [neutral]: I feel at ease with you…
 // 3) Finale: cutscene, completion flag + unlocks — GLOBAL (global.*),
 // other novels see them (the date/reality are gated by them in the manifest).
 :finale
-bg /content/cg/victoria_finale.jpg
+bg /content/cg/mira_finale.jpg
 Something real sparked between you.
-set key="global.exp_victoria_done" value=1
-set key="global.date_victoria" value=1      // → unlocks the Date with Victoria
+set key="global.exp_mira_done" value=1
+set key="global.date_mira" value=1      // → unlocks the Date with Mira
 set key="global.reality_beat_2" value=1     // → unlocks the Reality Storyline beat
 Count: We will meet again. I promise.
 -> __end

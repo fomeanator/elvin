@@ -366,7 +366,7 @@ func readManifest(contentRoot string) (map[string]any, error) {
 	return man, nil
 }
 
-// pathFor maps a content URL ("/content/sprites/hill/body.png") onto a file
+// pathFor maps a content URL ("/content/sprites/hero/body.png") onto a file
 // under contentRoot.
 func pathFor(contentRoot, url string) string {
 	u := strings.TrimPrefix(url, "/content/")

@@ -547,7 +547,7 @@ func TestMistypedCommandLint(t *testing.T) {
 func TestProseSpeakerWarned(t *testing.T) {
 	d := parse(t, `{"scene":"t","script":[
 	 {"op":"say","who":"Комната-побег. Кликай по предметам","text":"осмотри стол"},
-	 {"op":"say","who":"Матвей и Валера","text":"мы вдвоём"},
+	 {"op":"say","who":"Максим и Валера","text":"мы вдвоём"},
 	 {"op":"say","who":"...","text":"пауза"},
 	 {"op":"say","who":"Анна","text":"привет"}
 	]}`)
@@ -556,7 +556,7 @@ func TestProseSpeakerWarned(t *testing.T) {
 	if !hasWarn(issues, "looks like prose cut by a colon") {
 		t.Fatalf("проза, разрезанная двоеточием, должна быть замечена: %+v", issues)
 	}
-	for _, ok := range []string{"Матвей и Валера", "Анна", `"..."`} {
+	for _, ok := range []string{"Максим и Валера", "Анна", `"..."`} {
 		for _, is := range issues {
 			if contains(is.Msg, ok) && contains(is.Msg, "looks like prose") {
 				t.Fatalf("законный говорящий %q не должен предупреждать: %s", ok, is.Msg)
