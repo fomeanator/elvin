@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Lvn.Content;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -192,6 +193,7 @@ namespace Lvn.UI.Screens
             // Чёрный ящик: всё, включая Trace, на устройство; обрыв прошлого
             // запуска уезжает отклонением с хвостом (TR-86).
             Lvn.Services.LvnBlackBox.Boot();
+            ReportCutChapter();   // прошлый запуск оборвался посреди главы — закрыть её «ушёл на строке N»
 
             // Промахи ассетов — в аналитику. Движок про неё не знает и знать не
             // должен, поэтому он лишь сообщает о неудаче, а отнести её к новелле
@@ -442,6 +444,52 @@ namespace Lvn.UI.Screens
                 LvnAsync.Fire(Lvn.Services.LvnAnalytics.FlushAsync(), "UsageFlush");
             }
             Lvn.Services.LvnBlackBox.Pause(paused);   // чистый конец сессии / возврат (TR-86)
+            if (paused) NoteOpenChapter();
+        }
+
+        /// <summary>На паузе — где стоит игрок: если запуск не вернётся, следующий
+        /// закроет главу этим местом (см. LvnBlackBox.NoteOpenChapter).</summary>
+        private float _openChapterNotedAt = -1f;
+        private const float OpenChapterEverySec = 30f;
+
+        /// <summary>По ходу главы — не чаще раза в полминуты: крах без паузы тогда
+        /// теряет не главу, а полминуты.</summary>
+        private void NoteOpenChapterThrottled()
+        {
+            float now = Time.realtimeSinceStartup;
+            if (_openChapterNotedAt >= 0f && now - _openChapterNotedAt < OpenChapterEverySec) return;
+            _openChapterNotedAt = now;
+            NoteOpenChapter();
+        }
+
+        private void NoteOpenChapter()
+        {
+            if (_currentChapter == null || Stage?.Player == null || Stage.Player.Finished) return;
+            var rec = new JObject
+            {
+                ["title"] = _currentTitle?.id, ["chapter"] = _currentChapter.id,
+                ["at"] = Stage.Player.Index, ["dwell"] = new JArray(DwellList()),
+            };
+            Lvn.Services.LvnBlackBox.NoteOpenChapter(rec.ToString(Newtonsoft.Json.Formatting.None));
+        }
+
+        /// <summary>Прошлый запуск кончился посреди главы без «ушёл» (убили,
+        /// села батарея): отправить уход задним числом той строкой и с тем
+        /// временем на строках, чтобы сессия главы закрылась в воронке.</summary>
+        private static void ReportCutChapter()
+        {
+            var json = Lvn.Services.LvnBlackBox.TakeOpenChapter();
+            if (json == null) return;
+            try
+            {
+                var rec = JObject.Parse(json);
+                var dwell = rec["dwell"] as JArray;
+                Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.ChapterAbandon,
+                    ("title", (string)rec["title"]), ("chapter", (string)rec["chapter"]),
+                    ("at", (int?)rec["at"] ?? -1), ("dwell", dwell ?? new JArray()), ("cut", true));
+                LvnLog.Info($"[lvn-chapter] прошлый запуск оборвался в главе {(string)rec["chapter"]} на #{(int?)rec["at"]} — уход отправлен задним числом");
+            }
+            catch { /* битая запись — нечего закрывать */ }
         }
 
         private CoalescingWork _contentChanges;
