@@ -315,19 +315,27 @@ func sequenceFunnel(byUser map[string][]seqEvent, steps []seqStep) sequenceRepor
 	return rep
 }
 
-// GET /v1/analytics/sequence?days=&steps=a:k=v;b;… — воронка по шагам.
-func (s *AnalyticsService) handleSequence(w http.ResponseWriter, r *http.Request) {
+// sequencesFor — общий вход трёх отчётов по игрокам: права, окно, чтение
+// дней. Ответ false — отказ уже написан в w.
+func (s *AnalyticsService) sequencesFor(w http.ResponseWriter, r *http.Request, only string) (map[string][]seqEvent, bool) {
 	if !s.adminOK(w, r) {
-		return
+		return nil, false
 	}
 	win, err := parseAnalyticsWindow(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return nil, false
+	}
+	return s.readSequences(win.Days, only), true
+}
+
+// GET /v1/analytics/sequence?days=&steps=a:k=v;b;… — воронка по шагам.
+func (s *AnalyticsService) handleSequence(w http.ResponseWriter, r *http.Request) {
+	byUser, ok := s.sequencesFor(w, r, "")
+	if !ok {
 		return
 	}
-	steps := parseSteps(clip(r.URL.Query().Get("steps"), 2000))
-	byUser := s.readSequences(win.Days, "")
-	writeJSON(w, http.StatusOK, sequenceFunnel(byUser, steps))
+	writeJSON(w, http.StatusOK, sequenceFunnel(byUser, parseSteps(clip(r.URL.Query().Get("steps"), 2000))))
 }
 
 type timelineRow struct {
@@ -339,20 +347,15 @@ type timelineRow struct {
 
 // GET /v1/analytics/player?user=&days= — путь игрока: лента событий по времени.
 func (s *AnalyticsService) handlePlayer(w http.ResponseWriter, r *http.Request) {
-	if !s.adminOK(w, r) {
-		return
-	}
-	win, err := parseAnalyticsWindow(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
 	user := clip(r.URL.Query().Get("user"), 64)
 	if user == "" {
 		http.Error(w, "user required", http.StatusBadRequest)
 		return
 	}
-	byUser := s.readSequences(win.Days, user)
+	byUser, ok := s.sequencesFor(w, r, user)
+	if !ok {
+		return
+	}
 	list := byUser[user]
 	rows := make([]timelineRow, 0, len(list))
 	for _, e := range list {
@@ -495,18 +498,13 @@ func pathsFor(byUser map[string][]seqEvent, screen string) pathsReport {
 
 // GET /v1/analytics/paths?days=&screen=home — пути с экрана по игрокам.
 func (s *AnalyticsService) handlePaths(w http.ResponseWriter, r *http.Request) {
-	if !s.adminOK(w, r) {
-		return
-	}
-	win, err := parseAnalyticsWindow(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
 	screen := clip(r.URL.Query().Get("screen"), 64)
 	if screen == "" {
 		screen = "home"
 	}
-	byUser := s.readSequences(win.Days, "")
+	byUser, ok := s.sequencesFor(w, r, "")
+	if !ok {
+		return
+	}
 	writeJSON(w, http.StatusOK, pathsFor(byUser, screen))
 }
