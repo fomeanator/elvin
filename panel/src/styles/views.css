@@ -1925,3 +1925,7 @@ body.col-resizing { cursor: col-resize; user-select: none; }
 .admin-kitwarn-row { margin-top: 4px; }
 .admin-kitwarn-x { position: absolute; top: 6px; right: 10px; color: var(--muted); font-size: 15px; }
 .admin-kitwarn-x:hover { color: var(--paper); }
+
+/* Логи с устройств: стек и хвост чёрного ящика раскрываются под строкой */
+.adm-pre { white-space: pre-wrap; font-size: 11px; line-height: 1.35; margin: 6px 0 0; padding: 8px; background: rgba(0,0,0,.25); border-radius: 6px; max-height: 360px; overflow: auto; }
+.row-active td { background: rgba(255,255,255,.06); }

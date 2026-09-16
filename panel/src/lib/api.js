@@ -348,6 +348,23 @@ export const analyticsSlides = (query, title, chapter, token, by) =>
 export const adminLogLevel = (token) => adminFetch("/v1/admin/log-level", token);
 export const adminSetLogLevel = (device, hours, token) =>
   adminFetch("/v1/admin/log-level", token, { method: "PUT", body: JSON.stringify({ device, hours }) });
+// Кусок кольца за период (этап 2): PUT ставит запрос, DELETE снимает.
+export const adminLogFetch = (device, from, to, token) =>
+  adminFetch("/v1/admin/log-fetch", token, { method: "PUT", body: JSON.stringify({ device, from, to }) });
+export const adminLogFetchDrop = (device, from, to, token) =>
+  adminFetch("/v1/admin/log-fetch", token, { method: "DELETE", body: JSON.stringify({ device, from, to }) });
+// Что прислали устройства за день: сессии со счётом строк, отклонений и fps.
+export const adminLogSessions = (day, device, token) =>
+  adminFetch("/v1/admin/client-logs/sessions?day=" + encodeURIComponent(day || "") +
+    (device ? "&device=" + encodeURIComponent(device) : ""), token);
+// Хвост дня с фильтрами: устройство, сессия, уровень, тег.
+export const adminClientLogs = ({ day, device, session, level, tag, n }, token) =>
+  adminFetch("/v1/admin/client-logs?day=" + encodeURIComponent(day || "") +
+    (device ? "&device=" + encodeURIComponent(device) : "") +
+    (session ? "&session=" + encodeURIComponent(session) : "") +
+    (level ? "&level=" + encodeURIComponent(level) : "") +
+    (tag ? "&tag=" + encodeURIComponent(tag) : "") +
+    "&n=" + (n || 200), token);
 
 // GET /v1/analytics/usage — чем пользуются: экраны по времени, тапы по
 // элементам (TR-126).

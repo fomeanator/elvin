@@ -54,6 +54,7 @@ export const NAV = [
   { section: "Игра", items: [
     { key: "builds", label: "Сборки", icon: "builds" },
     { key: "feedback", label: "Отзывы", icon: "feedback" },
+    { key: "logs", label: "Логи", icon: "feedback" },
     { key: "experiments", label: "Эксперименты", icon: "experiments" },
     { key: "economy", label: "Экономика", icon: "economy" },
     { key: "skins", label: "Скины", icon: "economy" },

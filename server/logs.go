@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -29,7 +30,7 @@ type ClientLogService struct {
 	// ПУЛЬТ ПОДРОБНОГО ЛОГА (TR-86): устройство → до какого момента слать
 	// Trace. Указание уезжает в ответе на каждую пачку этого устройства;
 	// хранится в файле рядом с дневниками и переживает рестарт.
-	directives map[string]time.Time
+	directives map[string]*logDirective
 	// pruned — за какой день уборка уже прошла. Пустая строка значит «в этой
 	// жизни процесса ещё не прибирались».
 	pruned string
@@ -61,56 +62,175 @@ func (s *ClientLogService) Routes(mux *http.ServeMux) {
 	// Падения, сгруппированные по сути, а не по строкам (crashes.go): то же,
 	// зачем ставят Sentry, на данных, которые уже собираются.
 	mux.HandleFunc("/v1/admin/crashes", s.handleCrashes)
-	mux.HandleFunc("/v1/admin/log-level", s.handleLogLevel) // подробный лог с устройства по указанию (TR-86)
+	mux.HandleFunc("/v1/admin/log-level", s.handleLogLevel)            // подробный лог с устройства по указанию (TR-86)
+	mux.HandleFunc("/v1/admin/log-fetch", s.handleLogFetch)            // кусок кольца за период задним числом (TR-86, этап 2)
+	mux.HandleFunc("/v1/admin/client-logs/sessions", s.handleSessions) // что прислало устройство (этап 3)
+}
+
+// logDirective — что просим у устройства: слать Trace до срока и/или выслать
+// куски кольца за периоды (этап 2: «запрос задним числом»).
+type logDirective struct {
+	Until time.Time  `json:"until,omitempty"`
+	Fetch []logRange `json:"fetch,omitempty"`
+}
+
+type logRange struct {
+	From string `json:"from"` // RFC3339 UTC
+	To   string `json:"to"`
+}
+
+func (d *logDirective) alive(now time.Time) bool {
+	return d != nil && (d.Until.After(now) || len(d.Fetch) > 0)
 }
 
 func (s *ClientLogService) directivesPath() string {
 	return filepath.Join(s.dir, "..", "log-directives.json")
 }
 
-// loadDirectives — под замком; просроченные указания выбрасываются.
+// loadDirectives — под замком; просроченные сроки снимаются, пустые указания
+// выбрасываются.
 func (s *ClientLogService) loadDirectives(now time.Time) {
 	if s.directives != nil {
 		return
 	}
-	s.directives = map[string]time.Time{}
+	s.directives = map[string]*logDirective{}
 	data, err := os.ReadFile(s.directivesPath())
 	if err != nil {
 		return
 	}
-	var raw map[string]string
+	var raw map[string]*logDirective
 	if json.Unmarshal(data, &raw) != nil {
 		return
 	}
-	for dev, until := range raw {
-		if t, err := time.Parse(time.RFC3339, until); err == nil && t.After(now) {
-			s.directives[dev] = t
+	for dev, d := range raw {
+		if d != nil && !d.Until.After(now) {
+			d.Until = time.Time{}
+		}
+		if d.alive(now) {
+			s.directives[dev] = d
 		}
 	}
 }
 
 func (s *ClientLogService) saveDirectives() {
-	raw := map[string]string{}
-	for dev, t := range s.directives {
-		raw[dev] = t.UTC().Format(time.RFC3339)
-	}
-	data, _ := json.Marshal(raw)
+	data, _ := json.Marshal(s.directives)
 	_ = os.WriteFile(s.directivesPath(), data, 0o600)
 }
 
-// directiveFor — живое указание для устройства (под замком).
-func (s *ClientLogService) directiveFor(dev string, now time.Time) (time.Time, bool) {
+// directive — указание устройства для правки (заводится пустым).
+func (s *ClientLogService) directive(dev string, now time.Time) *logDirective {
 	s.loadDirectives(now)
-	t, ok := s.directives[dev]
-	if !ok {
-		return time.Time{}, false
+	d := s.directives[dev]
+	if d == nil {
+		d = &logDirective{}
+		s.directives[dev] = d
 	}
-	if !t.After(now) {
+	return d
+}
+
+// directiveFor — живое указание для устройства (под замком); просроченный
+// срок снимается, пустое указание удаляется.
+func (s *ClientLogService) directiveFor(dev string, now time.Time) (*logDirective, bool) {
+	s.loadDirectives(now)
+	d, ok := s.directives[dev]
+	if !ok {
+		return nil, false
+	}
+	if !d.Until.After(now) {
+		d.Until = time.Time{}
+	}
+	if !d.alive(now) {
 		delete(s.directives, dev)
 		s.saveDirectives()
-		return time.Time{}, false
+		return nil, false
 	}
-	return t, true
+	return d, true
+}
+
+// ackFetched — устройство прислало кусок за период: снять его из очереди.
+func (s *ClientLogService) ackFetched(dev string, r logRange, now time.Time) {
+	d, ok := s.directiveFor(dev, now)
+	if !ok {
+		return
+	}
+	kept := d.Fetch[:0]
+	for _, f := range d.Fetch {
+		if f.From != r.From || f.To != r.To {
+			kept = append(kept, f)
+		}
+	}
+	d.Fetch = kept
+	if !d.alive(now) {
+		delete(s.directives, dev)
+	}
+	s.saveDirectives()
+}
+
+func (s *ClientLogService) directiveList(now time.Time) []map[string]any {
+	list := []map[string]any{}
+	for dev, d := range s.directives {
+		if !d.alive(now) {
+			continue
+		}
+		row := map[string]any{"device": dev}
+		if d.Until.After(now) {
+			row["until"] = d.Until.UTC().Format(time.RFC3339)
+		}
+		if len(d.Fetch) > 0 {
+			row["fetch"] = d.Fetch
+		}
+		list = append(list, row)
+	}
+	return list
+}
+
+// PUT /v1/admin/log-fetch {"device","from","to"} — попросить кусок кольца за
+// период (RFC3339 UTC, не длиннее суток). Устройство высылает его при
+// следующем выходе в сеть; DELETE с теми же полями снимает запрос.
+func (s *ClientLogService) handleLogFetch(w http.ResponseWriter, r *http.Request) {
+	if !adminAllowed(w, r, s.adminToken) {
+		return
+	}
+	if r.Method != http.MethodPut && r.Method != http.MethodDelete {
+		http.Error(w, "PUT or DELETE", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		Device string `json:"device"`
+		From   string `json:"from"`
+		To     string `json:"to"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil || req.Device == "" {
+		http.Error(w, `{"device", "from", "to"} required`, http.StatusBadRequest)
+		return
+	}
+	from, err1 := time.Parse(time.RFC3339, req.From)
+	to, err2 := time.Parse(time.RFC3339, req.To)
+	if err1 != nil || err2 != nil || !to.After(from) || to.Sub(from) > 24*time.Hour {
+		http.Error(w, "from/to — RFC3339, from < to, не длиннее суток", http.StatusBadRequest)
+		return
+	}
+	rng := logRange{From: from.UTC().Format(time.RFC3339), To: to.UTC().Format(time.RFC3339)}
+	now := time.Now().UTC()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	dev := clip(req.Device, 64)
+	if r.Method == http.MethodDelete {
+		s.ackFetched(dev, rng, now)
+	} else {
+		d := s.directive(dev, now)
+		dup := false
+		for _, f := range d.Fetch {
+			if f == rng {
+				dup = true
+			}
+		}
+		if !dup {
+			d.Fetch = append(d.Fetch, rng)
+		}
+		s.saveDirectives()
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"directives": s.directiveList(now)})
 }
 
 // GET /v1/admin/log-level — живые указания; PUT {"device","hours"} — слать
@@ -136,31 +256,32 @@ func (s *ClientLogService) handleLogLevel(w http.ResponseWriter, r *http.Request
 			return
 		}
 		dev := clip(req.Device, 64)
+		d := s.directive(dev, now)
 		if req.Hours <= 0 {
-			delete(s.directives, dev)
+			d.Until = time.Time{}
 		} else {
 			if req.Hours > 24*7 {
 				req.Hours = 24 * 7
 			}
-			s.directives[dev] = now.Add(time.Duration(req.Hours * float64(time.Hour)))
+			d.Until = now.Add(time.Duration(req.Hours * float64(time.Hour)))
+		}
+		if !d.alive(now) {
+			delete(s.directives, dev)
 		}
 		s.saveDirectives()
 	default:
 		http.Error(w, "GET or PUT", http.StatusMethodNotAllowed)
 		return
 	}
-	list := []map[string]string{}
-	for dev, t := range s.directives {
-		if t.After(now) {
-			list = append(list, map[string]string{"device": dev, "until": t.UTC().Format(time.RFC3339)})
-		}
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"directives": list})
+	writeJSON(w, http.StatusOK, map[string]any{"directives": s.directiveList(now)})
 }
 
 type clientLogBatch struct {
 	Device map[string]string `json:"device"` // id, model, os, app, session — informational
 	Lines  []clientLogLine   `json:"lines"`
+	// Кусок кольца за период (этап 2): строки уровня ring с исходным ts; после
+	// приёма запрос снимается с устройства.
+	Fetched *logRange `json:"fetched,omitempty"`
 }
 
 type clientLogLine struct {
@@ -238,7 +359,7 @@ func (s *ClientLogService) handleIngest(w http.ResponseWriter, r *http.Request) 
 		ln.Stack = clip(ln.Stack, 8192)
 		ln.Tail = clip(ln.Tail, 48<<10)
 		ln.Level = clip(ln.Level, 16)
-		if ln.TS == "" {
+		if ln.TS == "" || len(ln.TS) > 40 {
 			ln.TS = now.Format(time.RFC3339)
 		}
 		ln.Dev = dev
@@ -250,10 +371,123 @@ func (s *ClientLogService) handleIngest(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	resp := map[string]any{"accepted": accepted}
-	if until, ok := s.directiveFor(dev, now); ok {
-		resp["log"] = map[string]string{"until": until.Format(time.RFC3339), "level": "trace"}
+	if batch.Fetched != nil {
+		s.ackFetched(dev, *batch.Fetched, now)
+	}
+	if d, ok := s.directiveFor(dev, now); ok {
+		log := map[string]any{}
+		if d.Until.After(now) {
+			log["until"] = d.Until.UTC().Format(time.RFC3339)
+			log["level"] = "trace"
+		}
+		if len(d.Fetch) > 0 {
+			log["fetch"] = d.Fetch
+		}
+		resp["log"] = log
 	}
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// GET /v1/admin/client-logs/sessions?day=&device= — ЧТО ПРИСЛАЛО УСТРОЙСТВО
+// (этап 3): сессии дня с моделью и сборкой, счётом строк по уровням, числом
+// отклонений (с хвостом) и сводкой кадров по окнам «W»: средний fps, худший
+// кадр, окна с кадрами дольше 50 мс.
+func (s *ClientLogService) handleSessions(w http.ResponseWriter, r *http.Request) {
+	if !adminAllowed(w, r, s.adminToken) {
+		return
+	}
+	day := r.URL.Query().Get("day")
+	if day == "" {
+		day = time.Now().UTC().Format("2006-01-02")
+	}
+	if !reDay.MatchString(day) {
+		http.Error(w, "day=YYYY-MM-DD", http.StatusBadRequest)
+		return
+	}
+	device := r.URL.Query().Get("device")
+	type sessionRow struct {
+		Session    string         `json:"session"`
+		Device     string         `json:"device"`
+		App        string         `json:"app,omitempty"`
+		Model      string         `json:"model,omitempty"`
+		OS         string         `json:"os,omitempty"`
+		First      string         `json:"first"`
+		Last       string         `json:"last"`
+		Lines      int            `json:"lines"`
+		Levels     map[string]int `json:"levels"`
+		Deviations int            `json:"deviations"`
+		Windows    int            `json:"windows"`
+		FPS        float64        `json:"fps,omitempty"`
+		WorstMs    float64        `json:"worst_ms,omitempty"`
+		Janky      int            `json:"janky_windows"`
+	}
+	rows := map[string]*sessionRow{}
+	var order []string
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if f, err := os.Open(filepath.Join(s.dir, day+".jsonl")); err == nil {
+		defer f.Close()
+		sc := bufio.NewScanner(f)
+		sc.Buffer(make([]byte, 64<<10), 1<<20)
+		for sc.Scan() {
+			var ln struct {
+				clientLogLine
+				Model string `json:"model"`
+				OS    string `json:"os"`
+			}
+			if json.Unmarshal(sc.Bytes(), &ln) != nil || ln.Session == "" {
+				continue
+			}
+			if device != "" && !strings.HasPrefix(ln.Dev, device) {
+				continue
+			}
+			row := rows[ln.Session]
+			if row == nil {
+				row = &sessionRow{Session: ln.Session, Device: ln.Dev, App: ln.App, First: ln.TS, Levels: map[string]int{}}
+				rows[ln.Session] = row
+				order = append(order, ln.Session)
+			}
+			if ln.TS != "" {
+				if row.First == "" || ln.TS < row.First {
+					row.First = ln.TS
+				}
+				if ln.TS > row.Last {
+					row.Last = ln.TS
+				}
+			}
+			if ln.Level == "device" {
+				row.Model, row.OS = ln.Model, ln.OS
+				if ln.App != "" {
+					row.App = ln.App
+				}
+				continue
+			}
+			row.Lines++
+			row.Levels[ln.Level]++
+			if ln.Tail != "" {
+				row.Deviations++
+			}
+			if strings.HasPrefix(ln.Msg, "[lvn-perf] W ") || strings.HasPrefix(ln.Msg, "[lvn-perf] window ") {
+				fld := performanceFields(ln.Msg)
+				if fps, ok := performanceNumber(fld, "fps"); ok {
+					row.FPS = (row.FPS*float64(row.Windows) + fps) / float64(row.Windows+1)
+				}
+				if worst, ok := performanceNumber(fld, "max_ms"); ok && worst > row.WorstMs {
+					row.WorstMs = worst
+				}
+				if o50, ok := performanceNumber(fld, "over50"); ok && o50 > 0 {
+					row.Janky++
+				}
+				row.Windows++
+			}
+		}
+	}
+	list := make([]*sessionRow, 0, len(order))
+	for _, id := range order {
+		list = append(list, rows[id])
+	}
+	sort.Slice(list, func(i, j int) bool { return list[i].First > list[j].First })
+	writeJSON(w, http.StatusOK, map[string]any{"day": day, "sessions": list})
 }
 
 func clip(s string, max int) string {
@@ -313,6 +547,8 @@ func (s *ClientLogService) handleTail(w http.ResponseWriter, r *http.Request) {
 	}
 	device := r.URL.Query().Get("device")
 	level := r.URL.Query().Get("level")
+	session := clip(r.URL.Query().Get("session"), 64)
+	tag := clip(r.URL.Query().Get("tag"), 64) // приставка строки: [lvn-perf], [lvn-deviation]…
 	n := qtyParam(r, "n", 200, 2000)
 
 	s.mu.Lock()
@@ -331,6 +567,12 @@ func (s *ClientLogService) handleTail(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			if level != "" && ln.Level != level {
+				continue
+			}
+			if session != "" && ln.Session != session {
+				continue
+			}
+			if tag != "" && !strings.HasPrefix(ln.Msg, tag) {
 				continue
 			}
 			tail = append(tail, json.RawMessage(append([]byte(nil), sc.Bytes()...)))
