@@ -37,6 +37,7 @@
     "description": "string",
     "hidden": "bool",
     "id": "string",
+    "name": "string",
     "price": "long",
     "sku": "string",
     "url": "string"

@@ -381,6 +381,7 @@ namespace Lvn.Content
     {
         public string id;
         public string url;
+        public string name;        // подпись под портретом; пусто — без подписи (id не показываем)
         public string description; // описание — в подробностях плитки
         public bool hidden;        // скрыт из админки
         public string currency;   // пусто — бесплатная

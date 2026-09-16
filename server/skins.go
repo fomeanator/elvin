@@ -265,7 +265,9 @@ func collectSkins(manifest map[string]any, gacha gachaConfig, existing skinsConf
 		if a == nil || skinStr(a, "id") == "" {
 			continue
 		}
-		add(skin{SKU: avatarSKU(skinStr(a, "id"), skinStr(a, "sku")), Kind: "avatar", Name: skinStr(a, "id"), Description: skinStr(a, "description"),
+		// Имя аватарки: своё, если автор дал (`name`), иначе id — как в манифесте
+		// и жили («free1»); сбор не должен стирать имя, выставленное каталогом.
+		add(skin{SKU: avatarSKU(skinStr(a, "id"), skinStr(a, "sku")), Kind: "avatar", Name: firstNonEmptyStr(skinStr(a, "name"), skinStr(a, "id")), Description: skinStr(a, "description"),
 			Art: skinStr(a, "url"), Price: int64(skinNum(a, "price")), Currency: skinStr(a, "currency"), Buy: skinNum(a, "price") > 0,
 			Hidden: skinBool(a, "hidden"), SellPrice: int64(skinNum(a, "sell_price")), Order: int(skinNum(a, "order")), Tags: skinStr(a, "tags")})
 	}
@@ -314,6 +316,13 @@ func applyCommon(m map[string]any, sk skin) {
 	setOrDrop(m, "order", sk.Order, sk.Order != 0)
 	setOrDrop(m, "tags", sk.Tags, sk.Tags != "")
 	setOrDrop(m, "sell_price", sk.SellPrice, sk.SellPrice > 0)
+}
+
+// setAvatarName — имя аватарки в манифест. Аватарки жили без имени (id
+// «free1» и был подписью — «лысое приложение», Илья 16.09); имя пишем
+// только настоящее — id-заглушку в манифест не тащим.
+func setAvatarName(a map[string]any, sk skin) {
+	setOrDrop(a, "name", sk.Name, sk.Name != "" && sk.Name != skinStr(a, "id"))
 }
 
 // sortByOrder — записи с порядком встают по нему, остальные — как были, после.
@@ -505,6 +514,7 @@ func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) in
 		}
 		seen[sk.SKU] = true
 		setIf(a, "url", sk.Art)
+		setAvatarName(a, sk)
 		applyCommon(a, sk)
 		if sk.Price <= 0 {
 			delete(a, "price")
@@ -536,6 +546,7 @@ func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) in
 			if !strings.HasPrefix(sk.SKU, "avatar.") {
 				a["sku"] = sk.SKU
 			}
+			setAvatarName(a, sk)
 			applyCommon(a, sk)
 			if sk.Price <= 0 {
 				delete(a, "price")
