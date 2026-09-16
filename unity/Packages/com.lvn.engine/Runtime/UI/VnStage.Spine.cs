@@ -296,16 +296,21 @@ namespace Lvn.UI
         {
             var bg = (string)cmd["spine_bg"];
             var play = (string)cmd["play"];
+            // Посадка словом («cover» — живой фон меню во весь кадр, TR-132);
+            // «fit: true» у постановки — не слово, а «да», его не трогаем.
+            var fit = cmd["fit"]?.Type == JTokenType.String ? (string)cmd["fit"] : null;
             if (_inlineSpine.TryGetValue(id, out var было) && было?.spine != null &&
                 было.spine.json == Lvn.Content.LvnSpineRef.FromUrl(url)?.json)
             {
                 // Тот же скелет — не пересобираем, но проигрыш мог смениться.
                 if (!string.IsNullOrEmpty(play)) было.spine.auto = play;
                 if (!string.IsNullOrEmpty(bg)) было.spine.bg = bg;
+                if (!string.IsNullOrEmpty(fit)) было.spine.fit = fit;
                 return было;
             }
             var sp = Lvn.Content.LvnSpineRef.FromUrl(url, bg, play);
             if (sp == null) return null;
+            if (!string.IsNullOrEmpty(fit)) sp.fit = fit;
             var e = new Lvn.Content.LvnSpriteEntity { kind = "spine", spine = sp };
             _inlineSpine[id] = e;
             return e;

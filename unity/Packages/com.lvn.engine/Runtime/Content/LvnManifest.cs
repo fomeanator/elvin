@@ -505,6 +505,10 @@ namespace Lvn.Content
         public string subtitle;
         /// <summary>Cover art for the menu carousel.</summary>
         public string cover_url;
+        /// <summary>Живой постер карточки: папка спайн-сцены (<c>/content/spine/имя/</c>)
+        /// или ключ спайн-сущности каталога <c>sprites</c>. Пусто — постер статичный
+        /// (Илья 16.09: «партнёр просил вставить спайн-фоны в меню на новеллы»).</summary>
+        public string spine;
         /// <summary>Optional URL of the title's variable declarations —
         /// <c>{"game":{key:value…},"chapter":{key:value…}}</c>. ONE declaration
         /// for the whole game instead of a per-chapter boilerplate: "game" keys

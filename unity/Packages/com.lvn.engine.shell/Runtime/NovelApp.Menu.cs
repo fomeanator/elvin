@@ -51,6 +51,8 @@ namespace Lvn.UI.Screens
         /// живёт на устройстве, а покупка — в кошельке. Иначе достаточно было
         /// бы переставить ключ в настройках устройства, чтобы получить платный
         /// фон даром. Бесплатный (price = 0) ставится без вопросов.</para></summary>
+        private string _canvasSpine;   // живой фон выбранного полотна (TR-132/133)
+
         private string MenuCanvasUrl()
         {
             var b = _manifest?.ui?.browse;
@@ -76,6 +78,7 @@ namespace Lvn.UI.Screens
                         .TryGetValue(WardrobeSheet.BackdropAxis, out picked);
             }
             _canvasWhy = "авторское";   // объяснение решения — на случай молчания
+            _canvasSpine = b?.canvas_spine;   // живой фон по умолчанию; купленный фон ниже перебьёт
             // Хвост: героя ещё нет (первый запуск, пустой каталог обликов) —
             // берём выбор игрока как таковой, иначе фон нельзя было бы
             // поставить вовсе.
@@ -94,7 +97,7 @@ namespace Lvn.UI.Screens
                         _canvasWhy = trying ? $"примерка «{o.id}»"
                                    : owned  ? $"надет «{o.id}» (герой {who})"
                                             : $"выбран «{o.id}», но НЕ КУПЛЕН — откат на авторское";
-                        if (owned) return o.url;
+                        if (owned) { _canvasSpine = o.spine; return o.url; }
                         break;
                     }
             else if (!string.IsNullOrEmpty(picked))
@@ -129,6 +132,9 @@ namespace Lvn.UI.Screens
                 ["zoom"] = LvnMenuStage.PanZoom,   // запас, по которому едет переезд
             };
             if (fade.HasValue) cmd["fade"] = fade.Value;
+            // ЖИВОЙ ФОН (TR-132, TR-133): у купленного фона — его спайн, без
+            // выбора — ui.browse.canvas_spine; полотно остаётся подложкой.
+            if (!string.IsNullOrEmpty(_canvasSpine)) cmd["spine"] = _canvasSpine;
             return cmd;
         }
 
@@ -388,7 +394,7 @@ namespace Lvn.UI.Screens
             // «Стоит ли уже полотно» спрашиваем У СЦЕНЫ. Здесь жил свой флажок,
             // и он врал ровно тогда, когда это было важнее всего: картинка со
             // сцены пропадала, а флажок держал «стоит».
-            bool already = Stage.ShowsBackdrop(canvas);
+            bool already = Stage.ShowsBackdrop(canvas) && Stage.ShowsBgSpine(_canvasSpine);
             LvnLog.Trace($"[lvn-menu] сцена меню: canvas={(string.IsNullOrEmpty(canvas) ? "НЕТ" : canvas)} "
                       + $"[{_canvasWhy}], уже стоит={already} → полотно "
                       + $"{(!string.IsNullOrEmpty(canvas) && !already ? "СТАВИМ" : "не трогаем")}");

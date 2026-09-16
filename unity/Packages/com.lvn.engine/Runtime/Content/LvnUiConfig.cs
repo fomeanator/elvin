@@ -638,6 +638,7 @@ namespace Lvn.Content
         public bool hidden;        // скрыт из админки
         public string url;
         public string preview;    // маленькая картинка для витрины; пусто — берём url
+        public string spine;      // живой фон: папка спайна (/content/spine/имя/); url — обложка плитки и подложка под спайном (TR-133)
         public string currency;   // ключ кошелька; пусто — валюта по умолчанию
         public long price;        // 0 — бесплатный
         public string rarity;     // необязательный ключ подсветки
@@ -765,6 +766,7 @@ namespace Lvn.Content
         /// <summary>Арт-ПОЛОТНО меню: один широкий фон на все вкладки (4
         /// экрана по горизонтали), камера едет по нему с вкладками.</summary>
         public string canvas;
+        public string canvas_spine;   // живой фон меню по умолчанию — спайн поверх canvas (TR-132)
         /// <summary>Где стоит камера полотна на первой вкладке (0..1 картины);
         /// движковый дефолт 0.35.</summary>
         public float? canvas_pan;
