@@ -82,5 +82,49 @@ namespace Lvn.Shell.Tests
             Assert.AreEqual("/content/ui/stage/nav.png", LvnStageKit.SkinUrl("/content/ui/stage/", "nav.png"),
                 "косая черта на конце папки не удваивается");
         }
+
+        [Test]
+        public void ОбликВитриныДляУборкиЦеликом()
+        {
+            // TR-101: уборка диска считала облик витрины мёртвым и стирала его
+            // каждый запуск. Список для уборки — всё, что греет бут, плюс
+            // полотно, его покупные варианты и портреты на выбор.
+            var m = new LvnManifest
+            {
+                ui = new LvnUiConfig
+                {
+                    currency_look = new System.Collections.Generic.Dictionary<string, CurrencyLook>
+                    {
+                        ["crystals"] = new CurrencyLook { image = "/content/ui/stage/icon-crystal.png" },
+                    },
+                    browse = new BrowseConfig
+                    {
+                        skin = "/content/ui/stage/",
+                        logo = "/content/ui/stage/logo.png",
+                        canvas = "/content/ui/stage/canvas.jpg",
+                        canvas_options = new System.Collections.Generic.List<CanvasOption>
+                        {
+                            new CanvasOption { id = "hall", url = "/content/bg/menu/hall.jpg", preview = "/content/bg/menu/hall@mini.jpg" },
+                        },
+                        avatars = new System.Collections.Generic.List<AvatarChoice>
+                        {
+                            new AvatarChoice { id = "free1", url = "/content/art/face.png" },
+                        },
+                    },
+                },
+            };
+            var urls = NovelApp.ShellArtUrls(m);
+            foreach (var file in LvnStageKit.SkinFiles)
+                CollectionAssert.Contains(urls, "/content/ui/stage/" + file, $"рамка {file} живая");
+            CollectionAssert.Contains(urls, "/content/ui/stage/logo.png");
+            CollectionAssert.Contains(urls, "/content/ui/stage/canvas.jpg", "полотно меню живое");
+            CollectionAssert.Contains(urls, "/content/bg/menu/hall.jpg", "покупной фон живой");
+            CollectionAssert.Contains(urls, "/content/bg/menu/hall@mini.jpg", "мини покупного фона живая");
+            CollectionAssert.Contains(urls, "/content/art/face.png", "портрет на выбор живой");
+            CollectionAssert.Contains(urls, "/content/ui/stage/icon-crystal.png", "картинка валюты живая");
+            CollectionAssert.AllItemsAreUnique(urls);
+            CollectionAssert.IsEmpty(NovelApp.ShellArtUrls(null));
+            CollectionAssert.IsEmpty(NovelApp.ShellArtUrls(new LvnManifest()));
+        }
     }
 }

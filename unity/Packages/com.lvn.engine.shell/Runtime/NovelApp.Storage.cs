@@ -367,6 +367,13 @@ namespace Lvn.UI.Screens
                 }
             }
             foreach (var u in MenuArtUrls()) { Add(live, u); Add(prot, u); }
+            // ОБЛИК ВИТРИНЫ — ТОЖЕ ЖИВОЙ. Рамки облика, лого, аватар, значки
+            // валют, полотно меню с покупными вариантами и портреты на выбор
+            // для уборки никто не перечислял: на каждом запуске они были
+            // «мёртвыми» — стирались и ехали заново (TR-101: 12 закачек
+            // /content/ui/stage/* за день = каждый запуск, и шапка без
+            // логотипа первые секунды после старта).
+            foreach (var u in ShellArtUrls(m)) { Add(live, u); Add(prot, u); }
             foreach (var part in LvnParts.OfShellSound(m)) Add(live, part.Url);
             // ЛЕСТНИЦА И УБОРКА СМОТРЯТ В ОДИН СПИСОК. Ступени «героиня
             // целиком» и «другие герои» лестницы (NovelApp.Chapter.cs) здесь не
@@ -395,6 +402,26 @@ namespace Lvn.UI.Screens
         // manifest (content live-reload swaps the manifest object).
         private HashSet<string> _menuArt;
         private LvnManifest _menuArtFor;
+
+        /// <summary>АДРЕСА ОБЛИКА ВИТРИНЫ ЦЕЛИКОМ — то, что греет бут
+        /// (<see cref="MenuArtUrls(BrowseConfig)"/>), плюс полотно меню, его
+        /// покупные варианты и портреты на выбор. Список для уборки: всё это
+        /// рисуется на каждом запуске и с диска пропадать не должно.</summary>
+        internal static List<string> ShellArtUrls(LvnManifest m)
+        {
+            var b = m?.ui?.browse;
+            var urls = MenuArtUrls(b);
+            if (b == null) return urls;
+            void Add(string u) { if (!string.IsNullOrEmpty(u) && !urls.Contains(u)) urls.Add(u); }
+            Add(b.canvas);
+            if (b.canvas_options != null)
+                foreach (var o in b.canvas_options) { Add(o?.url); Add(o?.preview); }
+            if (b.avatars != null)
+                foreach (var a in b.avatars) Add(a?.url);
+            if (m.ui.currency_look != null)
+                foreach (var kv in m.ui.currency_look) Add(kv.Value?.image);
+            return urls;
+        }
 
         private HashSet<string> MenuArtUrls()
         {
