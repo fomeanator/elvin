@@ -38,7 +38,24 @@ PROJ="$RELEASE_PROJECT"
 UNITY=/Applications/Unity/Hub/Editor/6000.4.5f1/Unity.app/Contents/MacOS/Unity
 AAPT=$(ls /Applications/Unity/Hub/Editor/6000.4.5f1/PlaybackEngines/AndroidPlayer/SDK/build-tools/*/aapt2 2>/dev/null | head -1)
 SSH="sshpass -e ssh -o StrictHostKeyChecking=no -o PreferredAuthentications=password -o PubkeyAuthentication=no"
-SCP="sshpass -e scp -q -o StrictHostKeyChecking=no -o PreferredAuthentications=password -o PubkeyAuthentication=no"
+SCP="sshpass -e scp -q -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o PreferredAuthentications=password -o PubkeyAuthentication=no"
+
+# ЗАГРУЗКА И КОМАНДЫ — С ПОВТОРАМИ. sshd сервера штрафует за серию подключений
+# (PerSourcePenalties) и рвёт соединение — «scp: Connection closed». Сборка
+# 0540 (16.09) отчиталась «ГОТОВО» при 404 у файла: выкладка обязана либо
+# дойти, либо остановить выпуск, а не доложить успех.
+push() {  # push <файлы…> <сервер:путь>
+  local n; for n in 1 2 3 4 5; do
+    if $SCP "$@" 2>&1 | grep -v Warning; [ "${PIPESTATUS[0]}" = 0 ]; then return 0; fi
+    say "загрузка не прошла (попытка $n из 5) — жду минуту, сервер штрафует за серию подключений"; sleep 60
+  done; return 1
+}
+remote() {  # remote <команда на сервере> — вывод в stdout, повторы при обрыве
+  local n f; f=$(mktemp); for n in 1 2 3 4 5; do
+    if $SSH "$RELEASE_SERVER" "$1" >"$f" 2>&1; then grep -v Warning "$f"; rm -f "$f"; return 0; fi
+    say "сервер не ответил (попытка $n из 5) — жду минуту"; sleep 60
+  done; grep -v Warning "$f"; rm -f "$f"; return 1
+}
 
 say() { printf '%s %s\n' "$(date +%H:%M:%S)" "$*"; }
 die() { say "СТОП: $*"; exit 1; }
@@ -108,8 +125,11 @@ say "APK: $PKG $VER · LAUNCHER $L · диплинков $SCH · тема $THEME
 case "$CH" in dev) [[ "$PKG" == *.dev ]] || die "у dev-сборки пакет без .dev: $PKG";; prod) [[ "$PKG" != *.dev ]] || die "у prod-сборки пакет с .dev: $PKG";; esac
 
 # ── 5. выкладка ───────────────────────────────────────────────────────────
-$SCP "$OUT" "$RELEASE_SERVER:/tmp/$NAME.apk" 2>&1 | grep -v Warning
-$SSH "$RELEASE_SERVER" "O=\$(stat -c %U:%G $RELEASE_DL/$RELEASE_LATEST_PROD); install -o \${O%%:*} -g \${O##*:} -m 644 /tmp/$NAME.apk $RELEASE_DL/$NAME.apk && cp -p $RELEASE_DL/$NAME.apk $RELEASE_DL/$LATEST && rm -f /tmp/$NAME.apk; for f in $NAME.apk $LATEST; do echo \"\$f http=\$(curl -s -o /dev/null -w %{http_code} $RELEASE_URL/\$f) байт=\$(stat -c %s $RELEASE_DL/\$f)\"; done" 2>&1 | grep -v Warning
+push "$OUT" "$RELEASE_SERVER:/tmp/$NAME.apk" || die "APK не загрузился на сервер — выпуск НЕ ВЫЛОЖЕН"
+UP=$(remote "O=\$(stat -c %U:%G $RELEASE_DL/$RELEASE_LATEST_PROD); install -o \${O%%:*} -g \${O##*:} -m 644 /tmp/$NAME.apk $RELEASE_DL/$NAME.apk && cp -p $RELEASE_DL/$NAME.apk $RELEASE_DL/$LATEST && rm -f /tmp/$NAME.apk; for f in $NAME.apk $LATEST; do echo \"\$f http=\$(curl -s -o /dev/null -w %{http_code} $RELEASE_URL/\$f) байт=\$(stat -c %s $RELEASE_DL/\$f)\"; done") || die "сервер не принял APK — выпуск НЕ ВЫЛОЖЕН"
+echo "$UP"
+# ВЫЛОЖЕН — ЗНАЧИТ ОТДАЁТСЯ И ВЕСИТ СТОЛЬКО ЖЕ: иначе «ГОТОВО» врёт.
+echo "$UP" | grep -q "^$NAME.apk http=200 байт=$(stat -f %z "$OUT")$" || die "файл не отдаётся по $RELEASE_URL/$NAME.apk — выпуск НЕ ВЫЛОЖЕН"
 # ── 6. карточка сборки для сниппета в мессенджере ─────────────────────────
 # Ссылка на .apk — двоичный файл, сниппета у неё нет. Боту-превью nginx отдаёт
 # вместо файла HTML с OG-тегами и картинку 1200×630 со списком изменений
@@ -145,8 +165,8 @@ echo "$LINES" | python3 "$REPO/qa/release-preview.py" --out "$PREV_DIR" --name "
 LBASE="${LATEST%.apk}"
 cp -f "$PREV_DIR/$NAME.png" "$PREV_DIR/$LBASE.png" 2>/dev/null
 sed "s#dl-preview/$NAME#dl-preview/$LBASE#g; s#/$NAME.apk#/$LATEST#g" "$PREV_DIR/$NAME.html" > "$PREV_DIR/$LBASE.html" 2>/dev/null
-$SCP "$PREV_DIR/$NAME.html" "$PREV_DIR/$NAME.png" "$PREV_DIR/$LBASE.html" "$PREV_DIR/$LBASE.png" "$RELEASE_SERVER:${RELEASE_DL%/*}/dl-preview/" 2>&1 | grep -v Warning
-$SSH "$RELEASE_SERVER" "chown --reference=$RELEASE_DL/$RELEASE_LATEST_PROD ${RELEASE_DL%/*}/dl-preview/$NAME.* ${RELEASE_DL%/*}/dl-preview/$LBASE.* 2>/dev/null" 2>&1 | grep -v Warning
+push "$PREV_DIR/$NAME.html" "$PREV_DIR/$NAME.png" "$PREV_DIR/$LBASE.html" "$PREV_DIR/$LBASE.png" "$RELEASE_SERVER:${RELEASE_DL%/*}/dl-preview/" || say "карточка не выложилась — сниппета не будет"
+remote "chown --reference=$RELEASE_DL/$RELEASE_LATEST_PROD ${RELEASE_DL%/*}/dl-preview/$NAME.* ${RELEASE_DL%/*}/dl-preview/$LBASE.* 2>/dev/null" >/dev/null || true
 PAGE="${RELEASE_URL%/*}/build/$NAME"
 say "страница сборки: $PAGE (она же ${RELEASE_URL%/*}/build/$LBASE)"
 
