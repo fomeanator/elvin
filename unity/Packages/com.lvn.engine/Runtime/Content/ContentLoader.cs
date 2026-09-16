@@ -848,7 +848,13 @@ namespace Lvn.Content
             if (string.IsNullOrEmpty(url) || into == null) return;
             void Add(string u)
             {
-                if (!string.IsNullOrEmpty(u)) into.Add(HashKey(u, VersionFor(u)));
+                if (string.IsNullOrEmpty(u)) return;
+                into.Add(HashKey(u, VersionFor(u)));
+                // И КЛЮЧ БЕЗ ВЕРСИИ. У вернувшегося игрока витрина строится
+                // раньше, чем доедет индекс версий, и её файлы ложатся под
+                // ключом «только адрес»; уборка же считала живыми одни
+                // версионные ключи — и стирала их каждый запуск (TR-101).
+                into.Add(HashKey(u, null));
             }
             Add(url);
             var v = DownloadPolicy.DownscaleVariant(url);
@@ -874,8 +880,13 @@ namespace Lvn.Content
         {
             if (string.IsNullOrEmpty(effectiveUrl) || into == null) return;
             into.Add(HashKey(effectiveUrl, VersionFor(effectiveUrl)));
+            into.Add(HashKey(effectiveUrl, null)); // привезённое до индекса версий — см. AddLiveKeysFor
             var ktx2 = Ktx2UrlFor(effectiveUrl);
-            if (!string.IsNullOrEmpty(ktx2)) into.Add(HashKey(ktx2, VersionFor(ktx2)));
+            if (!string.IsNullOrEmpty(ktx2))
+            {
+                into.Add(HashKey(ktx2, VersionFor(ktx2)));
+                into.Add(HashKey(ktx2, null));
+            }
         }
 
         /// <summary>Удалить один закэшированный ассет (и его ktx2-транскод) с
