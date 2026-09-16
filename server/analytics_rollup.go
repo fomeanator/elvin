@@ -170,6 +170,32 @@ func (r *dayRollup) usage(screen string) *usageRoll {
 	return u
 }
 
+const maxRollupDwell = 4000
+
+// foldDwell — список секунд по строкам одной сессии главы в свёртку главы.
+func (r *dayRollup) foldDwell(c *chapRoll, props map[string]json.RawMessage) {
+	raw, ok := props["dwell"]
+	if !ok {
+		return
+	}
+	var secs []int
+	if json.Unmarshal(raw, &secs) != nil {
+		return
+	}
+	for i, s := range secs {
+		if s <= 0 || s > 3600 || i >= maxRollupDwell {
+			continue
+		}
+		if c.Dwell == nil {
+			c.Dwell = map[string]int{}
+			c.DwellN = map[string]int{}
+		}
+		key := strconv.Itoa(i)
+		c.Dwell[key] += s
+		c.DwellN[key]++
+	}
+}
+
 // foldUsage — одно минутное событие: time {экран: секунды}, taps
 // {экран/элемент: раз}. Ключи тапов делятся на экран и элемент по первому
 // «/», чтобы тапы легли под свой экран.
@@ -246,6 +272,10 @@ type chapRoll struct {
 	// фон, зависшая сцена. Индекс сам по себе ничего не говорит — но сервер
 	// держит скрипт главы и умеет показать по нему кадр (см. handleExits).
 	Exits map[string]int `json:"ex,omitempty"`
+	// ВРЕМЯ НА СТРОКЕ (TR-126): индекс → сумма секунд и число сессий, где строку
+	// видели (из списка dwell в chapter_finish / chapter_abandon).
+	Dwell  map[string]int `json:"dw,omitempty"`
+	DwellN map[string]int `json:"dn,omitempty"`
 	// Slides — сколько раз дошли до авторской метки: ключ «индекс команды».
 	// Метка и есть слайд: реплик в главе тысячи, меток десятки, и вопрос
 	// «где отваливаются» задают именно про них.
@@ -492,8 +522,10 @@ func (r *dayRollup) foldLine(line []byte) {
 			c.Starts++
 		case evChapterFinish:
 			c.Finishes++
+			r.foldDwell(c, ev.Props)
 		case evChapterAbandon:
 			c.Abandons++
+			r.foldDwell(c, ev.Props)
 			// Именно ok, а не «at >= 0»: отсутствующее поле читается как ноль,
 			// и без проверки уход без адреса записался бы точкой выхода на
 			// первой команде главы — выдуманное место, на котором никто не был.
@@ -757,6 +789,14 @@ func (r *dayRollup) mergeFrom(o *dayRollup) {
 					c.Exits = map[string]int{}
 				}
 				r.bump(c.Exits, "exits", at, n, maxRollupExits)
+			}
+			for k, v := range oc.Dwell {
+				if c.Dwell == nil {
+					c.Dwell = map[string]int{}
+					c.DwellN = map[string]int{}
+				}
+				c.Dwell[k] += v
+				c.DwellN[k] += oc.DwellN[k]
 			}
 			for name, n := range oc.Marks {
 				if c.Marks == nil {

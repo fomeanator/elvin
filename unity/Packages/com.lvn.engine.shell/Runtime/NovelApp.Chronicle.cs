@@ -57,6 +57,46 @@ namespace Lvn.UI.Screens
             LvnPlayer.ChoicePicked += OnChoicePicked;
         }
 
+        // ── ВРЕМЯ НА СТРОКЕ (TR-126, Илья 16.09: «разложить приложение на каждую
+        // строчку») ── секунды по индексу команды копятся здесь, пока игрок
+        // стоит на строке, и уезжают одним списком с концом главы или уходом.
+        // Свёрнутое приложение и пауза дольше пяти минут не считаются: это не
+        // чтение. Список — целые секунды по индексу, хвостовые нули срезаны:
+        // глава на тысячу строк — пара килобайт, а не тысяча событий.
+        private readonly List<int> _dwell = new List<int>();
+        private readonly List<float> _dwellFrac = new List<float>();
+        private int _dwellIndex = -1;
+        private float _dwellSince = -1f;
+        private const float DwellCapSec = 300f;
+
+        private void DwellReset()
+        {
+            _dwell.Clear(); _dwellFrac.Clear();
+            _dwellIndex = -1; _dwellSince = -1f;
+        }
+
+        private void DwellTick(int index)
+        {
+            float now = Time.realtimeSinceStartup;
+            if (_dwellIndex >= 0 && _dwellSince >= 0f && Application.isFocused)
+            {
+                float dt = Mathf.Clamp(now - _dwellSince, 0f, DwellCapSec);
+                while (_dwellFrac.Count <= _dwellIndex) _dwellFrac.Add(0f);
+                _dwellFrac[_dwellIndex] += dt;
+            }
+            _dwellIndex = index; _dwellSince = now;
+        }
+
+        private List<int> DwellList()
+        {
+            _dwell.Clear();
+            int last = -1;
+            for (int i = 0; i < _dwellFrac.Count; i++)
+                if (_dwellFrac[i] >= 0.5f) last = i;
+            for (int i = 0; i <= last; i++) _dwell.Add(Mathf.RoundToInt(_dwellFrac[i]));
+            return _dwell;
+        }
+
         private static void OnLabelReached(string label, int at)
         {
             if (string.IsNullOrEmpty(label)) return;
@@ -327,12 +367,15 @@ namespace Lvn.UI.Screens
             // Токен — общее поле `_quitting`, снятое в Start до первого
             // ожидания (см. NovelApp.Boot): читать свойство здесь нельзя, мы
             // уже после await.
+            DwellReset();
             while (Stage.Player != null && !Stage.Player.Finished && !Stage.ExitRequested
                    && !_quitting.IsCancellationRequested)
             {
                 _shell.TopBar?.SetProgress(Stage.Player.ProgressIndex, Stage.Player.ProgressTotal);
+                DwellTick(Stage.Player.Index);
                 await Task.Yield();
             }
+            DwellTick(-1);   // закрыть последнюю строку
             bool exited = Stage.ExitRequested;
             Stage.ClearExitRequest();
             // Вышли из главы — кадр ПЕРЕХОДИТ меню, а не стирается: полотно

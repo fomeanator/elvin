@@ -76,6 +76,9 @@ type lineRow struct {
 	OfStart float64 `json:"of_start"`
 	OfPrev  float64 `json:"of_prev"`
 	Lost    int     `json:"lost"`
+	// Время на строке: среднее по сессиям, где её видели (TR-126).
+	Seconds  float64 `json:"seconds,omitempty"`
+	Measured int     `json:"measured,omitempty"`
 }
 
 const maxLineRows = 4000
@@ -124,6 +127,10 @@ func linesReach(ch *chapRoll, doc *lvn.Doc) []lineRow {
 		}
 		if prev > reached {
 			row.Lost = prev - reached
+		}
+		if n := ch.DwellN[strconv.Itoa(i)]; n > 0 {
+			row.Measured = n
+			row.Seconds = round4(float64(ch.Dwell[strconv.Itoa(i)]) / float64(n))
 		}
 		rows = append(rows, row)
 		prev = reached

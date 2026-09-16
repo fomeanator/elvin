@@ -80,3 +80,30 @@ func TestLinesReachCountsFromExits(t *testing.T) {
 		t.Fatalf("потери или текст строки не те: %+v / %+v", rows[1], rows[2])
 	}
 }
+
+// ВРЕМЯ НА СТРОКЕ (TR-126, Илья 16.09): список секунд из конца главы
+// складывается по строкам, слияние дней суммирует, воронка по строкам
+// показывает среднее по сессиям, где строку видели.
+func TestDwellFoldsIntoLineAverages(t *testing.T) {
+	r := newDayRollup("2026-09-16")
+	fin := `{"name":"chapter_finish","ts":"2026-09-16T10:00:00Z","props":{"title":"t","chapter":"c","dwell":[3,10,0,7]}}`
+	ab := `{"name":"chapter_abandon","ts":"2026-09-16T10:05:00Z","props":{"title":"t","chapter":"c","at":1,"dwell":[5,20]}}`
+	r.foldLine([]byte(fin))
+	r.foldLine([]byte(ab))
+	ch := r.Titles["t"].Chapters["c"]
+	if ch.Dwell["1"] != 30 || ch.DwellN["1"] != 2 || ch.DwellN["2"] != 0 || ch.Dwell["3"] != 7 {
+		t.Fatalf("секунды по строкам не сложились: %+v / %+v", ch.Dwell, ch.DwellN)
+	}
+	other := newDayRollup("2026-09-15")
+	other.foldLine([]byte(fin))
+	r.mergeFrom(other)
+	ch = r.Titles["t"].Chapters["c"]
+	if ch.Dwell["1"] != 40 || ch.DwellN["1"] != 3 {
+		t.Fatalf("слияние дней потеряло время на строке: %+v / %+v", ch.Dwell, ch.DwellN)
+	}
+	doc, _ := lvn.Parse([]byte(`{"script":[{"op":"say","text":"а"},{"op":"say","text":"б"},{"op":"bg"},{"op":"say","text":"в"}]}`))
+	rows := linesReach(ch, doc)
+	if len(rows) != 3 || rows[1].Seconds != 13.3333 || rows[1].Measured != 3 || rows[2].Measured != 2 || rows[2].Seconds != 7 {
+		t.Fatalf("среднее по строке не то: %+v", rows)
+	}
+}
