@@ -211,6 +211,35 @@ namespace Lvn.Spine
                       .Append(" alpha=").Append(_cg != null ? _cg.alpha.ToString("F2") : "-")
                       .Append(" active=").Append(_g.gameObject.activeInHierarchy);
                 }
+                // ПОЧЕМУ НЕ ВЫВОДИТСЯ (16.09, живой фон меню: собран, а на экране
+                // подложка): отсечение рендерера, валидность графика, размеры и
+                // цепочка родителей с их альфами — всё, что может спрятать меш.
+                try
+                {
+                    var cr = _g.canvasRenderer;
+                    var grt = _g.rectTransform;
+                    sb.Append(" cull=").Append(cr != null && cr.cull)
+                      .Append(" valid=").Append(_g.IsValid).Append(" enabled=").Append(_g.enabled)
+                      .Append(" layer=").Append(_g.gameObject.layer)
+                      .Append(" rect=").Append((int)grt.rect.width).Append('x').Append((int)grt.rect.height)
+                      .Append(" cont=").Append(_container != null ? (int)_container.rect.width + "x" + (int)_container.rect.height : "?")
+                      .Append(" render=").Append(_g.canvas != null ? _g.canvas.renderMode.ToString() : "?")
+                      .Append(" tex=").Append(_g.mainTexture != null ? _g.mainTexture.name : "NULL");
+                    var t = _g.transform.parent; int depth = 0;
+                    sb.Append(" chain=");
+                    while (t != null && depth++ < 7)
+                    {
+                        var cg = t.GetComponent<UnityEngine.CanvasGroup>();
+                        var rt = t as UnityEngine.RectTransform;
+                        sb.Append(t.name).Append('[')
+                          .Append(t.gameObject.activeSelf ? "on" : "OFF")
+                          .Append(cg != null ? " a=" + cg.alpha.ToString("F2") : "")
+                          .Append(rt != null ? " s=" + rt.localScale.x.ToString("F2") + " " + (int)rt.rect.width + "x" + (int)rt.rect.height : "")
+                          .Append("] ");
+                        t = t.parent;
+                    }
+                }
+                catch (System.Exception e) { sb.Append(" chain-err=").Append(e.Message); }
                 var line = sb.ToString();
                 // В КОНСОЛЬ — БЕЗ КРИКА. Рентген печатается на каждый скелет, а
                 // скелет рождается заново при каждой пересборке карточки: в
