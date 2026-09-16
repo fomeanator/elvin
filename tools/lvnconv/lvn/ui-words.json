@@ -656,6 +656,18 @@
   "default": "free"
  },
  {
+  "key": "gacha.info_price",
+  "default": "Spin: {0}"
+ },
+ {
+  "key": "gacha.info_prizes",
+  "default": "Prizes: {0}, still to win: {1}"
+ },
+ {
+  "key": "gacha.info_rare",
+  "default": "Rare prize chance: {0} %"
+ },
+ {
   "key": "gacha.lanes",
   "default": "Lanes: {0}"
  },
