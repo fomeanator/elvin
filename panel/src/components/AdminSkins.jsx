@@ -103,7 +103,7 @@ export default function AdminSkins({ token, notify }) {
             <table className="adm-table dense">
               <thead>
                 <tr>
-                  <th>sku</th><th>Имя</th><th>Описание</th><th>Арт</th>{kind === "backdrop" && <th>Мини</th>}{kind === "backdrop" && <th>Спайн</th>}
+                  <th>sku</th><th>Имя</th><th>Описание</th><th>Арт</th>{kind === "backdrop" && <th>Мини</th>}{kind === "backdrop" && <th>Спайн</th>}{kind === "backdrop" && <th title="наезд 1,5× и панорама между комнатами; у спайна по умолчанию выключено">Увелич.</th>}
                   <th>Ступень</th><th>Цена</th><th>Валюта</th><th title="продаётся в гардеробе">Прод.</th>
                   <th title="выпадает в крутках">Крутка</th><th title="свой вес в барабане; 0 — по ступени">Вес</th>
                   <th title="за сколько продаётся копия из крутки; 0 — за цену">Копия</th>
@@ -122,6 +122,7 @@ export default function AdminSkins({ token, notify }) {
                     <td><input className="field" value={s.art || ""} onChange={(e) => edit(i, { art: e.target.value })} title={s.art || ""} /></td>
                     {kind === "backdrop" && <td><input className="field" value={s.preview || ""} onChange={(e) => edit(i, { preview: e.target.value })} /></td>}
                     {kind === "backdrop" && <td><input className="field" value={s.spine || ""} placeholder="/content/spine/имя/" title="живой фон: папка спайна; арт остаётся обложкой и подложкой" onChange={(e) => edit(i, { spine: e.target.value })} /></td>}
+                    {kind === "backdrop" && <td><input type="checkbox" checked={s.still == null ? !s.spine : !s.still} onChange={(e) => edit(i, { still: !e.target.checked })} /></td>}
                     <td>
                       <select className="field" value={s.rarity || ""} onChange={(e) => edit(i, { rarity: e.target.value })}
                               style={{ borderLeft: "4px solid " + ((live.rarity_colors || {})[s.rarity] || "transparent") }}>

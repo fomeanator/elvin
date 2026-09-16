@@ -94,31 +94,45 @@ namespace Lvn.UI
         // красивый, вот такие фоны надо сделать» — Илья 16.09).
         private const string BgSpineId = "__bg_spine";
         private const int BgSpineZ = -10;   // позади героини (у неё 0)
-        private string _bgSpineShown;
+        private string _bgSpineShown, _bgSpineActor;
+
+        // У КАЖДОЙ СЦЕНЫ СВОЁ ИМЯ. Скелеты живут по имени актёра, и второй фон
+        // под тем же именем не пересобирался — оставался первый (трасса 16.09:
+        // «уже построен» при смене зимнего сада на маскарад).
+        private static string BgSpineActorId(string spine)
+            => BgSpineId + ":" + System.IO.Path.GetFileNameWithoutExtension(Lvn.LvnUrl.Bare(Lvn.LvnUrl.Base(spine)));
 
         /// <summary>Стоит ли сейчас живой фон <paramref name="spine"/> (пусто —
         /// «никакого»). Меню спрашивает перед тем, как слать `bg` заново.</summary>
         public bool ShowsBgSpine(string spine)
             => string.IsNullOrEmpty(spine) ? _bgSpineShown == null
-               : _bgSpineShown == spine && ActorVisibleOrPending(BgSpineId);
+               : _bgSpineShown == spine && _bgSpineActor != null && ActorVisibleOrPending(_bgSpineActor);
 
         private void ApplyBgSpine(string spine, string under, LvnSender sender)
         {
             if (!string.IsNullOrEmpty(spine))
             {
                 if (ShowsBgSpine(spine)) return;
-                _bgSpineShown = spine;
-                LvnLog.Trace($"[lvn-bg] живой фон: {spine} (подложка {under ?? "-"})");
+                var actor = BgSpineActorId(spine);
+                if (_bgSpineActor != null && _bgSpineActor != actor)
+                    ApplyStage(new JObject { ["op"] = "actor", ["id"] = _bgSpineActor, ["show"] = false, ["exit"] = "none" }, sender);
+                _bgSpineShown = spine; _bgSpineActor = actor;
+                LvnLog.Trace($"[lvn-bg] живой фон: {spine} → {actor} (полотно под ним {under ?? "-"})");
+                // Без въезда и ухода и без своей подложки: полотно уже стоит
+                // под скелетом, а вторая копия картинки стоила 0,7 с на главном
+                // потоке (трасса 16.09); x задан явно — слот не торгуется.
                 ApplyStage(new JObject
                 {
-                    ["op"] = "actor", ["id"] = BgSpineId, ["spine"] = spine, ["spine_bg"] = under,
-                    ["fit"] = "cover", ["z"] = BgSpineZ, ["position"] = "center", ["show"] = true,
+                    ["op"] = "actor", ["id"] = actor, ["spine"] = spine,
+                    ["fit"] = "cover", ["z"] = BgSpineZ, ["x"] = 0.5, ["show"] = true,
+                    ["enter"] = "none", ["exit"] = "none", ["transition_duration"] = 0,
                 }, sender);
             }
-            else if (_bgSpineShown != null)
+            else if (_bgSpineActor != null)
             {
-                _bgSpineShown = null;
-                ApplyStage(new JObject { ["op"] = "actor", ["id"] = BgSpineId, ["show"] = false }, sender);
+                var actor = _bgSpineActor;
+                _bgSpineShown = null; _bgSpineActor = null;
+                ApplyStage(new JObject { ["op"] = "actor", ["id"] = actor, ["show"] = false, ["exit"] = "none" }, sender);
             }
         }
 

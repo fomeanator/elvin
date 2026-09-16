@@ -127,6 +127,9 @@ namespace Lvn.UI
             foreach (var kv in visible)
             {
                 if (kv.Key == id || !kv.Value.Show) continue;
+                // Служебные фигуры («__…»: живой фон) не занимают слот — иначе
+                // героиню сдвигало с центра на 0.38 (трасса 16.09).
+                if (kv.Key.StartsWith("__", StringComparison.Ordinal)) continue;
                 taken.Add(kv.Value.X);
                 if (ownerId == null && Mathf.Abs(kv.Value.X - desired) < SlotClaimRadius)
                     ownerId = kv.Key;

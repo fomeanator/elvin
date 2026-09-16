@@ -135,6 +135,7 @@
     "price": "long",
     "rarity": "string",
     "spine": "string",
+    "still": "bool",
     "title": "string",
     "url": "string"
   },

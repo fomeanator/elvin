@@ -52,6 +52,11 @@ namespace Lvn.UI.Screens
         /// бы переставить ключ в настройках устройства, чтобы получить платный
         /// фон даром. Бесплатный (price = 0) ставится без вопросов.</para></summary>
         private string _canvasSpine;   // живой фон выбранного полотна (TR-132/133)
+        // БЕЗ УВЕЛИЧЕНИЯ (Илья 16.09: «спайн-фоны без движения; выбор — есть
+        // увеличение фона или нет»): неподвижное полотно стоит 1:1 и не едет
+        // между комнатами; у живого фона так по умолчанию, у картинки — как
+        // раньше, пока в каталоге не сказано иначе.
+        private bool _canvasStill;
 
         private string MenuCanvasUrl()
         {
@@ -79,6 +84,7 @@ namespace Lvn.UI.Screens
             }
             _canvasWhy = "авторское";   // объяснение решения — на случай молчания
             _canvasSpine = b?.canvas_spine;   // живой фон по умолчанию; купленный фон ниже перебьёт
+            _canvasStill = !string.IsNullOrEmpty(_canvasSpine);
             // Хвост: героя ещё нет (первый запуск, пустой каталог обликов) —
             // берём выбор игрока как таковой, иначе фон нельзя было бы
             // поставить вовсе.
@@ -97,7 +103,7 @@ namespace Lvn.UI.Screens
                         _canvasWhy = trying ? $"примерка «{o.id}»"
                                    : owned  ? $"надет «{o.id}» (герой {who})"
                                             : $"выбран «{o.id}», но НЕ КУПЛЕН — откат на авторское";
-                        if (owned) { _canvasSpine = o.spine; return o.url; }
+                        if (owned) { _canvasSpine = o.spine; _canvasStill = o.still ?? !string.IsNullOrEmpty(o.spine); return o.url; }
                         break;
                     }
             else if (!string.IsNullOrEmpty(picked))
@@ -129,8 +135,9 @@ namespace Lvn.UI.Screens
                 ["sprite_url"] = canvas,
                 ["pan"] = MenuPoint().x,
                 ["pan_y"] = MenuPoint().y,          // комнаты стоят и по высоте — см. LvnTabs.Room
-                ["zoom"] = LvnMenuStage.PanZoom,   // запас, по которому едет переезд
+                ["zoom"] = _canvasStill ? 1f : LvnMenuStage.PanZoom,   // запас, по которому едет переезд; неподвижному — 1:1
             };
+            if (_canvasStill) cmd["still"] = true;   // живой фон — без въезда и подвижек
             if (fade.HasValue) cmd["fade"] = fade.Value;
             // ЖИВОЙ ФОН (TR-132, TR-133): у купленного фона — его спайн, без
             // выбора — ui.browse.canvas_spine; полотно остаётся подложкой.
@@ -513,7 +520,7 @@ namespace Lvn.UI.Screens
             // Здесь только откуда и куда: сам переезд ведёт тик анимации
             // вкладок, а правило «место кнопки → точка кадра» — у витрины.
             _menuPanFrom = MenuPointFor(fromTab);
-            _menuPanTo = MenuPointFor(toTab);
+            _menuPanTo = _canvasStill ? _menuPanFrom : MenuPointFor(toTab);   // неподвижное полотно не панорамирует
             _menuCastZoomFrom = LvnMenuStage.CastZoomFor(LvnTabs.RoomOf(fromTab));
             _menuCastZoomTo = LvnMenuStage.CastZoomFor(LvnTabs.RoomOf(toTab));
             _menuPanSet = true;

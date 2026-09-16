@@ -37,6 +37,7 @@ type skin struct {
 	Art         string   `json:"art,omitempty"`          // полный арт (слой, картина, аватар)
 	Preview     string   `json:"preview,omitempty"`      // мини для витрины (фоны)
 	Spine       string   `json:"spine,omitempty"`        // живой фон меню: папка спайна (/content/spine/имя/); art остаётся обложкой и подложкой (TR-133)
+	Still       *bool    `json:"still,omitempty"`        // фон без увеличения и панорамы между комнатами; пусто — спайн неподвижен, картинка едет (Илья 16.09)
 	Rarity      string   `json:"rarity,omitempty"`       // ступень; цвет — у палитры ступеней
 	Price       int64    `json:"price,omitempty"`        // цена скина: покупка в гардеробе и продажа копии
 	Currency    string   `json:"currency,omitempty"`     //
@@ -255,7 +256,7 @@ func collectSkins(manifest map[string]any, gacha gachaConfig, existing skinsConf
 			continue
 		}
 		add(skin{SKU: backdropSKU(skinStr(o, "id")), Kind: "backdrop", Name: skinStr(o, "title"), Description: skinStr(o, "description"),
-			Art: skinStr(o, "url"), Preview: skinStr(o, "preview"), Spine: skinStr(o, "spine"), Rarity: skinStr(o, "rarity"),
+			Art: skinStr(o, "url"), Preview: skinStr(o, "preview"), Spine: skinStr(o, "spine"), Still: skinBoolPtr(o, "still"), Rarity: skinStr(o, "rarity"),
 			Price: int64(skinNum(o, "price")), Currency: skinStr(o, "currency"), Buy: skinNum(o, "price") > 0,
 			Hidden: skinBool(o, "hidden"), SellPrice: int64(skinNum(o, "sell_price")), Order: int(skinNum(o, "order")), Tags: skinStr(o, "tags")})
 	}
@@ -484,6 +485,11 @@ func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) in
 		setIf(o, "url", sk.Art)
 		setIf(o, "preview", sk.Preview)
 		setOrDrop(o, "spine", sk.Spine, sk.Spine != "")
+		if sk.Still != nil {
+			o["still"] = *sk.Still
+		} else {
+			delete(o, "still")
+		}
 		applyCommon(o, sk)
 		placed++
 	}
@@ -515,6 +521,11 @@ func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) in
 			setIf(o, "title", sk.Name)
 			setIf(o, "preview", sk.Preview)
 			setOrDrop(o, "spine", sk.Spine, sk.Spine != "")
+			if sk.Still != nil {
+				o["still"] = *sk.Still
+			} else {
+				delete(o, "still")
+			}
 			applyCommon(o, sk)
 			browse["canvas_options"] = append(ensureList(browse, "canvas_options"), o)
 			placed++
@@ -700,4 +711,17 @@ func (s *AdminService) handleSkins(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "collect or apply", http.StatusNotFound)
 	}
+}
+
+// skinBoolPtr — булево поле, у которого «не задано» отличается от «нет».
+func skinBoolPtr(m map[string]any, key string) *bool {
+	v, ok := m[key]
+	if !ok || v == nil {
+		return nil
+	}
+	b, ok := v.(bool)
+	if !ok {
+		return nil
+	}
+	return &b
 }
