@@ -40,13 +40,12 @@ namespace Lvn.Tests
             foreach (var t in LvnTabs.Shown) порядок.Add(t.Index);
 
             CollectionAssert.AreEqual(
-                new[] { LvnTabs.Home, LvnTabs.Titles, LvnTabs.Store,
-                        LvnTabs.Wardrobe, LvnTabs.Gallery, LvnTabs.Profile },
+                // Крутки — своя комната между гардеробом и магазином (TR-112, Илья 15.09).
+                new[] { LvnTabs.Home, LvnTabs.Titles, LvnTabs.Wardrobe, LvnTabs.Gacha, LvnTabs.Store, LvnTabs.Gallery, LvnTabs.Profile },
                 порядок,
                 "ряд нижнего меню переставили — кнопки уехали из-под пальца игрока");
-            Assert.AreEqual(4, порядок.IndexOf(LvnTabs.Gallery),
-                "галерея встала не на своё место: её номер последний, а стоит она ПЯТОЙ — " +
-                "между гардеробом и профилем");
+            Assert.AreEqual(5, порядок.IndexOf(LvnTabs.Gallery),
+                "галерея встала не на своё место: её номер последний, а стоит она перед профилем");
             Assert.Greater(LvnTabs.Gallery, LvnTabs.Profile,
                 "порядок показа сравнялся с порядком номеров — правило перестало быть проверяемым");
         }
@@ -102,7 +101,7 @@ namespace Lvn.Tests
             foreach (var t in LvnTabs.Shown) if (t.HasPage) сСтраницей++;
 
             Assert.AreEqual(сСтраницей, LvnTabs.PageCount, "число страниц разошлось с набором вкладок");
-            Assert.AreEqual(5, LvnTabs.PageCount,
+            Assert.AreEqual(6, LvnTabs.PageCount,   // + комната круток (TR-112)
                 "страниц ленты стало другое число — сверь с ветками NovelShell.TabPage: " +
                 "их там ровно столько же, и лишняя вкладка без ветки уводит ленту в пустоту");
         }

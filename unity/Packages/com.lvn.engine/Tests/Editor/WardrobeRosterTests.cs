@@ -21,8 +21,8 @@ namespace Lvn.Tests
             };
             return new Dictionary<string, LvnSpriteEntity>
             {
-                ["victoria"] = Dressable("look"),
-                ["katya"]    = Dressable("katya_look"),
+                ["mira"] = Dressable("look"),
+                ["anna"]    = Dressable("anna_look"),
                 ["cold_main"] = Dressable("cold_look"),   // героиня ДРУГОЙ новеллы
                 ["porch"] = new LvnSpriteEntity(),        // фон: шкафа нет
             };
@@ -33,9 +33,9 @@ namespace Lvn.Tests
         [Test]
         public void ACatalogOfManyNovelsShowsOnlyItsOwn()
         {
-            var picked = LvnWardrobeRoster.Pick(Cast(), null, "victoria",
-                                                new[] { "victoria", "katya" }, titleCount: 4);
-            CollectionAssert.AreEqual(new[] { "victoria", "katya" }, picked);
+            var picked = LvnWardrobeRoster.Pick(Cast(), null, "mira",
+                                                new[] { "mira", "anna" }, titleCount: 4);
+            CollectionAssert.AreEqual(new[] { "mira", "anna" }, picked);
             CollectionAssert.DoesNotContain(picked, "cold_main",
                 "в столбик попала героиня чужой новеллы");
         }
@@ -45,9 +45,9 @@ namespace Lvn.Tests
         [Test]
         public void TheAuthoredListWins()
         {
-            var picked = LvnWardrobeRoster.Pick(Cast(), new[] { "katya", "victoria" }, "victoria",
+            var picked = LvnWardrobeRoster.Pick(Cast(), new[] { "anna", "mira" }, "mira",
                                                 new[] { "cold_main" }, titleCount: 4);
-            CollectionAssert.AreEqual(new[] { "katya", "victoria" }, picked);
+            CollectionAssert.AreEqual(new[] { "anna", "mira" }, picked);
         }
 
         /// <summary>Каталог одной новеллы — прежнее поведение: чужих в нём нет,
@@ -55,7 +55,7 @@ namespace Lvn.Tests
         [Test]
         public void ASingleNovelCatalogStillShowsEveryone()
         {
-            var picked = LvnWardrobeRoster.Pick(Cast(), null, "victoria", null, titleCount: 1);
+            var picked = LvnWardrobeRoster.Pick(Cast(), null, "mira", null, titleCount: 1);
             Assert.Greater(picked.Count, 1, "одиночная новелла потеряла своих героев");
         }
 
@@ -71,9 +71,9 @@ namespace Lvn.Tests
                 wardrobe = new Dictionary<string, LvnWardrobeSlot>
                 { ["outfit"] = new LvnWardrobeSlot { storyVar = "look" } },   // та же переменная
             };
-            var picked = LvnWardrobeRoster.Pick(cast, null, "victoria",
+            var picked = LvnWardrobeRoster.Pick(cast, null, "mira",
                                                 new[] { "demo_main" }, titleCount: 4);
-            CollectionAssert.AreEqual(new[] { "victoria" }, picked);
+            CollectionAssert.AreEqual(new[] { "mira" }, picked);
         }
     }
 }

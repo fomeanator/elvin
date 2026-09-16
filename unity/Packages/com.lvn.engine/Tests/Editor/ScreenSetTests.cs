@@ -243,6 +243,8 @@ namespace Lvn.Tests
             // появились вместе с комнатами витрины (TR-63) и галереей
             // прохождений (TR-70), и уборка обязана знать о них так же.
             ("Titles", об.Titles), ("Cutscenes", об.Cutscenes),
+            // Комната круток — вкладка витрины (TR-112, 15.09): уборка знает её так же.
+            ("GachaTab", об.GachaTab),
         };
 
         private static LvnScreenSet НаборОболочки(NovelShell об)

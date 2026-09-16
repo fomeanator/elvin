@@ -191,12 +191,12 @@ namespace Lvn.Tests
             await LvnWallet.EarnAsync("gold", 100, "test");
             var charge = Ticket();
             charge.Reason = "wardrobe";
-            charge.Sku = "victoria.hair.long";
+            charge.Sku = "mira.hair.long";
 
             var outcome = await LvnCashier.ChargeAsync(charge, null, null);
 
             Assert.AreEqual(LvnCashier.Outcome.Paid, outcome);
-            CollectionAssert.Contains(LvnWallet.Inventory.Keys, "victoria.hair.long",
+            CollectionAssert.Contains(LvnWallet.Inventory.Keys, "mira.hair.long",
                 "без sku покупка не стала бы владением");
         }
 

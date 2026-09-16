@@ -34,7 +34,7 @@ namespace Lvn.Tests.Editor
         [Test]
         public void DifferentActorsNeverConflict()
         {
-            _pm.Hold("actor:victoria", LvnSender.Cutscene);
+            _pm.Hold("actor:mira", LvnSender.Cutscene);
             Assert.IsTrue(Admit(Actor("agent"), LvnSender.Story),
                 "агента отклонили из-за занятой героини — предметы спутаны");
         }
@@ -53,8 +53,8 @@ namespace Lvn.Tests.Editor
         [Test]
         public void ActorEffectSharesTheActorsSubject()
         {
-            Assert.AreEqual("actor:victoria",
-                LvnStageManager.SubjectOf(new JObject { ["op"] = "sfx", ["id"] = "victoria" }));
+            Assert.AreEqual("actor:mira",
+                LvnStageManager.SubjectOf(new JObject { ["op"] = "sfx", ["id"] = "mira" }));
         }
 
         // ── старшинство ─────────────────────────────────────────────────────
@@ -74,8 +74,8 @@ namespace Lvn.Tests.Editor
         [Test]
         public void MenuWaitsForTheCutscene()
         {
-            _pm.Hold("actor:victoria", LvnSender.Cutscene);
-            Assert.IsFalse(Admit(Actor("victoria"), LvnSender.Menu),
+            _pm.Hold("actor:mira", LvnSender.Cutscene);
+            Assert.IsFalse(Admit(Actor("mira"), LvnSender.Menu),
                 "витрина переставила героиню посреди катсцены");
         }
 
@@ -83,8 +83,8 @@ namespace Lvn.Tests.Editor
         [Test]
         public void WardrobeOutranksTheStoryWhileTheSheetIsOpen()
         {
-            _pm.Hold("actor:victoria", LvnSender.Wardrobe);
-            Assert.IsFalse(Admit(Actor("victoria"), LvnSender.Story),
+            _pm.Hold("actor:mira", LvnSender.Wardrobe);
+            Assert.IsFalse(Admit(Actor("mira"), LvnSender.Story),
                 "история переодела героиню, пока игрок листает наряды");
         }
 
@@ -113,10 +113,10 @@ namespace Lvn.Tests.Editor
         [Test]
         public void SeniorTakesTheSubjectFromJunior()
         {
-            _pm.Hold("actor:victoria", LvnSender.Menu);
-            Assert.IsTrue(Admit(Actor("victoria"), LvnSender.Cutscene));
-            _pm.Hold("actor:victoria", LvnSender.Cutscene);
-            Assert.AreEqual(LvnSender.Cutscene, _pm.HolderOf("actor:victoria"));
+            _pm.Hold("actor:mira", LvnSender.Menu);
+            Assert.IsTrue(Admit(Actor("mira"), LvnSender.Cutscene));
+            _pm.Hold("actor:mira", LvnSender.Cutscene);
+            Assert.AreEqual(LvnSender.Cutscene, _pm.HolderOf("actor:mira"));
         }
 
         // ── освобождение ────────────────────────────────────────────────────
@@ -126,11 +126,11 @@ namespace Lvn.Tests.Editor
         public void ReleasingGivesTheFrameBack()
         {
             _pm.Hold("veil", LvnSender.Cutscene);
-            _pm.Hold("actor:victoria", LvnSender.Cutscene);
+            _pm.Hold("actor:mira", LvnSender.Cutscene);
             _pm.ReleaseAll(LvnSender.Cutscene);
 
             Assert.IsTrue(Admit(Fade(), LvnSender.Story));
-            Assert.IsTrue(Admit(Actor("victoria"), LvnSender.Menu));
+            Assert.IsTrue(Admit(Actor("mira"), LvnSender.Menu));
             Assert.IsNull(_pm.HolderOf("veil"));
         }
 

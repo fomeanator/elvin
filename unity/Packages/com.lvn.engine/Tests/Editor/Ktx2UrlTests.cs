@@ -19,8 +19,8 @@ namespace Lvn.Tests
     /// </summary>
     public class Ktx2UrlTests
     {
-        [TestCase("/content/sprites/hill/body_west@1440.png", "/content/sprites/hill/body_west@1440.ktx2")]
-        [TestCase("/content/sprites/hill/body_west@2k.png",   "/content/sprites/hill/body_west@2k.ktx2")]
+        [TestCase("/content/sprites/hero/body_west@1440.png", "/content/sprites/hero/body_west@1440.ktx2")]
+        [TestCase("/content/sprites/hero/body_west@2k.png",   "/content/sprites/hero/body_west@2k.ktx2")]
         [TestCase("/content/bg/room@1080.jpg",                "/content/bg/room@1080.ktx2")]
         public void СтупеньСохраняется(string url, string ждём)
             => Assert.AreEqual(ждём, ContentLoader.Ktx2UrlFor(url));
@@ -72,7 +72,7 @@ namespace Lvn.Tests
         /// интерфейса нет.</para>
         /// </summary>
         [TestCase("/content/bg/room.jpg", true)]
-        [TestCase("/content/sprites/hill/body@1440.png", true)]
+        [TestCase("/content/sprites/hero/body@1440.png", true)]
         [TestCase("/content/ui/menu-canvas.jpg", false)]
         [TestCase("/content/pixel/tile.png", false)]
         [TestCase("/content/bg/room@mini.jpg", false)]
@@ -93,7 +93,7 @@ namespace Lvn.Tests
         /// уменьшитель для адреса, уже несущего ступень, — и они ушли вместе с
         /// ним, молча.</para>
         /// </summary>
-        [TestCase("/content/sprites/hill/body_west@mini.png")]
+        [TestCase("/content/sprites/hero/body_west@mini.png")]
         [TestCase("/content/bg/room@mini.jpg")]
         [TestCase("/content/pixel/tile@1440.png")]
         public void РастровыйПоУмыслуКодаНеПросит(string url)
@@ -103,7 +103,7 @@ namespace Lvn.Tests
 
         /// <summary>Тот же список, спрошенный у дома напрямую: ступень сама по
         /// себе кода не отменяет — отменяет только вид арта.</summary>
-        [TestCase("/content/sprites/hill/body@1440.png", true)]
+        [TestCase("/content/sprites/hero/body@1440.png", true)]
         [TestCase("/content/bg/room.jpg", true)]
         [TestCase("/content/bg/room@mini.jpg", false)]
         [TestCase("/content/ui/menu-canvas.jpg", true)]

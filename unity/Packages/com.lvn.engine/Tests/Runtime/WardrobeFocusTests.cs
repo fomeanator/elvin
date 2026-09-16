@@ -34,7 +34,7 @@ namespace Lvn.Tests.Runtime
         public void TearDown() => Object.Destroy(_go);
 
         private static string TwoOnStage() => @"{""script"":[
-            {""op"":""actor"",""id"":""katya"",""show"":true,""position"":""left""},
+            {""op"":""actor"",""id"":""anna"",""show"":true,""position"":""left""},
             {""op"":""actor"",""id"":""matvey"",""show"":true,""position"":""right""},
             {""op"":""say"",""text"":""оба на сцене""}
         ]}";
@@ -44,15 +44,15 @@ namespace Lvn.Tests.Runtime
         {
             _stage.Play(TwoOnStage());
             yield return new WaitForSecondsRealtime(0.5f);
-            CollectionAssert.AreEquivalent(new[] { "katya", "matvey" }, _stage.ActorsOnStage(),
+            CollectionAssert.AreEquivalent(new[] { "anna", "matvey" }, _stage.ActorsOnStage(),
                 "sanity: сцена начинается с двух героев");
 
-            var focus = _stage.FocusWardrobeActorAsync("katya");
+            var focus = _stage.FocusWardrobeActorAsync("anna");
             float deadline = Time.realtimeSinceStartup + 5f;
             while (!focus.IsCompleted && Time.realtimeSinceStartup < deadline) yield return null;
             yield return new WaitForSecondsRealtime(0.6f);
 
-            CollectionAssert.AreEqual(new[] { "katya" }, _stage.ActorsOnStage(),
+            CollectionAssert.AreEqual(new[] { "anna" }, _stage.ActorsOnStage(),
                 "в гардеробе остался лишний герой — он и просвечивает под примеряемым");
         }
 
@@ -62,7 +62,7 @@ namespace Lvn.Tests.Runtime
             _stage.Play(TwoOnStage());
             yield return new WaitForSecondsRealtime(0.5f);
 
-            var first = _stage.FocusWardrobeActorAsync("katya");
+            var first = _stage.FocusWardrobeActorAsync("anna");
             float deadline = Time.realtimeSinceStartup + 5f;
             while (!first.IsCompleted && Time.realtimeSinceStartup < deadline) yield return null;
 
@@ -84,18 +84,18 @@ namespace Lvn.Tests.Runtime
             _stage.Play(TwoOnStage());
             yield return new WaitForSecondsRealtime(0.5f);
 
-            var a = _stage.FocusWardrobeActorAsync("katya");
+            var a = _stage.FocusWardrobeActorAsync("anna");
             yield return new WaitForSecondsRealtime(0.05f);
             var b = _stage.FocusWardrobeActorAsync("matvey");
             yield return new WaitForSecondsRealtime(0.05f);
-            var c = _stage.FocusWardrobeActorAsync("katya");
+            var c = _stage.FocusWardrobeActorAsync("anna");
 
             float deadline = Time.realtimeSinceStartup + 6f;
             while ((!a.IsCompleted || !b.IsCompleted || !c.IsCompleted)
                    && Time.realtimeSinceStartup < deadline) yield return null;
             yield return new WaitForSecondsRealtime(0.8f);
 
-            CollectionAssert.AreEqual(new[] { "katya" }, _stage.ActorsOnStage(),
+            CollectionAssert.AreEqual(new[] { "anna" }, _stage.ActorsOnStage(),
                 "быстрое перещёлкивание оставило на сцене нескольких героев разом");
         }
 
@@ -117,14 +117,14 @@ namespace Lvn.Tests.Runtime
         {
             _stage.Play(TwoOnStage());
             yield return new WaitForSecondsRealtime(0.5f);
-            Assert.IsTrue(_stage.Memory.TryPoseSender("katya", out var author),
+            Assert.IsTrue(_stage.Memory.TryPoseSender("anna", out var author),
                 "sanity: позу кто-то поставил");
             Assert.AreEqual(LvnSender.Story, author, "sanity: ставил её сценарий");
 
-            _stage.HideActor("katya", LvnSender.Wardrobe);
+            _stage.HideActor("anna", LvnSender.Wardrobe);
             yield return new WaitForSecondsRealtime(0.4f);
 
-            Assert.IsTrue(_stage.Memory.TryPoseSender("katya", out var afterHide));
+            Assert.IsTrue(_stage.Memory.TryPoseSender("anna", out var afterHide));
             Assert.AreEqual(LvnSender.Story, afterHide,
                 "скрытие расписалось под чужой позой — следующая авторская команда уведёт фигуру в слот по умолчанию");
         }

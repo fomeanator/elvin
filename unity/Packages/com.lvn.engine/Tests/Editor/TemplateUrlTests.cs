@@ -18,16 +18,16 @@ namespace Lvn.Tests
     /// </summary>
     public class TemplateUrlTests
     {
-        [TestCase("/content/sprites/hill/hair_{hairstyle}_{hair}.png")]
-        [TestCase("/content/sprites/hill/hair_{hairstyle}_brunette.png")]  // подставлена вторая
-        [TestCase("/content/sprites/hill/hair_rose_{hair}.png")]           // подставлена первая
+        [TestCase("/content/sprites/hero/hair_{hairstyle}_{hair}.png")]
+        [TestCase("/content/sprites/hero/hair_{hairstyle}_brunette.png")]  // подставлена вторая
+        [TestCase("/content/sprites/hero/hair_rose_{hair}.png")]           // подставлена первая
         [TestCase("/content/bg/{room}.jpg")]
         public void ШаблонУзнаётсяДажеЧастичный(string url)
             => Assert.IsTrue(DownloadPolicy.IsTemplate(url),
                 "адрес с оставшейся осью — гарантированный 404 и потраченное ожидание");
 
-        [TestCase("/content/sprites/hill/hair_rose_brunette.png")]
-        [TestCase("/content/sprites/hill/hair_rose_brunette@1440.png")]
+        [TestCase("/content/sprites/hero/hair_rose_brunette.png")]
+        [TestCase("/content/sprites/hero/hair_rose_brunette@1440.png")]
         [TestCase("/content/ui/panel.png")]
         [TestCase("")]
         [TestCase(null)]
