@@ -64,7 +64,10 @@ func (s *AnalyticsService) Routes(mux *http.ServeMux) {
 	// (analytics_slides.go). Расширение воронки по главам, а не второй отчёт:
 	// глава отвечает «где теряем», слайд — «на чём именно».
 	mux.HandleFunc("/v1/analytics/slides", s.handleSlides)
-	mux.HandleFunc("/v1/analytics/usage", s.handleUsage) // чем пользуются: экраны, время, тапы (TR-126)
+	mux.HandleFunc("/v1/analytics/usage", s.handleUsage)       // чем пользуются: экраны, время, тапы (TR-126)
+	mux.HandleFunc("/v1/analytics/sequence", s.handleSequence) // воронка по шагам по игрокам, «куда ушли вместо» (TR-126)
+	mux.HandleFunc("/v1/analytics/player", s.handlePlayer)     // путь игрока: лента событий
+	mux.HandleFunc("/v1/analytics/paths", s.handlePaths)       // пути с экрана: доля игроков по элементам и куда попали
 	// Деньги: конверсия в платящего, ARPU, ARPPU (analytics_money.go).
 	mux.HandleFunc("/v1/analytics/money", s.handleMoney)
 	// Вариант А против Б: цель плюс предохранители плюс честная значимость.
