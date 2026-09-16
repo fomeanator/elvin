@@ -93,13 +93,18 @@ namespace Lvn.UI.Screens
             LvnAir.Pad(cell, 0f, 0f);
             cell.style.flexShrink = 0;
             cell.style.overflow = Overflow.Hidden;
+            // ПОДПИСЬ ПОД ПОРТРЕТОМ. Аватарки жили без имени — только цена или
+            // «Доступно» (Илья 16.09: «лысое приложение»); имя даёт каталог
+            // скинов, и плитка растёт на строку, когда оно есть.
+            bool named = !string.IsNullOrEmpty(choice?.Name);
+            float foot = LvnStageKit.D(named ? 46f : 26f);
             float last = 0f;
             cell.RegisterCallback<GeometryChangedEvent>(evt =>
             {
                 float width = evt.newRect.width;
                 if (width <= 0 || Mathf.Approximately(width, last)) return;
                 last = width;
-                cell.style.height = width + LvnStageKit.D(26f);
+                cell.style.height = width + foot;
             });
             LvnChrome.Round(cell, LvnTokens.RadiusSm);
             LvnStyler.Chosen(cell, _selected == id, LvnTokens.Gold);
@@ -116,6 +121,20 @@ namespace Lvn.UI.Screens
                 : LvnAvatars.Owned(choice) ? LvnWords.Of("avatar.owned", "Available")
                 : LvnAvatars.GachaOnly(choice) ? LvnWords.Of("skin.get_gacha", "Drops from spins")
                 : LvnPriceTag.Full(choice.Currency, choice.Price);
+            if (named)
+            {
+                var nameLabel = new Label(choice.Name) { name = "avatar-name", pickingMode = PickingMode.Ignore };
+                nameLabel.style.color = LvnTokens.Text;
+                nameLabel.style.fontSize = LvnTokens.TextXs;
+                nameLabel.style.height = LvnStageKit.D(20f);
+                nameLabel.style.flexShrink = 0;
+                nameLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+                nameLabel.style.backgroundColor = LvnTokens.Surface;
+                nameLabel.style.overflow = Overflow.Hidden;
+                nameLabel.style.textOverflow = TextOverflow.Ellipsis;
+                nameLabel.style.whiteSpace = WhiteSpace.NoWrap;
+                cell.Add(nameLabel);
+            }
             var label = new Label(caption) { pickingMode = PickingMode.Ignore };
             label.style.color = LvnTokens.Gold;
             label.style.fontSize = LvnTokens.TextSm;

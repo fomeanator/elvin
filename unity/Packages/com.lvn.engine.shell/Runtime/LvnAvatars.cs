@@ -22,6 +22,7 @@ namespace Lvn.UI.Screens
         {
             public string Id;
             public string Url;
+            public string Name;       // подпись под портретом из каталога; пусто — без подписи
             public string Currency;   // пусто — бесплатная
             public long Price;
             public string Sku;        // товар для инвентаря; пусто — id
@@ -53,6 +54,7 @@ namespace Lvn.UI.Screens
                 {
                     Id = string.IsNullOrEmpty(a.id) ? a.url : a.id,
                     Url = a.url,
+                    Name = a.name,
                     Currency = a.currency,
                     Price = a.price ?? 0,
                     Sku = a.sku,
