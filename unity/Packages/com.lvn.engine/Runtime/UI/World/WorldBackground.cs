@@ -42,6 +42,9 @@ namespace Lvn.UI.World
         public void SetSprite(Sprite sprite, float crossfadeSeconds)
         {
             if (sprite == null) return;
+            // ПОКА ИДЁТ ЖИВАЯ ТЕКСТУРА, картинка ждёт под ней: спрайт полотна
+            // приезжает позже кадра живого фона и затирал бы его (16.09).
+            if (_liveTex != null) { _tex = sprite.texture; _wantsArt = true; return; }
             bool hadArt = _image.texture != null && _tilePx <= 0f;
             bool differs = _image.texture != sprite.texture;
             if (crossfadeSeconds > 0.01f && hadArt && differs)
@@ -252,13 +255,25 @@ namespace Lvn.UI.World
         /// already rendered at screen size, so it fills the slot as-is: cropping
         /// it would throw away the camera's framing, which is the whole point of
         /// a 3D set. Passing null hands the background back to flat art.</summary>
+        private Texture _liveTex;
+
         public void SetLiveTexture(Texture tex)
         {
             _fadeGen++;   // кадр 3D-набора ставится как есть
+            _liveTex = tex;
+            if (tex == null && _tex != null)
+            {
+                // Живой фон снят — возвращается картинка, что ждала под ним.
+                _image.enabled = true;
+                _image.texture = _tex;
+                _image.color = Color.white;
+                UpdateCover();
+                return;
+            }
             _wantsArt = tex != null;
             _image.enabled = true;
             _tile = null; _tilePx = 0f;
-            _tex = null; // skip cover-crop: the frame is already the right shape
+            if (tex != null) _tex = null; // skip cover-crop: the frame is already the right shape
             _image.texture = tex;
             _image.color = tex != null ? Color.white : Color.black;
             _image.uvRect = new Rect(0f, 0f, 1f, 1f);

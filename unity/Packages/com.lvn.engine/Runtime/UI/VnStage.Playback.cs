@@ -624,6 +624,7 @@ namespace Lvn.UI
             _particles?.Set("snow", false);
             _fx?.Clear(0f);
             _fx?.ClearBlur(0f);
+            DropBgSpine();   // живой фон меню не переживает кадр главы (и наоборот)
             _backlog.Clear();
             _prefetched.Clear(); // the next chapter/load re-warms from scratch
             ShowChromeAll(); // скрытый интерфейс не переживает сцену, что бы его ни держало
