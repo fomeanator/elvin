@@ -29,12 +29,18 @@ func TestUsageFoldsMinutesIntoScreens(t *testing.T) {
 	if r.Usage["home"].Seconds != 50 || r.Usage["home"].Taps["nav-gacha"] != 3 {
 		t.Fatalf("слияние дней потеряло использование: %+v", r.Usage["home"])
 	}
+	// цепочка «нажал → сделал»: конверсия считается от тапов по элементу
+	r.foldLine(line(`{"sid":"s1","chains":{"GachaScreen/gacha-spin>wardrobe_buy":3,"GachaScreen/gacha-spin>screen:home":6}}`))
 	rep := usageReportOf(r, 2)
 	if len(rep.Screens) != 2 || rep.Screens[0].Screen != "GachaScreen" || rep.Screens[0].Taps != 13 {
 		t.Fatalf("отчёт не по времени или тапы не те: %+v", rep.Screens)
 	}
 	if rep.TotalSeconds != 130 || rep.Screens[0].Elements[0].Name != "gacha-spin" {
 		t.Fatalf("итоги отчёта разошлись: %+v", rep)
+	}
+	ch := rep.Screens[0].Chains
+	if len(ch) != 2 || ch[0].Outcome != "screen:home" || ch[0].N != 6 || ch[1].Outcome != "wardrobe_buy" || ch[1].Share != 0.25 {
+		t.Fatalf("цепочки не сложились: %+v", ch)
 	}
 	// свёртка переживает запись и чтение
 	raw, _ := json.Marshal(r)

@@ -144,10 +144,13 @@ type dayRollup struct {
 type usageRoll struct {
 	Seconds int            `json:"s"`
 	Taps    map[string]int `json:"t,omitempty"`
+	// «Нажал → сделал»: элемент>исход → сколько раз (Илья 16.09).
+	Chains map[string]int `json:"c,omitempty"`
 }
 
 const maxRollupUsageScreens = 200
 const maxRollupUsageTaps = 300
+const maxRollupUsageChains = 400
 
 func (r *dayRollup) usage(screen string) *usageRoll {
 	if r.Usage == nil {
@@ -198,6 +201,25 @@ func (r *dayRollup) foldUsage(props map[string]json.RawMessage) {
 			u.Taps = map[string]int{}
 		}
 		r.bump(u.Taps, "usage", clip(element, 64), n, maxRollupUsageTaps)
+	}
+	var chains map[string]int
+	if raw, ok := props["chains"]; ok {
+		_ = json.Unmarshal(raw, &chains)
+	}
+	for key, n := range chains {
+		if n <= 0 || n > 100000 {
+			continue
+		}
+		// «экран/элемент>исход»: экран — до первого «/», остальное — пара
+		screen, rest, ok := strings.Cut(key, "/")
+		if !ok || screen == "" || !strings.Contains(rest, ">") {
+			continue
+		}
+		u := r.usage(clip(screen, 64))
+		if u.Chains == nil {
+			u.Chains = map[string]int{}
+		}
+		r.bump(u.Chains, "usage", clip(rest, 128), n, maxRollupUsageChains)
 	}
 }
 
@@ -699,6 +721,12 @@ func (r *dayRollup) mergeFrom(o *dayRollup) {
 				u.Taps = map[string]int{}
 			}
 			r.bump(u.Taps, "usage", k, v, maxRollupUsageTaps)
+		}
+		for k, v := range ou.Chains {
+			if u.Chains == nil {
+				u.Chains = map[string]int{}
+			}
+			r.bump(u.Chains, "usage", k, v, maxRollupUsageChains)
 		}
 	}
 	for id, ot := range o.Titles {

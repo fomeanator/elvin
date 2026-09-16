@@ -869,7 +869,8 @@ function Health({ token, q }) {
 // ── Использование ───────────────────────────────────────────────────────────
 //
 // Чем пользуются (TR-126): экраны по времени, у каждого — во что жмут и
-// сколько раз. Источник — минутные события ui_use с устройства.
+// сколько раз, и цепочки «нажал → сделал» с долей от тапов (клик по строке
+// раскрывает). Источник — минутные события ui_use с устройства.
 function Usage({ token, q }) {
   const rep = useAsync(() => analyticsUsage(q, token), [q, token]);
   const d = rep.data || {};
@@ -900,6 +901,16 @@ function Usage({ token, q }) {
                         <span key={e.name} style={{ marginRight: 10, whiteSpace: "nowrap" }}>{e.name} <b>{fmt(e.count)}</b></span>
                       ))}
                       {(r.elements || []).length > 4 && open !== r.screen && <span>…</span>}
+                      {open === r.screen && (r.chains || []).length > 0 && (
+                        <div style={{ marginTop: 6 }}>
+                          <div className="adm-dim">нажал → сделал (доля от тапов по элементу):</div>
+                          {r.chains.map((c) => (
+                            <div key={c.element + ">" + c.outcome}>
+                              <b>{c.element}</b> → {c.outcome} <span className="muted">{fmt(c.n)} · {Math.round((c.share || 0) * 100)}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
