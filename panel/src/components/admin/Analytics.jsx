@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { analyticsSummary, analyticsFunnel, analyticsHealth, analyticsMoney, analyticsSlides, withSegment, adminCrashes, adminSpendStats, analyticsUsage, adminLogLevel, adminSetLogLevel } from "../../lib/api.js";
-import { useAsync, fmt } from "../adminShared.jsx";
+import { analyticsSummary, analyticsFunnel, analyticsHealth, analyticsMoney, analyticsSlides, withSegment, adminCrashes, adminSpendStats, analyticsUsage, adminLogLevel, adminSetLogLevel, analyticsSequence, analyticsPlayer, analyticsPaths } from "../../lib/api.js";
+import { useAsync, fmt, dt } from "../adminShared.jsx";
 import { Page, LoadState, Empty, Kpi } from "./ui.jsx";
 import {
   WINDOWS, todayISO, windowQuery, windowLabel, pct, share,
@@ -27,6 +27,9 @@ const VIEWS = [
   { key: "money", label: "Деньги" },
   { key: "spend", label: "Траты валют" },
   { key: "usage", label: "Использование" },
+  { key: "paths", label: "Пути" },
+  { key: "sequence", label: "Воронка по шагам" },
+  { key: "player", label: "Игрок" },
 ];
 
 export default function Analytics({ token }) {
@@ -100,6 +103,9 @@ export default function Analytics({ token }) {
       {view === "money" && <Money token={token} q={q} />}
       {view === "spend" && <SpendStats token={token} />}
       {view === "usage" && <Usage token={token} q={q} />}
+      {view === "paths" && <Paths token={token} q={q} />}
+      {view === "sequence" && <Sequence token={token} q={q} />}
+      {view === "player" && <Player token={token} q={q} />}
     </Page>
   );
 }
@@ -967,6 +973,152 @@ function LogRemote({ token }) {
               </li>
             ))}
           </ul>
+        )}
+      </LoadState>
+    </section>
+  );
+}
+
+// ── Пути ────────────────────────────────────────────────────────────────────
+//
+// Илья 16.09: «какой процент на магазин кликает в меню, на гардероб и т.д.»
+// По игрокам, не по тапам: доля игроков экрана, нажавших элемент, и куда
+// они после этого попали.
+function Paths({ token, q }) {
+  const [screen, setScreen] = useState("home");
+  const rep = useAsync(() => analyticsPaths(q, screen, token), [q, screen, token]);
+  const d = rep.data || {};
+  const els = d.elements || [];
+  return (
+    <section className="adm-panel">
+      <header className="adm-panel-head">
+        <h2>Пути с экрана</h2>
+        <div className="admin-rowbtns" style={{ gap: 8, flexWrap: "wrap" }}>
+          {(d.screens || []).map((s) => (
+            <button key={s.name} className={"btn-ghost sm" + (screen === s.name ? " active" : "")} onClick={() => setScreen(s.name)}>{s.name} <span className="muted">{fmt(s.count)}</span></button>
+          ))}
+          <input className="field" style={{ width: 160 }} placeholder="экран" value={screen} onChange={(e) => setScreen(e.target.value.trim() || "home")} />
+        </div>
+      </header>
+      <LoadState loading={rep.loading} error={rep.error}>
+        <p className="adm-dim">На экране «{d.screen}» было игроков: <b>{fmt(d.players || 0)}</b>. Доля — от них; «куда попали» — по игрокам.</p>
+        {d.note && <p className="adm-dim">⚠ {d.note}</p>}
+        {!els.length ? <Empty text="Нажатий на этом экране в окне нет." /> : (
+          <div className="adm-tablewrap">
+            <table className="adm-table">
+              <thead><tr><th>нажали</th><th className="num">игроков</th><th>доля</th><th className="num">тапов</th><th>куда попали</th></tr></thead>
+              <tbody>
+                {els.map((e) => (
+                  <tr key={e.element}>
+                    <td><span className="adm-cell-main">{e.element}</span></td>
+                    <td className="num">{fmt(e.players)}</td>
+                    <td><Meter value={e.share} /></td>
+                    <td className="num muted">{fmt(e.taps)}</td>
+                    <td className="muted">{(e.next || []).map((n) => <span key={n.name} style={{ marginRight: 10, whiteSpace: "nowrap" }}>{n.name} <b>{fmt(n.count)}</b></span>)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </LoadState>
+    </section>
+  );
+}
+
+// ── Воронка по шагам ────────────────────────────────────────────────────────
+//
+// Илья 16.09: «сколько прошло 10 ход в главе 0, сколько забайтилось
+// гардеробом и купило» — и «только точки знать не поможет»: у каждого обрыва
+// показано, куда ушли вместо следующего шага.
+const SEQ_PRESETS = [
+  ["Пролог → 10 строк → гардероб → покупка", "chapter_start:chapter=agency-ch0; progress:chapter=agency-ch0,at>=10; screen=WardrobeTabScreen; wardrobe_buy"],
+  ["Главная → крутки → магазин", "screen=home; screen=GachaScreen; screen=PackShopScreen"],
+  ["Старт главы → дочитал", "chapter_start; chapter_finish"],
+];
+function Sequence({ token, q }) {
+  const [steps, setSteps] = useState(SEQ_PRESETS[0][1]);
+  const [asked, setAsked] = useState(SEQ_PRESETS[0][1]);
+  const rep = useAsync(() => analyticsSequence(q, asked, token), [q, asked, token]);
+  const d = rep.data || {};
+  const rows = d.steps || [];
+  return (
+    <section className="adm-panel">
+      <header className="adm-panel-head">
+        <h2>Воронка по шагам</h2>
+        <span className="adm-dim">по игрокам, в порядке времени · игроков в окне {fmt(d.players || 0)}</span>
+      </header>
+      <div className="admin-rowbtns" style={{ gap: 8, flexWrap: "wrap" }}>
+        {SEQ_PRESETS.map(([l, v]) => <button key={l} className="btn-ghost sm" onClick={() => { setSteps(v); setAsked(v); }}>{l}</button>)}
+      </div>
+      <div className="admin-rowbtns" style={{ gap: 8, marginTop: 6 }}>
+        <input className="field" style={{ flex: 1, minWidth: 360 }} value={steps} onChange={(e) => setSteps(e.target.value)}
+               placeholder="событие:ключ=значение; progress:chapter=X,at>=N; screen=X; …" />
+        <button className="btn-ghost sm" onClick={() => setAsked(steps)}>Посчитать</button>
+      </div>
+      <p className="adm-dim">Шаги через «;». Особые: <code>progress:chapter=X,at&gt;=N</code> — прошёл строку N; <code>screen=X</code> — был на экране. Условия: <code>=</code>, <code>&gt;=</code>, <code>&lt;=</code>.</p>
+      <LoadState loading={rep.loading} error={rep.error}>
+        {d.note && <p className="adm-dim">⚠ {d.note}</p>}
+        {!rows.length ? <Empty text="Задайте шаги." /> : (
+          <div className="adm-tablewrap">
+            <table className="adm-table">
+              <thead><tr><th>шаг</th><th className="num">игроков</th><th>от первого</th><th className="num">от прошлого</th><th className="num">потеряно</th><th>куда ушли вместо следующего</th></tr></thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i}>
+                    <td><span className="adm-cell-main">{i + 1}. {r.label}</span></td>
+                    <td className="num">{fmt(r.users)}</td>
+                    <td><Meter value={r.of_first} /></td>
+                    <td className="num muted">{Math.round((r.of_prev || 0) * 100)}%</td>
+                    <td className={"num" + (r.lost ? " amt-minus" : " muted")}>{r.lost ? "−" + fmt(r.lost) : "—"}</td>
+                    <td className="muted">{(r.instead || []).map((n) => <div key={n.name}>{n.name} <b>{fmt(n.count)}</b></div>)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </LoadState>
+    </section>
+  );
+}
+
+// ── Игрок ───────────────────────────────────────────────────────────────────
+//
+// Путь одного игрока: вся лента событий по времени — «что он делал».
+function Player({ token, q }) {
+  const [user, setUser] = useState("");
+  const [asked, setAsked] = useState("");
+  const rep = useAsync(() => asked ? analyticsPlayer(q, asked, token) : Promise.resolve(null), [q, asked, token]);
+  const d = rep.data || {};
+  const ev = d.events || [];
+  return (
+    <section className="adm-panel">
+      <header className="adm-panel-head">
+        <h2>Путь игрока</h2>
+        <div className="admin-rowbtns" style={{ gap: 8 }}>
+          <input className="field" style={{ width: 280 }} placeholder="id игрока (u_…) или сессии" value={user} onChange={(e) => setUser(e.target.value.trim())} />
+          <button className="btn-ghost sm" disabled={!user} onClick={() => setAsked(user)}>Показать</button>
+        </div>
+      </header>
+      <LoadState loading={rep.loading} error={rep.error}>
+        {!asked ? <p className="adm-dim">Введите id игрока — из «Пользователей», «Обрывов» или логов.</p>
+          : !ev.length ? <Empty text="Событий этого игрока в окне нет." /> : (
+          <div className="adm-tablewrap">
+            <table className="adm-table dense">
+              <thead><tr><th>время</th><th>событие</th><th>что</th><th>сессия</th></tr></thead>
+              <tbody>
+                {ev.map((e, i) => (
+                  <tr key={i}>
+                    <td className="muted" style={{ whiteSpace: "nowrap" }}>{dt(e.ts, 19)}</td>
+                    <td>{e.name}</td>
+                    <td className="muted">{e.gist}</td>
+                    <td className="muted">{(e.sid || "").slice(0, 8)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </LoadState>
     </section>

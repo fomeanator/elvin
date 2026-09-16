@@ -366,6 +366,16 @@ export const adminClientLogs = ({ day, device, session, level, tag, n }, token) 
     (tag ? "&tag=" + encodeURIComponent(tag) : "") +
     "&n=" + (n || 200), token);
 
+// Воронка по шагам по игрокам (TR-126): steps — «имя:ключ=знач,ключ>=N; …»,
+// особые progress:chapter=X,at>=N и screen=X; у обрыва — куда ушли вместо.
+export const analyticsSequence = (query, steps, token) =>
+  adminFetch("/v1/analytics/sequence?" + (query ? query + "&" : "") + "steps=" + encodeURIComponent(steps || ""), token);
+// Путь игрока: лента событий по времени.
+export const analyticsPlayer = (query, user, token) =>
+  adminFetch("/v1/analytics/player?" + (query ? query + "&" : "") + "user=" + encodeURIComponent(user || ""), token);
+// Пути с экрана: доля игроков по элементам и куда попали.
+export const analyticsPaths = (query, screen, token) =>
+  adminFetch("/v1/analytics/paths?" + (query ? query + "&" : "") + "screen=" + encodeURIComponent(screen || "home"), token);
 // GET /v1/analytics/usage — чем пользуются: экраны по времени, тапы по
 // элементам (TR-126).
 export const analyticsUsage = (query, token) =>
