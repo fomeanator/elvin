@@ -6,6 +6,7 @@ package main
 // same as the existing asset upload; no token — no admin surface at all.
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -14,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -106,7 +108,12 @@ var reHistoryTS = regexp.MustCompile(`^[0-9]{10,16}$`)
 
 // snapshotHistory copies the CURRENT file into content/.history/<rel>/<ms>.bak
 // before it gets overwritten; keeps the newest 50 per file.
-func snapshotHistory(content, rel string) {
+//
+// КТО И ЗАЧЕМ (TR-95, Илья: «история кто, что, когда»): рядом со снимком
+// ложится <ms>.meta.json — логин из сессии панели и пометка, откуда правка
+// (манифест из панели, каталог скинов, откат к версии…). «Что» история
+// считает сама, сравнивая соседние снимки (см. historyDelta).
+func snapshotHistory(content, rel string, tag ...string) {
 	if !historyEligible(rel) {
 		return
 	}
@@ -119,22 +126,111 @@ func snapshotHistory(content, rel string) {
 	if os.MkdirAll(dir, 0o755) != nil {
 		return
 	}
-	name := fmt.Sprintf("%d.bak", time.Now().UnixMilli())
-	_ = atomicWrite(filepath.Join(dir, name), data, 0o644)
+	now := time.Now()
+	name := fmt.Sprintf("%d", now.UnixMilli())
+	_ = atomicWrite(filepath.Join(dir, name+".bak"), data, 0o644)
+	meta := historyMeta{At: now.UTC().Format(time.RFC3339), Size: int64(len(data))}
+	if len(tag) > 0 {
+		meta.Who = tag[0]
+	}
+	if len(tag) > 1 {
+		meta.Note = tag[1]
+	}
+	if mj, err := json.Marshal(meta); err == nil {
+		_ = atomicWrite(filepath.Join(dir, name+".meta.json"), mj, 0o644)
+	}
 	entries, _ := os.ReadDir(dir)
-	if len(entries) > 50 {
-		names := make([]string, 0, len(entries))
-		for _, e := range entries {
-			names = append(names, e.Name())
+	var baks []string
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".bak") {
+			baks = append(baks, strings.TrimSuffix(e.Name(), ".bak"))
 		}
-		sort.Strings(names)
-		for _, n := range names[:len(names)-50] {
-			_ = os.Remove(filepath.Join(dir, n))
+	}
+	if len(baks) > 50 {
+		sort.Strings(baks)
+		for _, n := range baks[:len(baks)-50] {
+			_ = os.Remove(filepath.Join(dir, n+".bak"))
+			_ = os.Remove(filepath.Join(dir, n+".meta.json"))
 		}
 	}
 }
 
-// GET /v1/admin/history?file=<rel> — the file's saved versions, newest first.
+// historyMeta — кто и зачем сохранил версию; лежит рядом со снимком.
+type historyMeta struct {
+	Who  string `json:"who,omitempty"`
+	Note string `json:"note,omitempty"`
+	At   string `json:"at,omitempty"`
+	Size int64  `json:"size,omitempty"`
+}
+
+func readHistoryMeta(dir, ts string) historyMeta {
+	var m historyMeta
+	if data, err := os.ReadFile(filepath.Join(dir, ts+".meta.json")); err == nil {
+		_ = json.Unmarshal(data, &m)
+	}
+	return m
+}
+
+// historyDelta — «ЧТО» изменилось между двумя версиями, дёшево: сколько
+// строк добавилось и ушло (по мультимножеству строк, без LCS — файлы до
+// мегабайта и полсотни версий) и какие верхние ключи JSON тронуты.
+type historyDelta struct {
+	Added   int      `json:"added"`
+	Removed int      `json:"removed"`
+	Keys    []string `json:"keys,omitempty"`
+}
+
+func historyDeltaOf(older, newer []byte) historyDelta {
+	count := func(b []byte) map[string]int {
+		m := map[string]int{}
+		for _, ln := range strings.Split(string(b), "\n") {
+			m[ln]++
+		}
+		return m
+	}
+	a, b := count(older), count(newer)
+	var d historyDelta
+	for ln, n := range b {
+		if n > a[ln] {
+			d.Added += n - a[ln]
+		}
+	}
+	for ln, n := range a {
+		if n > b[ln] {
+			d.Removed += n - b[ln]
+		}
+	}
+	var oa, ob map[string]json.RawMessage
+	if json.Unmarshal(older, &oa) == nil && json.Unmarshal(newer, &ob) == nil {
+		for k, v := range ob {
+			if w, ok := oa[k]; !ok || !bytes.Equal(bytes.TrimSpace(v), bytes.TrimSpace(w)) {
+				d.Keys = append(d.Keys, k)
+			}
+		}
+		for k := range oa {
+			if _, ok := ob[k]; !ok {
+				d.Keys = append(d.Keys, "−"+k)
+			}
+		}
+		sort.Strings(d.Keys)
+	}
+	return d
+}
+
+// historyDeltaDepth — для скольких свежих версий история считает «что»:
+// остальные показываются без сводки, чтобы опрос сотни файлов не тормозил.
+const historyDeltaDepth = 12
+
+// actor — кто правит: логин из сессии панели, иначе «токен» (служебный ключ).
+func (s *AdminService) actor(r *http.Request) string {
+	if adminPeople != nil {
+		if sess := adminPeople.Session(r); sess != nil && sess.Login != "" {
+			return sess.Login
+		}
+	}
+	return "токен"
+}
+
 func (s *AdminService) handleHistory(w http.ResponseWriter, r *http.Request) {
 	if !s.ok(w, r) {
 		return
@@ -158,10 +254,15 @@ func (s *AdminService) handleHistory(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(data)
 		return
 	}
-	entries, _ := os.ReadDir(filepath.Join(s.content, ".history", rel))
+	dir := filepath.Join(s.content, ".history", rel)
+	entries, _ := os.ReadDir(dir)
 	type row struct {
-		TS   string `json:"ts"`
-		Size int64  `json:"size"`
+		TS    string        `json:"ts"`
+		Size  int64         `json:"size"`
+		Who   string        `json:"who,omitempty"`
+		Note  string        `json:"note,omitempty"`
+		At    string        `json:"at,omitempty"`
+		Delta *historyDelta `json:"delta,omitempty"` // что изменилось ПОСЛЕ этой версии (к следующей или к живому файлу)
 	}
 	var out []row
 	for _, e := range entries {
@@ -172,9 +273,35 @@ func (s *AdminService) handleHistory(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
-		out = append(out, row{TS: strings.TrimSuffix(e.Name(), ".bak"), Size: info.Size()})
+		ts := strings.TrimSuffix(e.Name(), ".bak")
+		meta := readHistoryMeta(dir, ts)
+		if meta.At == "" {
+			if ms, err := strconv.ParseInt(ts, 10, 64); err == nil {
+				meta.At = time.UnixMilli(ms).UTC().Format(time.RFC3339)
+			}
+		}
+		out = append(out, row{TS: ts, Size: info.Size(), Who: meta.Who, Note: meta.Note, At: meta.At})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].TS > out[j].TS })
+	// «ЧТО»: снимок — это состояние ДО правки, поэтому изменение версии i —
+	// разница между ней и тем, что стало после: следующим снимком или живым файлом.
+	for i := 0; i < len(out) && i < historyDeltaDepth; i++ {
+		older, err := os.ReadFile(filepath.Join(dir, out[i].TS+".bak"))
+		if err != nil {
+			continue
+		}
+		var newer []byte
+		if i == 0 {
+			newer, err = os.ReadFile(filepath.Join(s.content, rel))
+		} else {
+			newer, err = os.ReadFile(filepath.Join(dir, out[i-1].TS+".bak"))
+		}
+		if err != nil {
+			continue
+		}
+		d := historyDeltaOf(older, newer)
+		out[i].Delta = &d
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"file": rel, "versions": out})
 }
 
@@ -199,7 +326,7 @@ func (s *AdminService) handleRollback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeMu.Lock()
-	snapshotHistory(s.content, req.File)
+	snapshotHistory(s.content, req.File, s.actor(r), "откат к версии "+req.TS)
 	err = atomicWrite(filepath.Join(s.content, req.File), data, 0o644)
 	s.writeMu.Unlock()
 	if err != nil {
@@ -227,7 +354,7 @@ func (s *AdminService) handlePublish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeMu.Lock()
-	snapshotHistory(s.content, "manifest.json")
+	snapshotHistory(s.content, "manifest.json", s.actor(r), "публикация черновика манифеста")
 	err = atomicWrite(filepath.Join(s.content, "manifest.json"), data, 0o644)
 	s.writeMu.Unlock()
 	if err != nil {
@@ -326,7 +453,7 @@ func (s *AdminService) handleConfig(w http.ResponseWriter, r *http.Request) {
 		_ = json.Unmarshal(doc, &pretty)
 		data, _ := json.MarshalIndent(pretty, "", "  ")
 		s.writeMu.Lock()
-		snapshotHistory(s.content, name)
+		snapshotHistory(s.content, name, s.actor(r), name+" из панели")
 		err := atomicWrite(path, data, 0o644)
 		s.writeMu.Unlock()
 		if err != nil {
@@ -406,7 +533,7 @@ func (s *AdminService) handleManifest(w http.ResponseWriter, r *http.Request) {
 		data, _ := json.MarshalIndent(pretty, "", "  ")
 		s.writeMu.Lock()
 		if !draft {
-			snapshotHistory(s.content, "manifest.json")
+			snapshotHistory(s.content, "manifest.json", s.actor(r), "манифест из панели")
 		}
 		err := atomicWrite(path, data, 0o644)
 		s.writeMu.Unlock()

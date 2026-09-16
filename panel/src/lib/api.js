@@ -237,7 +237,8 @@ export const adminPutConfig = (name, doc, token) =>
     body: JSON.stringify(doc),
   });
 
-// GET /v1/admin/history?file=<rel> → { versions: [{ ts, size }] } (newest first).
+// GET /v1/admin/history?file=<rel> → { versions: [{ ts, size, who, note, at, delta:{added,removed,keys} }] }
+// (newest first; delta — что изменилось после этой версии, у свежих 12; TR-95).
 export const adminHistory = (file, token) =>
   adminFetch("/v1/admin/history?file=" + encodeURIComponent(file), token);
 

@@ -1261,7 +1261,7 @@ func (s *server) handleAdminAsset(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		snapshotHistory(s.content, rel) // scripts keep their past versions
+		snapshotHistory(s.content, rel, "", "публикация сценария (агент/редактор)") // scripts keep their past versions
 		err = atomicWrite(dst, body, 0o644)
 		etag := fileETag(s.content, rel)
 		lk.Unlock()
@@ -1283,7 +1283,7 @@ func (s *server) handleAdminAsset(w http.ResponseWriter, r *http.Request) {
 		// snapshot that makes the delete undoable.
 		lk := s.writeLock()
 		lk.Lock()
-		snapshotHistory(s.content, rel)
+		snapshotHistory(s.content, rel, "", "публикация сценария (агент/редактор)")
 		err := os.Remove(dst)
 		lk.Unlock()
 		if err != nil {

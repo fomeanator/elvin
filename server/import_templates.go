@@ -111,7 +111,7 @@ func (s *AdminService) handleImportTemplateDetail(w http.ResponseWriter, r *http
 			return
 		}
 		s.writeMu.Lock()
-		snapshotHistory(s.content, rel)
+		snapshotHistory(s.content, rel, "", "публикация сценария (агент/редактор)")
 		err := atomicWrite(path, data, 0o644)
 		s.writeMu.Unlock()
 		if err != nil {
@@ -133,7 +133,7 @@ func (s *AdminService) handleImportTemplateDetail(w http.ResponseWriter, r *http
 		// last saved version of a deleted template was simply gone (history
 		// only ever captured the version BEFORE the final save).
 		s.writeMu.Lock()
-		snapshotHistory(s.content, rel)
+		snapshotHistory(s.content, rel, "", "публикация сценария (агент/редактор)")
 		err := os.Remove(path)
 		s.writeMu.Unlock()
 		if err != nil && !os.IsNotExist(err) {
