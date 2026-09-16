@@ -878,6 +878,55 @@ function Health({ token, q }) {
 // Чем пользуются (TR-126): экраны по времени, у каждого — во что жмут и
 // сколько раз, и цепочки «нажал → сделал» с долей от тапов (клик по строке
 // раскрывает). Источник — минутные события ui_use с устройства.
+// ── СЛОВАРЬ ИМЁН (TR-134) ──
+// С устройства экраны и элементы приходят техническими именами (GachaScreen,
+// mtg:backdrop/cathedral_cage, txt:Крутить) — так их пишет оболочка. Панель
+// показывает человеческие слова, а исходное имя оставляет в подсказке: по
+// нему ищут в коде. Неизвестное имя показывается как есть — словарь не
+// обязан знать всё.
+const SCREEN_RU = {
+  home: "Главная", story: "Глава", boot: "Запуск", "story-panel": "Панель главы",
+  GachaScreen: "Крутки", WardrobeTabScreen: "Гардероб", TitlesScreen: "Список новелл",
+  TitleDetailScreen: "Карточка новеллы", PackShopScreen: "Магазин", ProfileScreen: "Профиль",
+  SettingsScreen: "Настройки", CgGalleryScreen: "Галерея", CutsceneGalleryScreen: "Катсцены",
+  DailyRewardsScreen: "Ежедневные награды", LeaderboardScreen: "Таблица лидеров", AuthScreen: "Вход",
+  ChapterEndScreen: "Конец главы", ShareLookScreen: "Поделиться образом", VisualElement: "Главная (сборки до 0540)",
+};
+const AXIS_RU = { backdrop: "фон", outfit: "наряд", hairstyle: "причёска", decor: "украшение", face: "лицо", emotion: "эмоция", avatar: "аватар", hair: "цвет волос", pose: "поза" };
+const EVENT_RU = {
+  choice_shown: "показан выбор", choice_pick: "сделан выбор", label_reach: "дошёл до метки",
+  chapter_start: "начал главу", chapter_finish: "дочитал главу", chapter_abandon: "ушёл из главы",
+  wardrobe_buy: "купил в гардеробе", wardrobe_equip: "надел", gacha_spin: "крутил", gacha_prize: "выбил приз",
+  purchase: "покупка", ad_reward: "награда за рекламу", first_screen: "первый экран", boot: "запуск",
+};
+const ELEMENT_RU = [
+  [/^NovelShell-container$/, () => "тап по сцене"],
+  [/^txt:(.+)$/, (m) => `кнопка «${m[1]}»`],
+  [/^(?:mtg|card)-?:?([^/]+)\/(.+)$/, (m) => `плитка ${AXIS_RU[m[1]] || m[1]}: ${m[2]}`],
+  [/^gacha-spin$/, () => "Крутить"], [/^gacha-auto-stop$/, () => "Стоп"], [/^gacha-take$/, () => "Забрать"],
+  [/^gacha-sell$/, () => "Продать"], [/^gacha-lane-plus$/, () => "Ленты +"], [/^gacha-lane-minus$/, () => "Ленты −"],
+  [/^gacha-case-(prev|next)$/, () => "переключить набор"], [/^gacha-case-info$/, () => "«?» о наборе"],
+  [/^gacha-contents-handle$/, () => "язычок «Содержимое»"],
+  [/^lvn-layer-(tabs|popups)$/, (m) => `пустое место (слой ${m[1] === "tabs" ? "вкладок" : "попапов"})`],
+  [/^tap$/, () => "тап без имени"],
+];
+function humanScreen(name) { return SCREEN_RU[name] || name; }
+function humanElement(name) {
+  for (const [re, to] of ELEMENT_RU) { const m = re.exec(name || ""); if (m) return to(m); }
+  return name;
+}
+function humanOutcome(name) {
+  const m = /^screen[:=](.+)$/.exec(name || "");
+  if (m) return "перешёл: " + humanScreen(m[1]);
+  return EVENT_RU[name] || name;
+}
+// Подпись с исходным именем в подсказке — если слово отличается от имени.
+function Named({ raw, text, bold }) {
+  const label = text ?? raw;
+  const inner = bold ? <b>{label}</b> : label;
+  return label === raw ? <span>{inner}</span> : <span title={raw}>{inner}</span>;
+}
+
 function Usage({ token, q }) {
   const rep = useAsync(() => analyticsUsage(q, token), [q, token]);
   const d = rep.data || {};
@@ -899,13 +948,13 @@ function Usage({ token, q }) {
               <tbody>
                 {screens.map((r) => (
                   <tr key={r.screen} onClick={() => setOpen(open === r.screen ? null : r.screen)} style={{ cursor: "pointer" }}>
-                    <td><span className="adm-cell-main">{r.screen}</span></td>
+                    <td><span className="adm-cell-main"><Named raw={r.screen} text={humanScreen(r.screen)} /></span></td>
                     <td className="num">{mmss(r.seconds)}</td>
                     <td><Meter value={r.share} /></td>
                     <td className="num">{fmt(r.taps)}</td>
                     <td className="muted">
                       {(r.elements || []).slice(0, open === r.screen ? 40 : 4).map((e) => (
-                        <span key={e.name} style={{ marginRight: 10, whiteSpace: "nowrap" }}>{e.name} <b>{fmt(e.count)}</b></span>
+                        <span key={e.name} style={{ marginRight: 10, whiteSpace: "nowrap" }}><Named raw={e.name} text={humanElement(e.name)} /> <b>{fmt(e.count)}</b></span>
                       ))}
                       {(r.elements || []).length > 4 && open !== r.screen && <span>…</span>}
                       {open === r.screen && (r.chains || []).length > 0 && (
@@ -913,7 +962,7 @@ function Usage({ token, q }) {
                           <div className="adm-dim">нажал → сделал (доля от тапов по элементу):</div>
                           {r.chains.map((c) => (
                             <div key={c.element + ">" + c.outcome}>
-                              <b>{c.element}</b> → {c.outcome} <span className="muted">{fmt(c.n)} · {Math.round((c.share || 0) * 100)}%</span>
+                              <Named raw={c.element} text={humanElement(c.element)} bold /> → <Named raw={c.outcome} text={humanOutcome(c.outcome)} /> <span className="muted">{fmt(c.n)} · {Math.round((c.share || 0) * 100)}%</span>
                             </div>
                           ))}
                         </div>
@@ -996,13 +1045,13 @@ function Paths({ token, q }) {
         <h2>Пути с экрана</h2>
         <div className="admin-rowbtns" style={{ gap: 8, flexWrap: "wrap" }}>
           {(d.screens || []).map((s) => (
-            <button key={s.name} className={"btn-ghost sm" + (screen === s.name ? " active" : "")} onClick={() => setScreen(s.name)}>{s.name} <span className="muted">{fmt(s.count)}</span></button>
+            <button key={s.name} className={"btn-ghost sm" + (screen === s.name ? " active" : "")} onClick={() => setScreen(s.name)}><Named raw={s.name} text={humanScreen(s.name)} /> <span className="muted">{fmt(s.count)}</span></button>
           ))}
           <input className="field" style={{ width: 160 }} placeholder="экран" value={screen} onChange={(e) => setScreen(e.target.value.trim() || "home")} />
         </div>
       </header>
       <LoadState loading={rep.loading} error={rep.error}>
-        <p className="adm-dim">На экране «{d.screen}» было игроков: <b>{fmt(d.players || 0)}</b>. Доля — от них; «куда попали» — по игрокам.</p>
+        <p className="adm-dim">На экране «{humanScreen(d.screen)}» было игроков: <b>{fmt(d.players || 0)}</b>. Доля — от них; «куда попали» — по игрокам.</p>
         {d.note && <p className="adm-dim">⚠ {d.note}</p>}
         {!els.length ? <Empty text="Нажатий на этом экране в окне нет." /> : (
           <div className="adm-tablewrap">
@@ -1011,11 +1060,11 @@ function Paths({ token, q }) {
               <tbody>
                 {els.map((e) => (
                   <tr key={e.element}>
-                    <td><span className="adm-cell-main">{e.element}</span></td>
+                    <td><span className="adm-cell-main"><Named raw={e.element} text={humanElement(e.element)} /></span></td>
                     <td className="num">{fmt(e.players)}</td>
                     <td><Meter value={e.share} /></td>
                     <td className="num muted">{fmt(e.taps)}</td>
-                    <td className="muted">{(e.next || []).map((n) => <span key={n.name} style={{ marginRight: 10, whiteSpace: "nowrap" }}>{n.name} <b>{fmt(n.count)}</b></span>)}</td>
+                    <td className="muted">{(e.next || []).map((n) => <span key={n.name} style={{ marginRight: 10, whiteSpace: "nowrap" }}><Named raw={n.name} text={humanScreen(n.name)} /> <b>{fmt(n.count)}</b></span>)}</td>
                   </tr>
                 ))}
               </tbody>
