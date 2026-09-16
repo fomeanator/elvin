@@ -17,7 +17,7 @@ func TestSkinsCollectApplyRoundTrip(t *testing.T) {
 	  "ui": {
 	    "wardrobe": {"rarity_colors": {"rare": "#4b69ff"}},
 	    "browse": {
-	      "canvas_options": [{"id": "hall", "title": "Зал", "url": "/bg/hall.jpg", "spine": "/spine/hall/", "price": 120, "currency": "crystals", "rarity": "rare"}],
+	      "canvas_options": [{"id": "hall", "title": "Зал", "url": "/bg/hall.jpg", "spine": "/spine/hall/", "still": false, "price": 120, "currency": "crystals", "rarity": "rare"}],
 	      "avatars": [{"id": "free1", "url": "/art/a.png"}, {"id": "vip", "url": "/art/v.png", "price": 50, "currency": "crystals"}]
 	    }
 	  },
@@ -115,6 +115,9 @@ func TestSkinsCollectApplyRoundTrip(t *testing.T) {
 	}
 	if skinStr(hall, "spine") != "/spine/hall/" {
 		t.Fatalf("живой фон (spine) не пережил сбор и раскладку: %+v", hall)
+	}
+	if v, ok := hall["still"].(bool); !ok || v {
+		t.Fatalf("явное «увеличение есть» (still:false) не пережило сбор и раскладку: %+v", hall)
 	}
 	colors := skinDig(m, "ui", "wardrobe", "rarity_colors")
 	if skinStr(colors, "uncommon") != "#5e98d9" {

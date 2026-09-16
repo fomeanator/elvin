@@ -639,6 +639,7 @@ namespace Lvn.Content
         public string url;
         public string preview;    // маленькая картинка для витрины; пусто — берём url
         public string spine;      // живой фон: папка спайна (/content/spine/имя/); url — обложка плитки и подложка под спайном (TR-133)
+        public bool? still;       // без увеличения и панорамы между комнатами; пусто — спайн неподвижен, картинка едет (Илья 16.09: «выбор — есть увеличение фона или нет»)
         public string currency;   // ключ кошелька; пусто — валюта по умолчанию
         public long price;        // 0 — бесплатный
         public string rarity;     // необязательный ключ подсветки

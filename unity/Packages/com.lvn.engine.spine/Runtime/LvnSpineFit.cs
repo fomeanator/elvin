@@ -186,6 +186,31 @@ namespace Lvn.Spine
                         sb.Append('[').Append(t2.width).Append('x').Append(t2.height).Append(' ').Append(t2.format).Append(']');
                     sb.Append(" color=").Append(rends[i].GetColor());
                 }
+                // ФАКТЫ О СКЕЛЕТЕ (16.09: «фон показался, но спайна нет»): скин,
+                // сколько слотов реально несут картинку и видимы по цвету,
+                // границы и текущая анимация — без этого «собрался» ≠ «виден».
+                var sk = _g.Skeleton;
+                if (sk != null)
+                {
+                    int drawn = 0, opaque = 0;
+                    var dro = sk.DrawOrder;
+                    for (int i = 0; i < dro.Count; i++)
+                    {
+                        var slot = dro.Items[i];
+                        if (slot.Attachment == null) continue;
+                        drawn++;
+                        if (slot.A > 0.05f) opaque++;
+                    }
+                    float bx, by, bw, bh; float[] buf = null;
+                    sk.GetBounds(out bx, out by, out bw, out bh, ref buf);
+                    var track = _g.AnimationState != null ? _g.AnimationState.GetCurrent(0) : null;
+                    sb.Append(" skin=").Append(sk.Skin != null ? sk.Skin.Name : "-")
+                      .Append(" drawn=").Append(drawn).Append('/').Append(dro.Count).Append(" visible=").Append(opaque)
+                      .Append(" bounds=").Append((int)bx).Append(',').Append((int)by).Append(' ').Append((int)bw).Append('x').Append((int)bh)
+                      .Append(" anim=").Append(track != null && track.Animation != null ? track.Animation.Name : "-")
+                      .Append(" alpha=").Append(_cg != null ? _cg.alpha.ToString("F2") : "-")
+                      .Append(" active=").Append(_g.gameObject.activeInHierarchy);
+                }
                 var line = sb.ToString();
                 // В КОНСОЛЬ — БЕЗ КРИКА. Рентген печатается на каждый скелет, а
                 // скелет рождается заново при каждой пересборке карточки: в
