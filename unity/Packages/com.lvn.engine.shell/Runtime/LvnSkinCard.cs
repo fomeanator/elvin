@@ -46,7 +46,12 @@ namespace Lvn.UI.Screens
             public float? Radius; public Color? TextColor;
         }
 
-        public const float BaseWidth = 150f, BaseHeight = 208f;
+        // 150×208 → 160×218: «на 10 саму карточку по диагонали» — имя не
+        // влезало в подложку (скрин ленты гардероба, Илья 16.09).
+        public const float BaseWidth = 160f, BaseHeight = 218f;
+        /// <summary>Сколько подложка имени выше прежней с каждой стороны:
+        /// «на 8 пикселей увеличить подложку» (Илья 16.09).</summary>
+        private const float PlateGrow = 4f;
         // Платина #D1D1D6 (Илья 26.08) вместо прежней тускло-серой заливки:
         // арт скинов тёмный, и светлый задник держит его силуэт.
         public static readonly Color Platinum = UiColor.Named("#D1D1D6", new Color(0.82f, 0.82f, 0.84f));
@@ -169,9 +174,12 @@ namespace Lvn.UI.Screens
         private void ApplyScale()
         {
             float k = _scale, t = Text;
-            _name.style.fontSize = LvnTokens.TextSm * t;
+            // Имя на ступень мельче (TextSm → TextXs): «текст на один порядок
+            // уменьшить» — в прежнем кегле «Орхидея» резалась в «Орхиде…».
+            _name.style.fontSize = LvnTokens.TextXs * t;
             LvnAir.Pad(_plate, LvnTokens.Space1 * k);
-            _plate.style.paddingBottom = LvnTokens.Space1 * k + (_bar.style.display == DisplayStyle.Flex ? 4f * k : 0f);
+            _plate.style.paddingTop = (LvnTokens.Space1 + PlateGrow) * k;
+            _plate.style.paddingBottom = (LvnTokens.Space1 + PlateGrow) * k + (_bar.style.display == DisplayStyle.Flex ? 4f * k : 0f);
             _bar.style.height = 4f * k;
             _hanger.style.width = 42f * k; _hanger.style.height = 42f * k;
             float ring = 26f * k;

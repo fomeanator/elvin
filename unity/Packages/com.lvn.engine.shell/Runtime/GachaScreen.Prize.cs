@@ -388,21 +388,22 @@ namespace Lvn.UI.Screens
                 // целиком): причёска — к голове, платье — к корпусу, фон —
                 // заливкой; окно обрезает излишек, лучи остаются снаружи.
                 var look = InfoFor(prize, RarityPalette, null, owned: false);
-                float zoom = look.Cover ? 1f : Mathf.Max(1f, look.Frame * LvnSkinDetail.DetailZoom);
-                var frame = new VisualElement { name = "gacha-frame", pickingMode = PickingMode.Ignore };
-                LvnChrome.Stretch(frame);
-                frame.style.overflow = Overflow.Hidden;
-                LvnChrome.Round(frame, LvnTokens.RadiusSm);
-                var picture = new VisualElement { name = "gacha-picture", pickingMode = PickingMode.Ignore };
-                picture.style.position = Position.Absolute;
-                picture.style.width = Length.Percent(zoom * 100f);
-                picture.style.height = Length.Percent(zoom * 100f);
-                picture.style.left = Length.Percent(50f - zoom * 100f * 0.5f);
-                picture.style.top = Length.Percent(50f - zoom * 100f * look.FrameY);
-                LvnPicture.Fit(picture, cover: look.Cover);
-                LvnPicture.Paint(picture, sprite, slice: 0);
-                frame.Add(picture);
-                _rewardArt.Add(frame);
+                // ОДНА ПЛИТКА НА ВСЕ ЭКРАНЫ («везде скин должен одним компонентом
+                // рисоваться, и маленький, и большой вариант» — Илья 16.09):
+                // церемония показывает ту же LvnSkinCard, что лента и деталь,
+                // только крупную; кадр по разделу и подложка имени — её. Спрайт
+                // выше прогрет заранее, чтобы проявление шло по готовому арту.
+                var card = new LvnSkinCard { name = "gacha-picture", pickingMode = PickingMode.Ignore };
+                float h = _rewardArt.resolvedStyle.height;
+                if (float.IsNaN(h) || h <= 1f) h = LvnStageKit.D(280f);
+                card.SetSize(h * LvnSkinCard.BaseWidth / LvnSkinCard.BaseHeight, h);
+                card.Bind(new LvnSkinCard.Info
+                {
+                    Title = look.Title, Art = look.Art, SharpArt = true,
+                    Frame = look.Cover ? 1f : Mathf.Max(1f, look.Frame * LvnSkinDetail.DetailZoom), FrameY = look.FrameY, Cover = look.Cover,
+                    Rarity = look.Rarity, Owned = true, Radius = look.Radius, TextColor = look.TextColor,
+                }, _assets);
+                _rewardArt.Add(card);
                 LvnLog.Info($"[lvn-gacha] арт приза показан: {prize.Art} ({sprite.rect.width:0}×{sprite.rect.height:0})");
                 _rewardArt.schedule.Execute(() => LvnLog.Info(
                     $"[lvn-gacha] арт приза: окно {_rewardArt.resolvedStyle.width:0}×{_rewardArt.resolvedStyle.height:0}, "
