@@ -61,8 +61,8 @@ namespace Lvn.Tests
         [Test]
         public void DigitsArePartOfTheName()
         {
-            // «Виктория 2» и «victoria_2» — один персонаж, а не два.
-            Assert.AreEqual(LvnKey.Normalize("Виктория 2"), LvnKey.Normalize("виктория2"));
+            // «Мира 2» и «mira_2» — один персонаж, а не два.
+            Assert.AreEqual(LvnKey.Normalize("Мира 2"), LvnKey.Normalize("мира2"));
             Assert.AreNotEqual(LvnKey.Normalize("hero1"), LvnKey.Normalize("hero2"),
                 "цифра — часть имени, а не разделитель");
         }

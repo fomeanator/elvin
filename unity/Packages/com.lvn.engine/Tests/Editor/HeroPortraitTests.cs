@@ -12,7 +12,7 @@ namespace Lvn.Tests
     /// </summary>
     public class HeroPortraitTests
     {
-        private static LvnManifest Hero(string entity = "victoria")
+        private static LvnManifest Hero(string entity = "mira")
         {
             var m = new LvnManifest
             {
@@ -40,7 +40,7 @@ namespace Lvn.Tests
         }
 
         [TearDown]
-        public void Reset() => LvnWardrobe.Clear("victoria");
+        public void Reset() => LvnWardrobe.Clear("mira");
 
         /// <summary>Надел наряд — лицо взяло его немедленно.</summary>
         [Test]
@@ -51,7 +51,7 @@ namespace Lvn.Tests
             Assert.IsNotNull(before, "у героя с слоями портрет обязан собираться");
             CollectionAssert.Contains(before, "/art/body_base.png");
 
-            LvnWardrobe.Equip("victoria", "outfit", "winter");
+            LvnWardrobe.Equip("mira", "outfit", "winter");
             var after = LvnHeroPortrait.Layers(m);
             CollectionAssert.Contains(after, "/art/body_winter.png",
                 "портрет остался в прежнем наряде — он отстал от гардероба");

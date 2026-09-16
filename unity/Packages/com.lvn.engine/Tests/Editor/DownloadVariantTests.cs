@@ -166,7 +166,7 @@ namespace Lvn.Tests
             {
                 var expected = DownloadPolicy.SuffixFor(Lvn.LvnDeviceProfile.RecommendedArtQuality());
                 StringAssert.EndsWith(expected + ".png",
-                    DownloadPolicy.DownscaleVariant("/sprites/hill/body_west.png"),
+                    DownloadPolicy.DownscaleVariant("/sprites/hero/body_west.png"),
                     "без присваивания бокс обязан совпадать с советом устройства — " +
                     "иначе прогрев и показ берут разные файлы");
             }

@@ -154,22 +154,24 @@ namespace Lvn.Tests
             Assert.AreEqual(2, _seen.Lines.Count, "обычное касание обязано листать");
         }
 
-        /// <summary>«Сцена занята сама собой» — это ПАУЗА пропуска, а не его
-        /// отмена: перемотка обязана продолжиться сама, когда `wait` истечёт.</summary>
+        /// <summary>АВТОРСКАЯ ПАУЗА ПРОМОТКЕ НЕ УКАЗ (TR-122, Илья: «×100 должно
+        /// прям пролетать»): `wait`, который глотает касание, — ритм чтения, и
+        /// перечитывающий его уже прожил. Перемотка снимает паузу и листает
+        /// дальше сама, не гаснув. Раньше пауза её держала — теперь это правило
+        /// живёт только у формы ввода (тест ниже).</summary>
         [Test]
-        public void ПропускНаВремяWaitВстаётНоНеОтменяется()
+        public void ПропускПролетаетАвторскуюПаузуИНеГаснет()
         {
             _stage.StartSkip();
             Assert.IsTrue(_stage.Skipping, "sanity: перемотка пошла");
 
             Set("_awaitingWait", true);
             Call("SkipTick");
-            Assert.AreEqual(1, _seen.Lines.Count, "перемотка проскочила паузу автора");
-            Assert.IsTrue(_stage.Skipping, "пауза не должна ГАСИТЬ перемотку — только держать");
+            Assert.AreEqual(2, _seen.Lines.Count, "перемотка обязана пролететь паузу автора");
+            Assert.IsTrue(_stage.Skipping, "пауза не гасит перемотку");
 
-            Set("_awaitingWait", false);
             Call("SkipTick");
-            Assert.AreEqual(2, _seen.Lines.Count, "пауза кончилась — перемотка идёт дальше");
+            Assert.AreEqual(3, _seen.Lines.Count, "после паузы перемотка идёт дальше");
         }
 
         /// <summary>Форма ввода держит перемотку так же, как `wait`: иначе она

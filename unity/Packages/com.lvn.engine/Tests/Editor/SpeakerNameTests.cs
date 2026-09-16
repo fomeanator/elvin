@@ -9,7 +9,7 @@ namespace Lvn.Tests
     ///
     /// <para>В живом контенте партнёрской новеллы имена персонажей переведены в
     /// словаре оболочки и не переведены в каталогах глав (52 случая из 84
-    /// проверенных). Игрок с английским интерфейсом видел «Victoria» в
+    /// проверенных). Игрок с английским интерфейсом видел «Mira» в
     /// гардеробе и «Виктория» над репликой той же героини.</para>
     /// </summary>
     public sealed class SpeakerNameTests
@@ -24,7 +24,7 @@ namespace Lvn.Tests
         private static Dictionary<string, LvnSpriteEntity> Cast()
             => new Dictionary<string, LvnSpriteEntity>
             {
-                ["victoria"] = new LvnSpriteEntity { name = "Виктория" },
+                ["mira"] = new LvnSpriteEntity { name = "Виктория" },
             };
 
         // Имя из скрипта — авторская строка; перевод лежит по ключу от
@@ -33,11 +33,11 @@ namespace Lvn.Tests
         public void AuthoredNameResolvesThroughTheActorId()
         {
             LvnWords.LearnActors(Cast());
-            LvnWords.Translate(new Dictionary<string, string> { ["actor.victoria"] = "Victoria" });
+            LvnWords.Translate(new Dictionary<string, string> { ["actor.mira"] = "Mira" });
 
-            Assert.AreEqual("Victoria", LvnWords.Speaker("Виктория"),
+            Assert.AreEqual("Mira", LvnWords.Speaker("Виктория"),
                 "имя над репликой — то же, что в гардеробе");
-            Assert.AreEqual("Victoria", LvnWords.Speaker("victoria"),
+            Assert.AreEqual("Mira", LvnWords.Speaker("mira"),
                 "по идентификатору тоже: скрипт вправе называть актёра им");
         }
 

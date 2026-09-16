@@ -12,7 +12,7 @@ namespace Lvn.Tests
     /// </summary>
     public class LookOfferTests
     {
-        private const string Hero = "victoria";
+        private const string Hero = "mira";
 
         private static LvnManifest Catalog()
         {
