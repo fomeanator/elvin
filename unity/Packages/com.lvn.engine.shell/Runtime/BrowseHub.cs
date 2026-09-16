@@ -451,7 +451,18 @@ namespace Lvn.UI.Screens
         // обычную обложку.
         private LvnSpineRef SpineForTitle(LvnTitle t)
         {
-            if (_sprites == null || t == null || t.id != SpineTitleId) return null;
+            if (t == null) return null;
+            // СВОЙ СПАЙН У ТИТУЛА (TR-132): ключ каталога или папка комплекта.
+            // Так каждая новелла получает свою живую сцену на карточке, а не
+            // одну и ту же Ноэль («там Ноэль везде» — Илья 16.09).
+            if (!string.IsNullOrEmpty(t.spine))
+            {
+                if (_sprites != null && _sprites.TryGetValue(t.spine, out var named) && named?.spine != null)
+                    return named.spine;
+                var byUrl = LvnSpineRef.FromUrl(t.spine);
+                if (byUrl != null) { byUrl.fit = "cover"; return byUrl; }
+            }
+            if (_sprites == null || t.id != SpineTitleId) return null;
             foreach (var kv in _sprites)
                 if (kv.Value != null && kv.Value.spine != null)
                     return kv.Value.spine;

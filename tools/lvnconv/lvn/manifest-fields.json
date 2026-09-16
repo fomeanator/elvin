@@ -69,6 +69,7 @@
     "canvas_options": "CanvasOption",
     "canvas_pan": "float",
     "canvas_pan_step": "float",
+    "canvas_spine": "string",
     "card_color": "string",
     "card_radius": "float",
     "card_text_color": "string",
@@ -133,6 +134,7 @@
     "preview": "string",
     "price": "long",
     "rarity": "string",
+    "spine": "string",
     "title": "string",
     "url": "string"
   },
@@ -439,6 +441,7 @@
     "locked_hint": "string",
     "name": "string",
     "seasons": "LvnSeason",
+    "spine": "string",
     "stats": "LvnStatDef",
     "subtitle": "string",
     "type": "string",

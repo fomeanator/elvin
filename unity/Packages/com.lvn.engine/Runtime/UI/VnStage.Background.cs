@@ -85,7 +85,44 @@ namespace Lvn.UI
             _active3DSetId = null;
         }
 
-        private async Task ApplyBgAsync(JObject cmd)
+        // ── ЖИВОЙ ФОН (TR-132, TR-133) ──
+        // Фон может быть спайн-сценой: `bg` с полем `spine` (папка комплекта)
+        // ставит поверх полотна, во весь кадр и позади всех, спайн-скелет. Это
+        // всё ещё ФОН — команда `bg`, слой отправителя, полотно под ним как
+        // подложка и обложка, — а рисует его тот же путь, что спайн-персонажей:
+        // другого способа показать скелет на сцене нет («вампирский сад,
+        // красивый, вот такие фоны надо сделать» — Илья 16.09).
+        private const string BgSpineId = "__bg_spine";
+        private const int BgSpineZ = -10;   // позади героини (у неё 0)
+        private string _bgSpineShown;
+
+        /// <summary>Стоит ли сейчас живой фон <paramref name="spine"/> (пусто —
+        /// «никакого»). Меню спрашивает перед тем, как слать `bg` заново.</summary>
+        public bool ShowsBgSpine(string spine)
+            => string.IsNullOrEmpty(spine) ? _bgSpineShown == null
+               : _bgSpineShown == spine && ActorVisibleOrPending(BgSpineId);
+
+        private void ApplyBgSpine(string spine, string under, LvnSender sender)
+        {
+            if (!string.IsNullOrEmpty(spine))
+            {
+                if (ShowsBgSpine(spine)) return;
+                _bgSpineShown = spine;
+                LvnLog.Trace($"[lvn-bg] живой фон: {spine} (подложка {under ?? "-"})");
+                ApplyStage(new JObject
+                {
+                    ["op"] = "actor", ["id"] = BgSpineId, ["spine"] = spine, ["spine_bg"] = under,
+                    ["fit"] = "cover", ["z"] = BgSpineZ, ["position"] = "center", ["show"] = true,
+                }, sender);
+            }
+            else if (_bgSpineShown != null)
+            {
+                _bgSpineShown = null;
+                ApplyStage(new JObject { ["op"] = "actor", ["id"] = BgSpineId, ["show"] = false }, sender);
+            }
+        }
+
+        private async Task ApplyBgAsync(JObject cmd, LvnSender sender = LvnSender.Story)
         {
             var url = (string)cmd["sprite_url"];
             // bg id="porch" — resolve the catalog entity to its (first) layer url.
@@ -99,6 +136,7 @@ namespace Lvn.UI
                 }
             }
             if (string.IsNullOrEmpty(url)) return;
+            ApplyBgSpine((string)cmd["spine"], url, sender);   // до «та же команда»: слой меню мог закрыться и открыться
             // ПОВТОР ТОЙ ЖЕ КОМАНДЫ — NO-OP. Реплей восстановления (и любой
             // двойной вызов) переустанавливал фон: кроссфейд в самого себя и
             // рестарт пана с левого края — «фон дёргает туда-сюда» (живой

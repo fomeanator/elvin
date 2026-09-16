@@ -36,6 +36,7 @@ type skin struct {
 	Description string   `json:"description,omitempty"`  // описание — в подробностях плитки (Илья 15.09)
 	Art         string   `json:"art,omitempty"`          // полный арт (слой, картина, аватар)
 	Preview     string   `json:"preview,omitempty"`      // мини для витрины (фоны)
+	Spine       string   `json:"spine,omitempty"`        // живой фон меню: папка спайна (/content/spine/имя/); art остаётся обложкой и подложкой (TR-133)
 	Rarity      string   `json:"rarity,omitempty"`       // ступень; цвет — у палитры ступеней
 	Price       int64    `json:"price,omitempty"`        // цена скина: покупка в гардеробе и продажа копии
 	Currency    string   `json:"currency,omitempty"`     //
@@ -254,7 +255,7 @@ func collectSkins(manifest map[string]any, gacha gachaConfig, existing skinsConf
 			continue
 		}
 		add(skin{SKU: backdropSKU(skinStr(o, "id")), Kind: "backdrop", Name: skinStr(o, "title"), Description: skinStr(o, "description"),
-			Art: skinStr(o, "url"), Preview: skinStr(o, "preview"), Rarity: skinStr(o, "rarity"),
+			Art: skinStr(o, "url"), Preview: skinStr(o, "preview"), Spine: skinStr(o, "spine"), Rarity: skinStr(o, "rarity"),
 			Price: int64(skinNum(o, "price")), Currency: skinStr(o, "currency"), Buy: skinNum(o, "price") > 0,
 			Hidden: skinBool(o, "hidden"), SellPrice: int64(skinNum(o, "sell_price")), Order: int(skinNum(o, "order")), Tags: skinStr(o, "tags")})
 	}
@@ -482,6 +483,7 @@ func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) in
 		setIf(o, "title", sk.Name)
 		setIf(o, "url", sk.Art)
 		setIf(o, "preview", sk.Preview)
+		setOrDrop(o, "spine", sk.Spine, sk.Spine != "")
 		applyCommon(o, sk)
 		placed++
 	}
@@ -512,6 +514,7 @@ func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) in
 			o := map[string]any{"id": strings.TrimPrefix(sk.SKU, "wardrobe:menu:backdrop:"), "url": sk.Art}
 			setIf(o, "title", sk.Name)
 			setIf(o, "preview", sk.Preview)
+		setOrDrop(o, "spine", sk.Spine, sk.Spine != "")
 			applyCommon(o, sk)
 			browse["canvas_options"] = append(ensureList(browse, "canvas_options"), o)
 			placed++

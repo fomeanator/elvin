@@ -316,7 +316,7 @@ namespace Lvn.UI
             _onScreen.Absorb(command);
             switch ((string)command["op"])
             {
-                case "bg": LvnAsync.Fire(ApplyBgAsync(command), "ApplyBg"); break;
+                case "bg": LvnAsync.Fire(ApplyBgAsync(command, sender), "ApplyBg"); break;
                 case "bg3d": LvnAsync.Fire(ApplyBg3DAsync(command), "ApplyBg3D"); break;
                 case "actor": LvnAsync.Fire(ApplyActorAsync(command, sender: sender), "ApplyActor"); break;
                 case "obj": LvnAsync.Fire(ApplyActorAsync(command, sender: sender), "ApplyActor"); break; // any placeable sprite
