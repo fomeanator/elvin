@@ -57,10 +57,16 @@ TESTHOST_UNITY_RE='^([^[:space:]]*/)?[U]nity[[:space:]]'
 TESTHOST_PROJECT_RE="-project[Pp]ath[[:space:]]+${TESTHOST_PATH_RE}([[:space:]]|$)"
 TESTHOST_BATCH_RE="${TESTHOST_UNITY_RE}.*(-batchmode[[:space:]].*${TESTHOST_PROJECT_RE}|${TESTHOST_PROJECT_RE}.*-batchmode([[:space:]]|$))"
 
+# pgrep — в байтовой локали. В UTF-8 он спотыкается о чужой argv с
+# обрезанной посреди символа кириллицей (фоновый zsh -c с русским текстом)
+# и выходит кодом 3 «illegal byte sequence» — прогон падал на старте, хотя
+# TestHost был свободен (16.09, дважды за вечер).
+pgrep_bytes() { LC_ALL=C pgrep "$@"; }
+
 wait_for_testhost() {
   local waited=0 status
   while :; do
-    pgrep -f -- "$TESTHOST_BATCH_RE" >/dev/null 2>&1
+    pgrep_bytes -f -- "$TESTHOST_BATCH_RE" >/dev/null 2>&1
     status=$?
     case "$status" in
       1) return 0 ;;
@@ -88,8 +94,8 @@ wait_for_testhost || exit 1
 # прогоны на весь рабочий день.
 #
 # Спрашиваем прямо: есть ли процесс редактора, которому передан путь стенда.
-if pgrep -f -- "${TESTHOST_UNITY_RE}.*${TESTHOST_PROJECT_RE}" >/dev/null 2>&1; then
-  if ! pgrep -f -- "$TESTHOST_BATCH_RE" >/dev/null 2>&1; then
+if pgrep_bytes -f -- "${TESTHOST_UNITY_RE}.*${TESTHOST_PROJECT_RE}" >/dev/null 2>&1; then
+  if ! pgrep_bytes -f -- "$TESTHOST_BATCH_RE" >/dev/null 2>&1; then
     echo "FAIL: TestHost открыт в редакторе — закрой ЕГО (игру можно не трогать)"; exit 1
   fi
 fi
