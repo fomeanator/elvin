@@ -514,7 +514,7 @@ func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) in
 			o := map[string]any{"id": strings.TrimPrefix(sk.SKU, "wardrobe:menu:backdrop:"), "url": sk.Art}
 			setIf(o, "title", sk.Name)
 			setIf(o, "preview", sk.Preview)
-		setOrDrop(o, "spine", sk.Spine, sk.Spine != "")
+			setOrDrop(o, "spine", sk.Spine, sk.Spine != "")
 			applyCommon(o, sk)
 			browse["canvas_options"] = append(ensureList(browse, "canvas_options"), o)
 			placed++
@@ -633,7 +633,7 @@ func (s *SkinsService) Collect() (skinsConfig, error) {
 	}
 	cfg := collectSkins(manifest, gacha, s.cfg.Get())
 	data, _ := json.MarshalIndent(cfg, "", "  ")
-	snapshotHistory(s.content, skinsFile)
+	snapshotHistory(s.content, skinsFile, "", "сбор каталога из манифеста")
 	if err := atomicWrite(skinsPath, data, 0o644); err != nil {
 		return cfg, err
 	}
@@ -660,11 +660,11 @@ func (s *SkinsService) Apply() (int, error) {
 	placed := applySkins(cfg, manifest, &gacha)
 	mdata, _ := json.MarshalIndent(manifest, "", "  ")
 	gdata, _ := json.MarshalIndent(gacha, "", "  ")
-	snapshotHistory(s.content, "manifest.json")
+	snapshotHistory(s.content, "manifest.json", "", "раскладка каталога скинов")
 	if err := atomicWrite(manifestPath, mdata, 0o644); err != nil {
 		return placed, err
 	}
-	snapshotHistory(s.content, "gacha.json")
+	snapshotHistory(s.content, "gacha.json", "", "раскладка каталога скинов")
 	if err := atomicWrite(gachaPath, gdata, 0o644); err != nil {
 		return placed, err
 	}

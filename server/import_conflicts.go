@@ -233,7 +233,7 @@ func (a *conflictAPI) handleResolve(w http.ResponseWriter, r *http.Request) {
 			if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 				return err
 			}
-			snapshotHistory(a.srv.content, rel)
+			snapshotHistory(a.srv.content, rel, "", "публикация сценария (агент/редактор)")
 			return atomicWrite(dst, data, 0o644)
 		},
 	})

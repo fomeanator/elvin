@@ -623,7 +623,7 @@ func (s *server) writeContentFile(rel string, data []byte) error {
 	if old, err := os.ReadFile(dst); err == nil && bytes.Equal(old, data) {
 		return nil
 	}
-	snapshotHistory(s.content, rel)
+	snapshotHistory(s.content, rel, "", "публикация сценария (агент/редактор)")
 	return atomicWrite(dst, data, 0o644)
 }
 
@@ -746,6 +746,6 @@ func (s *server) registerChapter(req publishReq, scriptRel string) error {
 	if err != nil {
 		return err
 	}
-	snapshotHistory(s.content, "manifest.json")
+	snapshotHistory(s.content, "manifest.json", "", "публикация сценария (агент/редактор)")
 	return atomicWrite(path, append(out, '\n'), 0o644)
 }

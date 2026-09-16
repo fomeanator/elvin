@@ -69,6 +69,9 @@ export function buildFeed(historyByFile, files) {
         size: Number(v.size) || 0,
         prevSize: older ? Number(older.size) || 0 : null,
         undoLast: i === 0,
+        who: v.who || "",        // кто сохранил (логин панели; пусто — служебный путь) — TR-95
+        note: v.note || "",      // откуда правка: манифест из панели, раскладка скинов, откат…
+        delta: v.delta || null,  // что изменилось после этой версии: {added, removed, keys}
       });
     });
   }

@@ -270,7 +270,7 @@ function NovelDetail({ row, token, notify, onOpenConflicts }) {
               </div>
             )}
             <table className="adm-table dense">
-              <thead><tr><th>когда</th><th>файл</th><th className="num">размер до</th><th></th></tr></thead>
+              <thead><tr><th>когда</th><th>файл</th><th>кто · что</th><th className="num">размер до</th><th></th></tr></thead>
               <tbody>
                 {feed.map((r) => (
                   <tr key={r.rel + ":" + r.ts}>
@@ -279,6 +279,15 @@ function NovelDetail({ row, token, notify, onOpenConflicts }) {
                       <code>{r.rel.split("/").pop()}</code>
                       {r.chapter && <span className="adm-dim"> · {r.chapter}</span>}
                       {r.undoLast && <span className="pill">последняя</span>}
+                    </td>
+                    <td className="muted" title={r.note || ""}>
+                      <b>{r.who || "—"}</b>
+                      {r.note && <span className="adm-dim"> · {r.note}</span>}
+                      {r.delta && (r.delta.added || r.delta.removed) ? (
+                        <span> · <span className="amt-plus">+{fmt(r.delta.added)}</span> <span className="amt-minus">−{fmt(r.delta.removed)}</span>
+                          {r.delta.keys && r.delta.keys.length > 0 && <span className="adm-dim"> {r.delta.keys.slice(0, 4).join(", ")}{r.delta.keys.length > 4 ? "…" : ""}</span>}
+                        </span>
+                      ) : null}
                     </td>
                     <td className="num muted">
                       {fmt(r.size)} b

@@ -128,3 +128,15 @@ its constructor. To carve one out: move its file into a `cmd/<name>/main.go`
 with its own `ListenAndServe`, point the gateway (or the client's BaseUrl)
 at it, and hand it the same data directory. No shared state, no shared DB —
 that's why the seam holds.
+
+### История правок контента: кто, что, когда (TR-95)
+
+Снимки версий (`content/.history/<файл>/<мс>.bak`, 50 на файл, откат через
+`POST /v1/admin/rollback`) дополнены пометкой `<мс>.meta.json`: **кто** — логин
+из сессии панели (служебный ключ — «токен», агент и редактор — без имени),
+**зачем** — откуда правка (манифест из панели, публикация черновика, раскладка
+каталога скинов, откат к версии, публикация сценария). **Что** история считает
+сама: `GET /v1/admin/history?file=…` отдаёт у свежих версий `delta` — сколько
+строк добавилось и ушло и какие верхние ключи JSON тронуты. В панели (Новеллы →
+файлы → правки) это колонка «кто · что». Git на проде не нужен: снимки уже
+есть, а diff по строкам считается на лету.
