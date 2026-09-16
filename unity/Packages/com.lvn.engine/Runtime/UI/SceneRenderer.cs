@@ -90,6 +90,8 @@ namespace Lvn.UI
         void Frame3D(float? x, float? y, float? z, float? pitch, float? yaw, float? fov, float seconds);
         /// <summary>Force whether the standing set is filmed every frame.</summary>
         void Set3DLive(bool live);
+        /// <summary>Живая текстура на полотне (спайн-фон в текстуре); null снимает.</summary>
+        void SetLiveBackdrop(Texture tex);
 
         /// <summary>Real gaussian blur of the scene frame, when the platform
         /// can do one (built-in pipeline + a camera). Returns false → the stage
@@ -248,6 +250,7 @@ namespace Lvn.UI
         public void Frame3D(float? x, float? y, float? z, float? pitch, float? yaw, float? fov, float seconds)
             => _scene.Frame3D(x, y, z, pitch, yaw, fov, seconds);
         public void Set3DLive(bool live) => _scene.Set3DLive(live);
+        public void SetLiveBackdrop(Texture tex) => _scene.SetLiveBackdrop(tex);
 
         public void Shake(float amplitude, float seconds) => _scene.Shake(amplitude, seconds);
         public void Zoom(float factor, float seconds) => _scene.Zoom(factor, seconds);

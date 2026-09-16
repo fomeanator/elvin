@@ -87,7 +87,7 @@ namespace Lvn.UI
         // Файлы одного скелета. ОБЩИЙ ДОМ для прогрева и сборки нарочно: разойдись
         // они — прогрев грел бы один набор адресов, а карточка спрашивала другой,
         // и «моментально» тихо перестало бы работать, не сломав ничего видимого.
-        private struct Kit
+        internal struct Kit
         {
             public string Json, Atlas;
             public Texture2D[] Textures;
@@ -107,7 +107,7 @@ namespace Lvn.UI
             catch { return null; }
         }
 
-        private static async Task<Kit> LoadKitAsync(LvnSpineRef spine,
+        internal static async Task<Kit> LoadKitAsync(LvnSpineRef spine,
             Func<string, Task<string>> loadText, Func<string, Task<Sprite>> loadSprite)
         {
             var kit = new Kit();
@@ -303,5 +303,108 @@ namespace Lvn.UI
         private static string AtlasWithoutTxt(string atlas)
             => string.IsNullOrEmpty(atlas) || !atlas.EndsWith(".atlas.txt", StringComparison.OrdinalIgnoreCase)
                 ? null : atlas.Substring(0, atlas.Length - ".txt".Length);
+    }
+
+    /// <summary>
+    /// ЖИВОЙ ФОН СЦЕНЫ — спайн-сцена в текстуре (TR-132, TR-133).
+    ///
+    /// <para>Скелет как актёр сцены на эмуляторе Ильи собирался, но не
+    /// выводился (рентген 16.09: у рендерера нет материала), а тот же скелет в
+    /// постере карточки рисуется. Поэтому фон идёт дорогой постера и
+    /// 3D-задника: свой закадровый холст, камера, текстура — и эта текстура
+    /// ложится на полотно сцены (<c>WorldBackground.SetLiveTexture</c>). Ни
+    /// слотов, ни порядка по z, ни въездов — это фон, а не фигура.</para>
+    /// </summary>
+    public static class LvnSpineBackdrop
+    {
+        private static readonly LvnPinBoard<object> _pins = new LvnPinBoard<object>();
+        private static int _seq;
+        private const float Spacing = 5000f;
+
+        /// <summary>Живой фон на руках у сцены: текстура и снятие.</summary>
+        public sealed class Handle
+        {
+            internal GameObject Root;
+            internal RenderTexture Rt;
+            internal object PinKey;
+            public bool Released { get; private set; }
+            public RenderTexture Texture => Released ? null : Rt;
+            public void Release()
+            {
+                if (Released) return;
+                Released = true;
+                if (PinKey != null) _pins.Release(PinKey);
+                if (Rt != null) { Rt.Release(); UnityEngine.Object.Destroy(Rt); Rt = null; }
+                if (Root != null) { UnityEngine.Object.Destroy(Root); Root = null; }
+            }
+        }
+
+        /// <summary>Собрать сцену закадрово и отдать текстуру, когда она готова.
+        /// <paramref name="width"/>/<paramref name="height"/> — логический кадр
+        /// сцены; текстура рисуется той же формы, чтобы полотно не кадрировало.</summary>
+        public static Handle Attach(LvnSpineRef spine,
+            Func<string, Task<string>> loadText, Func<string, Task<Sprite>> loadSprite,
+            int width, int height, Lvn.Content.ILvnPinLedger ledger,
+            Action<RenderTexture> onTexture, Action onFallback = null)
+        {
+            var handle = new Handle { PinKey = new object() };
+            if (spine == null || loadText == null || loadSprite == null || width < 8 || height < 8)
+            { handle.Release(); onFallback?.Invoke(); return handle; }
+            if (!LvnSpineBridge.Available) { handle.Release(); onFallback?.Invoke(); return handle; }
+            var origin = new Vector3(-20000f - (_seq++ % 64) * Spacing, -20000f, 0f);
+            LvnAsync.Fire(BuildAsync(handle, spine, loadText, loadSprite, origin, width, height, ledger, onTexture, onFallback), "SpineBackdrop");
+            return handle;
+        }
+
+        private static async Task BuildAsync(Handle handle, LvnSpineRef spine,
+            Func<string, Task<string>> loadText, Func<string, Task<Sprite>> loadSprite, Vector3 origin,
+            int width, int height, Lvn.Content.ILvnPinLedger ledger, Action<RenderTexture> onTexture, Action onFallback)
+        {
+            var kit = await LvnSpinePoster.LoadKitAsync(spine, loadText, loadSprite);
+            if (handle.Released) return;
+            if (!kit.Ok) { handle.Release(); onFallback?.Invoke(); return; }
+            _pins.Hold(handle.PinKey, ledger, kit.Sprites);
+
+            var root = new GameObject("lvn-spine-backdrop");
+            root.transform.position = origin;
+            var canvasGo = new GameObject("canvas", typeof(RectTransform), typeof(Canvas));
+            canvasGo.transform.SetParent(root.transform, false);
+            var canvas = canvasGo.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            var crt = canvasGo.GetComponent<RectTransform>();
+            crt.sizeDelta = new Vector2(width, height);
+            crt.position = origin;
+
+            var rt = new RenderTexture(width, height, 16, RenderTextureFormat.ARGB32)
+            { name = "lvn-spine-backdrop-rt", filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
+            rt.Create();
+            var camGo = new GameObject("cam", typeof(Camera));
+            camGo.transform.SetParent(root.transform, false);
+            var cam = camGo.GetComponent<Camera>();
+            cam.orthographic = true;
+            cam.orthographicSize = height * 0.5f;
+            cam.transform.position = origin + new Vector3(0f, 0f, -100f);
+            cam.transform.rotation = Quaternion.identity;
+            cam.nearClipPlane = 0.1f; cam.farClipPlane = 1000f;
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0f, 0f, 0f, 0f);
+            cam.targetTexture = rt;
+            cam.allowHDR = false; cam.allowMSAA = false;
+            cam.enabled = false;
+            var driver = camGo.AddComponent<LvnSpinePoster.Ticker>();
+            driver.Camera = cam;
+            driver.CanvasRoot = canvasGo;
+            driver.AlwaysVisible = true;
+
+            handle.Root = root; handle.Rt = rt;
+            var go = LvnSpineBridge.Create(crt, kit.Json, kit.Atlas, kit.Textures, spine.scale, kit.Bg);
+            if (go == null) { handle.Release(); onFallback?.Invoke(); return; }
+            if (LvnSpineBridge.SetVisible != null) LvnSpineBridge.SetVisible(go, true);
+            if (LvnSpineBridge.Refit != null) LvnSpineBridge.Refit(go, spine.scale, "cover");
+            if (!string.IsNullOrEmpty(spine.auto) && LvnSpineBridge.Play != null)
+                LvnSpineBridge.Play(go, spine.auto, true);
+            if (handle.Released) return;
+            onTexture?.Invoke(rt);
+        }
     }
 }

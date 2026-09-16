@@ -357,6 +357,14 @@ namespace Lvn.UI.World
         /// <summary>True while a 3D set is standing.</summary>
         public bool Has3DBackdrop => _backdrop != null && _backdrop.Active;
 
+        /// <summary>Живая текстура фона снаружи (спайн-сцена в текстуре, TR-133):
+        /// 3D-набор старше — пока он стоит, чужую текстуру не кладём.</summary>
+        public void SetLiveBackdrop(Texture tex)
+        {
+            if (Has3DBackdrop) return;
+            _bg.SetLiveTexture(tex);
+        }
+
         /// <summary>Force the filming mode of the standing set (`bg3d live=`).</summary>
         public void Set3DLive(bool live) => _backdrop?.SetLive(live);
 

@@ -86,54 +86,65 @@ namespace Lvn.UI
         }
 
         // ── ЖИВОЙ ФОН (TR-132, TR-133) ──
-        // Фон может быть спайн-сценой: `bg` с полем `spine` (папка комплекта)
-        // ставит поверх полотна, во весь кадр и позади всех, спайн-скелет. Это
-        // всё ещё ФОН — команда `bg`, слой отправителя, полотно под ним как
-        // подложка и обложка, — а рисует его тот же путь, что спайн-персонажей:
-        // другого способа показать скелет на сцене нет («вампирский сад,
-        // красивый, вот такие фоны надо сделать» — Илья 16.09).
-        private const string BgSpineId = "__bg_spine";
-        private const int BgSpineZ = -10;   // позади героини (у неё 0)
-        private string _bgSpineShown, _bgSpineActor;
-
-        // У КАЖДОЙ СЦЕНЫ СВОЁ ИМЯ. Скелеты живут по имени актёра, и второй фон
-        // под тем же именем не пересобирался — оставался первый (трасса 16.09:
-        // «уже построен» при смене зимнего сада на маскарад).
-        private static string BgSpineActorId(string spine)
-            => BgSpineId + ":" + System.IO.Path.GetFileNameWithoutExtension(Lvn.LvnUrl.Bare(Lvn.LvnUrl.Base(spine)));
+        // Фон может быть спайн-сценой: `bg` с полем `spine` (папка или json
+        // комплекта). Сцена рисуется закадрово в текстуру (как постер карточки
+        // и 3D-задник) и ложится на полотно живой текстурой — это ФОН: без
+        // слотов, порядка по z и въездов. Скелет-актёр на эмуляторе Ильи
+        // собирался, но не выводился (рентген 16.09) — потому дорога постера.
+        private Lvn.UI.LvnSpineBackdrop.Handle _bgSpine;
+        private string _bgSpineShown;
 
         /// <summary>Стоит ли сейчас живой фон <paramref name="spine"/> (пусто —
         /// «никакого»). Меню спрашивает перед тем, как слать `bg` заново.</summary>
         public bool ShowsBgSpine(string spine)
             => string.IsNullOrEmpty(spine) ? _bgSpineShown == null
-               : _bgSpineShown == spine && _bgSpineActor != null && ActorVisibleOrPending(_bgSpineActor);
+               : _bgSpineShown == spine && _bgSpine != null && !_bgSpine.Released;
 
-        private void ApplyBgSpine(string spine, string under, LvnSender sender)
+        private void ApplyBgSpine(string spine, string under)
         {
             if (!string.IsNullOrEmpty(spine))
             {
                 if (ShowsBgSpine(spine)) return;
-                var actor = BgSpineActorId(spine);
-                if (_bgSpineActor != null && _bgSpineActor != actor)
-                    ApplyStage(new JObject { ["op"] = "actor", ["id"] = _bgSpineActor, ["show"] = false, ["exit"] = "none" }, sender);
-                _bgSpineShown = spine; _bgSpineActor = actor;
-                LvnLog.Trace($"[lvn-bg] живой фон: {spine} → {actor} (полотно под ним {under ?? "-"})");
-                // Без въезда и ухода и без своей подложки: полотно уже стоит
-                // под скелетом, а вторая копия картинки стоила 0,7 с на главном
-                // потоке (трасса 16.09); x задан явно — слот не торгуется.
-                ApplyStage(new JObject
-                {
-                    ["op"] = "actor", ["id"] = actor, ["spine"] = spine,
-                    ["fit"] = "cover", ["z"] = BgSpineZ, ["x"] = 0.5, ["show"] = true,
-                    ["enter"] = "none", ["exit"] = "none", ["transition_duration"] = 0,
-                }, sender);
+                DropBgSpine();
+                var sref = Lvn.Content.LvnSpineRef.FromUrl(spine);
+                if (sref == null || Assets == null) return;
+                sref.fit = "cover";
+                var frame = FrameSize();
+                int w = Mathf.Max(8, Mathf.RoundToInt(frame.x)), h = Mathf.Max(8, Mathf.RoundToInt(frame.y));
+                _bgSpineShown = spine;
+                LvnLog.Trace($"[lvn-bg] живой фон: {spine} → текстура {w}×{h} (полотно под ним {under ?? "-"})");
+                var epoch = _stageEpoch;
+                _bgSpine = Lvn.UI.LvnSpineBackdrop.Attach(sref,
+                    url => Assets.LoadTextAsync(url, _cts.Token),
+                    url => LoadSpineImageAsync(url, _cts.Token),
+                    w, h, Assets as Lvn.Content.ILvnPinLedger,
+                    tex =>
+                    {
+                        if (epoch != _stageEpoch || _bgSpineShown != spine) return;
+                        _renderer?.SetLiveBackdrop(tex);
+                        LvnLog.Trace($"[lvn-bg] живой фон встал: {spine}");
+                    },
+                    () => LvnLog.Warn($"[lvn-bg] живой фон не собрался: {spine} — остаётся полотно"));
             }
-            else if (_bgSpineActor != null)
-            {
-                var actor = _bgSpineActor;
-                _bgSpineShown = null; _bgSpineActor = null;
-                ApplyStage(new JObject { ["op"] = "actor", ["id"] = actor, ["show"] = false, ["exit"] = "none" }, sender);
-            }
+            else if (_bgSpineShown != null) DropBgSpine();
+        }
+
+        /// <summary>Снять живой фон: текстура уходит, полотно показывает картинку.</summary>
+        private void DropBgSpine()
+        {
+            if (_bgSpine != null) { _bgSpine.Release(); _bgSpine = null; }
+            if (_bgSpineShown != null) _renderer?.SetLiveBackdrop(null);
+            _bgSpineShown = null;
+        }
+
+        /// <summary>Логический кадр сцены под текстуру живого фона.</summary>
+        private Vector2 FrameSize()
+        {
+            float w = Screen.width > 0 ? Screen.width : 1080f, h = Screen.height > 0 ? Screen.height : 1920f;
+            // Ограничиваем длинную сторону 2048: текстура во весь экран эмулятора
+            // 4K не нужна, а память и заливка растут квадратично.
+            float k = Mathf.Min(1f, 2048f / Mathf.Max(w, h));
+            return new Vector2(w * k, h * k);
         }
 
         private async Task ApplyBgAsync(JObject cmd, LvnSender sender = LvnSender.Story)
@@ -150,7 +161,7 @@ namespace Lvn.UI
                 }
             }
             if (string.IsNullOrEmpty(url)) return;
-            ApplyBgSpine((string)cmd["spine"], url, sender);   // до «та же команда»: слой меню мог закрыться и открыться
+            ApplyBgSpine((string)cmd["spine"], url);   // до «та же команда»: живой фон мог быть снят главой
             // ПОВТОР ТОЙ ЖЕ КОМАНДЫ — NO-OP. Реплей восстановления (и любой
             // двойной вызов) переустанавливал фон: кроссфейд в самого себя и
             // рестарт пана с левого края — «фон дёргает туда-сюда» (живой

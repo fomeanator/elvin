@@ -46,12 +46,14 @@ namespace Lvn.UI
             public Camera Camera;
             public GameObject CanvasRoot;
             public VisualElement VisibilityTarget;
+            /// <summary>Рисовать всегда — у живого фона сцены нет элемента-хозяина.</summary>
+            public bool AlwaysVisible;
             private float _last = -1f;
 
             private bool SyncVisibility()
             {
                 using var perf = LvnPerf.Measure(LvnPerf.Part.PosterVisibility);
-                bool visible = IsVisible(VisibilityTarget);
+                bool visible = AlwaysVisible || IsVisible(VisibilityTarget);
                 if (CanvasRoot != null && CanvasRoot.activeSelf != visible)
                 {
                     CanvasRoot.SetActive(visible);

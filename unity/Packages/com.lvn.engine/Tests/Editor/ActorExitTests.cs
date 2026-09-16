@@ -94,6 +94,7 @@ namespace Lvn.Tests
             public void Set3DBackdrop(GameObject prefab) { }
             public void Frame3D(float? x, float? y, float? z, float? pitch, float? yaw, float? fov, float seconds) { }
             public void Set3DLive(bool live) { }
+            public void SetLiveBackdrop(UnityEngine.Texture tex) { }
             public bool TryBlur(float strength01, float seconds) => false;
             public bool TryFx(JObject cmd) => false;
             public bool TryPortal(JObject cmd) => false;
