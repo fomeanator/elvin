@@ -159,6 +159,9 @@ namespace Lvn.UI.Screens
             if (_tabMode)
             {
                 _sheet.style.backgroundColor = LvnTokens.PanelBg;
+                // Лист во весь экран — его кромка обводила экран бирюзой
+                // («убери бирюзовый бордер вокруг экрана» — Илья 16.09).
+                LvnChrome.ClearBorder(_sheet);
                 LvnAir.PadX(_sheet, LvnTokens.Space3);   // «чуть паддинга» — воздух по бокам
                 RegisterCallback<GeometryChangedEvent>(_ => PlaceSheet());
             }
@@ -312,7 +315,9 @@ namespace Lvn.UI.Screens
             _sheet.style.top = 0;
             _sheet.style.bottom = 0;
             float bar = LvnTopBar.BottomEdge(this);
-            if (!float.IsNaN(bar) && bar > 0f) _sheet.style.paddingTop = bar + LvnTokens.Space2;
+            // Шапка комнаты ниже кромки шапки приложения на целый шаг: вплотную
+            // «‹ Крутка» читалась частью логотипа («передвинуть вниз» — Илья 16.09).
+            if (!float.IsNaN(bar) && bar > 0f) _sheet.style.paddingTop = bar + LvnTokens.Space4;
         }
         public override void Hide() { StopPresentation(); base.Hide(); }
         private void StopPresentation()
