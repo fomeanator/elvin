@@ -98,6 +98,10 @@ namespace Lvn.Services
         // вместе с Trace, которого на сервере иначе не бывает.
         private const string DeviationTag = "[lvn-deviation]";
         private const double SlowFrameTailMs = 500;
+        // Кадры старта медленны всегда — шейдеры, шрифты, первая раскладка; хвост
+        // к ним уезжал на каждом запуске (кадр 28, 966 мс в живом логе 16.09) и
+        // был шумом, а не отклонением. Долгий старт ловит своё «[lvn-deviation]».
+        private const float SlowFrameGraceSeconds = 15f;
 
         /// <summary>До какого момента слать Trace целиком — указание сервера
         /// (ответ /v1/log/client: log.until). Пусто — обычный режим.</summary>
@@ -122,6 +126,7 @@ namespace Lvn.Services
         private static bool SlowFrameTail(string message)
         {
             if (message == null || !message.StartsWith("[lvn-perf] S ", StringComparison.Ordinal)) return false;
+            if (Time.realtimeSinceStartup < SlowFrameGraceSeconds) return false;
             int i = message.IndexOf(" ms=", StringComparison.Ordinal);
             if (i < 0) return false;
             int j = message.IndexOf(' ', i + 4);

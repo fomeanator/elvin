@@ -87,9 +87,11 @@ namespace Lvn
         private static string _identity;
         public static bool Enabled { get; private set; }
 
-        /// <summary>Пол строки «медленный кадр» (TR-86): кадры до 50 мс — обычные
-        /// запинки интерфейса, их считает окно; строку получает только заметный.</summary>
-        public const double SlowFloorMs = 50;
+        /// <summary>Пол строки «медленный кадр» (TR-86): кадры до 100 мс — обычные
+        /// запинки интерфейса, их считает окно (o50/o100/max); строку с контекстом
+        /// получает только заметный. Живой лог 16.09: при поле 50 строки S весили
+        /// две трети сессии, половина из них — 50–100 мс на простое.</summary>
+        public const double SlowFloorMs = 100;
         public static string SessionInfo { get; private set; }
 
         /// <summary>Main-thread context supplied by the host at the end of its frame. No UI callback in the core.</summary>
