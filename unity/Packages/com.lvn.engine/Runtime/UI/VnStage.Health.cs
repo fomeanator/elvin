@@ -138,7 +138,10 @@ namespace Lvn.UI
             // ругалась на каждый вход в меню («ЛИШНИЕ [victoria]», живой лог
             // Ильи 28.08), а ложная тревога в отчёте убивает доверие ко всему
             // отчёту.
-            if (Score.HasLayer(LvnSender.Menu) || Score.HasLayer(LvnSender.Wardrobe)) return;
+            // КАТСЦЕНА БЕЗ СОЛО — ТОЖЕ. Концовка главы уводит героиню слоем
+            // катсцены, история о том не знает; при ×100 сверка успевала между
+            // уводом и финишем и докладывала «ПРОПАЛИ» (живой лог 16.09).
+            if (Score.HasLayer(LvnSender.Menu) || Score.HasLayer(LvnSender.Wardrobe) || Score.HasLayer(LvnSender.Cutscene)) return;
 
             string extra = null, missing = null;
             foreach (var id in ActorsInFrame())

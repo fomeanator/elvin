@@ -51,7 +51,9 @@ namespace Lvn.UI.Screens
                 if (!ReferenceEquals(screen, _perfScreen) || _perfScreenName == null)
                 {
                     _perfScreen = screen;
-                    _perfScreenName = screen?.GetType().Name ?? "home";
+                    // Страница главной — голый контейнер хаба: по типу он
+                    // «VisualElement», и так и уезжало в отчёты (живой лог 16.09).
+                    _perfScreenName = screen == null || screen.GetType() == typeof(VisualElement) ? "home" : screen.GetType().Name;
                 }
                 return _perfScreenName;
             }

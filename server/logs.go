@@ -32,7 +32,13 @@ type ClientLogService struct {
 	// pruned — за какой день уборка уже прошла. Пустая строка значит «в этой
 	// жизни процесса ещё не прибирались».
 	pruned string
+	// headed — сессия → день, за который заголовок устройства уже записан.
+	// Клиент шлёт свою визитку с каждой пачкой (раз в 15 с), а нужна она
+	// одна на сессию: в живом логе 16.09 каждая десятая строка была ею.
+	headed map[string]string
 }
+
+const headedSessionsMax = 20000
 
 // clientLogKeepDays — сколько суток диагностики держим.
 //
@@ -336,9 +342,17 @@ func (s *ClientLogService) handleIngest(w http.ResponseWriter, r *http.Request) 
 	}
 	defer f.Close()
 
-	// The device header rides once per batch as its own line — a session's
-	// first batch documents the hardware the rest of its lines ran on.
-	if len(batch.Device) > 0 {
+	// The device header rides with every batch, but is written once per
+	// session and day — that first line documents the hardware the rest of
+	// the session's lines ran on.
+	day := now.Format("2006-01-02")
+	if len(batch.Device) > 0 && (session == "" || s.headed[session] != day) {
+		if session != "" {
+			if len(s.headed) >= headedSessionsMax || s.headed == nil {
+				s.headed = map[string]string{}
+			}
+			s.headed[session] = day
+		}
 		hdr := map[string]any{"ts": now.Format(time.RFC3339), "level": "device", "dev": dev, "session": session}
 		for k, v := range batch.Device {
 			if k != "id" && k != "session" {
