@@ -170,7 +170,7 @@ namespace Lvn.UI.Screens
             var (liveEnters, worstWaitMs, bgEnters, yields) = Lvn.Content.LvnLaneWatch.Take();
             Lvn.Services.LvnAnalytics.Track(Lvn.Services.LvnEvents.ChapterFinish,
                 ("title", title?.id), ("chapter", finished.id),
-                ("hitches", hitches), ("worst_ms", worstMs),
+                ("hitches", hitches), ("worst_ms", worstMs), ("dwell", DwellList()),
                 ("lane_live", liveEnters), ("lane_wait_ms", worstWaitMs),
                 ("lane_bg", bgEnters), ("lane_yields", yields));
             FlushUnknownOps(title, finished);
@@ -210,7 +210,7 @@ namespace Lvn.UI.Screens
                 ("label", snap?.AnchorStableLabel ?? snap?.AnchorLabel),
                 ("bg", Lvn.UI.VnStage.LastSceneBgUrl),
                 ("actors", Stage?.ActorsOnStage()),
-                ("hitches", hitches), ("worst_ms", worstMs));
+                ("hitches", hitches), ("worst_ms", worstMs), ("dwell", DwellList()));
             FlushUnknownOps(title, chapter);
         }
 

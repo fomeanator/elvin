@@ -13,11 +13,9 @@ package main
 import (
 	"bufio"
 	"encoding/json"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -46,7 +44,6 @@ type ClientLogService struct {
 // боксе кончается тихо и разом: первым перестаёт писаться не лог, а кошелёк.
 //
 // Две недели — с запасом на «вернусь к этому после выходных».
-const clientLogKeepDays = 14
 
 func NewClientLogService(dir, adminToken string) (*ClientLogService, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -65,6 +62,7 @@ func (s *ClientLogService) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/admin/log-level", s.handleLogLevel)            // подробный лог с устройства по указанию (TR-86)
 	mux.HandleFunc("/v1/admin/log-fetch", s.handleLogFetch)            // кусок кольца за период задним числом (TR-86, этап 2)
 	mux.HandleFunc("/v1/admin/client-logs/sessions", s.handleSessions) // что прислало устройство (этап 3)
+	mux.HandleFunc("/v1/admin/client-logs/summary", s.handleSummary)   // сводка склеенного дня
 }
 
 // logDirective — что просим у устройства: слать Trace до срока и/или выслать
@@ -405,27 +403,27 @@ func (s *ClientLogService) handleSessions(w http.ResponseWriter, r *http.Request
 		return
 	}
 	device := r.URL.Query().Get("device")
-	type sessionRow struct {
-		Session    string         `json:"session"`
-		Device     string         `json:"device"`
-		App        string         `json:"app,omitempty"`
-		Model      string         `json:"model,omitempty"`
-		OS         string         `json:"os,omitempty"`
-		First      string         `json:"first"`
-		Last       string         `json:"last"`
-		Lines      int            `json:"lines"`
-		Levels     map[string]int `json:"levels"`
-		Deviations int            `json:"deviations"`
-		Windows    int            `json:"windows"`
-		FPS        float64        `json:"fps,omitempty"`
-		WorstMs    float64        `json:"worst_ms,omitempty"`
-		Janky      int            `json:"janky_windows"`
-	}
-	rows := map[string]*sessionRow{}
-	var order []string
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if f, err := os.Open(filepath.Join(s.dir, day+".jsonl")); err == nil {
+	// Склеенный день — сессии уже посчитаны в сводке.
+	if _, err := os.Stat(filepath.Join(s.dir, day+".jsonl")); err != nil {
+		if sum := s.loadSummary(day); sum != nil {
+			list := sum.Sessions
+			if device != "" {
+				list = nil
+				for _, row := range sum.Sessions {
+					if strings.HasPrefix(row.Device, device) {
+						list = append(list, row)
+					}
+				}
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"day": day, "sessions": list, "compacted": true})
+			return
+		}
+	}
+	rows := map[string]*logSessionRow{}
+	var order []string
+	if f, err := s.openDayLines(day); err == nil {
 		defer f.Close()
 		sc := bufio.NewScanner(f)
 		sc.Buffer(make([]byte, 64<<10), 1<<20)
@@ -435,59 +433,37 @@ func (s *ClientLogService) handleSessions(w http.ResponseWriter, r *http.Request
 				Model string `json:"model"`
 				OS    string `json:"os"`
 			}
-			if json.Unmarshal(sc.Bytes(), &ln) != nil || ln.Session == "" {
+			if json.Unmarshal(sc.Bytes(), &ln) != nil {
 				continue
 			}
 			if device != "" && !strings.HasPrefix(ln.Dev, device) {
 				continue
 			}
-			row := rows[ln.Session]
-			if row == nil {
-				row = &sessionRow{Session: ln.Session, Device: ln.Dev, App: ln.App, First: ln.TS, Levels: map[string]int{}}
-				rows[ln.Session] = row
-				order = append(order, ln.Session)
-			}
-			if ln.TS != "" {
-				if row.First == "" || ln.TS < row.First {
-					row.First = ln.TS
-				}
-				if ln.TS > row.Last {
-					row.Last = ln.TS
-				}
-			}
-			if ln.Level == "device" {
-				row.Model, row.OS = ln.Model, ln.OS
-				if ln.App != "" {
-					row.App = ln.App
-				}
-				continue
-			}
-			row.Lines++
-			row.Levels[ln.Level]++
-			if ln.Tail != "" {
-				row.Deviations++
-			}
-			if strings.HasPrefix(ln.Msg, "[lvn-perf] W ") || strings.HasPrefix(ln.Msg, "[lvn-perf] window ") {
-				fld := performanceFields(ln.Msg)
-				if fps, ok := performanceNumber(fld, "fps"); ok {
-					row.FPS = (row.FPS*float64(row.Windows) + fps) / float64(row.Windows+1)
-				}
-				if worst, ok := performanceNumber(fld, "max_ms"); ok && worst > row.WorstMs {
-					row.WorstMs = worst
-				}
-				if o50, ok := performanceNumber(fld, "over50"); ok && o50 > 0 {
-					row.Janky++
-				}
-				row.Windows++
-			}
+			sessionFold(rows, &order, &ln.clientLogLine, ln.Model, ln.OS)
 		}
 	}
-	list := make([]*sessionRow, 0, len(order))
-	for _, id := range order {
-		list = append(list, rows[id])
+	writeJSON(w, http.StatusOK, map[string]any{"day": day, "sessions": sessionsSorted(rows, order)})
+}
+
+// GET /v1/admin/client-logs/summary?day= — сводка склеенного дня: строки по
+// уровням и тегам, самые частые строки, сессии; для несклеенного дня пусто.
+func (s *ClientLogService) handleSummary(w http.ResponseWriter, r *http.Request) {
+	if !adminAllowed(w, r, s.adminToken) {
+		return
 	}
-	sort.Slice(list, func(i, j int) bool { return list[i].First > list[j].First })
-	writeJSON(w, http.StatusOK, map[string]any{"day": day, "sessions": list})
+	day := r.URL.Query().Get("day")
+	if !reDay.MatchString(day) {
+		http.Error(w, "day=YYYY-MM-DD", http.StatusBadRequest)
+		return
+	}
+	s.mu.Lock()
+	sum := s.loadSummary(day)
+	s.mu.Unlock()
+	if sum == nil {
+		writeJSON(w, http.StatusOK, map[string]any{"day": day, "compacted": false})
+		return
+	}
+	writeJSON(w, http.StatusOK, sum)
 }
 
 func clip(s string, max int) string {
@@ -500,37 +476,15 @@ func clip(s string, max int) string {
 // GET /v1/admin/client-logs?day=YYYY-MM-DD&device=<prefix>&level=error&n=200 —
 // the last n matching lines of a day, newest last. The files are also plain
 // JSONL on disk for jq when the query outgrows this.
-// pruneOldDays убирает дневники старше clientLogKeepDays. Зовётся с приёма
-// пачки под тем же замком и работает ОДИН РАЗ ЗА СУТКИ: пока день не
-// сменился, обход каталога не повторяется, поэтому цена уборки не зависит от
-// того, сколько устройств пишет.
-//
-// Имя файла и есть его дата — разбираем её, а не время правки: правку меняет
-// любой rsync или бэкап, а дата в имени не меняется никогда.
+// pruneOldDays — раз в день: склеить старые дни и убрать совсем старые
+// (см. logs_compact.go). Зовётся с приёма пачки под замком.
 func (s *ClientLogService) pruneOldDays(now time.Time) {
 	day := now.Format("2006-01-02")
 	if s.pruned == day {
 		return
 	}
 	s.pruned = day
-	cutoff := now.AddDate(0, 0, -clientLogKeepDays)
-	entries, err := os.ReadDir(s.dir)
-	if err != nil {
-		return
-	}
-	for _, e := range entries {
-		name := e.Name()
-		if e.IsDir() || !strings.HasSuffix(name, ".jsonl") {
-			continue
-		}
-		when, perr := time.Parse("2006-01-02", strings.TrimSuffix(name, ".jsonl"))
-		if perr != nil || !when.Before(cutoff) {
-			continue
-		}
-		if os.Remove(filepath.Join(s.dir, name)) == nil {
-			log.Printf("[client-logs] дневник %s старше %d суток — удалён", name, clientLogKeepDays)
-		}
-	}
+	s.compactOldDays(now)
 }
 
 func (s *ClientLogService) handleTail(w http.ResponseWriter, r *http.Request) {
@@ -554,7 +508,7 @@ func (s *ClientLogService) handleTail(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var tail []json.RawMessage
-	if f, err := os.Open(filepath.Join(s.dir, day+".jsonl")); err == nil {
+	if f, err := s.openDayLines(day); err == nil {
 		defer f.Close()
 		sc := bufio.NewScanner(f)
 		sc.Buffer(make([]byte, 64<<10), 1<<20)

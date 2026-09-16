@@ -22,47 +22,59 @@ func TestClientLogsKeepOnlyRecentDays(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Date(2026, 9, 3, 12, 0, 0, 0, time.UTC)
-	names := map[string]bool{ // имя → должно ли пережить уборку
-		now.Format("2006-01-02") + ".jsonl":                    true,
-		now.AddDate(0, 0, -1).Format("2006-01-02") + ".jsonl":  true,
-		now.AddDate(0, 0, -13).Format("2006-01-02") + ".jsonl": true,
-		now.AddDate(0, 0, -30).Format("2006-01-02") + ".jsonl": false,
-		now.AddDate(0, 0, -90).Format("2006-01-02") + ".jsonl": false,
-		// Не наш файл — не наше дело: сводки и всё, что положил человек.
-		"_rollup.json": true,
-		"README.md":    true,
-	}
-	for name := range names {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte("{}"), 0o600); err != nil {
+	day := func(d int) string { return now.AddDate(0, 0, -d).Format("2006-01-02") }
+	line := `{"ts":"2026-09-01T10:00:00Z","level":"error","msg":"[x] beda","dev":"d1","session":"s1"}` + "\n" +
+		`{"ts":"2026-09-01T10:00:01Z","level":"info","msg":"[lvn-perf] W n=600 fps=60","dev":"d1","session":"s1"}` + "\n"
+	for _, d := range []int{0, 1, 13, 30, 90} {
+		if err := os.WriteFile(filepath.Join(dir, day(d)+".jsonl"), []byte(line), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
+	for _, name := range []string{"_rollup.json", "README.md"} {
+		_ = os.WriteFile(filepath.Join(dir, name), []byte("{}"), 0o600)
+	}
 
 	svc.pruneOldDays(now)
-	for name, keep := range names {
-		_, err := os.Stat(filepath.Join(dir, name))
-		if keep && err != nil {
+	exists := func(name string) bool { _, err := os.Stat(filepath.Join(dir, name)); return err == nil }
+	// сегодня и вчера — сырьё живо
+	for _, d := range []int{0, 1} {
+		if !exists(day(d) + ".jsonl") {
+			t.Errorf("сырой дневник %s удалён, а должен остаться", day(d))
+		}
+	}
+	// 13 и 30 суток — склеены: сырья нет, есть архив и сводка
+	for _, d := range []int{13, 30} {
+		if exists(day(d)+".jsonl") || !exists(day(d)+".keep.jsonl.gz") || !exists(day(d)+".summary.json") {
+			t.Errorf("день %s не склеен как надо", day(d))
+		}
+	}
+	// 90 суток — удалён целиком
+	if exists(day(90)+".jsonl") || exists(day(90)+".keep.jsonl.gz") {
+		t.Errorf("день %s пережил уборку", day(90))
+	}
+	for _, name := range []string{"_rollup.json", "README.md"} {
+		if !exists(name) {
 			t.Errorf("%s удалён, а должен остаться", name)
 		}
-		if !keep && err == nil {
-			t.Errorf("%s пережил уборку", name)
-		}
 	}
-
-	// Второй раз за те же сутки каталог не обходится: цена уборки не должна
-	// зависеть от того, сколько устройств пишет.
-	old := filepath.Join(dir, now.AddDate(0, 0, -60).Format("2006-01-02")+".jsonl")
-	if err := os.WriteFile(old, []byte("{}"), 0o600); err != nil {
-		t.Fatal(err)
+	// в архиве — ошибка, серой массы (окно замеров) нет; сводка их сосчитала
+	sum := svc.loadSummary(day(13))
+	if sum == nil || sum.Lines != 2 || sum.Kept != 1 || sum.Levels["error"] != 1 || sum.Tags["[lvn-perf]"] != 1 || len(sum.Sessions) != 1 {
+		t.Fatalf("сводка склеенного дня не та: %+v", sum)
 	}
+	r := httptest.NewRequest(http.MethodGet, "/v1/admin/client-logs?day="+day(13), nil)
+	r.Header.Set("Authorization", "Bearer t")
+	w := httptest.NewRecorder()
+	svc.handleTail(w, r)
+	if !strings.Contains(w.Body.String(), "beda") || strings.Contains(w.Body.String(), "lvn-perf] W") {
+		t.Fatalf("хвост склеенного дня читается не из архива: %s", w.Body.String())
+	}
+	// повторный вызов в тот же день — ничего не делает (сторож дня)
 	svc.pruneOldDays(now)
-	if _, err := os.Stat(old); err != nil {
-		t.Errorf("уборка повторилась в те же сутки — обход каталога на каждую пачку")
-	}
-	// Сменились сутки — прибираемся снова.
-	svc.pruneOldDays(now.AddDate(0, 0, 1))
-	if _, err := os.Stat(old); err == nil {
-		t.Errorf("новые сутки наступили, а уборка не прошла")
+	// следующий день — вчерашнее «сегодня» ещё сырое, позавчера склеится
+	svc.pruneOldDays(now.AddDate(0, 0, 2))
+	if exists(day(0)+".jsonl") || !exists(day(0)+".keep.jsonl.gz") {
+		t.Errorf("через двое суток сырьё %s должно быть склеено", day(0))
 	}
 }
 

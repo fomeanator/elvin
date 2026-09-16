@@ -633,7 +633,7 @@ function ChapterSlides({ token, q, title, chapter }) {
           !lines.length ? <Empty text="Строк нет: скрипт главы не найден или в окне нет ни одной сессии." /> : (
             <div className="adm-tablewrap">
               <table className="adm-table">
-                <thead><tr><th>#</th><th>строка</th><th className="num">дошло</th><th>от входа</th><th className="num">от прошлой</th><th className="num">потеряно</th></tr></thead>
+                <thead><tr><th>#</th><th>строка</th><th className="num">дошло</th><th>от входа</th><th className="num">от прошлой</th><th className="num">потеряно</th><th className="num">на строке</th></tr></thead>
                 <tbody>
                   {lines.map((r) => (
                     <tr key={r.at} className={r.lost >= Math.max(3, (d.starts || 0) * 0.05) ? "row-warn" : ""}>
@@ -643,6 +643,7 @@ function ChapterSlides({ token, q, title, chapter }) {
                       <td><Meter value={r.of_start} /></td>
                       <td className="num muted">{Math.round((r.of_prev || 0) * 100)}%</td>
                       <td className={"num" + (r.lost ? " amt-minus" : " muted")}>{r.lost ? "−" + fmt(r.lost) : "—"}</td>
+                      <td className={"num" + (r.seconds >= 60 ? " amt-minus" : " muted")} title={r.measured ? "по " + r.measured + " сессиям" : ""}>{r.measured ? Math.round(r.seconds) + " с" : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
