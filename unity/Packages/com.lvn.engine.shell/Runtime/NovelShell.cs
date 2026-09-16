@@ -345,6 +345,7 @@ namespace Lvn.UI.Screens
             // героиня уходит, ленты на купленном фоне; панель встаёт над нижней лентой.
             GachaTab = new GachaScreen(assets, tab: true);
             GachaTab.OpenStore = () => OpenPackShopAsync();
+            GachaTab.Alert = (title, message) => AlertAsync(title, message);
             GachaTab.GoHome = () => LvnAsync.Fire(TabGoTo(LvnTabs.Home), "GachaHome");
             Add(GachaTab);
             // СПИСОК НОВЕЛЛ — ТОЖЕ ВКЛАДКА, и живёт в слое вкладок (TR-115).

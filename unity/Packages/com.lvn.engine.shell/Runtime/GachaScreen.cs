@@ -45,7 +45,13 @@ namespace Lvn.UI.Screens
         private bool _needTopUp;
         /// <summary>До пяти лент (Илья 15.09: «как мне поток в 5 раз увеличить?»):
         /// каждая лента — своя крутка за свою цену, все едут разом.</summary>
-        private const int MaxLanes = 5;
+        // Лент не больше трёх («сделать только 3 максимум» — Илья 16.09): пять
+        // резали окно до 80 dp, и плитки в нём не читались.
+        private const int MaxLanes = 3;
+        /// <summary>Лента в комнате крупнее на 40 % («ленту саму увеличить на
+        /// 40 процентов» — Илья 16.09): три клетки в окне вместо четырёх и окно выше.</summary>
+        private const float RoomReelScale = 1.4f;
+        private float ReelScale => _tabMode ? RoomReelScale : 1f;
         /// <summary>Такт автокрутки (Илья 15.09: «0,6 крутка, 0,4 показываем,
         /// чтобы секунда была»): лента едет 0,6 с, выпавшая клетка держится
         /// подсвеченной 0,4 с — и только потом следующий ход.</summary>
@@ -62,6 +68,7 @@ namespace Lvn.UI.Screens
         {
             if (_cases == null) return;
             _cases.Clear();
+            if (_tabMode) { _cases.style.display = DisplayStyle.None; RefreshRoomHeader(); return; }
             var list = _state?.Cases;
             if (list == null || list.Count <= 1) { _cases.style.display = DisplayStyle.None; return; }
             _cases.style.display = DisplayStyle.Flex;
@@ -130,7 +137,7 @@ namespace Lvn.UI.Screens
         /// в окно, остальные выключены.</summary>
         private const int RenderLaps = 1;
         private const float PrizeShare = 0.3f;   // доля призовых клеток в круге ленты
-        private const int Visible = 4;
+        private int Visible => _tabMode ? 3 : 4;   // в комнате клетка на треть шире
         private const float SpinSeconds = 7f;
         private const int SpinLaps = 6;
 
@@ -165,7 +172,9 @@ namespace Lvn.UI.Screens
                 LvnAir.PadX(_sheet, LvnTokens.Space3);   // «чуть паддинга» — воздух по бокам
                 RegisterCallback<GeometryChangedEvent>(_ => PlaceSheet());
             }
-            _title = LvnRedress.Bind(new Label(), () => LvnWords.Of("gacha.title", "Spin"));
+            // В комнате заголовок — ИМЯ НАБОРА, а не слово «Крутка» («вместо
+            // „крутка“ надо писать имя набора текущего» — Илья 16.09).
+            _title = LvnRedress.Bind(new Label(), () => _tabMode ? RoomTitle() : LvnWords.Of("gacha.title", "Spin"));
             var header = ScreenUi.GalleryHeader(_tabMode ? (Action)(() => GoHome?.Invoke()) : Cancel, _title, out var counter);
             _sheet.Add(header);   // в комнате шапка — единственная дверь назад: нижнего меню там нет
             var back = header.Q<Button>();
@@ -175,6 +184,7 @@ namespace Lvn.UI.Screens
             _title.style.fontSize = LvnTokens.TextDisplay;
             _title.style.whiteSpace = WhiteSpace.Normal;
             _title.style.minWidth = 0;
+            if (_tabMode) BuildRoomHeader(header);
 
             var content = _content = LvnScroll.Vertical();
             content.style.flexGrow = 1;
@@ -182,10 +192,13 @@ namespace Lvn.UI.Screens
             content.contentContainer.style.flexGrow = 1;
             // Содержимое не центруется по свободному месту: под лентой живёт
             // пул призов, и его уход не должен двигать ленту.
-            content.contentContainer.style.justifyContent = Justify.FlexStart;
+            // В КОМНАТЕ ЛЕНТА СТОИТ ПО ЦЕНТРУ («она по центру должна быть» —
+            // Илья 16.09); содержимое ей не сосед по столбцу, а карточка снизу.
+            content.contentContainer.style.justifyContent = _tabMode ? Justify.Center : Justify.FlexStart;
+            if (_tabMode) content.style.paddingBottom = LvnStageKit.D(ContentsHandleDp) + LvnTokens.Space2;
             _sheet.Add(content);
             _window = new VisualElement { name = "gacha-window" };
-            DressWindow(_window, LvnStageKit.D(144f));
+            DressWindow(_window, LvnStageKit.D(144f) * ReelScale);
             // ВЫБОР НАБОРА (Илья и партнёр 15.09: «крутки на наборы — в крутке
             // выбрать, какой кейс крутить; пока один, потом второй»): ряд над
             // лентой, виден, когда наборов больше одного.
@@ -225,8 +238,7 @@ namespace Lvn.UI.Screens
             // уезжают вниз и гаснут, после — возвращаются.
             _pool = new VisualElement { name = "gacha-pool" };
             _pool.style.flexShrink = 0;
-            _pool.style.marginTop = LvnTokens.Space3;
-            content.Add(_pool);
+            if (_tabMode) BuildContentsCard(); else { _pool.style.marginTop = LvnTokens.Space3; content.Add(_pool); }
             _actions = new VisualElement { name = "gacha-actions" };
             _actions.style.flexShrink = 0;
             _actions.style.marginTop = LvnTokens.Space3;
@@ -241,6 +253,7 @@ namespace Lvn.UI.Screens
             // фактическую высоту и держит её пустым.
             _actions.RegisterCallback<GeometryChangedEvent>(_ =>
             {
+                PlaceContents();
                 if (_actions.childCount == 0) return;
                 float h = _actions.resolvedStyle.height;
                 if (float.IsNaN(h) || h <= _actionsHeight + 0.5f) return;
@@ -248,6 +261,7 @@ namespace Lvn.UI.Screens
                 _actions.style.minHeight = h;
             });
             _sheet.Add(_actions);
+            if (_contents != null) _sheet.Add(_contents);   // поверх ленты, над кнопками
             RegisterCallback<DetachFromPanelEvent>(_ => StopPresentation());
         }
 
@@ -258,8 +272,14 @@ namespace Lvn.UI.Screens
         }
         private void StageDress()
         {
-            // Во весь экран стекло и рамка не нужны — только золото заголовка.
-            if (_tabMode) { _title.style.color = LvnTokens.Gold; return; }
+            // Во весь экран стекло и рамка не нужны — только золото заголовка
+            // и наш задник у карточки содержимого.
+            if (_tabMode)
+            {
+                _title.style.color = LvnTokens.Gold;
+                DressContentsCard();
+                return;
+            }
             _stageGlass = LvnStageKit.DressSheet(_sheet, _skin, _assets, _stageGlass, _title);
         }
 
@@ -632,6 +652,7 @@ namespace Lvn.UI.Screens
         /// <summary>Пул уезжает вниз и гаснет — лента крутится без него.</summary>
         private async Task HidePoolAsync()
         {
+            if (_tabMode) { SetContentsOpen(false, animate: true); return; }
             if (_pool == null || _poolHidden) return;
             _poolHidden = true;
             int v = ++_poolMotion;
@@ -651,6 +672,7 @@ namespace Lvn.UI.Screens
         /// <summary>Пул возвращается снизу — на покое призы снова перед глазами.</summary>
         private void ShowPool()
         {
+            if (_tabMode) return;   // карточка остаётся как была: сложенной или выдвинутой игроком
             if (_pool == null || !_poolHidden) return;
             _poolHidden = false;
             int v = ++_poolMotion;
@@ -852,7 +874,7 @@ namespace Lvn.UI.Screens
                 return;
             }
             _actions.Add(ModeRow());
-            if (_win.Count > 0) _actions.Add(WinRow());
+            PlaceWin();
             bool autoMode = Mode != AutoMode.Off;
             var button = ActionButton("gacha-spin", () => "", () => LvnAsync.Fire(autoMode ? AutoAsync() : SpinAsync(), "GachaSpin"));
             button.RemoveFromHierarchy();
@@ -1023,7 +1045,7 @@ namespace Lvn.UI.Screens
         {
             _actions.Clear();
             _actions.Add(ModeRow());
-            if (_win.Count > 0) _actions.Add(WinRow());
+            PlaceWin();
             var row = ScreenUi.Row();
             if (auto)
             {
@@ -1048,7 +1070,7 @@ namespace Lvn.UI.Screens
         {
             var lane = new Lane();
             lane.Window = new VisualElement { name = "gacha-window-lane" };
-            DressWindow(lane.Window, LvnStageKit.D(144f));
+            DressWindow(lane.Window, LvnStageKit.D(144f) * ReelScale);
             lane.Window.style.marginTop = LvnTokens.Space1;
             lane.Strip = new VisualElement { name = "gacha-strip-lane", pickingMode = PickingMode.Ignore };
             lane.Strip.usageHints = UsageHints.DynamicTransform;   // см. главную ленту
@@ -1079,7 +1101,7 @@ namespace Lvn.UI.Screens
             // Одна 144, две по 120, три по 104, четыре по 90, пять по 80 dp
             // (Илья: «не сжимай, дай место пяти лентам») — статус ушёл в кнопку,
             // и место под лентами появилось.
-            float h = LvnStageKit.D(lanes >= 5 ? 80f : lanes == 4 ? 90f : lanes == 3 ? 104f : lanes == 2 ? 120f : 144f);
+            float h = LvnStageKit.D(lanes >= 5 ? 80f : lanes == 4 ? 90f : lanes == 3 ? 104f : lanes == 2 ? 120f : 144f) * ReelScale;
             _window.style.height = h;
             foreach (var lane in _extraLanes) lane.Window.style.height = h;
         }
@@ -1314,5 +1336,261 @@ namespace Lvn.UI.Screens
             });
             cell.style.scale = new Scale(Vector2.one);
         }
-    }
+    
+        // ── КОМНАТА КРУТОК: ШАПКА И КАРТОЧКА СОДЕРЖИМОГО (TR-130) ──────────
+        // Илья 16.09: «для содержимого создать контейнер типа листок, чтоб отделить
+        // от ленты; содержимое поверх можно свайпом снизу вверх высунуть;
+        // наезжающая карточка нужна нам; сделай наш стиль; добавь задник наш —
+        // бг-картинку, которая везде стоит»; «вот эти (+675 +145) перенеси в
+        // правый верхний угол напротив слова „Крутка“; вместо „Крутка“ — имя
+        // текущего набора и стрелки, чтобы другие наборы выбирать; нужен знак
+        // вопроса — по нажатию инфа о наборе».
+
+        /// <summary>Сообщение игроку (заголовок, текст) — ставит оболочка.</summary>
+        public Func<string, string, Task> Alert;
+
+        private VisualElement _contents, _contentsBody, _contentsHandle, _contentsChevron, _headerWin;
+        private Button _casePrev, _caseNext, _caseInfo;
+        private bool _contentsOpen;
+        private int _contentsMotion;
+        /// <summary>Высота сложенной карточки — язычок с подписью.</summary>
+        private const float ContentsHandleDp = 56f;
+        /// <summary>Доля высоты комнаты, которую занимает выдвинутая карточка.</summary>
+        private const float ContentsOpenShare = 0.68f;
+        private const int ContentsSlideMs = 320;
+
+        private LvnGacha.Case CurrentCase()
+        {
+            var list = _state?.Cases;
+            if (list == null) return null;
+            foreach (var c in list) if (c.Id == _state.CaseId) return c;
+            return list.Count > 0 ? list[0] : null;
+        }
+
+        private string RoomTitle()
+        {
+            var c = CurrentCase();
+            return !string.IsNullOrEmpty(c?.Name) ? c.Name : LvnWords.Of("gacha.title", "Spin");
+        }
+
+        private static Button RoomButton(string name, string glyph, Action action)
+        {
+            var b = new Button(action) { name = name, text = glyph };
+            LvnStyler.IconSlot(b, LvnStageKit.D(44f));
+            b.style.fontSize = LvnTokens.TextXl;
+            b.style.flexShrink = 0;
+            b.RegisterCallback<ClickEvent>(e => e.StopPropagation());
+            return b;
+        }
+
+        private void BuildRoomHeader(VisualElement header)
+        {
+            _title.style.flexGrow = 0; _title.style.flexShrink = 1;
+            _title.style.overflow = Overflow.Hidden;
+            _title.style.textOverflow = TextOverflow.Ellipsis;
+            _title.style.whiteSpace = WhiteSpace.NoWrap;
+            _casePrev = RoomButton("gacha-case-prev", "‹", () => StepCase(-1));
+            _caseNext = RoomButton("gacha-case-next", "›", () => StepCase(+1));
+            _caseInfo = RoomButton("gacha-case-info", "?", () => LvnAsync.Fire(ShowCaseInfoAsync(), "GachaCaseInfo"));
+            _casePrev.style.display = DisplayStyle.None;
+            _caseNext.style.display = DisplayStyle.None;
+            _caseInfo.style.display = DisplayStyle.None;
+            _caseInfo.style.marginLeft = LvnTokens.Space1;
+            header.Insert(header.IndexOf(_title), _casePrev);
+            header.Insert(header.IndexOf(_title) + 1, _caseNext);
+            header.Insert(header.IndexOf(_caseNext) + 1, _caseInfo);
+            var spacer = new VisualElement { pickingMode = PickingMode.Ignore };
+            spacer.style.flexGrow = 1; spacer.style.minWidth = LvnTokens.Space2;
+            header.Add(spacer);
+            _headerWin = new VisualElement { name = "gacha-header-win", pickingMode = PickingMode.Ignore };
+            _headerWin.style.flexShrink = 0;
+            _headerWin.style.alignSelf = Align.Center;
+            header.Add(_headerWin);
+        }
+
+        private void RefreshRoomHeader()
+        {
+            if (_title == null) return;
+            LvnRedress.Refresh(_title);
+            bool many = (_state?.Cases?.Count ?? 0) > 1;
+            if (_casePrev != null) _casePrev.style.display = many ? DisplayStyle.Flex : DisplayStyle.None;
+            if (_caseNext != null) _caseNext.style.display = many ? DisplayStyle.Flex : DisplayStyle.None;
+            if (_caseInfo != null) _caseInfo.style.display = _state != null ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        private void StepCase(int dir)
+        {
+            var list = _state?.Cases;
+            if (list == null || list.Count < 2 || _spinning) return;
+            int i = list.FindIndex(c => c.Id == _state.CaseId);
+            int next = ((i < 0 ? 0 : i) + dir + list.Count) % list.Count;
+            LvnAsync.Fire(SwitchCaseAsync(list[next].Id), "GachaCaseStep");
+        }
+
+        /// <summary>«?» — что за набор: описание, цена крутки, сколько призов и шанс редкого.</summary>
+        private async Task ShowCaseInfoAsync()
+        {
+            if (_state == null || Alert == null) return;
+            var c = CurrentCase();
+            var sb = new System.Text.StringBuilder();
+            if (!string.IsNullOrEmpty(c?.Description)) sb.AppendLine(c.Description).AppendLine();
+            sb.AppendLine(LvnWords.Of("gacha.info_price", "Spin: {0}", _state.FreeToday
+                ? LvnWords.Of("gacha.free", "free") : LvnPriceTag.Full(_state.SpinCurrency, _state.SpinPrice)));
+            sb.AppendLine(LvnWords.Of("gacha.info_prizes", "Prizes: {0}, still to win: {1}", _state.Prizes.Count, _state.PrizesLeft.Count));
+            double total = 0, superW = 0;
+            foreach (var sec in _state.Sectors) { total += sec.Weight; if (sec.Super) superW += sec.Weight; }
+            if (total > 0) sb.AppendLine(LvnWords.Of("gacha.info_rare", "Rare prize chance: {0} %", (superW / total * 100.0).ToString("0.##")));
+            await Alert(RoomTitle(), sb.ToString().TrimEnd());
+        }
+
+        private void PlaceWin()
+        {
+            if (!_tabMode) { if (_win.Count > 0) _actions.Add(WinRow()); return; }
+            if (_headerWin == null) return;
+            _headerWin.Clear();
+            if (_win.Count > 0) _headerWin.Add(WinRow());
+        }
+
+        // ── карточка содержимого ──
+
+        private void BuildContentsCard()
+        {
+            _contents = new VisualElement { name = "gacha-contents" };
+            _contents.style.position = Position.Absolute;
+            _contents.style.left = LvnTokens.Space3; _contents.style.right = LvnTokens.Space3;
+            _contents.style.bottom = LvnStageKit.D(52f) + LvnTokens.Space2;
+            _contents.style.height = LvnStageKit.D(ContentsHandleDp);
+            _contents.style.overflow = Overflow.Hidden;
+            _contents.style.flexDirection = FlexDirection.Column;
+            _contents.RegisterCallback<ClickEvent>(e => e.StopPropagation());   // тап по карточке — не «пропустить крутку»
+            DressContentsCard();
+
+            _contentsHandle = ScreenUi.Row();
+            _contentsHandle.name = "gacha-contents-handle";
+            _contentsHandle.style.height = LvnStageKit.D(ContentsHandleDp);
+            _contentsHandle.style.flexShrink = 0;
+            LvnAir.PadX(_contentsHandle, LvnTokens.Space3);
+            var grip = new VisualElement { pickingMode = PickingMode.Ignore };
+            grip.style.width = LvnStageKit.D(36f); grip.style.height = 4f;
+            grip.style.backgroundColor = UiColor.WithAlpha(LvnTokens.TextDim, 0.7f);
+            LvnChrome.Round(grip, LvnTokens.RadiusSm);
+            grip.style.position = Position.Absolute; grip.style.top = LvnTokens.Space1;
+            grip.style.left = Length.Percent(50f); grip.style.translate = new Translate(Length.Percent(-50f), 0f);
+            _contentsHandle.Add(grip);
+            var caption = LvnRedress.Bind(new Label { name = "gacha-pool-title", pickingMode = PickingMode.Ignore },
+                () => LvnWords.Of("gacha.contents", "Contents"));
+            caption.style.color = LvnTokens.Text;
+            caption.style.fontSize = LvnTokens.TextBase;
+            caption.style.flexGrow = 1;
+            caption.style.marginTop = LvnTokens.Space1;
+            _contentsHandle.Add(caption);
+            _contentsChevron = LvnIcons.Make(LvnIcon.Chevron, LvnStageKit.D(18f), LvnTokens.TextDim, 0f, 0f);
+            _contentsChevron.pickingMode = PickingMode.Ignore;
+            _contentsChevron.style.marginTop = LvnTokens.Space1;
+            _contentsHandle.Add(_contentsChevron);
+            WireContentsDrag(_contentsHandle);
+            _contents.Add(_contentsHandle);
+
+            _contentsBody = LvnScroll.Vertical();
+            _contentsBody.style.flexGrow = 1;
+            _contentsBody.style.minHeight = 0;
+            _contentsBody.Add(_pool);
+            _contents.Add(_contentsBody);
+            SetChevron(open: false);
+        }
+
+        /// <summary>Наш задник у карточки: картинка листа облика «сцена», как у
+        /// гардероба и профиля; без облика — панель темы с кромкой.</summary>
+        private void DressContentsCard()
+        {
+            if (_contents == null) return;
+            if (!string.IsNullOrEmpty(_skin))
+            {
+                LvnStageKit.GlassSheet(_contents, _skin, _assets, LvnTokens.Radius);
+                // Язычок без верхнего поля листа — иначе подпись тонет в рамке.
+                LvnAir.PadY(_contents, 0f);
+                return;
+            }
+            _contents.style.backgroundColor = UiColor.WithAlpha(LvnTokens.PanelBg, 0.96f);
+            LvnChrome.Edged(_contents, LvnTokens.Radius);
+            LvnChrome.Lid(_contents);
+        }
+
+        private void PlaceContents()
+        {
+            if (_contents == null || _actions == null) return;
+            float h = _actions.resolvedStyle.height;
+            if (float.IsNaN(h) || h <= 0f) return;
+            _contents.style.bottom = h + LvnTokens.Space2;
+        }
+
+        private float ContentsOpenHeight()
+        {
+            float room = _sheet.resolvedStyle.height;
+            if (float.IsNaN(room) || room <= 1f) room = 1600f;
+            return Mathf.Max(LvnStageKit.D(ContentsHandleDp) * 2f, room * ContentsOpenShare);
+        }
+
+        private void SetChevron(bool open)
+        {
+            if (_contentsChevron != null) _contentsChevron.style.rotate = new Rotate(open ? 90f : -90f);
+        }
+
+        private void SetContentsOpen(bool open, bool animate)
+        {
+            if (_contents == null) return;
+            if (open && _spinning) return;   // на крутке карточка сложена: лента в центре
+            _contentsOpen = open;
+            SetChevron(open);
+            int v = ++_contentsMotion;
+            float from = _contents.resolvedStyle.height, to = open ? ContentsOpenHeight() : LvnStageKit.D(ContentsHandleDp);
+            if (float.IsNaN(from) || from <= 0f) from = LvnStageKit.D(ContentsHandleDp);
+            if (!animate || LvnPrefs.ReduceMotion || Mathf.Abs(to - from) < 1f) { _contents.style.height = to; return; }
+            LvnAsync.Fire(LvnMotion.PlayAsync(_contents, ContentsSlideMs, (el, p) =>
+            {
+                if (v != _contentsMotion) return;
+                el.style.height = Mathf.Lerp(from, to, LvnMotion.Glide(p));
+            }), "GachaContentsSlide");
+        }
+
+        /// <summary>Свайп по язычку: тянешь вверх — карточка едет за пальцем,
+        /// отпустил — досаживается к ближайшему краю; короткий тап — переключает.</summary>
+        private void WireContentsDrag(VisualElement handle)
+        {
+            float y0 = 0f, h0 = 0f; bool dragging = false;
+            handle.RegisterCallback<PointerDownEvent>(e =>
+            {
+                if (_spinning && !_contentsOpen) return;
+                dragging = true; y0 = e.position.y; h0 = _contents.resolvedStyle.height;
+                ++_contentsMotion;   // начатое движение уступает пальцу
+                handle.CapturePointer(e.pointerId);
+                e.StopPropagation();
+            });
+            handle.RegisterCallback<PointerMoveEvent>(e =>
+            {
+                if (!dragging || !handle.HasPointerCapture(e.pointerId)) return;
+                float h = Mathf.Clamp(h0 + (y0 - e.position.y), LvnStageKit.D(ContentsHandleDp), ContentsOpenHeight());
+                _contents.style.height = h;
+                e.StopPropagation();
+            });
+            handle.RegisterCallback<PointerUpEvent>(e =>
+            {
+                if (!dragging) return;
+                dragging = false;
+                handle.ReleasePointer(e.pointerId);
+                float dy = y0 - e.position.y;   // вверх — положительно
+                bool open = Mathf.Abs(dy) < 8f ? !_contentsOpen
+                    : dy > 0f ? dy > LvnStageKit.D(40f) || _contentsOpen
+                    : !(-dy > LvnStageKit.D(40f)) && _contentsOpen;
+                SetContentsOpen(open, animate: true);
+                e.StopPropagation();
+            });
+            handle.RegisterCallback<PointerCancelEvent>(e =>
+            {
+                if (!dragging) return;
+                dragging = false; handle.ReleasePointer(e.pointerId);
+                SetContentsOpen(_contentsOpen, animate: true);
+            });
+        }
+}
 }
