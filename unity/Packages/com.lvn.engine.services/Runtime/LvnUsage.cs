@@ -33,6 +33,14 @@ namespace Lvn.Services
         private const int LabelMax = 24;
 
         private static readonly Dictionary<string, int> _taps = new Dictionary<string, int>();
+        // ЦЕПОЧКА «НАЖАЛ → СДЕЛАЛ» (Илья 16.09): последний тап помнится полминуты,
+        // и первое значимое действие после него — событие аналитики или переход
+        // на другой экран — засчитывается паре «экран/элемент>исход». Последний
+        // тап побеждает: исход относится к тому, что нажали ближе всего к нему.
+        private static readonly Dictionary<string, int> _chains = new Dictionary<string, int>();
+        private static string _pendingTap;
+        private static float _pendingAt = -1f;
+        private const float ChainWindowSec = 30f;
         private static readonly Dictionary<string, float> _seconds = new Dictionary<string, float>();
         private static string _screen = "boot";
         private static float _lastTick = -1f;
@@ -42,7 +50,22 @@ namespace Lvn.Services
         public static string Screen
         {
             get => _screen;
-            set { if (!string.IsNullOrEmpty(value)) _screen = value; }
+            set
+            {
+                if (string.IsNullOrEmpty(value) || value == _screen) return;
+                _screen = value;
+                NoteOutcome("screen:" + value);   // тап, который привёл на экран
+            }
+        }
+
+        /// <summary>Значимое действие — исход для последнего тапа, если он был
+        /// не позже полминуты назад. Зовут LvnAnalytics.Track и смена экрана.</summary>
+        internal static void NoteOutcome(string outcome)
+        {
+            if (_pendingTap == null || string.IsNullOrEmpty(outcome) || outcome == LvnEvents.UiUse) return;
+            if (Time.realtimeSinceStartup - _pendingAt > ChainWindowSec) { _pendingTap = null; return; }
+            Bump(_chains, _pendingTap + ">" + outcome);
+            _pendingTap = null;
         }
 
         /// <summary>Повесить сборщик на корень дерева интерфейса.</summary>
@@ -62,6 +85,7 @@ namespace Lvn.Services
             if (e.button != 0) return;
             string key = Identify(e.target as VisualElement);
             Bump(_taps, _screen + "/" + key);
+            _pendingTap = _screen + "/" + key; _pendingAt = Time.realtimeSinceStartup;
         }
 
         /// <summary>Имя того, во что попали: своё, ближайшего именованного
@@ -103,18 +127,21 @@ namespace Lvn.Services
         /// таймеру и при уходе в фон.</summary>
         public static void Flush()
         {
-            if (_taps.Count == 0 && _seconds.Count == 0) return;
+            if (_taps.Count == 0 && _seconds.Count == 0 && _chains.Count == 0) return;
             var taps = new JObject();
             foreach (var kv in _taps) taps[kv.Key] = kv.Value;
+            var chains = new JObject();
+            foreach (var kv in _chains) chains[kv.Key] = kv.Value;
             var time = new JObject();
             foreach (var kv in _seconds)
             {
                 int s = Mathf.RoundToInt(kv.Value);
                 if (s > 0) time[kv.Key] = s;
             }
-            _taps.Clear(); _seconds.Clear();
-            if (taps.Count == 0 && time.Count == 0) return;
-            LvnAnalytics.Track(LvnEvents.UiUse, ("taps", taps), ("time", time));
+            _taps.Clear(); _seconds.Clear(); _chains.Clear();
+            if (taps.Count == 0 && time.Count == 0 && chains.Count == 0) return;
+            if (chains.Count > 0) LvnAnalytics.Track(LvnEvents.UiUse, ("taps", taps), ("time", time), ("chains", chains));
+            else LvnAnalytics.Track(LvnEvents.UiUse, ("taps", taps), ("time", time));
         }
     }
 }
