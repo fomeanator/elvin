@@ -129,9 +129,16 @@ namespace Lvn.UI.Screens
         /// Плавно: уезжает вниз и гаснет («чтобы меню плавно вниз уезжало,
         /// исчезая» — Илья 15.09), возвращается тем же путём.
         /// <paramref name="instant"/> — без движения: старт главы, сброс ленты.</summary>
-        public void SetNavHidden(bool hidden, bool instant = false)
+        public void SetNavHidden(bool hidden, bool instant = false, int ms = 0)
         {
             if (_bottomNav == null) return;
+            // УЖЕ ТАМ — НЕ ТРОГАТЬ. Гардероб на каждом открытии и закрытии
+            // снимает «Во весь рост» и просит вернуть меню; после комнаты
+            // круток «вернуть» стало въездом снизу, и он проигрывался поверх
+            // стоящего меню — «меню скачет при переходе в гардероб и назад»
+            // (Илья 16.09, TR-128). Мгновенный вызов дожимает начатое движение.
+            if (hidden == _navHidden && !instant) return;
+            _navHidden = hidden;
             int v = ++_navMotion;
             if (instant || LvnPrefs.ReduceMotion)
             {
@@ -147,18 +154,25 @@ namespace Lvn.UI.Screens
                 _bottomNav.style.translate = new Translate(0f, Length.Percent(120f));
                 _bottomNav.style.display = DisplayStyle.Flex;
             }
-            LvnAsync.Fire(SlideNavAsync(hidden, v), "NavSlide");
+            LvnAsync.Fire(SlideNavAsync(hidden, v, ms > 0 ? ms : NavSlideMs), "NavSlide");
         }
 
         private int _navMotion;
+        private bool _navHidden;
+        /// <summary>Своё время ухода — когда меню едет не с перелётом (гардероб
+        /// «Во весь рост»); с перелётом ему отдают время перелёта.</summary>
+        private const int NavSlideMs = 420;
 
-        private async System.Threading.Tasks.Task SlideNavAsync(bool hidden, int v)
+        private async System.Threading.Tasks.Task SlideNavAsync(bool hidden, int v, int ms)
         {
             float from = hidden ? 0f : 1f, to = hidden ? 1f : 0f;   // доля ухода вниз
-            await LvnMotion.PlayAsync(_bottomNav, 280, (el, p) =>
+            // Кривая ПОЛЁТА, как у перелёта между комнатами: одно движение с
+            // приходящей комнатой, а не своё «дёрнулось и село» («плавнее» —
+            // Илья 16.09).
+            await LvnMotion.PlayAsync(_bottomNav, ms, (el, p) =>
             {
                 if (v != _navMotion) return;
-                float k = Mathf.Lerp(from, to, LvnMotion.Settle(p));
+                float k = Mathf.Lerp(from, to, LvnMotion.Glide(p));
                 el.style.opacity = 1f - k;
                 el.style.translate = new Translate(0f, Length.Percent(120f * k));
             });

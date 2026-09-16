@@ -123,10 +123,6 @@ namespace Lvn.UI.Screens
                 // уже уехавшая на главную, отскакивала вправо («героиня ходуном
                 // ходит… по центру, а становится справа» — Илья 08.09).
                 _tab = target;
-                // КРУТКИ — ВО ВЕСЬ ЭКРАН, БЕЗ НИЖНЕГО МЕНЮ (Илья 15.09): уходя из
-                // них, меню возвращается до перелёта, чтобы ехать вместе с
-                // приходящей комнатой; приезжая — прячется по прибытии.
-                if (leaving == LvnTabs.Gacha) Hub?.SetNavHidden(false);
                 float w = _root.resolvedStyle.width;
                 if (w <= 0f || float.IsNaN(w)) w = 1080f;
                 // ЭКРАНЫ СТОЯТ В ПРОСТРАНСТВЕ, ЛЕТИТ КАМЕРА. Раньше каждая
@@ -159,6 +155,13 @@ namespace Lvn.UI.Screens
 
                 var fromEl = from.el;
                 float canvasFrom = _tabCanvasX, canvasTo = target * w * 0.067f; // втрое медленнее — глубина
+                // КРУТКИ — ВО ВЕСЬ ЭКРАН, БЕЗ НИЖНЕГО МЕНЮ (Илья 15.09). Меню
+                // ЕДЕТ С ПЕРЕЛЁТОМ, а не после него: в крутки уезжает вниз той
+                // же кривой и тем же временем, что комнаты, из круток —
+                // возвращается так же. Своим коротким движением по прибытии
+                // оно читалось вторым рывком («плавнее» — Илья 16.09, TR-128).
+                if (target == LvnTabs.Gacha) Hub?.SetNavHidden(true, ms: Lvn.UI.LvnMenuStage.TravelMs);
+                else if (leaving == LvnTabs.Gacha) Hub?.SetNavHidden(false, ms: Lvn.UI.LvnMenuStage.TravelMs);
                 // 338 = 260 + 30% — «чуть медленнее» (26.08). Ожидание конца
                 // движения — у дома движения: оборванная анимация не должна
                 // оставить флаг «занято» поднятым навсегда.
@@ -214,7 +217,6 @@ namespace Lvn.UI.Screens
                 to.el.style.translate = new Translate(0f, 0f);
                 to.el.style.scale = new Scale(Vector2.one);
                 to.scr?.Settled();   // экран на месте — можно считать раскладку
-                if (target == LvnTabs.Gacha) Hub?.SetNavHidden(true);
                 _ = dir;   // направление больше не решает: решает место кнопки
             }
             finally { _tabBusy = false; }
