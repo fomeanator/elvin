@@ -221,16 +221,6 @@ func historyDeltaOf(older, newer []byte) historyDelta {
 // остальные показываются без сводки, чтобы опрос сотни файлов не тормозил.
 const historyDeltaDepth = 12
 
-// actor — кто правит: логин из сессии панели, иначе «токен» (служебный ключ).
-func (s *AdminService) actor(r *http.Request) string {
-	if adminPeople != nil {
-		if sess := adminPeople.Session(r); sess != nil && sess.Login != "" {
-			return sess.Login
-		}
-	}
-	return "токен"
-}
-
 func (s *AdminService) handleHistory(w http.ResponseWriter, r *http.Request) {
 	if !s.ok(w, r) {
 		return
@@ -326,7 +316,7 @@ func (s *AdminService) handleRollback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeMu.Lock()
-	snapshotHistory(s.content, req.File, s.actor(r), "откат к версии "+req.TS)
+	snapshotHistory(s.content, req.File, who(r), "откат к версии "+req.TS)
 	err = atomicWrite(filepath.Join(s.content, req.File), data, 0o644)
 	s.writeMu.Unlock()
 	if err != nil {
@@ -354,7 +344,7 @@ func (s *AdminService) handlePublish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeMu.Lock()
-	snapshotHistory(s.content, "manifest.json", s.actor(r), "публикация черновика манифеста")
+	snapshotHistory(s.content, "manifest.json", who(r), "публикация черновика манифеста")
 	err = atomicWrite(filepath.Join(s.content, "manifest.json"), data, 0o644)
 	s.writeMu.Unlock()
 	if err != nil {
@@ -453,7 +443,7 @@ func (s *AdminService) handleConfig(w http.ResponseWriter, r *http.Request) {
 		_ = json.Unmarshal(doc, &pretty)
 		data, _ := json.MarshalIndent(pretty, "", "  ")
 		s.writeMu.Lock()
-		snapshotHistory(s.content, name, s.actor(r), name+" из панели")
+		snapshotHistory(s.content, name, who(r), name+" из панели")
 		err := atomicWrite(path, data, 0o644)
 		s.writeMu.Unlock()
 		if err != nil {
@@ -533,7 +523,7 @@ func (s *AdminService) handleManifest(w http.ResponseWriter, r *http.Request) {
 		data, _ := json.MarshalIndent(pretty, "", "  ")
 		s.writeMu.Lock()
 		if !draft {
-			snapshotHistory(s.content, "manifest.json", s.actor(r), "манифест из панели")
+			snapshotHistory(s.content, "manifest.json", who(r), "манифест из панели")
 		}
 		err := atomicWrite(path, data, 0o644)
 		s.writeMu.Unlock()

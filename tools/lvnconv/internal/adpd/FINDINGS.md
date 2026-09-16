@@ -97,7 +97,7 @@ fragments serialize in a regular order:
 A token-stream scan of `Flow` already recovers the full script content:
 
 - **23,891 dialogue records** with speaker + clean text, in file order.
-- Cast by line count: Главный герой 7301, Автор 6806, Timur 1584, Lyuba 1292,
+- Cast by line count: Главный герой 7301, Автор 6806, Timur 1584, Lida 1292,
   Andrey 1140, Daniil 1043, Игрок 973, …
 - **1,667 instructions** (set/inc) on variables (`Wardrobe.*`, `Music.*`, `Scene.*`).
 - The opening reads as coherent prose in file order.

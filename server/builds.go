@@ -149,15 +149,16 @@ func (s *BuildsService) save(list []buildMeta) error {
 	return atomicWrite(s.indexPath(), raw, 0o644)
 }
 
-// who — имя для колонки «кто залил». Сессия человека важнее токена: если у
-// действия есть имя, в журнале должно остаться имя.
+// who — имя для колонок «кто залил» и «кто правил» (история контента,
+// TR-95). Сессия человека важнее токена: если у действия есть имя, в
+// журнале должно остаться имя; служебный ключ — без имени.
 func who(r *http.Request) string {
 	if adminPeople != nil {
 		if sess := adminPeople.Session(r); sess != nil && sess.Login != "" {
 			return sess.Login
 		}
 	}
-	return "ключ сборки"
+	return "служебный ключ"
 }
 
 // ── GET /v1/admin/builds, POST /v1/admin/builds ─────────────────────────────

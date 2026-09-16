@@ -1,5 +1,5 @@
 {
-  "scene": "exp_victoria",
+  "scene": "exp_mira",
   "script": [
     {
       "expr": "false",
@@ -125,21 +125,21 @@
       "op": "label"
     },
     {
-      "id": "victoria_finale",
+      "id": "mira_finale",
       "op": "bg",
-      "sprite_url": "/content/cg/victoria_finale.jpg"
+      "sprite_url": "/content/cg/mira_finale.jpg"
     },
     {
       "op": "say",
       "text": "Something real sparked between you."
     },
     {
-      "key": "global.exp_victoria_done",
+      "key": "global.exp_mira_done",
       "op": "set",
       "value": 1
     },
     {
-      "key": "global.date_victoria",
+      "key": "global.date_mira",
       "op": "set",
       "value": 1
     },

@@ -11,13 +11,13 @@ each novel has its own visuals and content — all driven by manifest data.
 2. Tap a collection → **card list**; tap a card → **detail view** (image +
    text + "Play").
 3. "Play" on an expedition **spends 1 energy** (`cost`) — not enough → popup → store.
-4. A regular novel plays (`exp_victoria.lvns`) with branching and a condition.
-5. **The finale sets `global.*` flags** — `exp_victoria_done`, `date_victoria`,
+4. A regular novel plays (`exp_mira.lvns`) with branching and a condition.
+5. **The finale sets `global.*` flags** — `exp_mira_done`, `date_mira`,
    `reality_beat_2`.
 6. The date and the reality beat are gated by these flags in the manifest (`unlock`) — as
    soon as the flag is set, their cards stop being locked.
 
-The expedition script is `exp_victoria.lvns` (compiles, 0 warnings). The flag inside
+The expedition script is `exp_mira.lvns` (compiles, 0 warnings). The flag inside
 the expedition (`daring`) is local; the finale flags (`global.*`) are shared per player.
 
 ## Manifest (excerpt)
@@ -29,26 +29,26 @@ the expedition (`daring`) is local; the finale flags (`global.*`) are shared per
   "collections": [
     { "id": "expeditions", "name": "Expeditions", "type": "expedition",
       "card": { "image": "/content/cards/exp.jpg", "desc": "Time travel" },
-      "titles": ["exp_victoria"] },
+      "titles": ["exp_mira"] },
     { "id": "dates", "name": "Dates", "type": "date",
       "card": { "image": "/content/cards/dates.jpg", "desc": "Romance" },
-      "titles": ["date_victoria"] },
+      "titles": ["date_mira"] },
     { "id": "reality", "name": "Reality Storyline", "type": "reality",
       "card": { "image": "/content/cards/reality.jpg", "desc": "What's happening back home" },
       "titles": ["reality_2"] }
   ],
 
   "titles": [
-    { "id": "exp_victoria", "type": "expedition",
-      "card": { "image": "/content/cards/exp_victoria.jpg", "desc": "A ball at Victoria's court." },
+    { "id": "exp_mira", "type": "expedition",
+      "card": { "image": "/content/cards/exp_mira.jpg", "desc": "A ball at Mira's court." },
       "cost": { "currency": "energy", "amount": 1 },
-      "seasons": [ { "chapters": [ { "id": "exp_victoria", "script_url": "/content/scripts/exp_victoria.lvn" } ] } ] },
+      "seasons": [ { "chapters": [ { "id": "exp_mira", "script_url": "/content/scripts/exp_mira.lvn" } ] } ] },
 
-    { "id": "date_victoria", "type": "date",
-      "unlock": "global.exp_victoria_done",
-      "locked_hint": "Finish the expedition with Victoria",
-      "card": { "image": "/content/cards/date_victoria.jpg", "desc": "A date with Victoria." },
-      "seasons": [ { "chapters": [ { "id": "date_victoria", "script_url": "/content/scripts/date_victoria.lvn" } ] } ] },
+    { "id": "date_mira", "type": "date",
+      "unlock": "global.exp_mira_done",
+      "locked_hint": "Finish the expedition with Mira",
+      "card": { "image": "/content/cards/date_mira.jpg", "desc": "A date with Mira." },
+      "seasons": [ { "chapters": [ { "id": "date_mira", "script_url": "/content/scripts/date_mira.lvn" } ] } ] },
 
     { "id": "reality_2", "type": "reality",
       "unlock": "global.reality_beat_2",
@@ -99,6 +99,6 @@ to be Unicode glyphs, and a phone whose font lacked one drew an empty box.
 ## Build and check
 
 ```
-lvnconv convert  -i exp_victoria.lvns -o exp_victoria.lvn
-lvnconv validate exp_victoria.lvn        # OK: 32 command(s), 0 warning(s)
+lvnconv convert  -i exp_mira.lvns -o exp_mira.lvn
+lvnconv validate exp_mira.lvn        # OK: 32 command(s), 0 warning(s)
 ```
