@@ -116,6 +116,8 @@ namespace Lvn.Shell.Tests
             var urls = NovelApp.ShellArtUrls(m);
             foreach (var file in LvnStageKit.SkinFiles)
                 CollectionAssert.Contains(urls, "/content/ui/stage/" + file, $"рамка {file} живая");
+            foreach (var file in LvnStageKit.ViewFiles)
+                CollectionAssert.Contains(urls, "/content/ui/stage/" + file, $"арт экранов {file} живой");
             CollectionAssert.Contains(urls, "/content/ui/stage/logo.png");
             CollectionAssert.Contains(urls, "/content/ui/stage/canvas.jpg", "полотно меню живое");
             CollectionAssert.Contains(urls, "/content/bg/menu/hall.jpg", "покупной фон живой");

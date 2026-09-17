@@ -413,6 +413,12 @@ namespace Lvn.UI.Screens
             var urls = MenuArtUrls(b);
             if (b == null) return urls;
             void Add(string u) { if (!string.IsNullOrEmpty(u) && !urls.Contains(u)) urls.Add(u); }
+            // Арт экранов списка, детали и сюжета реальности (рамки, окно,
+            // плашки, иконки): грузится при открытии экрана, но живёт на диске
+            // так же, как облик главной — иначе уборка сочтёт его мёртвым и
+            // будет стирать между запусками (та же дыра, что TR-101).
+            if (!string.IsNullOrEmpty(b.skin))
+                foreach (var file in LvnStageKit.ViewFiles) Add(LvnStageKit.SkinUrl(b.skin, file));
             Add(b.canvas);
             if (b.canvas_options != null)
                 foreach (var o in b.canvas_options) { Add(o?.url); Add(o?.preview); }
