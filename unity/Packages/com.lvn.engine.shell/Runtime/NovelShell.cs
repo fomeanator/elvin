@@ -64,6 +64,8 @@ namespace Lvn.UI.Screens
 
         /// <summary>Комната «Новеллы» — список отдельной страницей витрины.</summary>
         public TitlesScreen Titles { get; private set; }
+        /// <summary>Комната сообщений сюжета реальности (панель на главной).</summary>
+        public RealityScreen Reality { get; private set; }
         /// <summary>The daily-rewards calendar.</summary>
         public DailyRewardsScreen Daily { get; private set; }
         /// <summary>Таблица лидеров. Экран был написан и переведён (подписи
@@ -297,10 +299,19 @@ namespace Lvn.UI.Screens
             Profile = new ProfileScreen(assets); Add(Profile);
             // Комната списка: карточки собирает хаб — облик и поведение у
             // списка и главной общие, второй копии этой логики быть не должно.
-            Titles = new TitlesScreen(); Add(Titles);
+            Titles = new TitlesScreen(assets); Add(Titles);
             Titles.Card = t => Hub?.TitleCardFor(t);
             Titles.Titles = () => Hub?.AllTitles;
+            Titles.Back = () => LvnAsync.Fire(TabGoTo(LvnTabs.Home), "TitlesBack");
             if (Hub != null) Hub.OpenTitles = () => LvnAsync.Fire(TabGoTo(LvnTabs.Titles), "OpenTitles");
+            // Комната сообщений сюжета реальности — модаль над витриной: свой
+            // фон, деталь ложится поверх. Что показывать и что с каждым
+            // сообщением — знает витрина, комната только рисует.
+            Reality = new RealityScreen(assets); Add(Reality);
+            Reality.Titles = () => Hub?.RealityTitles;
+            Reality.MarkOf = t => Hub != null ? Hub.MarkOf(t) : LvnTitleMark.New;
+            Reality.Open = t => Hub?.OpenTitle(t);
+            if (Hub != null) Hub.OpenNews = () => LvnAsync.Fire(ShowModalAsync(Reality), "OpenNews");
             Daily = new DailyRewardsScreen(assets); Add(Daily);
             Leaderboard = new LeaderboardScreen(assets); Add(Leaderboard);
             PackShop = new PackShopScreen(assets); Add(PackShop);
@@ -360,6 +371,7 @@ namespace Lvn.UI.Screens
             Reparent(Hub, tabsLayer); // хаб ПОСЛЕДНИМ — его нав поверх вкладок
             Reparent(Settings, popupLayer);
             Reparent(Detail, popupLayer);
+            Reparent(Reality, popupLayer);   // комната сообщений — над хабом и его лентой
             Reparent(Gallery, popupLayer);
             Reparent(Cutscenes, popupLayer);
             Reparent(Daily, popupLayer);

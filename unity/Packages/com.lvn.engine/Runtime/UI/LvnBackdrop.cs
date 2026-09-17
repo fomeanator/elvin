@@ -242,6 +242,30 @@ namespace Lvn.UI
         private static readonly System.Collections.Generic.Dictionary<(uint, uint, bool, int), Texture2D>
             _verticals = new System.Collections.Generic.Dictionary<(uint, uint, bool, int), Texture2D>();
 
+        /// <summary>Тот же градиент поперёк: слева <paramref name="left"/>,
+        /// справа <paramref name="right"/>. Нужен постеру карточки списка —
+        /// в макете он темнеет к левому краю, под текст. Кэш свой, по рецепту,
+        /// как у вертикального.</summary>
+        public static StyleBackground Horizontal(Color left, Color right, bool smooth = false, int width = 128)
+        {
+            var key = (Key(left), Key(right), smooth, width);
+            if (_horizontals.TryGetValue(key, out var cached) && cached != null)
+                return new StyleBackground(Background.FromTexture2D(cached));
+            int w = Mathf.Max(2, width);
+            var px = new Color32[w];
+            for (int x = 0; x < w; x++)
+            {
+                float t = (float)x / (w - 1);
+                if (smooth) t = Mathf.SmoothStep(0f, 1f, t);
+                px[x] = Color.Lerp(left, right, t);
+            }
+            var tex = New(w, 1, px, TextureWrapMode.Clamp);
+            _horizontals[key] = tex;
+            return new StyleBackground(Background.FromTexture2D(tex));
+        }
+        private static readonly System.Collections.Generic.Dictionary<(uint, uint, bool, int), Texture2D>
+            _horizontals = new System.Collections.Generic.Dictionary<(uint, uint, bool, int), Texture2D>();
+
         // Цвет ключом: округление до байта — разница мельче этого не видна на
         // экране, но плодила бы по текстуре на каждый пересчёт акцента.
         private static uint Key(Color c)

@@ -173,7 +173,8 @@ namespace Lvn.UI.Screens
         }
 
         /// <summary>Панель сообщений: плашка-заголовок, строка состояния и
-        /// кнопка. Ведёт в библиотеку — все новеллы одним списком.</summary>
+        /// кнопка. Ведёт в комнату сюжета реальности; без сообщений — в
+        /// библиотеку, все новеллы одним списком.</summary>
         private VisualElement StagePanel()
         {
             var p = new VisualElement { name = "stage-home-panel", pickingMode = PickingMode.Ignore };
@@ -187,13 +188,13 @@ namespace Lvn.UI.Screens
             At(head, 0f, 0f, D(pw), D(28f));
             p.Add(head);
 
-            var body = StageLabel(
-                () => LvnWords.Pick("hub.news_empty", _cfg.news_empty_text, "No new messages").ToUpperInvariant(),
-                LvnTokens.TextBase, _dim, medium: true);
+            // Строка живёт сообщениями: «Новых сообщений: 3» или «Нет новых
+            // сообщений» — считает витрина (BrowseHub.Reality).
+            var body = StageLabel(() => NewsLine().ToUpperInvariant(), LvnTokens.TextBase, _dim, medium: true);
             At(body, 0f, D(43f), D(pw), D(28f));
             p.Add(body);
 
-            var open = StageButton(() => LvnWords.Pick("hub.open", _cfg.open_text, "Open"), ShowLibrary);
+            var open = StageButton(() => LvnWords.Pick("hub.open", _cfg.open_text, "Open"), OpenNewsOrLibrary);
             open.name = "stage-open-panel";
             At(open, D(25f), D(82f), D(150f), D(42f));
             p.Add(open);
@@ -296,7 +297,7 @@ namespace Lvn.UI.Screens
 
         /// <summary>«Глава 5/12»: досягнутая глава против всех. Слово главы —
         /// у подписей (<c>ui.chapter_word</c>), как в списке глав.</summary>
-        private static string ChapterCounter(LvnTitle t)
+        internal static string ChapterCounter(LvnTitle t)
         {
             if (t == null) return string.Empty;
             int total = t.ChaptersOf().Count;

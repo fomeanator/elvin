@@ -161,13 +161,17 @@ namespace Lvn.UI.Screens
 
         public override void Rebuild()
         {
+            // В облике деталь — попап макета со своей раскладкой целиком
+            // (TitleDetailScreen.Stage); общие только разделы глав,
+            // сохранений и статов.
+            if (StageDressed) { RebuildStage(); ApplySafeArea(); return; }
             _scroll.Clear();
 
-            _scroll.Add(StageDressed ? BuildStageHero() : BuildHero()); // the back button lives on the hero
+            _scroll.Add(BuildHero()); // the back button lives on the hero
 
             var body = new VisualElement();
             body.style.flexShrink = 0;
-            LvnAir.PadX(body, StageDressed ? D(4f) : LvnEdges.PageSide); // в облике поля даёт лист
+            LvnAir.PadX(body, LvnEdges.PageSide);
             body.style.paddingBottom = LvnEdges.PageSide;
             body.style.paddingTop = LvnTokens.Space3;
             _scroll.Add(body);
@@ -400,7 +404,6 @@ namespace Lvn.UI.Screens
         private void BuildActionBar(VisualElement bar)
         {
             bar.Clear();
-            if (StageDressed) { StageActionBar(bar); return; }
             bar.style.flexDirection = FlexDirection.Column; // restart row stacks over the play row
             LvnAir.PadX(bar, LvnEdges.PageSide);
             bar.style.paddingTop = LvnTokens.Space3;
