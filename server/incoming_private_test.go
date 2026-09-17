@@ -55,6 +55,34 @@ func TestParkedIncomingIsNotServedButTheLiveFileIs(t *testing.T) {
 	}
 }
 
+// ОГЛАВЛЕНИЕ КАТАЛОГА НАРУЖУ НЕ УХОДИТ. Стандартный файловый обработчик
+// листит каталоги; на проде любой видел состав /content/ целиком (партнёр
+// 17.09). Файл по точному адресу — как и был.
+func TestDirectoryListingIsNotServed(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "ui", "stage"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "ui", "stage", "frame.png"), []byte("png"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	srv := &server{content: dir}
+	h := srv.contentHandler(dir)
+	get := func(path string) int {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		return rec.Code
+	}
+	for _, p := range []string{"/content/", "/content/ui/", "/content/ui/stage/", "/content/ui/stage"} {
+		if code := get(p); code != http.StatusNotFound {
+			t.Errorf("%s: оглавление каталога отдано с кодом %d — должно быть 404", p, code)
+		}
+	}
+	if code := get("/content/ui/stage/frame.png"); code != http.StatusOK {
+		t.Errorf("файл по точному адресу обязан отдаваться, получено %d", code)
+	}
+}
+
 func TestReimportBookkeepingDoesNotBumpTheContentVersion(t *testing.T) {
 	dir := t.TempDir()
 	for _, d := range []string{"scripts", ".lvn-import"} {

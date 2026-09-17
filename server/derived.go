@@ -37,6 +37,12 @@ func fileExists(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
+// isDir — путь существует и это каталог (оглавление каталога наружу не отдаём).
+func isDir(path string) bool {
+	st, err := os.Stat(path)
+	return err == nil && st.IsDir()
+}
+
 // contentPath переводит путь запроса в путь на диске, отказывая любому "..".
 //
 // net/http вычищает ".." до маршрутизации, и filepath.Join из фиксированной
