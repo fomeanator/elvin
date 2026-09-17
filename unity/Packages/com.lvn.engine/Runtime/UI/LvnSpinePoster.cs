@@ -327,8 +327,18 @@ namespace Lvn.UI
             internal GameObject Root;
             internal RenderTexture Rt;
             internal object PinKey;
+            internal LvnSpinePoster.Ticker Ticker;
             public bool Released { get; private set; }
+            public bool Paused { get; private set; }
             public RenderTexture Texture => Released ? null : Rt;
+
+            /// <summary>ПАУЗА: сцена остаётся собранной (скелет, страницы,
+            /// текстура), но закадровая камера не рисует. Так полотно меню
+            /// держит пару последних сцен наготове, а не пересобирает
+            /// 1080×1920 при каждом переключении вкладки («лагает жуть» —
+            /// Илья 17.09: каждая пересборка — секундный провал).</summary>
+            public void Pause() { Paused = true; if (Ticker != null) Ticker.AlwaysVisible = false; }
+            public void Resume() { Paused = false; if (Ticker != null) Ticker.AlwaysVisible = true; }
             public void Release()
             {
                 if (Released) return;
@@ -394,9 +404,9 @@ namespace Lvn.UI
             var driver = camGo.AddComponent<LvnSpinePoster.Ticker>();
             driver.Camera = cam;
             driver.CanvasRoot = canvasGo;
-            driver.AlwaysVisible = true;
+            driver.AlwaysVisible = !handle.Paused;   // поставлен на паузу до сборки — не рисуем и после
 
-            handle.Root = root; handle.Rt = rt;
+            handle.Root = root; handle.Rt = rt; handle.Ticker = driver;
             var go = LvnSpineBridge.Create(crt, kit.Json, kit.Atlas, kit.Textures, spine.scale, kit.Bg);
             if (go == null) { handle.Release(); onFallback?.Invoke(); return; }
             if (LvnSpineBridge.SetVisible != null) LvnSpineBridge.SetVisible(go, true);

@@ -103,15 +103,12 @@ namespace Lvn.UI.Screens
             }
             if (manifest.sprites != null)
                 foreach (var kv in manifest.sprites) Warm(kv.Value?.spine);
-            // Сцены новелл и фонов меню — те же, что потом соберут карточка и
-            // полотно, тем же входом: прогрев греет ровно то, что покажут.
-            if (manifest.titles != null)
-                foreach (var t in manifest.titles)
-                    if (!string.IsNullOrEmpty(t?.spine)) Warm(LvnSpineRef.Resolve(manifest.sprites, t.spine));
-            var options = manifest.ui?.browse?.canvas_options;
-            if (options != null)
-                foreach (var o in options)
-                    if (!string.IsNullOrEmpty(o?.spine)) Warm(LvnSpineRef.Resolve(null, o.spine, bg: o.url));
+            // СЦЕНЫ НОВЕЛЛ И ФОНОВ МЕНЮ НА СТАРТЕ НЕ ГРЕЕМ. Четыре живых фона
+            // разом — четыре многомегабайтных скелета и восемь текстур 2K в
+            // первые секунды: 43 сборки мусора за окно, старт 16 с, запуск
+            // оборван (устройство Ильи 17.09, «лагает жуть»). Их собирают
+            // карточка и полотно, когда до них доходит дело, — тем же входом
+            // LvnSpineRef.Resolve, так что задник и посадка те же.
         }
 
         // Probe the server's /healthz with a hard 3s deadline. Token-based, because
