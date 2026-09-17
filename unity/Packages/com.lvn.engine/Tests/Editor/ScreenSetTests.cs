@@ -245,6 +245,8 @@ namespace Lvn.Tests
             ("Titles", об.Titles), ("Cutscenes", об.Cutscenes),
             // Комната круток — вкладка витрины (TR-112, 15.09): уборка знает её так же.
             ("GachaTab", об.GachaTab),
+            // Комната сообщений сюжета реальности — модаль над витриной (17.09).
+            ("Reality", об.Reality),
         };
 
         private static LvnScreenSet НаборОболочки(NovelShell об)
