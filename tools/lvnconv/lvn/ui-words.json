@@ -879,8 +879,16 @@
   "default": "Overwrite {0}?"
  },
  {
+  "key": "profile.achievement_locked",
+  "default": "Locked"
+ },
+ {
   "key": "profile.achievements",
   "default": "Achievements"
+ },
+ {
+  "key": "profile.achievements_empty",
+  "default": "No achievements to display yet."
  },
  {
   "key": "profile.chapters_read",
@@ -899,12 +907,28 @@
   "default": "Level {0}"
  },
  {
+  "key": "profile.progress",
+  "default": "Reading"
+ },
+ {
+  "key": "profile.progress_empty",
+  "default": "No chapters completed yet."
+ },
+ {
   "key": "profile.relations",
   "default": "Relationships"
  },
  {
   "key": "profile.relations_empty",
   "default": "The first choice already bends the story. Start a chapter and your ties appear here."
+ },
+ {
+  "key": "profile.stats",
+  "default": "Story stats"
+ },
+ {
+  "key": "profile.stats_empty",
+  "default": "Your story stats will appear here."
  },
  {
   "key": "profile.title",
