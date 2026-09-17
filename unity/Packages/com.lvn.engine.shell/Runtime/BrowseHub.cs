@@ -455,12 +455,13 @@ namespace Lvn.UI.Screens
             // СВОЙ СПАЙН У ТИТУЛА (TR-132): ключ каталога или папка комплекта.
             // Так каждая новелла получает свою живую сцену на карточке, а не
             // одну и ту же Ноэль («там Ноэль везде» — Илья 16.09).
+            // Сцена собирается ОДНИМ входом (LvnSpineRef.Resolve): ключ каталога
+            // или адрес, задник — из реестра манифеста. Тот же вход у полотна
+            // меню и у главы — карточка не может «потерять фон» отдельно от них.
             if (!string.IsNullOrEmpty(t.spine))
             {
-                if (_sprites != null && _sprites.TryGetValue(t.spine, out var named) && named?.spine != null)
-                    return named.spine;
-                var byUrl = LvnSpineRef.FromUrl(t.spine);
-                if (byUrl != null) { byUrl.fit = "cover"; return byUrl; }
+                var scene = LvnSpineRef.Resolve(_sprites, t.spine);
+                if (scene != null) return scene;
             }
             if (_sprites == null || t.id != SpineTitleId) return null;
             foreach (var kv in _sprites)

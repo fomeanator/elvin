@@ -106,15 +106,15 @@ namespace Lvn.UI
             {
                 if (ShowsBgSpine(spine)) return;
                 DropBgSpine();
-                var sref = Lvn.Content.LvnSpineRef.FromUrl(spine);
-                if (sref == null || Assets == null) return;
-                sref.fit = "cover";
                 // ЗАДНИК СЦЕНЫ — ВНУТРИ ТЕКСТУРЫ. Спайн партнёра несёт только
                 // подвижные слои (дым, свет), а нарисованный фон лежит отдельной
                 // картинкой (back.jpg, как у Ноэль); без неё в текстуре одна
                 // анимация над пустотой, а полотно под живой текстурой спрятано —
-                // «анимации появились, а фоны пропали» (Илья 16.09).
-                if (!string.IsNullOrEmpty(under)) sref.bg = under;
+                // «анимации появились, а фоны пропали» (Илья 16.09). Сцена
+                // собирается тем же входом, что карточка и глава: полотно под
+                // ней — явный задник, а нет его — задник из реестра манифеста.
+                var sref = Lvn.Content.LvnSpineRef.Resolve(null, spine, bg: under, fit: "cover");
+                if (sref == null || Assets == null) return;
                 var frame = FrameSize();
                 int w = Mathf.Max(8, Mathf.RoundToInt(frame.x)), h = Mathf.Max(8, Mathf.RoundToInt(frame.y));
                 _bgSpineShown = spine;

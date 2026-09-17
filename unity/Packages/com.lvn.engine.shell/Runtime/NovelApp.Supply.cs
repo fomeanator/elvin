@@ -92,15 +92,26 @@ namespace Lvn.UI.Screens
         // Не ждём: прогрев идёт фоном, а не задерживает бут.
         private void WarmHubSpines(LvnManifest manifest)
         {
-            if (manifest?.sprites == null) return;
-            foreach (var kv in manifest.sprites)
+            if (manifest == null) return;
+            var seen = new HashSet<string>();
+            void Warm(LvnSpineRef spine)
             {
-                var spine = kv.Value?.spine;
-                if (spine == null) continue;
+                if (spine == null || string.IsNullOrEmpty(spine.json) || !seen.Add(spine.json)) return;
                 LvnAsync.Fire(Lvn.UI.LvnSpinePoster.WarmAsync(spine,
                     url => _assets.LoadTextAsync(url, default),
                     url => _assets.LoadSpriteAsync(url, default)), "SpineWarm");
             }
+            if (manifest.sprites != null)
+                foreach (var kv in manifest.sprites) Warm(kv.Value?.spine);
+            // Сцены новелл и фонов меню — те же, что потом соберут карточка и
+            // полотно, тем же входом: прогрев греет ровно то, что покажут.
+            if (manifest.titles != null)
+                foreach (var t in manifest.titles)
+                    if (!string.IsNullOrEmpty(t?.spine)) Warm(LvnSpineRef.Resolve(manifest.sprites, t.spine));
+            var options = manifest.ui?.browse?.canvas_options;
+            if (options != null)
+                foreach (var o in options)
+                    if (!string.IsNullOrEmpty(o?.spine)) Warm(LvnSpineRef.Resolve(null, o.spine, bg: o.url));
         }
 
         // Probe the server's /healthz with a hard 3s deadline. Token-based, because
