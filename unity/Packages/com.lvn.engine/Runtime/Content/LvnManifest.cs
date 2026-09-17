@@ -293,6 +293,76 @@ namespace Lvn.Content
         /// </summary>
         public static LvnSpineRef FromUrl(string url, string bg = null, string play = null)
         {
+            var sp = FromUrlRaw(url, bg, play);
+            // ЗАДНИК СЦЕНЫ — ЧАСТЬ СЦЕНЫ. Не назван явно — берётся из реестра
+            // (фоны меню с полем spine в манифесте): карточка новеллы, живой
+            // фон меню, сцена главы и прогрев получают ОДНУ и ту же картинку,
+            // а не каждый свою («у агентства нет фона, только эффект» —
+            // Илья 17.09: постер строил спайн без задника).
+            if (sp != null && string.IsNullOrEmpty(sp.bg)) sp.bg = BackdropFor(sp.json);
+            return sp;
+        }
+
+        /// <summary>
+        /// ЕДИНСТВЕННЫЙ ВХОД ДЛЯ ВСЕХ, КТО СТАВИТ СЦЕНУ: ключ каталога спрайтов
+        /// или адрес комплекта; задник, проигрыш и посадка — переопределения
+        /// поверх того, что знает каталог и реестр. Кто бы ни вставлял спайн —
+        /// карточка, полотно меню, глава, магазин, прогрев, — сцена собирается
+        /// здесь и одинаково.
+        /// </summary>
+        public static LvnSpineRef Resolve(IDictionary<string, LvnSpriteEntity> catalog, string spineOrKey,
+                                          string bg = null, string play = null, string fit = null)
+        {
+            if (string.IsNullOrWhiteSpace(spineOrKey)) return null;
+            LvnSpineRef sp = null;
+            if (catalog != null && catalog.TryGetValue(spineOrKey.Trim(), out var named) && named?.spine != null)
+                sp = named.spine.Clone();
+            else
+            {
+                sp = FromUrlRaw(spineOrKey, bg, play);
+                // Комплект по адресу — сцена-картина: во весь кадр, если посадку
+                // не назвали. Фигура из каталога свою посадку знает сама.
+                if (sp != null && string.IsNullOrEmpty(fit)) sp.fit = "cover";
+            }
+            if (sp == null) return null;
+            if (!string.IsNullOrEmpty(bg)) sp.bg = bg;
+            if (!string.IsNullOrEmpty(play)) sp.auto = play;
+            if (!string.IsNullOrEmpty(fit)) sp.fit = fit;
+            if (string.IsNullOrEmpty(sp.bg)) sp.bg = BackdropFor(sp.json);
+            return sp;
+        }
+
+        public LvnSpineRef Clone() => (LvnSpineRef)MemberwiseClone();
+
+        // ── реестр задников: скелет → нарисованный фон, объявленный манифестом ──
+        private static readonly Dictionary<string, string> _backdrops = new Dictionary<string, string>();
+
+        /// <summary>Запомнить задники сцен из манифеста: у фонов меню с полем
+        /// <c>spine</c> картинка (<c>url</c>) и есть нарисованная основа сцены.
+        /// Зовётся при каждом применении манифеста; прежние записи о тех же
+        /// скелетах перезаписываются, чужие остаются.</summary>
+        public static void LearnBackdrops(LvnManifest m)
+        {
+            var options = m?.ui?.browse?.canvas_options;
+            if (options == null) return;
+            foreach (var o in options)
+            {
+                if (o == null || string.IsNullOrEmpty(o.spine) || string.IsNullOrEmpty(o.url)) continue;
+                var sp = FromUrlRaw(o.spine);
+                if (sp != null) _backdrops[sp.json] = o.url;
+            }
+        }
+
+        /// <summary>Нарисованный фон сцены по адресу скелета; пусто — реестр о
+        /// ней не знает (сцена без задника или задник назван в самой команде).</summary>
+        public static string BackdropFor(string json)
+            => !string.IsNullOrEmpty(json) && _backdrops.TryGetValue(json, out var bg) ? bg : null;
+
+        /// <summary>Забыть выученные задники — для тестов и смены контента.</summary>
+        public static void ForgetBackdrops() => _backdrops.Clear();
+
+        private static LvnSpineRef FromUrlRaw(string url, string bg = null, string play = null)
+        {
             if (string.IsNullOrWhiteSpace(url)) return null;
             url = url.Trim();
             if (url.EndsWith("/"))
