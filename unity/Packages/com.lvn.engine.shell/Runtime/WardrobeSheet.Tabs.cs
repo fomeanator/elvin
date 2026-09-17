@@ -37,6 +37,17 @@ namespace Lvn.UI.Screens
                 if (!icon.Contains(token)) continue;
                 icon = icon.Replace(token, CurrentValueOf(kv.Key));
             }
+            // ОСТАЛЬНЫЕ ОСИ — ТОЖЕ. Подставлялись только поднастройки раздела
+            // (_slots), а у укладки в адресе стоит цвет волос — ось другого
+            // раздела: {hair} уходил в сеть как есть, 404 и по семь секунд
+            // ожидания кода на каждую плитку (журнал 17.09, TR-142). Любую
+            // ось, которую героиня знает, подставляем её текущим значением.
+            if (icon.IndexOf('{') >= 0)
+                icon = System.Text.RegularExpressions.Regex.Replace(icon, @"\{(\w+)\}", m =>
+                {
+                    var v = CurrentValueOf(m.Groups[1].Value);
+                    return string.IsNullOrEmpty(v) ? m.Value : v;
+                });
             return icon;
         }
 
