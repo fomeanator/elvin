@@ -28,7 +28,7 @@ RANGE=${1:-origin/main..HEAD}
 
 # Партнёрский контент и продукт. Список ведётся по живым утечкам, а не по
 # воображению: каждое слово здесь однажды уже уезжало наружу.
-CONTENT='Cold_|timeromance|Time Romance|Katya|Матвей|Adele|Philipp|Bogdan|Lyuba|victoria|hill/'
+CONTENT='Cold_|time[-_ ]?romance|Katya|Матвей|Adele|Philipp|Bogdan|Lyuba|victoria|hill/'   # time-romance / time_romance / timeromance — папка art/time-romance-ui уехала наружу через дефис (17.09)
 # Секреты. Полные значения не пишем даже здесь — только их узнаваемая форма.
 SECRETS='FjB8|149\.33\.41\.201|glrt-|ADMIN_TOKEN *='
 
