@@ -123,7 +123,7 @@ namespace Lvn.UI.Screens
             words.Add(name);
             var desc = LvnStageKit.Para(() => t.card?.description ?? "", 9f, LvnStageKit.Ink.Body);
             desc.style.marginTop = D(6f);
-            desc.style.maxHeight = D(44f);   // четыре строки, как в макете
+            desc.style.maxHeight = D(43f);   // четыре строки, как в макете; пятая не заглядывает
             desc.style.overflow = Overflow.Hidden;
             words.Add(desc);
             c.Add(words);

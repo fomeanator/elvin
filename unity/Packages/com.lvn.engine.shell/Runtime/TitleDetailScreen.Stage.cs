@@ -77,6 +77,15 @@ namespace Lvn.UI.Screens
             _scroll.style.left = D(23f); _scroll.style.right = D(23f);
             _scroll.style.top = D(252f); _scroll.style.bottom = D(64f);   // над ярлыком цены
             sheet.Add(_scroll);
+            // Край прокрутки тает в тон листа: на коротком экране текст уходит
+            // под плашки, и резкий срез строки читался бы как ошибка вёрстки.
+            var fade = new VisualElement { name = "stage-detail-fade", pickingMode = PickingMode.Ignore };
+            fade.style.position = Position.Absolute;
+            fade.style.left = D(23f); fade.style.right = D(23f);
+            fade.style.bottom = D(64f); fade.style.height = D(28f);
+            fade.style.backgroundImage = LvnBackdrop.Vertical(
+                UiColor.WithAlpha(LvnStageKit.Ink.Bg, 0f), UiColor.WithAlpha(LvnStageKit.Ink.Bg, 0.9f), smooth: true);
+            sheet.Add(fade);
 
             _actionBar.RemoveFromHierarchy();
             _actionBar.style.position = Position.Absolute;
