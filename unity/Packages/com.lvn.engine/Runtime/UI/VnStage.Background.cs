@@ -93,6 +93,47 @@ namespace Lvn.UI
         // собирался, но не выводился (рентген 16.09) — потому дорога постера.
         private Lvn.UI.LvnSpineBackdrop.Handle _bgSpine;
         private string _bgSpineShown;
+        // ПАРК СОБРАННЫХ СЦЕН. Переключение вкладок меню меняло живой фон
+        // пересборкой: новый закадровый холст, камера, текстура 1080×1920,
+        // разбор скелета, страницы 2K — секундный провал на каждое касание
+        // вкладки и шторм сборщика мусора (устройство Ильи 17.09). Теперь
+        // снятая сцена ставится на паузу и ждёт в парке; возврат к ней —
+        // смена текстуры, без сборки. Парк — две сцены: больше держать
+        // незачем, память у текстур во весь экран и страниц 2K не резиновая.
+        private readonly List<(string spine, Lvn.UI.LvnSpineBackdrop.Handle handle)> _bgSpinePark
+            = new List<(string, Lvn.UI.LvnSpineBackdrop.Handle)>();
+        private const int BgSpineParkSize = 2;
+
+        private Lvn.UI.LvnSpineBackdrop.Handle TakeParkedBgSpine(string spine)
+        {
+            for (int i = 0; i < _bgSpinePark.Count; i++)
+            {
+                if (_bgSpinePark[i].spine != spine) continue;
+                var h = _bgSpinePark[i].handle;
+                _bgSpinePark.RemoveAt(i);
+                if (h == null || h.Released) return null;
+                return h;
+            }
+            return null;
+        }
+
+        private void ParkBgSpine(string spine, Lvn.UI.LvnSpineBackdrop.Handle handle)
+        {
+            if (handle == null || handle.Released || string.IsNullOrEmpty(spine)) { handle?.Release(); return; }
+            handle.Pause();
+            _bgSpinePark.Add((spine, handle));
+            while (_bgSpinePark.Count > BgSpineParkSize)
+            {
+                _bgSpinePark[0].handle?.Release();
+                _bgSpinePark.RemoveAt(0);
+            }
+        }
+
+        private void ClearBgSpinePark()
+        {
+            foreach (var p in _bgSpinePark) p.handle?.Release();
+            _bgSpinePark.Clear();
+        }
 
         /// <summary>Стоит ли сейчас живой фон <paramref name="spine"/> (пусто —
         /// «никакого»). Меню спрашивает перед тем, как слать `bg` заново.</summary>
@@ -105,7 +146,18 @@ namespace Lvn.UI
             if (!string.IsNullOrEmpty(spine))
             {
                 if (ShowsBgSpine(spine)) return;
-                DropBgSpine();
+                DropBgSpine(park: true);
+                var parked = TakeParkedBgSpine(spine);
+                if (parked != null)
+                {
+                    // Сцена уже собрана и ждала в парке — только текстура.
+                    _bgSpine = parked;
+                    _bgSpineShown = spine;
+                    parked.Resume();
+                    if (parked.Texture != null) _renderer?.SetLiveBackdrop(parked.Texture);
+                    LvnLog.Trace($"[lvn-bg] живой фон из парка: {spine}");
+                    return;
+                }
                 // ЗАДНИК СЦЕНЫ — ВНУТРИ ТЕКСТУРЫ. Спайн партнёра несёт только
                 // подвижные слои (дым, свет), а нарисованный фон лежит отдельной
                 // картинкой (back.jpg, как у Ноэль); без неё в текстуре одна
@@ -132,13 +184,21 @@ namespace Lvn.UI
                     },
                     () => LvnLog.Warn($"[lvn-bg] живой фон не собрался: {spine} — остаётся полотно"));
             }
-            else if (_bgSpineShown != null) DropBgSpine();
+            else if (_bgSpineShown != null) DropBgSpine(park: true);
         }
 
-        /// <summary>Снять живой фон: текстура уходит, полотно показывает картинку.</summary>
-        private void DropBgSpine()
+        /// <summary>Снять живой фон: текстура уходит, полотно показывает
+        /// картинку. <paramref name="park"/> — сцену не убивать, а поставить в
+        /// парк на паузу (переключение вкладок меню); без него — снести вместе
+        /// с парком (кадр главы, уборка сцены).</summary>
+        private void DropBgSpine(bool park = false)
         {
-            if (_bgSpine != null) { _bgSpine.Release(); _bgSpine = null; }
+            if (_bgSpine != null)
+            {
+                if (park) ParkBgSpine(_bgSpineShown, _bgSpine); else _bgSpine.Release();
+                _bgSpine = null;
+            }
+            if (!park) ClearBgSpinePark();
             if (_bgSpineShown != null) _renderer?.SetLiveBackdrop(null);
             _bgSpineShown = null;
         }
