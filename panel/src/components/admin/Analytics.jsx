@@ -891,6 +891,7 @@ const SCREEN_RU = {
   SettingsScreen: "Настройки", CgGalleryScreen: "Галерея", CutsceneGalleryScreen: "Катсцены",
   DailyRewardsScreen: "Ежедневные награды", LeaderboardScreen: "Таблица лидеров", AuthScreen: "Вход",
   ChapterEndScreen: "Конец главы", ShareLookScreen: "Поделиться образом", VisualElement: "Главная (сборки до 0540)",
+  RealityScreen: "Сюжет реальности",
 };
 const AXIS_RU = { backdrop: "фон", outfit: "наряд", hairstyle: "причёска", decor: "украшение", face: "лицо", emotion: "эмоция", avatar: "аватар", hair: "цвет волос", pose: "поза" };
 const EVENT_RU = {
@@ -907,6 +908,12 @@ const ELEMENT_RU = [
   [/^gacha-sell$/, () => "Продать"], [/^gacha-lane-plus$/, () => "Ленты +"], [/^gacha-lane-minus$/, () => "Ленты −"],
   [/^gacha-case-(prev|next)$/, () => "переключить набор"], [/^gacha-case-info$/, () => "«?» о наборе"],
   [/^gacha-contents-handle$/, () => "язычок «Содержимое»"],
+  // Экраны списка, детали и сюжета реальности (макеты 17.09).
+  [/^stage-card-open$/, () => "«Открыть» на карточке списка"], [/^stage-header-back$/, () => "назад (шапка списка)"],
+  [/^reality-row(?:-.*)?$/, () => "сообщение сюжета реальности"],
+  [/^reality-filter-all$/, () => "«Показывать все»"], [/^reality-filter-new$/, () => "«Только новые»"],
+  [/^stage-detail-close$/, () => "закрыть деталь"], [/^stage-detail-more$/, () => "закладка «ещё» на детали"],
+  [/^stage-detail-(play|again|icon)$/, (m) => m[1] === "play" ? "«Играть» на детали" : "кнопка-иконка детали"],
   [/^lvn-layer-(tabs|popups)$/, (m) => `пустое место (слой ${m[1] === "tabs" ? "вкладок" : "попапов"})`],
   [/^tap$/, () => "тап без имени"],
 ];
