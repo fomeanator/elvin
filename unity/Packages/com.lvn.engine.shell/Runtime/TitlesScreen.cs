@@ -17,12 +17,19 @@ namespace Lvn.UI.Screens
     ///
     /// <para>Карточки собирает ХАБ и отдаёт сюда готовыми: там живут прогресс,
     /// замки и открытие детали, и вторая копия этой логики разошлась бы с
-    /// первой. Комната отвечает за своё — за прокрутку и полосу.</para>
+    /// первой. Комната отвечает за своё — за шапку, прокрутку и полосу.</para>
+    ///
+    /// <para>Шапка — по макету «Текущие экспедиции» (Figma 17.09): стрелка
+    /// «назад» артом облика, заголовок и подзаголовок прописными, затемнения
+    /// под шапкой и над лентой. Стрелка возвращает на главную.</para>
     /// </summary>
     public sealed class TitlesScreen : LvnOverlayScreen, ILvnContentAware
     {
+        private readonly ILvnAssets _assets;
+        private readonly VisualElement _top;
         private readonly ScrollView _list;
         private LvnManifest _manifest;
+        private string _skin;
 
         /// <summary>Чем рисовать карточку новеллы. Ставит оболочка, источник —
         /// хаб: облик и поведение у списка и главной общие.</summary>
@@ -31,8 +38,12 @@ namespace Lvn.UI.Screens
         /// <summary>Какие новеллы показывать. Пусто — все из манифеста.</summary>
         public Func<IReadOnlyList<LvnTitle>> Titles;
 
-        public TitlesScreen()
+        /// <summary>Стрелка «назад» в шапке; ставит оболочка (домой).</summary>
+        public Action Back;
+
+        public TitlesScreen(ILvnAssets assets = null)
         {
+            _assets = assets;
             style.backgroundColor = Color.clear;
             pickingMode = PickingMode.Ignore;
 
@@ -41,6 +52,13 @@ namespace Lvn.UI.Screens
             // же свойством, переезд затирает сдвиг и комната застывает съехавшей
             // на пол-экрана вправо (Илья 09.09). Корень остаётся растянутым —
             // им распоряжается оболочка, полосой — содержимое.
+            _top = new VisualElement { name = "titles-top" };
+            _top.style.flexShrink = 0;
+            _top.style.width = Length.Percent(100f);
+            _top.style.maxWidth = LvnPanel.ReferenceWidth;
+            _top.style.alignSelf = Align.Center;
+            Add(_top);
+
             _list = LvnScroll.Vertical();
             _list.style.flexGrow = 1;
             _list.contentContainer.style.alignItems = Align.Center;
@@ -53,7 +71,7 @@ namespace Lvn.UI.Screens
         public void SetContent(LvnManifest manifest)
         {
             _manifest = manifest;
-            LvnStageSkin.Apply(manifest?.ui?.browse?.skin_metrics);
+            LvnStageKit.TakeSkin(manifest, ref _skin, () => { });
             Rebuild();
         }
 
@@ -62,9 +80,21 @@ namespace Lvn.UI.Screens
         public override void Rebuild()
         {
             if (_list == null) return;
+            // Затемнения — один раз, под всем: сверху под шапку, снизу под ленту.
+            if (!string.IsNullOrEmpty(_skin) && this.Q(name: "stage-scrim-top") == null) LvnStageKit.Scrims(this);
+
+            _top.Clear();
+            // Шапка стоит под шапкой оболочки (аватар, валюты) с воздухом макета.
+            _top.style.paddingTop = LvnEdges.Top(this) + LvnStageKit.D(LvnStageSkin.Sheet.Top + 12f);
+            LvnAir.PadX(_top, LvnStageKit.D(LvnStageSkin.Sheet.Side));
+            _top.Add(LvnStageKit.Header(_skin, _assets,
+                () => LvnWords.Of("hub.titles_head", "Current expeditions"),
+                () => LvnWords.Of("hub.titles_hint", "Choose an era"),
+                () => Back?.Invoke()));
+
             _list.Clear();
-            // Верх и низ — по паспорту листа: под шапкой, над лентой.
-            _list.style.paddingTop = LvnEdges.Top(this) + LvnStageKit.D(LvnStageSkin.Sheet.Top);
+            // Список — с воздухом макета под шапкой, низ над лентой.
+            _list.style.paddingTop = LvnStageKit.D(24f);
             _list.style.paddingBottom = LvnStageKit.BottomAboveBar(this, LvnStageSkin.Sheet.Bottom);
             foreach (var t in Source())
             {

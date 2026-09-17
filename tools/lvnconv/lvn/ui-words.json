@@ -768,12 +768,56 @@
   "default": "{0}"
  },
  {
-  "key": "hub.open",
-  "default": "Open"
+  "key": "hub.detail_head",
+  "default": "Choose expedition"
+ },
+ {
+  "key": "hub.done",
+  "default": "Completed"
+ },
+ {
+  "key": "hub.filter_all",
+  "default": "Show all"
+ },
+ {
+  "key": "hub.filter_new",
+  "default": "New only"
+ },
+ {
+  "key": "hub.msg_locked",
+  "default": "Locked"
+ },
+ {
+  "key": "hub.msg_new",
+  "default": "New message!"
+ },
+ {
+  "key": "hub.msg_read",
+  "default": "Read"
+ },
+ {
+  "key": "hub.news_count",
+  "default": "{0} new messages"
  },
  {
   "key": "hub.play",
   "default": "Play"
+ },
+ {
+  "key": "hub.reality_hint",
+  "default": "Choose a reality story"
+ },
+ {
+  "key": "hub.titles_head",
+  "default": "Current expeditions"
+ },
+ {
+  "key": "hub.titles_hint",
+  "default": "Choose an era"
+ },
+ {
+  "key": "hub.world",
+  "default": "Expedition world:"
  },
  {
   "key": "input_ok",

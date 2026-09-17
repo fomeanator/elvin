@@ -58,6 +58,33 @@ namespace Lvn.UI.Screens
         public static Frame Adv { get; private set; } =
             new Frame(width: 106f, height: 39f);
 
+        /// <summary>СВЕТЯЩАЯСЯ РАМКА макетов списка, детали и сюжета реальности
+        /// (Figma 17.09): угловые скобы, кромка бирюзой, градиентная середина.
+        /// Одна картинка на карточку (360×190), ряд (360×78) и лист (375×660):
+        /// режется по углам, середина тянется. Место — карточки списка.</summary>
+        public static Frame Glow { get; private set; } =
+            new Frame(width: 360f, height: 190f, imageW: 1152f, imageH: 642f, cornerPx: 102f);
+
+        /// <summary>Окно постера внутри рамки: тонкая кромка с угловыми метками,
+        /// без середины — под ней постер.</summary>
+        public static Frame Window { get; private set; } =
+            new Frame(width: 348f, height: 178f, imageW: 1116f, imageH: 606f, cornerPx: 66f);
+
+        /// <summary>Плашки-кнопки макета: «Открыть» на карточке списка,
+        /// «Играть» детали, кнопка-иконка детали, кнопка ряда сюжета.</summary>
+        public static Frame BtnOpen { get; private set; } = new Frame(147f, 40f);
+        public static Frame BtnPlay { get; private set; } = new Frame(165f, 50f);
+        public static Frame BtnIcon { get; private set; } = new Frame(79f, 42f);
+        public static Frame BtnRow { get; private set; } = new Frame(66f, 40f);
+
+        /// <summary>Лента-заголовок попапа детали.</summary>
+        public static Frame Ribbon { get; private set; } = new Frame(286f, 38f);
+
+        /// <summary>Лист детали: ширина попапа в макете (375 из 390) и его
+        /// высота на телефоне макета — по ней считается высота бокового
+        /// орнамента.</summary>
+        public static Frame Popup { get; private set; } = new Frame(375f, 660f);
+
         /// <summary>Столбик панелей на главной.</summary>
         public static Column Home { get; private set; } =
             new Column(right: 15f, width: 257f, bottom: 117f);
@@ -92,6 +119,14 @@ namespace Lvn.UI.Screens
             CardBack = Merge(CardBack, Named(m, "card-back"));
             CardFront = Merge(CardFront, Named(m, "card-front"));
             Adv = Merge(Adv, Named(m, "adv"));
+            Glow = Merge(Glow, Named(m, "glow"));
+            Window = Merge(Window, Named(m, "window"));
+            BtnOpen = Merge(BtnOpen, Named(m, "btn-open"));
+            BtnPlay = Merge(BtnPlay, Named(m, "btn-play"));
+            BtnIcon = Merge(BtnIcon, Named(m, "btn-icon"));
+            BtnRow = Merge(BtnRow, Named(m, "btn-row"));
+            Ribbon = Merge(Ribbon, Named(m, "ribbon"));
+            Popup = Merge(Popup, Named(m, "popup"));
             Home = Merge(Home, m.column);
             Shop = Merge(Shop, m.shop);
             Sheet = Merge(Sheet, m.sheet);
@@ -108,6 +143,12 @@ namespace Lvn.UI.Screens
             CardBack = new Frame(263f, 241f, 861f, 795f, cornerPx: 84f);
             CardFront = new Frame(257f, 255f);
             Adv = new Frame(106f, 39f);
+            Glow = new Frame(360f, 190f, 1152f, 642f, cornerPx: 102f);
+            Window = new Frame(348f, 178f, 1116f, 606f, cornerPx: 66f);
+            BtnOpen = new Frame(147f, 40f); BtnPlay = new Frame(165f, 50f);
+            BtnIcon = new Frame(79f, 42f); BtnRow = new Frame(66f, 40f);
+            Ribbon = new Frame(286f, 38f);
+            Popup = new Frame(375f, 660f);
             Home = new Column(15f, 257f, bottom: 117f);
             Shop = new Column(15f, 232f, top: 70f, bottom: 117f);
         }

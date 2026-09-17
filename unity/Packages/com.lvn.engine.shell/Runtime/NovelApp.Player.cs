@@ -232,6 +232,7 @@ namespace Lvn.UI.Screens
                 // …и экономика новеллы: ценник на кнопке считает ту же цену,
                 // что спишет кассир (гейт главы, бесплатные главы).
                 _shell.Detail.Economy = _manifest?.economy;
+                _shell.Detail.WorldNumber = _shell.Hub != null ? _shell.Hub.WorldNumberOf(t) : 0;
                 _shell.Detail.OnResetProgress = ResetTitleProgressAsync;
                 Newtonsoft.Json.Linq.JObject vars = null;
                 if (t?.id != null)

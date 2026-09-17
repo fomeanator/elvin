@@ -618,6 +618,16 @@ namespace Lvn.Content
         /// справочная: доступ и завершённость ведут <see cref="unlock"/> и флаги
         /// <c>global.*</c> из скрипта.</summary>
         public string type;
+        /// <summary>Жанры для детали («Детектив», «Мистика») — плашками под
+        /// описанием; цвет плашки — по <c>ui.browse.genre_colors</c>. Пусто —
+        /// ряд жанров не рисуется.</summary>
+        public List<string> genres;
+        /// <summary>Статус выпуска для детали («Новинка», «Полностью вышла») —
+        /// плашкой тона витрины. Пусто — ряд статуса не рисуется.</summary>
+        public string status;
+        /// <summary>Дата сообщения в сюжете реальности («12.04.2116») — строкой
+        /// у ряда списка рядом с состоянием. Пусто — только состояние.</summary>
+        public string date;
         /// <summary>Detail-card presentation on the hub's title screen: big image +
         /// description + a Play button. Falls back to name/subtitle/cover_url.</summary>
         public LvnCardArt card;

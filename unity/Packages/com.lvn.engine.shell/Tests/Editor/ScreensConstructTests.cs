@@ -61,6 +61,8 @@ namespace Lvn.Tests
             yield return Case("SettingsScreen", () => new SettingsScreen(null, a));
             yield return Case("TitleCard", () => new TitleCard(null, a));
             yield return Case("TitleDetailScreen", () => new TitleDetailScreen(a));
+            yield return Case("TitlesScreen", () => new TitlesScreen(a));
+            yield return Case("RealityScreen", () => new RealityScreen(a));
             yield return Case("WardrobeTabScreen", () => new WardrobeTabScreen(new LvnManifest(), a));
         }
 

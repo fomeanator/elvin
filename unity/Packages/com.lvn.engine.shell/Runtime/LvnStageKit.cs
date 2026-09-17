@@ -18,7 +18,7 @@ namespace Lvn.UI.Screens
     /// <para>Размеры — в единицах МАКЕТА (390 dp шириной) через один множитель
     /// <see cref="D"/>: числа макета читаются как есть.</para>
     /// </summary>
-    internal static class LvnStageKit
+    internal static partial class LvnStageKit
     {
         /// <summary>Панель UITK, на которую разложен макет.</summary>
         public const float PanelWidth = 1080f;

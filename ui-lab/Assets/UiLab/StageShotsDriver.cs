@@ -325,6 +325,28 @@ namespace Lvn.UiLab
                 else Debug.LogWarning($"[shots] новелла/глава не найдены: {_titleId}/{_chapter}");
             }
 
+            // Списку и сюжету нужны пройденные новеллы: «Пройдено» на второй
+            // карточке списка, «Прочитано» у первого сообщения реальности.
+            var finished = new List<LvnTitle>();
+            if (_tag.StartsWith("titles") || _tag.StartsWith("detail") || _tag.StartsWith("reality"))
+            {
+                manifest = (_app.GetType().GetField("_manifest", bf)?.GetValue(_app) as LvnManifest) ?? manifest;
+                foreach (var id in new[] { "bg3d_demo", "tour" })
+                {
+                    var t = manifest.titles?.FirstOrDefault(x => x.id == id);
+                    var last = t?.LastChapter();
+                    if (t == null || last == null) continue;
+                    LvnProgress.StartChapter(t, last);
+                    LvnProgress.FinishChapter(t, null);
+                    finished.Add(t);
+                }
+                if (finished.Count > 0)
+                {
+                    _hub.SetContent(manifest);
+                    Debug.Log($"[shots] пройдены: {string.Join(", ", finished.Select(t => t.id))}");
+                }
+            }
+
             // Сценарию загрузчика нужен живой кружок — идём к нему сразу,
             // пока библиотека греется, не дожидаясь тишины сети и арта.
             if (_tag.StartsWith("qa")) { yield return Qa(); if (marked != null) LvnProgress.ClearCurrent(marked); Done(); yield break; }
@@ -339,8 +361,56 @@ namespace Lvn.UiLab
             Diagnose();
             yield return Shoot("main");
             if (_tag.StartsWith("tour")) yield return Tour();
+            if (_tag.StartsWith("titles")) yield return TitlesRoom(detail: false);
+            if (_tag.StartsWith("detail")) yield return TitlesRoom(detail: true);
+            if (_tag.StartsWith("reality")) yield return Reality();
             if (marked != null) LvnProgress.ClearCurrent(marked);
+            foreach (var t in finished) Lvn.LvnKeep.Drop(Lvn.LvnKeep.Scoped("lvn_reached_", t.id));
             Done();
+        }
+
+        // ── список, деталь, сюжет реальности (макеты 17.09) ─────────────────
+        // Комната списка — вкладка «Новеллы»; деталь — тап по «Открыть» первой
+        // карточки; закладка раскрывает главы. Сюжет — кнопка панели главной.
+        private IEnumerator TitlesRoom(bool detail)
+        {
+            var shell = _app.Shell;
+            Lvn.LvnAsync.Fire(shell.TabGoTo(LvnTabs.Titles), "shots-titles");
+            yield return new WaitForSecondsRealtime(2.5f);
+            yield return WaitArt(20f);
+            yield return new WaitForSecondsRealtime(1f);
+            var titles = shell.Titles;
+            Debug.Log($"[shots] список: карточек {titles.Query(name: "stage-title-card").ToList().Count}, "
+                    + $"на экране={OnScreen(titles.Q(name: "stage-header-title"))}");
+            yield return Shoot("titles");
+            if (!detail) yield break;
+
+            Tap(titles.Q(name: "stage-card-open"));
+            yield return new WaitForSecondsRealtime(2.5f);
+            yield return WaitArt(20f);
+            yield return new WaitForSecondsRealtime(1f);
+            var d = shell.Detail;
+            Debug.Log($"[shots] деталь: лист на экране={OnScreen(d?.Q(name: "stage-detail-sheet"))}, "
+                    + $"жанров {d?.Query(name: "stage-chip").ToList().Count}");
+            yield return Shoot("detail");
+            Tap(d?.Q(name: "stage-detail-more-btn"));
+            yield return new WaitForSecondsRealtime(1.5f);
+            yield return Shoot("detail-more");
+        }
+
+        private IEnumerator Reality()
+        {
+            Tap(_hub.Q(name: "stage-open-panel"));
+            yield return new WaitForSecondsRealtime(2.5f);
+            yield return WaitArt(20f);
+            yield return new WaitForSecondsRealtime(1f);
+            var r = _app.Shell.Reality;
+            Debug.Log($"[shots] сюжет: рядов {r?.Query(name: "reality-row").ToList().Count}, "
+                    + $"на экране={OnScreen(r?.Q(name: "stage-header-title"))}");
+            yield return Shoot("reality");
+            Tap(r?.Q(name: "reality-filter-new"));
+            yield return new WaitForSecondsRealtime(1.5f);
+            yield return Shoot("reality-new");
         }
 
         // Магазин снимается без покупки и без записи прогресса новеллы.
