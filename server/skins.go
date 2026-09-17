@@ -318,6 +318,35 @@ func applyCommon(m map[string]any, sk skin) {
 	setOrDrop(m, "sell_price", sk.SellPrice, sk.SellPrice > 0)
 }
 
+// applyBackdrop — поля фона меню из каталога: одна раскладка и для записи,
+// что уже есть в манифесте, и для новой. Ветки были две и повторяли друг
+// друга строка в строку — новое поле (spine, still, gacha) приходилось
+// дописывать дважды, и одна из веток отставала.
+func applyBackdrop(o map[string]any, sk skin) {
+	setIf(o, "title", sk.Name)
+	setIf(o, "url", sk.Art)
+	setIf(o, "preview", sk.Preview)
+	setOrDrop(o, "spine", sk.Spine, sk.Spine != "")
+	setOrDrop(o, "gacha", true, sk.Gacha && !sk.Buy) // «только из крутки» — подарок вместо цены, как у нарядов
+	if sk.Still != nil {
+		o["still"] = *sk.Still
+	} else {
+		delete(o, "still")
+	}
+	applyCommon(o, sk)
+}
+
+// applyAvatar — поля аватарки из каталога, для записи и для новой: адрес,
+// имя, общие поля; бесплатная — без цены.
+func applyAvatar(a map[string]any, sk skin) {
+	setIf(a, "url", sk.Art)
+	setAvatarName(a, sk)
+	applyCommon(a, sk)
+	if sk.Price <= 0 {
+		delete(a, "price")
+	}
+}
+
 // setAvatarName — имя аватарки в манифест. Аватарки жили без имени (id
 // «free1» и был подписью — «лысое приложение», Илья 16.09); имя пишем
 // только настоящее — id-заглушку в манифест не тащим.
@@ -490,17 +519,7 @@ func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) in
 			continue
 		}
 		seen[sk.SKU] = true
-		setIf(o, "title", sk.Name)
-		setIf(o, "url", sk.Art)
-		setIf(o, "preview", sk.Preview)
-		setOrDrop(o, "spine", sk.Spine, sk.Spine != "")
-		setOrDrop(o, "gacha", true, sk.Gacha && !sk.Buy) // «только из крутки» — подарок вместо цены, как у нарядов
-		if sk.Still != nil {
-			o["still"] = *sk.Still
-		} else {
-			delete(o, "still")
-		}
-		applyCommon(o, sk)
+		applyBackdrop(o, sk)
 		placed++
 	}
 	for _, raw := range skinList(browse, "avatars") {
@@ -513,12 +532,7 @@ func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) in
 			continue
 		}
 		seen[sk.SKU] = true
-		setIf(a, "url", sk.Art)
-		setAvatarName(a, sk)
-		applyCommon(a, sk)
-		if sk.Price <= 0 {
-			delete(a, "price")
-		}
+		applyAvatar(a, sk)
 		placed++
 	}
 	// Новые фоны и аватарки из каталога — заводятся в манифесте.
@@ -528,29 +542,16 @@ func applySkins(cfg skinsConfig, manifest map[string]any, gacha *gachaConfig) in
 		}
 		switch sk.Kind {
 		case "backdrop":
-			o := map[string]any{"id": strings.TrimPrefix(sk.SKU, "wardrobe:menu:backdrop:"), "url": sk.Art}
-			setIf(o, "title", sk.Name)
-			setIf(o, "preview", sk.Preview)
-			setOrDrop(o, "spine", sk.Spine, sk.Spine != "")
-			setOrDrop(o, "gacha", true, sk.Gacha && !sk.Buy) // «только из крутки» — подарок вместо цены, как у нарядов
-			if sk.Still != nil {
-				o["still"] = *sk.Still
-			} else {
-				delete(o, "still")
-			}
-			applyCommon(o, sk)
+			o := map[string]any{"id": strings.TrimPrefix(sk.SKU, "wardrobe:menu:backdrop:")}
+			applyBackdrop(o, sk)
 			browse["canvas_options"] = append(ensureList(browse, "canvas_options"), o)
 			placed++
 		case "avatar":
-			a := map[string]any{"id": strings.TrimPrefix(sk.SKU, "avatar."), "url": sk.Art}
+			a := map[string]any{"id": strings.TrimPrefix(sk.SKU, "avatar.")}
 			if !strings.HasPrefix(sk.SKU, "avatar.") {
 				a["sku"] = sk.SKU
 			}
-			setAvatarName(a, sk)
-			applyCommon(a, sk)
-			if sk.Price <= 0 {
-				delete(a, "price")
-			}
+			applyAvatar(a, sk)
 			browse["avatars"] = append(ensureList(browse, "avatars"), a)
 			placed++
 		}

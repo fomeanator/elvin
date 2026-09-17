@@ -93,47 +93,11 @@ namespace Lvn.UI
         // собирался, но не выводился (рентген 16.09) — потому дорога постера.
         private Lvn.UI.LvnSpineBackdrop.Handle _bgSpine;
         private string _bgSpineShown;
-        // ПАРК СОБРАННЫХ СЦЕН. Переключение вкладок меню меняло живой фон
-        // пересборкой: новый закадровый холст, камера, текстура 1080×1920,
-        // разбор скелета, страницы 2K — секундный провал на каждое касание
-        // вкладки и шторм сборщика мусора (устройство Ильи 17.09). Теперь
-        // снятая сцена ставится на паузу и ждёт в парке; возврат к ней —
-        // смена текстуры, без сборки. Парк — две сцены: больше держать
-        // незачем, память у текстур во весь экран и страниц 2K не резиновая.
-        private readonly List<(string spine, Lvn.UI.LvnSpineBackdrop.Handle handle)> _bgSpinePark
-            = new List<(string, Lvn.UI.LvnSpineBackdrop.Handle)>();
-        private const int BgSpineParkSize = 2;
-
-        private Lvn.UI.LvnSpineBackdrop.Handle TakeParkedBgSpine(string spine)
-        {
-            for (int i = 0; i < _bgSpinePark.Count; i++)
-            {
-                if (_bgSpinePark[i].spine != spine) continue;
-                var h = _bgSpinePark[i].handle;
-                _bgSpinePark.RemoveAt(i);
-                if (h == null || h.Released) return null;
-                return h;
-            }
-            return null;
-        }
-
-        private void ParkBgSpine(string spine, Lvn.UI.LvnSpineBackdrop.Handle handle)
-        {
-            if (handle == null || handle.Released || string.IsNullOrEmpty(spine)) { handle?.Release(); return; }
-            handle.Pause();
-            _bgSpinePark.Add((spine, handle));
-            while (_bgSpinePark.Count > BgSpineParkSize)
-            {
-                _bgSpinePark[0].handle?.Release();
-                _bgSpinePark.RemoveAt(0);
-            }
-        }
-
-        private void ClearBgSpinePark()
-        {
-            foreach (var p in _bgSpinePark) p.handle?.Release();
-            _bgSpinePark.Clear();
-        }
+        // ПАРК СОБРАННЫХ СЦЕН (LvnSpineBackdrop.Park): переключение вкладок
+        // меню меняло живой фон пересборкой — секундный провал на каждое
+        // касание вкладки (устройство Ильи 17.09). Снятая сцена ждёт на паузе,
+        // возврат к ней — смена текстуры. Две сцены: больше держать незачем.
+        private readonly Lvn.UI.LvnSpineBackdrop.Park _bgSpinePark = new Lvn.UI.LvnSpineBackdrop.Park(2);
 
         /// <summary>Стоит ли сейчас живой фон <paramref name="spine"/> (пусто —
         /// «никакого»). Меню спрашивает перед тем, как слать `bg` заново.</summary>
@@ -147,7 +111,7 @@ namespace Lvn.UI
             {
                 if (ShowsBgSpine(spine)) return;
                 DropBgSpine(park: true);
-                var parked = TakeParkedBgSpine(spine);
+                var parked = _bgSpinePark.Take(spine);
                 if (parked != null)
                 {
                     // Сцена уже собрана и ждала в парке — только текстура.
@@ -195,10 +159,10 @@ namespace Lvn.UI
         {
             if (_bgSpine != null)
             {
-                if (park) ParkBgSpine(_bgSpineShown, _bgSpine); else _bgSpine.Release();
+                if (park) _bgSpinePark.Put(_bgSpineShown, _bgSpine); else _bgSpine.Release();
                 _bgSpine = null;
             }
-            if (!park) ClearBgSpinePark();
+            if (!park) _bgSpinePark.Clear();
             if (_bgSpineShown != null) _renderer?.SetLiveBackdrop(null);
             _bgSpineShown = null;
         }

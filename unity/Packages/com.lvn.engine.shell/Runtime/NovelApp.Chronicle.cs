@@ -411,7 +411,7 @@ namespace Lvn.UI.Screens
             // covers and loading backdrops often reuse in-chapter bg files, and
             // destroying a sprite the carousel still references leaves white
             // cards. The disk cache is intact so the next entry re-decodes fast.
-            var pinned = MenuArtUrls();
+            var pinned = MenuCoverUrls();
             // Уничтожение десятков 2K-текстур — один тяжёлый кадр. Синхронно он
             // стоял ПЕРЕД экраном «Конец главы» и складывался с сетевым сейвом в
             // видимый «лаг на финале». Три кадра спустя экран уже нарисован —

@@ -92,17 +92,15 @@ namespace Lvn.UI.Screens
         // Не ждём: прогрев идёт фоном, а не задерживает бут.
         private void WarmHubSpines(LvnManifest manifest)
         {
-            if (manifest == null) return;
-            var seen = new HashSet<string>();
-            void Warm(LvnSpineRef spine)
+            if (manifest?.sprites == null) return;
+            foreach (var kv in manifest.sprites)
             {
-                if (spine == null || string.IsNullOrEmpty(spine.json) || !seen.Add(spine.json)) return;
+                var spine = kv.Value?.spine;
+                if (spine == null) continue;
                 LvnAsync.Fire(Lvn.UI.LvnSpinePoster.WarmAsync(spine,
                     url => _assets.LoadTextAsync(url, default),
                     url => _assets.LoadSpriteAsync(url, default)), "SpineWarm");
             }
-            if (manifest.sprites != null)
-                foreach (var kv in manifest.sprites) Warm(kv.Value?.spine);
             // СЦЕНЫ НОВЕЛЛ И ФОНОВ МЕНЮ НА СТАРТЕ НЕ ГРЕЕМ. Четыре живых фона
             // разом — четыре многомегабайтных скелета и восемь текстур 2K в
             // первые секунды: 43 сборки мусора за окно, старт 16 с, запуск

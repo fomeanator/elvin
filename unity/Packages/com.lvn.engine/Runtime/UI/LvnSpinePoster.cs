@@ -175,57 +175,13 @@ namespace Lvn.UI
             _pins.Hold(host, ledger, kit.Sprites);
 
             // ── офф-скрин установка: корень в своём углу мира ─────────────────
-            var root = new GameObject("lvn-spine-poster");
-            root.transform.position = origin;
-
-            var canvasGo = new GameObject("canvas", typeof(RectTransform), typeof(Canvas));
-            canvasGo.transform.SetParent(root.transform, false);
-            var canvas = canvasGo.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.WorldSpace;
-            var crt = canvasGo.GetComponent<RectTransform>();
-            // ХОЛСТ ПОВТОРЯЕТ ФОРМУ САМОГО ЭЛЕМЕНТА. Держать здесь свою форму
-            // (аспект фигуры) значило подать в постер картинку другой формы — и
-            // она либо оставляла полосы (contain), либо срезалась по краю
-            // (cover). Совпали формы — срезать и добирать нечего: спайн ложится
-            // в ровень. Размер элемента к этому мигу обычно уже посчитан; не
-            // успел (замерено — бывает) — отступаем на аспект скелета.
             const float ch = 800f;
             float hw = host.resolvedStyle.width, hh = host.resolvedStyle.height;
             float aspect = (hw > 1f && hh > 1f) ? hw / hh : 0.8325f;
             float cw = Mathf.Round(ch * Mathf.Clamp(aspect, 0.3f, 3f));
-            crt.sizeDelta = new Vector2(cw, ch);
-            crt.position = origin;
-
-            var rt = new RenderTexture((int)cw, (int)ch, 16, RenderTextureFormat.ARGB32)
-            {
-                name = "lvn-spine-rt",
-                filterMode = FilterMode.Bilinear,
-                wrapMode = TextureWrapMode.Clamp,
-            };
-            rt.Create();
-
-            var camGo = new GameObject("cam", typeof(Camera));
-            camGo.transform.SetParent(root.transform, false);
-            var cam = camGo.GetComponent<Camera>();
-            cam.orthographic = true;
-            cam.orthographicSize = ch * 0.5f;
-            cam.transform.position = origin + new Vector3(0f, 0f, -100f);
-            cam.transform.rotation = Quaternion.identity;
-            cam.nearClipPlane = 0.1f; cam.farClipPlane = 1000f;
-            cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0f, 0f, 0f, 0f);
-            cam.targetTexture = rt;
-            cam.allowHDR = false; cam.allowMSAA = false;
-            // СНИМАЕМ РЕЖЕ, ЧЕМ ИДУТ КАДРЫ. Камера с целевой текстурой рисует
-            // КАЖДЫЙ кадр, и на экране их несколько сразу (лента, витрина,
-            // столбик магазина): фигура в интерфейсе — не игровая сцена, её
-            // движение читается и вполовину реже, а кадры игре нужнее
-            // («что-то сжирает кадры, давай спайн ограничим» — Илья 09.09).
-            cam.enabled = false;
-            var driver = camGo.AddComponent<Ticker>();
-            driver.Camera = cam;
-            driver.VisibilityTarget = visibilityTarget;
-            driver.CanvasRoot = canvasGo;
+            var rig = BuildRig("lvn-spine-poster", origin, (int)cw, (int)ch);
+            rig.Ticker.VisibilityTarget = visibilityTarget;
+            var root = rig.Root; var crt = rig.Canvas; var rt = rig.Rt;
 
             var go = LvnSpineBridge.Create(crt, kit.Json, kit.Atlas, kit.Textures, spine.scale, kit.Bg);
             if (go == null) { Cleanup(root, rt, host); onFallback?.Invoke(); return; }
@@ -266,6 +222,56 @@ namespace Lvn.UI
         /// с тем, что делает <see cref="Ticker"/>).</summary>
         public static bool ShouldRender(float lastRender, float now)
             => lastRender < 0f || now - lastRender >= 1f / Hz;
+
+        /// <summary>ЗАКАДРОВЫЙ РИГ — один на постер и живой фон: корень в
+        /// дальнем углу мира, холст в мировом пространстве размером с кадр,
+        /// текстура того же размера и ортокамера с тикером. Раньше собирался
+        /// дважды, строка в строку; расхождение (например, формат текстуры)
+        /// ушло бы в один из двух молча.</summary>
+        internal sealed class Rig
+        {
+            public GameObject Root;
+            public RectTransform Canvas;
+            public RenderTexture Rt;
+            public Camera Camera;
+            public Ticker Ticker;
+        }
+
+        internal static Rig BuildRig(string name, Vector3 origin, int width, int height)
+        {
+            var root = new GameObject(name);
+            root.transform.position = origin;
+            var canvasGo = new GameObject("canvas", typeof(RectTransform), typeof(Canvas));
+            canvasGo.transform.SetParent(root.transform, false);
+            canvasGo.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
+            var crt = canvasGo.GetComponent<RectTransform>();
+            crt.sizeDelta = new Vector2(width, height);
+            crt.position = origin;
+            var rt = new RenderTexture(width, height, 16, RenderTextureFormat.ARGB32)
+            {
+                name = name + "-rt",
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp,
+            };
+            rt.Create();
+            var camGo = new GameObject("cam", typeof(Camera));
+            camGo.transform.SetParent(root.transform, false);
+            var cam = camGo.GetComponent<Camera>();
+            cam.orthographic = true;
+            cam.orthographicSize = height * 0.5f;
+            cam.transform.position = origin + new Vector3(0f, 0f, -100f);
+            cam.transform.rotation = Quaternion.identity;
+            cam.nearClipPlane = 0.1f; cam.farClipPlane = 1000f;
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0f, 0f, 0f, 0f);
+            cam.targetTexture = rt;
+            cam.allowHDR = false; cam.allowMSAA = false;
+            cam.enabled = false;
+            var driver = camGo.AddComponent<Ticker>();
+            driver.Camera = cam;
+            driver.CanvasRoot = canvasGo;
+            return new Rig { Root = root, Canvas = crt, Rt = rt, Camera = cam, Ticker = driver };
+        }
 
         private static void Cleanup(GameObject root, RenderTexture rt, VisualElement host)
         {
@@ -349,6 +355,49 @@ namespace Lvn.UI
             }
         }
 
+        /// <summary>ПАРК СОБРАННЫХ СЦЕН: снятая сцена стоит на паузе и ждёт
+        /// возврата — вместо пересборки холста, камеры, текстуры и страниц 2K
+        /// при каждом переключении вкладки («лагает жуть» — Илья 17.09).
+        /// Вместимость мала намеренно: текстуры во весь экран и страницы 2K.</summary>
+        public sealed class Park
+        {
+            private readonly List<(string key, Handle handle)> _items = new List<(string, Handle)>();
+            private readonly int _capacity;
+            public Park(int capacity) { _capacity = Mathf.Max(1, capacity); }
+
+            /// <summary>Забрать сцену по ключу (пусто — нет или уже снесена); из парка она уходит.</summary>
+            public Handle Take(string key)
+            {
+                for (int i = 0; i < _items.Count; i++)
+                {
+                    if (_items[i].key != key) continue;
+                    var h = _items[i].handle;
+                    _items.RemoveAt(i);
+                    return h == null || h.Released ? null : h;
+                }
+                return null;
+            }
+
+            /// <summary>Поставить сцену в парк на паузу; самая давняя сверх вместимости сносится.</summary>
+            public void Put(string key, Handle handle)
+            {
+                if (handle == null || handle.Released || string.IsNullOrEmpty(key)) { handle?.Release(); return; }
+                handle.Pause();
+                _items.Add((key, handle));
+                while (_items.Count > _capacity)
+                {
+                    _items[0].handle?.Release();
+                    _items.RemoveAt(0);
+                }
+            }
+
+            public void Clear()
+            {
+                foreach (var it in _items) it.handle?.Release();
+                _items.Clear();
+            }
+        }
+
         /// <summary>Собрать сцену закадрово и отдать текстуру, когда она готова.
         /// <paramref name="width"/>/<paramref name="height"/> — логический кадр
         /// сцены; текстура рисуется той же формы, чтобы полотно не кадрировало.</summary>
@@ -375,38 +424,10 @@ namespace Lvn.UI
             if (!kit.Ok) { handle.Release(); onFallback?.Invoke(); return; }
             _pins.Hold(handle.PinKey, ledger, kit.Sprites);
 
-            var root = new GameObject("lvn-spine-backdrop");
-            root.transform.position = origin;
-            var canvasGo = new GameObject("canvas", typeof(RectTransform), typeof(Canvas));
-            canvasGo.transform.SetParent(root.transform, false);
-            var canvas = canvasGo.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.WorldSpace;
-            var crt = canvasGo.GetComponent<RectTransform>();
-            crt.sizeDelta = new Vector2(width, height);
-            crt.position = origin;
-
-            var rt = new RenderTexture(width, height, 16, RenderTextureFormat.ARGB32)
-            { name = "lvn-spine-backdrop-rt", filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
-            rt.Create();
-            var camGo = new GameObject("cam", typeof(Camera));
-            camGo.transform.SetParent(root.transform, false);
-            var cam = camGo.GetComponent<Camera>();
-            cam.orthographic = true;
-            cam.orthographicSize = height * 0.5f;
-            cam.transform.position = origin + new Vector3(0f, 0f, -100f);
-            cam.transform.rotation = Quaternion.identity;
-            cam.nearClipPlane = 0.1f; cam.farClipPlane = 1000f;
-            cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0f, 0f, 0f, 0f);
-            cam.targetTexture = rt;
-            cam.allowHDR = false; cam.allowMSAA = false;
-            cam.enabled = false;
-            var driver = camGo.AddComponent<LvnSpinePoster.Ticker>();
-            driver.Camera = cam;
-            driver.CanvasRoot = canvasGo;
-            driver.AlwaysVisible = !handle.Paused;   // поставлен на паузу до сборки — не рисуем и после
-
-            handle.Root = root; handle.Rt = rt; handle.Ticker = driver;
+            var rig = LvnSpinePoster.BuildRig("lvn-spine-backdrop", origin, width, height);
+            rig.Ticker.AlwaysVisible = !handle.Paused;   // поставлен на паузу до сборки — не рисуем и после
+            handle.Root = rig.Root; handle.Rt = rig.Rt; handle.Ticker = rig.Ticker;
+            var crt = rig.Canvas; var rt = rig.Rt;
             var go = LvnSpineBridge.Create(crt, kit.Json, kit.Atlas, kit.Textures, spine.scale, kit.Bg);
             if (go == null) { handle.Release(); onFallback?.Invoke(); return; }
             if (LvnSpineBridge.SetVisible != null) LvnSpineBridge.SetVisible(go, true);

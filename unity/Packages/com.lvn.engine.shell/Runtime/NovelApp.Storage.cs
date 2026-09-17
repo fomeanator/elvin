@@ -366,7 +366,7 @@ namespace Lvn.UI.Screens
                     }
                 }
             }
-            foreach (var u in MenuArtUrls()) { Add(live, u); Add(prot, u); }
+            foreach (var u in MenuCoverUrls()) { Add(live, u); Add(prot, u); }
             // ОБЛИК ВИТРИНЫ — ТОЖЕ ЖИВОЙ. Рамки облика, лого, аватар, значки
             // валют, полотно меню с покупными вариантами и портреты на выбор
             // для уборки никто не перечислял: на каждом запуске они были
@@ -400,8 +400,8 @@ namespace Lvn.UI.Screens
         // backdrops, collection art) — the chapter-end unload must never destroy
         // these while the carousel/hub still draw them. Rebuilt lazily per
         // manifest (content live-reload swaps the manifest object).
-        private HashSet<string> _menuArt;
-        private LvnManifest _menuArtFor;
+        private HashSet<string> _menuCovers;
+        private LvnManifest _menuCoversFor;
 
         /// <summary>АДРЕСА ОБЛИКА ВИТРИНЫ ЦЕЛИКОМ — то, что греет бут
         /// (<see cref="MenuArtUrls(BrowseConfig)"/>), плюс полотно меню, его
@@ -423,13 +423,13 @@ namespace Lvn.UI.Screens
             return urls;
         }
 
-        private HashSet<string> MenuArtUrls()
+        private HashSet<string> MenuCoverUrls()
         {
-            if (_menuArt != null && ReferenceEquals(_menuArtFor, _manifest)) return _menuArt;
+            if (_menuCovers != null && ReferenceEquals(_menuCoversFor, _manifest)) return _menuCovers;
             var set = new HashSet<string>();
             foreach (var part in LvnParts.OfMenuArt(_manifest)) set.Add(part.Url);
-            _menuArt = set;
-            _menuArtFor = _manifest;
+            _menuCovers = set;
+            _menuCoversFor = _manifest;
             return set;
         }
     }

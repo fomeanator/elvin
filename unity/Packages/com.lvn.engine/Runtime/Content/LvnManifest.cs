@@ -299,7 +299,7 @@ namespace Lvn.Content
             // фон меню, сцена главы и прогрев получают ОДНУ и ту же картинку,
             // а не каждый свою («у агентства нет фона, только эффект» —
             // Илья 17.09: постер строил спайн без задника).
-            if (sp != null && string.IsNullOrEmpty(sp.bg)) sp.bg = BackdropFor(sp.json);
+            if (sp != null && string.IsNullOrEmpty(sp.bg)) sp.bg = LvnSpineBackdrops.For(sp.json);
             return sp;
         }
 
@@ -328,38 +328,11 @@ namespace Lvn.Content
             if (!string.IsNullOrEmpty(bg)) sp.bg = bg;
             if (!string.IsNullOrEmpty(play)) sp.auto = play;
             if (!string.IsNullOrEmpty(fit)) sp.fit = fit;
-            if (string.IsNullOrEmpty(sp.bg)) sp.bg = BackdropFor(sp.json);
+            if (string.IsNullOrEmpty(sp.bg)) sp.bg = LvnSpineBackdrops.For(sp.json);
             return sp;
         }
 
         public LvnSpineRef Clone() => (LvnSpineRef)MemberwiseClone();
-
-        // ── реестр задников: скелет → нарисованный фон, объявленный манифестом ──
-        private static readonly Dictionary<string, string> _backdrops = new Dictionary<string, string>();
-
-        /// <summary>Запомнить задники сцен из манифеста: у фонов меню с полем
-        /// <c>spine</c> картинка (<c>url</c>) и есть нарисованная основа сцены.
-        /// Зовётся при каждом применении манифеста; прежние записи о тех же
-        /// скелетах перезаписываются, чужие остаются.</summary>
-        public static void LearnBackdrops(LvnManifest m)
-        {
-            var options = m?.ui?.browse?.canvas_options;
-            if (options == null) return;
-            foreach (var o in options)
-            {
-                if (o == null || string.IsNullOrEmpty(o.spine) || string.IsNullOrEmpty(o.url)) continue;
-                var sp = FromUrlRaw(o.spine);
-                if (sp != null) _backdrops[sp.json] = o.url;
-            }
-        }
-
-        /// <summary>Нарисованный фон сцены по адресу скелета; пусто — реестр о
-        /// ней не знает (сцена без задника или задник назван в самой команде).</summary>
-        public static string BackdropFor(string json)
-            => !string.IsNullOrEmpty(json) && _backdrops.TryGetValue(json, out var bg) ? bg : null;
-
-        /// <summary>Забыть выученные задники — для тестов и смены контента.</summary>
-        public static void ForgetBackdrops() => _backdrops.Clear();
 
         private static LvnSpineRef FromUrlRaw(string url, string bg = null, string play = null)
         {
@@ -408,6 +381,41 @@ namespace Lvn.Content
         /// moves and drags together with the Spine and stays perfectly aligned
         /// (the base plate the animated overlay was authored on top of).</summary>
         public string bg;
+    }
+
+    /// <summary>
+    /// РЕЕСТР ЗАДНИКОВ СПАЙН-СЦЕН: скелет → нарисованный фон, объявленный
+    /// манифестом (фоны меню с полем <c>spine</c>). Своя сущность, а не
+    /// статика внутри описания сцены: описание — данные, реестр — память
+    /// приложения; <see cref="LvnSpineRef.Resolve"/> сюда только заглядывает.
+    /// </summary>
+    public static class LvnSpineBackdrops
+    {
+        private static readonly Dictionary<string, string> _byJson = new Dictionary<string, string>();
+
+        /// <summary>Выучить задники из манифеста: у фонов меню с полем
+        /// <c>spine</c> картинка (<c>url</c>) и есть нарисованная основа сцены.
+        /// Зовётся при каждом применении манифеста; записи о тех же скелетах
+        /// перезаписываются, чужие остаются.</summary>
+        public static void Learn(LvnManifest m)
+        {
+            var options = m?.ui?.browse?.canvas_options;
+            if (options == null) return;
+            foreach (var o in options)
+            {
+                if (o == null || string.IsNullOrEmpty(o.spine) || string.IsNullOrEmpty(o.url)) continue;
+                var sp = LvnSpineRef.FromUrl(o.spine);
+                if (sp != null) _byJson[sp.json] = o.url;
+            }
+        }
+
+        /// <summary>Нарисованный фон сцены по адресу скелета; пусто — реестр о
+        /// ней не знает (сцена без задника или задник назван в самой команде).</summary>
+        public static string For(string json)
+            => !string.IsNullOrEmpty(json) && _byJson.TryGetValue(json, out var bg) ? bg : null;
+
+        /// <summary>Забыть выученное — тесты и смена контента.</summary>
+        public static void Forget() => _byJson.Clear();
     }
 
     /// <summary>A named animation: a set of tracks tweened over <c>duration</c>

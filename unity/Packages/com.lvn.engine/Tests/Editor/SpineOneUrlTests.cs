@@ -76,7 +76,7 @@ namespace Lvn.Tests
             // Карточка новеллы строила спайн без задника («у агентства нет
             // фона, только эффект»), а полотно меню — с задником, переданным
             // руками. Теперь задник знает реестр, и его получает любой вход.
-            LvnSpineRef.ForgetBackdrops();
+            LvnSpineBackdrops.Forget();
             try
             {
                 var m = new LvnManifest
@@ -92,7 +92,7 @@ namespace Lvn.Tests
                         },
                     },
                 };
-                LvnSpineRef.LearnBackdrops(m);
+                LvnSpineBackdrops.Learn(m);
                 var byUrl = LvnSpineRef.FromUrl("/content/spine/garden/Garden.json");
                 Assert.AreEqual("/content/bg/menu/garden.jpg", byUrl.bg, "FromUrl — задник из реестра");
                 var resolved = LvnSpineRef.Resolve(null, "/content/spine/garden/Garden.json");
@@ -102,7 +102,7 @@ namespace Lvn.Tests
                 Assert.AreEqual("/content/bg/other.jpg", explicitBg.bg, "явный задник сильнее реестра");
                 Assert.IsNull(LvnSpineRef.FromUrl("/content/spine/unknown/unknown.json").bg, "незнакомая сцена — без задника");
             }
-            finally { LvnSpineRef.ForgetBackdrops(); }
+            finally { LvnSpineBackdrops.Forget(); }
         }
 
         [Test]
