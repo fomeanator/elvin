@@ -887,6 +887,9 @@ namespace Lvn.Content
         /// («Сюжет реальности») и строка, когда сообщений нет.</summary>
         public string news_title;
         public string news_empty_text;
+        /// <summary>Цвет плашки жанра на детали по имени жанра
+        /// («Детектив»: «#656565»). Неназванный жанр — плашка тона витрины.</summary>
+        public Dictionary<string, string> genre_colors;
         /// <summary>Подпись кнопок облика «сцена»; default "Open".</summary>
         public string open_text;
         /// <summary>Подпись-состояние под центральной кнопкой рисованного меню

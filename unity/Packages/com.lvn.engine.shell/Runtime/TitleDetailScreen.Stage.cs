@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Lvn.Content;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -5,19 +6,20 @@ using UnityEngine.UIElements;
 namespace Lvn.UI.Screens
 {
     /// <summary>
-    /// ДЕТАЛЬ НОВЕЛЛЫ — ПОПАП В ОБЛИКЕ «СЦЕНА».
+    /// ДЕТАЛЬ НОВЕЛЛЫ — ПОПАП В ОБЛИКЕ «СЦЕНА» (макет «Выбор экспедиции», 17.09).
     ///
-    /// <para>Деталь была полноэкранной страницей прежней темы: непрозрачная
-    /// Полночь, обложка во весь верх, главы строками, синяя кнопка. Рядом
-    /// главная, гардероб и магазин уже переодеты, и тап по карточке выбрасывал
-    /// игрока из витрины в другое приложение («надо переделать попап с
-    /// информацией детальной» — Илья 09.09).</para>
+    /// <para>Деталь была полноэкранной страницей прежней темы, потом — листом
+    /// с карточкой главной внутри. Макет рисует своё: лист 375×660 в
+    /// светящейся рамке, лента-заголовок над верхней кромкой, крестик в углу,
+    /// окно постера с ходом («Глава 5/12» или «Пройдено»), ниже название,
+    /// «Мир экспедиции: 5» и эпоха, разделитель, описание, плашки жанров и
+    /// статуса, второй разделитель; внизу три плашки: закладка, «Играть» и
+    /// «заново».</para>
     ///
-    /// <para>Теперь это лист ПОВЕРХ витрины: скрим, тап мимо — закрыть, рамка
-    /// облика со своей серединой (как у гардероба и профиля). Внутри — та же
-    /// карточка, что на главной: задник и перёд рамки, обложка в окне, плашка
-    /// состояния, полоса глав, название золотом. Главы — плашками, золото у
-    /// текущей. Кнопки — плашки витрины, «Играть» с золотой гранью.</para>
+    /// <para>Главы, сохранения и статы в макете не нарисованы, а в игре
+    /// нужны (главы — TR-63, сохранения — <c>detail_saves</c>). Они живут за
+    /// закладкой: тап раскрывает их под вторым разделителем, лист
+    /// прокручивается. «Заново» ведёт в прежнее меню перезапуска.</para>
     ///
     /// <para>Логика не тронута: те же Play/Cancel/ShowRestartMenu, тот же
     /// Rebuild; облик только меняет, чем строится каждая часть.</para>
@@ -25,125 +27,229 @@ namespace Lvn.UI.Screens
     public sealed partial class TitleDetailScreen : ILvnContentAware
     {
         private string _skin;
-        private VisualElement _sheet;
-        private bool _stageSheet;
+        private VisualElement _sheet, _stageHero;
+        private bool _stageSheet, _stageMore;
+        private Dictionary<string, string> _genreColors;
         private bool StageDressed => !string.IsNullOrEmpty(_skin);
         private static float D(float dp) => LvnStageKit.D(dp);
         private string SkinUrl(string file) => LvnStageKit.SkinUrl(_skin, file);
 
-        public void SetContent(LvnManifest manifest)
-            => LvnStageKit.TakeSkin(manifest, ref _skin, () => { StageSheet(); Rebuild(); });
+        /// <summary>«Мир экспедиции: 5» — номер новеллы в её подборке; ставит
+        /// хост из витрины. 0 — строка с номером не рисуется.</summary>
+        public int WorldNumber;
 
-        /// <summary>Страница становится листом: корень — скрим, содержимое
-        /// переезжает в лист с рамкой облика. Делается один раз.</summary>
+        /// <summary>Раскрыты ли главы, сохранения и статы за закладкой.</summary>
+        public bool StageMore => _stageMore;
+
+        public void SetContent(LvnManifest manifest)
+        {
+            _genreColors = manifest?.ui?.browse?.genre_colors;
+            LvnStageKit.TakeSkin(manifest, ref _skin, () => { StageSheet(); Rebuild(); });
+        }
+
+        /// <summary>Страница становится попапом: корень — затемнение, лист —
+        /// рамка облика с окном, прокруткой и рядом плашек. Делается один раз.</summary>
         private void StageSheet()
         {
             if (!StageDressed || _stageSheet) return;
             _stageSheet = true;
 
-            style.backgroundColor = LvnTokens.Veil(0.55f);
+            style.backgroundColor = LvnStageKit.Ink.Veil;
             style.backgroundImage = new StyleBackground(StyleKeyword.None);
             pickingMode = PickingMode.Position;
             RegisterCallback<ClickEvent>(e => { if (e.target == this) Cancel(); });
 
-            var sheet = _sheet = new VisualElement();
-            LvnStageKit.SheetFrame(sheet, this, tab: false);   // поля, верх и низ — по паспорту
-            sheet.style.overflow = Overflow.Hidden;
+            var sheet = _sheet = new VisualElement { name = "stage-detail-sheet" };
+            sheet.style.position = Position.Absolute;
             sheet.pickingMode = PickingMode.Position;
-            LvnStageKit.GlassSheet(sheet, _skin, _assets, LvnTokens.Radius);
+            StageEdges();
+            LvnEdges.Follow(this, _ => StageEdges());
+            LvnStageKit.Glow(sheet, _skin, _assets, ornamentH: 448f);
+
+            _stageHero = new VisualElement { name = "stage-detail-window" };
+            _stageHero.style.position = Position.Absolute;
+            _stageHero.style.left = D(10f); _stageHero.style.right = D(9f);
+            _stageHero.style.top = D(38f); _stageHero.style.height = D(191f);
+            sheet.Add(_stageHero);
 
             _scroll.RemoveFromHierarchy();
-            _actionBar.RemoveFromHierarchy();
+            _scroll.style.position = Position.Absolute;
+            _scroll.style.left = D(23f); _scroll.style.right = D(23f);
+            _scroll.style.top = D(252f); _scroll.style.bottom = D(64f);   // над ярлыком цены
             sheet.Add(_scroll);
+
+            _actionBar.RemoveFromHierarchy();
+            _actionBar.style.position = Position.Absolute;
+            _actionBar.style.left = D(19f); _actionBar.style.right = D(17f);
+            _actionBar.style.bottom = -D(13f); _actionBar.style.height = D(50f);
+            ScreenUi.Row(_actionBar, spread: true);
+            _actionBar.style.alignItems = Align.Center;
             sheet.Add(_actionBar);
+
+            // Лента-заголовок: над верхней кромкой, по центру. Не кнопка.
+            var ribbon = LvnStageKit.Plate(_skin, _assets, LvnStageSkin.Ribbon, "ribbon.png",
+                () => LvnWords.Of("hub.detail_head", "Choose expedition"), 23.4f, null,
+                name: "stage-detail-ribbon", ink: LvnStageKit.Ink.Ribbon, medium: false);
+            ribbon.style.position = Position.Absolute;
+            ribbon.style.top = -D(12f);
+            ribbon.style.left = Length.Percent(50f);
+            ribbon.style.translate = new Translate(Length.Percent(-50f), 0f);
+            sheet.Add(ribbon);
+
+            // Закрыть: крестик за правым верхним углом. Экспорт несёт своё
+            // свечение — оттого запас 6.5 вокруг 36.
+            var close = LvnStageKit.Art(SkinUrl("close.png"), _assets, 0f, 0f, D(36f), D(36f), bleed: 6.5f);
+            close.name = "stage-detail-close";
+            close.pickingMode = PickingMode.Position;
+            close.style.left = StyleKeyword.Auto;
+            close.style.right = -D(8f) - D(6.5f);
+            close.style.top = -D(8f) - D(6.5f);
+            close.AddManipulator(new Clickable(Back));
+            LvnMotion.Tappable(close);
+            sheet.Add(close);
+
             Add(sheet);
         }
 
-        /// <summary>Края листа — по паспорту, с учётом вырезов экрана.</summary>
-        private void StageSafeArea()
+        /// <summary>Края листа: ширина попапа макета по центру, верх под
+        /// шапкой оболочки, низ над лентой меню — плашки внизу остаются
+        /// нажимаемыми и на коротком экране.</summary>
+        private void StageEdges()
         {
-            if (_sheet != null) LvnStageKit.SheetEdges(_sheet, this, tab: false);
+            if (_sheet == null) return;
+            float side = Mathf.Max(0f, (LvnStageSkin.DesignWidth - LvnStageSkin.Popup.Width) * 0.5f);
+            _sheet.style.left = D(side); _sheet.style.right = D(side);
+            // Верх — под шапкой оболочки (она живёт поверх попапа): лента
+            // заголовка выступает на 12 и не должна лечь на логотип.
+            _sheet.style.top = LvnEdges.Top(this) + D(LvnStageSkin.Sheet.Top + 12f);
+            _sheet.style.bottom = LvnStageKit.BottomAboveBar(this, LvnStageSkin.Sheet.Bottom);
         }
 
-        /// <summary>Обложка — той же карточкой, что на главной. Кнопка «назад»
-        /// живёт здесь же: карточка пересобирается в каждом Rebuild, и кнопка с
-        /// ней, без дублей.</summary>
-        private VisualElement BuildStageHero()
+        private void StageSafeArea() => StageEdges();
+
+        /// <summary>Собрать попап под открытую новеллу: окно с ходом, слова,
+        /// плашки. Разделы глав/сохранений/статов — если раскрыты закладкой.</summary>
+        private void RebuildStage()
         {
-            float cw = LvnStageSkin.CardFront.Width, ch = LvnStageSkin.CardFront.Height;
-            var wrap = new VisualElement();
-            wrap.style.flexShrink = 0;
-            wrap.style.alignItems = Align.Center;
-            wrap.style.paddingTop = D(6f);
+            StageSheet();
 
-            var c = new VisualElement();
-            c.style.width = D(cw); c.style.height = D(ch);
-            c.style.flexShrink = 0;
-            c.Add(LvnStageKit.Art(SkinUrl("card-back.png"), _assets, -D(3f), D(7f),
-                                  D(LvnStageSkin.CardBack.Width), D(LvnStageSkin.CardBack.Height)));
-
-            var cover = new VisualElement { pickingMode = PickingMode.Ignore };
-            LvnStageKit.At(cover, D(10f), D(19f), D(237f), D(131f));
-            cover.style.backgroundColor = LvnTokens.Surface;
-            LvnChrome.Round(cover, D(5f));
-            cover.style.overflow = Overflow.Hidden;
-            LvnPicture.Fit(cover);
+            // Окно: постер во всё окно, кромка поверх, ход в левом нижнем углу.
+            _stageHero.Clear();
+            var poster = new VisualElement { name = "stage-detail-poster", pickingMode = PickingMode.Ignore };
+            LvnChrome.Stretch(poster);
+            poster.style.overflow = Overflow.Hidden;
+            LvnChrome.Round(poster, D(5f));
+            LvnPicture.Fit(poster);
             var art = ShownHero;
-            if (!string.IsNullOrEmpty(art)) LvnPicture.Photo(cover, art, _assets);
-            c.Add(cover);
+            if (!string.IsNullOrEmpty(art)) LvnPicture.Photo(poster, art, _assets);
+            _stageHero.Add(poster);
+            LvnStageKit.Window(_stageHero, _skin, _assets);
+            var course = LvnStageKit.Course(Title, _skin, _assets, textFirst: true);
+            LvnStageKit.At(course, D(10f), D(154f), D(136f), D(27f));
+            _stageHero.Add(course);
 
-            c.Add(LvnStageKit.Art(SkinUrl("card-front.png"), _assets, 0f, 0f, D(cw), D(ch)));
+            // Слова: название, мир и эпоха, разделитель, описание, жанры,
+            // статус, разделитель.
+            _scroll.Clear();
+            var body = new VisualElement { name = "stage-detail-body" };
+            body.style.flexShrink = 0;
+            var name = LvnStageKit.Para(() => ShownName.ToUpperInvariant(), 22f, LvnStageKit.Ink.Gold, medium: true);
+            name.name = "stage-detail-name";
+            body.Add(name);
 
-            var head = LvnStageKit.Plaque(() => LvnProgress.Current(Title) != null
-                ? LvnWords.Of("hub.continue", "Continue")
-                : LvnWords.Of("hub.open", "Open"));
-            LvnStageKit.At(head, D(23f), 0f, D(211f), D(28f));
-            c.Add(head);
+            var meta = ScreenUi.Row(new VisualElement { name = "stage-detail-meta", pickingMode = PickingMode.Ignore });
+            meta.style.marginTop = D(8f);
+            meta.style.alignItems = Align.Center;
+            if (WorldNumber > 0)
+            {
+                var world = ScreenUi.Row(new VisualElement { pickingMode = PickingMode.Ignore });
+                world.style.alignItems = Align.Center;
+                world.Add(LvnStageKit.Line(() => LvnWords.Of("hub.world", "Expedition world:"), 16f, LvnStageKit.Ink.Ochre));
+                var num = LvnStageKit.Line(() => WorldNumber.ToString(), 16f, LvnStageKit.Ink.Ochre, medium: true);
+                num.name = "stage-detail-world";
+                num.style.marginLeft = D(4f);
+                world.Add(num);
+                meta.Add(world);
+            }
+            var era = LvnStageKit.Line(() => LvnWords.Name("subtitle", Title?.id, Title?.subtitle ?? ""), 16f, LvnStageKit.Ink.Ochre);
+            era.name = "stage-detail-era";
+            era.style.marginLeft = StyleKeyword.Auto;   // к правому краю
+            if (string.IsNullOrEmpty(Title?.subtitle)) era.style.display = DisplayStyle.None;
+            meta.Add(era);
+            body.Add(meta);
 
+            body.Add(Gap(14f));
+            body.Add(LvnStageKit.Divider(_skin, _assets));
+            body.Add(Gap(14f));
+
+            var desc = LvnStageKit.Para(() => ShownSynopsis, 14f, LvnStageKit.Ink.Body);
+            desc.name = "stage-detail-desc";
+            body.Add(desc);
+
+            if (Title?.genres != null && Title.genres.Count > 0)
+            {
+                var row = TagRow("hub.genre", "Story genre:");
+                row.name = "stage-detail-genres";
+                row.style.marginTop = D(14f);
+                var chips = ScreenUi.Row(new VisualElement { pickingMode = PickingMode.Ignore });
+                chips.style.marginLeft = StyleKeyword.Auto;
+                foreach (var g in Title.genres)
+                    if (!string.IsNullOrEmpty(g)) chips.Add(LvnStageKit.GenreChip(g, _genreColors));
+                row.Add(chips);
+                body.Add(row);
+            }
+            if (!string.IsNullOrEmpty(Title?.status))
+            {
+                var row = TagRow("hub.status", "Story status:");
+                row.name = "stage-detail-status";
+                row.style.marginTop = D(8f);
+                var chip = LvnStageKit.StatusChip(() => Title.status);
+                chip.style.marginLeft = StyleKeyword.Auto;
+                row.Add(chip);
+                body.Add(row);
+            }
+
+            body.Add(Gap(14f));
+            body.Add(LvnStageKit.Divider(_skin, _assets));
+            body.style.paddingBottom = D(12f);
+
+            // За закладкой: статы, главы, сохранения — как и прежде в детали.
+            if (_stageMore)
+            {
+                var more = new VisualElement { name = "stage-detail-more" };
+                more.style.marginTop = D(12f);
+                var stats = BuildStatsSection();
+                if (stats != null) more.Add(stats);
+                var chapters = BuildChaptersSection();
+                if (chapters != null) more.Add(chapters);
+                if (ShowSaves) more.Add(BuildSavesSection());
+                body.Add(more);
+                // Только что раскрыли — подвезти лист к разделу, иначе тап по
+                // закладке снаружи ничем не отличим от промаха.
+                if (_stageMoreFresh) _scroll.schedule.Execute(() => _scroll.ScrollTo(more)).ExecuteLater(60);
+                _stageMoreFresh = false;
+            }
+            _scroll.Add(body);
+
+            BuildStageActions(_actionBar);
+        }
+
+        private static VisualElement Gap(float dp)
+        {
+            var g = new VisualElement { pickingMode = PickingMode.Ignore };
+            g.style.height = D(dp);
+            g.style.flexShrink = 0;
+            return g;
+        }
+
+        /// <summary>Строка «Жанр истории:» / «Статус истории:» — слово слева,
+        /// плашки вызывающий прижимает вправо.</summary>
+        private static VisualElement TagRow(string key, string fallback)
+        {
             var row = ScreenUi.Row(new VisualElement { pickingMode = PickingMode.Ignore });
-            LvnStageKit.At(row, D(17f), D(124f), D(224f), D(14f));
-            var bar = LvnStageKit.Progress(out var fill);
-            bar.style.flexGrow = 1;
-            row.Add(bar);
-            var chapters = Title.ChaptersOf();
-            int total = chapters.Count;
-            int reached = total > 0 ? Mathf.Clamp(LvnProgress.Reached(Title), 0, total) : 0;
-            var counter = LvnStageKit.Text(() => $"{reached}/{total}", LvnTokens.TextSm, LvnTokens.Text);
-            counter.style.marginLeft = D(14f);
-            counter.style.flexShrink = 0;
-            row.Add(counter);
-            c.Add(row);
-            LvnStageKit.Fill(fill, total > 0 ? (float)reached / total : 0f);
-
-            var caption = new VisualElement { pickingMode = PickingMode.Ignore };
-            caption.style.position = Position.Absolute;
-            caption.style.left = D(12f); caption.style.top = D(162f); caption.style.width = D(234f);
-            var name = LvnStageKit.Text(() => ShownName, LvnTokens.TextXl, LvnTokens.Gold);
-            name.style.whiteSpace = WhiteSpace.Normal;
-            caption.Add(name);
-            var sub = LvnStageKit.Text(() => LvnWords.Name("subtitle", Title?.id, Title?.subtitle ?? ""),
-                                       LvnTokens.TextXs, LvnTokens.TextDim);
-            sub.style.marginTop = D(6f);
-            caption.Add(sub);
-            c.Add(caption);
-
-            var play = LvnStageKit.Button(() => LvnWords.Of("hub.play", "Play"), Play);
-            LvnStageKit.At(play, D(54f), D(213f), D(150f), D(42f));
-            c.Add(play);
-
-            wrap.Add(c);
-
-            var back = new Button(Back) { text = "‹" };
-            _backBtn = back;
-            back.style.position = Position.Absolute;
-            back.style.left = 0; back.style.top = 0;
-            back.style.width = LvnTokens.Touch; back.style.height = LvnTokens.Touch;
-            back.style.fontSize = LvnTokens.TextLg;
-            LvnAir.PadY(back, 0);
-            back.style.unityTextAlign = TextAnchor.MiddleCenter;
-            LvnStyler.Plate(back, UiColor.WithAlpha(LvnTokens.PanelBg, 0.82f), LvnTokens.Gold, D(8f));
-            wrap.Add(back);
-            return wrap;
+            row.style.alignItems = Align.Center;
+            row.Add(LvnStageKit.Line(() => LvnWords.Of(key, fallback), 16f, LvnStageKit.Ink.Ribbon));
+            return row;
         }
 
         /// <summary>Заголовок раздела — золотом, шрифтом витрины.</summary>
@@ -201,58 +307,49 @@ namespace Lvn.UI.Screens
             return row;
         }
 
-        /// <summary>Панель действий: «Начать заново» тихой плашкой, «Играть» —
-        /// плашкой с золотой гранью, цена — плашкой рядом.</summary>
-        private void StageActionBar(VisualElement bar)
+        /// <summary>Ряд плашек макета: закладка (главы и сохранения), «Играть»
+        /// с ценой, если вход платный, и «заново» — тускнеет, пока нечего
+        /// перезапускать.</summary>
+        private void BuildStageActions(VisualElement bar)
         {
-            bar.style.flexDirection = FlexDirection.Column;
-            LvnAir.PadX(bar, 0f);
-            bar.style.paddingTop = D(8f);
-            // Лист уходит под ленту меню — кнопки стоят над её плотной частью.
-            bar.style.paddingBottom = D(2f) + D(LvnStageSkin.Sheet.Under);
-            bar.style.backgroundColor = Color.clear;
-            LvnChrome.ClearBorder(bar);
+            bar.Clear();
+            var more = LvnStageKit.IconPlate(_skin, _assets, LvnStageSkin.BtnIcon, "btn-icon.png",
+                                             "icon-bookmark.png", 20f, ToggleMore, "stage-detail-more-btn");
+            if (!_stageMore) more.style.opacity = 0.85f;
+            bar.Add(more);
 
-            if (LvnProgress.Touched(Title))
-            {
-                var restart = StagePlateButton(() => LvnWords.Of("title.restart", "Start over"), ShowRestartMenu, primary: false);
-                restart.style.marginBottom = D(6f);
-                bar.Add(restart);
-            }
-            var row = ScreenUi.Row();
-            bar.Add(row);
-            var play = StagePlateButton(() => LvnWords.Of("hub.play", "Play"), Play, primary: true);
-            play.style.flexGrow = 1;
-            row.Add(play);
-
+            var play = LvnStageKit.Plate(_skin, _assets, LvnStageSkin.BtnPlay, "btn-play.png",
+                                         () => LvnWords.Of("hub.play", "Play"), 20f, Play, "stage-detail-play");
+            // БЕСПЛАТНЫЙ ВХОД НЕ ПОКАЗЫВАЕТ ЦЕНУ: ярлык — только у платного,
+            // в углу плашки, чтобы слово «Играть» осталось словом макета.
             var price = ShownPrice;
-            if (price.Free) return;
-            var cost = new VisualElement();
-            cost.style.flexShrink = 0;
-            cost.style.marginLeft = D(8f);
-            LvnAir.Pad(cost, D(10f), D(6f));
-            LvnStyler.Plate(cost, UiColor.WithAlpha(LvnTokens.PanelBg, 0.82f), LvnTokens.Text, D(6f));
-            cost.Add(LvnPriceTag.Tag(price.Currency, price.Amount,
-                new LvnPriceTag.Row { FontSize = 26f, IconSize = 22f, Gap = 6f }));
-            row.Add(cost);
+            if (!price.Free)
+            {
+                var cost = new VisualElement { name = "stage-detail-price", pickingMode = PickingMode.Ignore };
+                cost.style.position = Position.Absolute;
+                cost.style.top = -D(10f); cost.style.right = -D(6f);
+                LvnAir.Pad(cost, D(6f), D(2f));
+                cost.style.backgroundColor = LvnStageKit.Ink.ChipBg;
+                LvnChrome.Frame(cost, D(4f), LvnStageKit.Ink.Edge, D(1f));
+                cost.Add(LvnPriceTag.Tag(price.Currency, price.Amount,
+                    new LvnPriceTag.Row { FontSize = D(12f), IconSize = D(12f), Gap = D(3f) }));
+                play.Add(cost);
+            }
+            bar.Add(play);
+
+            var again = LvnStageKit.IconPlate(_skin, _assets, LvnStageSkin.BtnIcon, "btn-icon.png",
+                                              "icon-refresh.png", 20f, ShowRestartMenu, "stage-detail-restart");
+            if (!LvnProgress.Touched(Title)) { again.SetEnabled(false); again.style.opacity = 0.45f; }
+            bar.Add(again);
         }
 
-        private VisualElement StagePlateButton(System.Func<string> text, System.Action onTap, bool primary)
+        private bool _stageMoreFresh;
+
+        private void ToggleMore()
         {
-            var b = new VisualElement();
-            b.style.height = D(42f);
-            b.style.justifyContent = Justify.Center;
-            b.style.alignItems = Align.Center;
-            LvnStyler.Plate(b, UiColor.WithAlpha(LvnTokens.PanelBg, primary ? 0.94f : 0.6f),
-                            primary ? LvnTokens.Gold : LvnTokens.TextDim, D(6f));
-            if (primary) LvnStyler.Chosen(b, true, LvnTokens.Gold);
-            var l = LvnStageKit.Text(() => (text() ?? string.Empty).ToUpperInvariant(), LvnTokens.TextBase,
-                                     primary ? LvnTokens.Gold : LvnTokens.TextDim, medium: true);
-            LvnFonts.Apply(l, LvnFonts.Display);
-            b.Add(l);
-            b.AddManipulator(new Clickable(onTap));
-            LvnMotion.Tappable(b);
-            return b;
+            _stageMore = !_stageMore;
+            _stageMoreFresh = _stageMore;
+            Rebuild();
         }
     }
 }

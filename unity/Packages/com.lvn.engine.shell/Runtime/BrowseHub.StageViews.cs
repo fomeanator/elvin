@@ -64,12 +64,14 @@ namespace Lvn.UI.Screens
         private bool _detailPopupArmed;
 
         /// <summary>
-        /// КАРТОЧКА НОВЕЛЛЫ В ОБЛИКЕ — та же рамка, что у карточки главной.
+        /// КАРТОЧКА НОВЕЛЛЫ В СПИСКЕ — по макету «Текущие экспедиции» (17.09).
         ///
-        /// <para>Список показывал новеллы строками прежней темы: цветная
-        /// плашка, обложка слева, текст справа. Рядом на главной стоит рисованная
-        /// карточка с рамкой, плашкой и нарисованной кнопкой — и один и тот же
-        /// «Агентство» выглядел в двух местах по-разному.</para>
+        /// <para>Список показывал новеллы копией карточки главной: рамка со
+        /// скобами, плашка «Открыть» сверху, обложка в окне. Макет списка
+        /// другой: светящаяся рамка 360×190, постер во всё окно с тенью к
+        /// левому краю, слева колонкой эпоха, название и описание, ниже ход
+        /// («Глава 5/12» с полосой или «Пройдено»), а «Открыть» — плашка
+        /// внизу по центру, вылезающая за рамку на 7.</para>
         ///
         /// <para>Обложка ставится картинкой, а не живым спайном: в списке
         /// карточек много, и каждый постер держал бы свою камеру с текстурой.
@@ -77,72 +79,73 @@ namespace Lvn.UI.Screens
         /// </summary>
         private VisualElement StageTitleCard(LvnTitle t)
         {
-            float cw = LvnStageSkin.CardFront.Width, ch = LvnStageSkin.CardFront.Height;
-            var c = new VisualElement();
-            c.style.width = D(cw); c.style.height = D(ch);
+            var g = LvnStageSkin.Glow;
+            var c = new VisualElement { name = "stage-title-card" };
+            c.style.width = D(g.Width); c.style.height = D(g.Height);
             c.style.flexShrink = 0;
-            c.style.marginBottom = D(10f);
+            c.style.marginBottom = D(24f);
             c.style.alignSelf = Align.Center;
+            LvnStageKit.Glow(c, _cfg.skin, _assets, ornamentH: 154f);
 
-            c.Add(StageImage("card-back.png", -D(3f), D(7f),
-                             D(LvnStageSkin.CardBack.Width), D(LvnStageSkin.CardBack.Height)));
-
-            var cover = new VisualElement { pickingMode = PickingMode.Ignore };
-            At(cover, D(10f), D(19f), D(237f), D(131f));
-            cover.style.backgroundColor = _card;
-            LvnChrome.Round(cover, D(5f));
-            cover.style.overflow = Overflow.Hidden;
-            LvnPicture.Fit(cover);
+            // Окно постера — внутри рамки на 6; постер темнеет к левому краю,
+            // под текст (так нарисован макет), кромка окна — поверх постера.
+            var win = new VisualElement { name = "stage-card-window", pickingMode = PickingMode.Ignore };
+            At(win, D(6f), D(6f), D(LvnStageSkin.Window.Width), D(LvnStageSkin.Window.Height));
+            win.style.overflow = Overflow.Hidden;
+            LvnChrome.Round(win, D(5f));
+            LvnPicture.Fit(win);
             var art = t.CardArt();
-            if (!string.IsNullOrEmpty(art)) LvnPicture.Photo(cover, art, _assets);
-            c.Add(cover);
+            if (!string.IsNullOrEmpty(art)) LvnPicture.Photo(win, art, _assets);
+            var fade = new VisualElement { pickingMode = PickingMode.Ignore };
+            LvnChrome.Stretch(fade);
+            fade.style.width = Length.Percent(72f);   // тень — под текст, правая треть постера чистая
+            fade.style.backgroundImage = LvnBackdrop.Horizontal(
+                UiColor.WithAlpha(LvnStageKit.Ink.Bg, 0.94f), UiColor.WithAlpha(LvnStageKit.Ink.Bg, 0f), smooth: true);
+            win.Add(fade);
+            c.Add(win);
+            LvnStageKit.Window(c, _cfg.skin, _assets);
 
-            c.Add(StageImage("card-front.png", 0f, 0f, D(cw), D(ch)));
+            // Эпоха, название, описание — колонкой слева.
+            var words = new VisualElement { name = "stage-card-words", pickingMode = PickingMode.Ignore };
+            At(words, D(17f), D(16f), D(196f), D(117f));
+            words.style.overflow = Overflow.Hidden;
+            // Эпоха — только если автор её дал: подстановка имени вместо пустого
+            // подзаголовка показывала бы игроку id новеллы.
+            var era = LvnStageKit.Line(() => LvnWords.Name("subtitle", t.id, t.subtitle ?? ""), 13f, LvnStageKit.Ink.Sand);
+            era.name = "stage-card-era";
+            if (string.IsNullOrEmpty(t.subtitle)) era.style.display = DisplayStyle.None;
+            words.Add(era);
+            var name = LvnStageKit.Para(() => LvnWords.Name("title", t.id, t.name).ToUpperInvariant(),
+                                        17f, LvnStageKit.Ink.Gold, medium: true);
+            name.name = "stage-card-name";
+            name.style.marginTop = D(8f);
+            name.style.maxHeight = D(42f);
+            words.Add(name);
+            var desc = LvnStageKit.Para(() => t.card?.description ?? "", 9f, LvnStageKit.Ink.Body);
+            desc.style.marginTop = D(6f);
+            desc.style.maxHeight = D(44f);   // четыре строки, как в макете
+            desc.style.overflow = Overflow.Hidden;
+            words.Add(desc);
+            c.Add(words);
+
+            // Ход: полоса и «Глава 5/12», у пройденной — галочка и «Пройдено».
+            var course = LvnStageKit.Course(t, _cfg.skin, _assets, textFirst: false);
+            At(course, D(17f), D(132f), D(160f), D(27f));
+            c.Add(course);
 
             bool locked = IsLocked(t);
-            var head = LvnStageKit.Plaque(() => locked
-                ? LvnWords.Pick("hub.locked", _cfg.locked_text, "Locked")
-                : LvnProgress.Current(t) != null
-                    ? LvnWords.Pick("hub.continue", _cfg.continue_text, "Continue")
-                    : LvnWords.Pick("hub.open", _cfg.open_text, "Open"));
-            At(head, D(23f), 0f, D(211f), D(28f));
-            c.Add(head);
-
-            var row = ScreenUi.Row(new VisualElement { pickingMode = PickingMode.Ignore });
-            At(row, D(17f), D(124f), D(224f), D(14f));
-            var bar = LvnStageKit.Progress(out var fill);
-            bar.style.flexGrow = 1;
-            row.Add(bar);
-            var counter = StageLabel(() => ChapterCounter(t), LvnTokens.TextSm, _text);
-            counter.style.marginLeft = D(14f);
-            counter.style.flexShrink = 0;
-            row.Add(counter);
-            c.Add(row);
-            int total = t.ChaptersOf().Count;
-            LvnStageKit.Fill(fill, total > 0
-                ? Mathf.Clamp01((float)Mathf.Clamp(LvnProgress.Reached(t), 0, total) / total) : 0f);
-
-            var caption = new VisualElement { pickingMode = PickingMode.Ignore };
-            caption.style.position = Position.Absolute;
-            caption.style.left = D(12f); caption.style.top = D(162f); caption.style.width = D(234f);
-            var name = StageLabel(() => LvnWords.Name("title", t.id, t.name), LvnTokens.TextXl, LvnTokens.Gold);
-            name.style.whiteSpace = WhiteSpace.Normal;
-            caption.Add(name);
-            var sub = StageLabel(() => LvnWords.Name("subtitle", t.id, t.subtitle ?? ""),
-                                 LvnTokens.TextXs, LvnTokens.TextDim);
-            sub.style.marginTop = D(6f);
-            caption.Add(sub);
-            c.Add(caption);
-
             void Open()
             {
                 if (locked) { FireLockedHint(LvnWords.Name("title", t.id, t.name), t.locked_hint ?? ""); return; }
                 OpenDetail(t, CurrentCollectionOf(t));
             }
-            var open = StageButton(() => locked
-                ? LvnWords.Pick("hub.locked", _cfg.locked_text, "Locked")
-                : LvnWords.Pick("hub.open", _cfg.open_text, "Open"), Open);
-            At(open, D(54f), D(213f), D(150f), D(42f));
+            // «Открыть» — плашка макета внизу по центру, на 7 ниже рамки.
+            var open = LvnStageKit.Plate(_cfg.skin, _assets, LvnStageSkin.BtnOpen, "btn-open.png",
+                () => locked ? LvnWords.Pick("hub.locked", _cfg.locked_text, "Locked")
+                             : LvnWords.Pick("hub.open", _cfg.open_text, "Open"),
+                12.8f, Open, name: "stage-card-open");
+            open.style.position = Position.Absolute;
+            open.style.left = D(107f); open.style.top = D(157f);
             c.Add(open);
 
             c.AddManipulator(new Clickable(Open));
