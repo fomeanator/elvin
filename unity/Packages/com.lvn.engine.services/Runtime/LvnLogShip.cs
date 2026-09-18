@@ -102,6 +102,21 @@ namespace Lvn.Services
         // к ним уезжал на каждом запуске (кадр 28, 966 мс в живом логе 16.09) и
         // был шумом, а не отклонением. Долгий старт ловит своё «[lvn-deviation]».
         private const float SlowFrameGraceSeconds = 15f;
+        // ШТОРМ ОТКЛОНЕНИЙ (TR-145, сессия 18.09): хвост к КАЖДОМУ медленному
+        // кадру разгонял сам себя. Хвост — 200 строк (~30 КБ) в очереди логов,
+        // а очередь при каждой записи сериализуется целиком в PlayerPrefs на
+        // главном потоке и целиком же собирается в JSON при отправке. С
+        // десятками хвостов запись занимала секунды, этот кадр сам становился
+        // «медленным» — и рождал следующее отклонение с хвостом (кадры до 10 с
+        // в гардеробе, наверху OutboxPersist/LogSerialize/Diagnostics).
+        // Поэтому: хвост к медленному кадру — не чаще раза в полминуты, и
+        // никогда — к кадру, который тормозит сама запись логов: такой хвост
+        // ничего нового не расскажет, а петлю — замкнёт. Сама строка кадра
+        // уезжает как раньше. Ошибки и исключения хвост получают всегда.
+        private const float SlowFrameTailEverySeconds = 30f;
+        private static float _lastSlowTailAt = float.NegativeInfinity;
+        private static readonly string[] SelfInflictedTops =
+            { "OutboxPersist", "LogSerialize", "LogEnqueue", "Diagnostics" };
 
         /// <summary>До какого момента слать Trace целиком — указание сервера
         /// (ответ /v1/log/client: log.until). Пусто — обычный режим.</summary>
@@ -124,15 +139,39 @@ namespace Lvn.Services
         }
 
         private static bool SlowFrameTail(string message)
+            => SlowFrameWantsTail(message, Time.realtimeSinceStartup, ref _lastSlowTailAt);
+        /// <summary>Нужен ли хвост чёрного ящика к строке медленного кадра.
+        /// Чистое решение — без часов Unity, чтобы его можно было проверить:
+        /// <paramref name="lastTailAt"/> сдвигается на <paramref name="now"/>,
+        /// когда хвост выдан.</summary>
+        internal static bool SlowFrameWantsTail(string message, float now, ref float lastTailAt)
         {
             if (message == null || !message.StartsWith("[lvn-perf] S ", StringComparison.Ordinal)) return false;
-            if (Time.realtimeSinceStartup < SlowFrameGraceSeconds) return false;
+            if (now < SlowFrameGraceSeconds) return false;
             int i = message.IndexOf(" ms=", StringComparison.Ordinal);
             if (i < 0) return false;
             int j = message.IndexOf(' ', i + 4);
             var num = j < 0 ? message.Substring(i + 4) : message.Substring(i + 4, j - i - 4);
-            return double.TryParse(num, System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var ms) && ms > SlowFrameTailMs;
+            if (!double.TryParse(num, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var ms) || ms <= SlowFrameTailMs)
+                return false;
+            if (SelfInflicted(message)) return false;
+            if (now - lastTailAt < SlowFrameTailEverySeconds) return false;
+            lastTailAt = now;
+            return true;
+        }
+        /// <summary>Кадр тормозит сама запись логов: первым в <c>top=</c> стоит
+        /// её участок (<c>top=OutboxPersist:1495.9/1496.3/1;…</c>).</summary>
+        internal static bool SelfInflicted(string message)
+        {
+            int t = message.IndexOf(" top=", StringComparison.Ordinal);
+            if (t < 0) return false;
+            int start = t + 5;
+            int end = message.IndexOf(':', start);
+            if (end < 0) end = message.Length;
+            foreach (var part in SelfInflictedTops)
+                if (end - start == part.Length && string.CompareOrdinal(message, start, part, 0, part.Length) == 0) return true;
+            return false;
         }
 
         private static void OnLog(string message, string stack, LogType type)
