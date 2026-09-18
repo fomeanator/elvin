@@ -93,6 +93,12 @@ namespace Lvn.UI
         // собирался, но не выводился (рентген 16.09) — потому дорога постера.
         private Lvn.UI.LvnSpineBackdrop.Handle _bgSpine;
         private string _bgSpineShown;
+
+        /// <summary>ОДНО ПРАВИЛО ПЛАВНОЙ СМЕНЫ ФОНА — тема <c>ui.stage.bg_fade</c>
+        /// (умолчание 0,35 с) — для картинок и живых сцен одинаково: живой фон
+        /// вставал и снимался щелчком, и лента фонов в гардеробе «меняла фон
+        /// резко» (Илья 18.09).</summary>
+        private float BgFadeSeconds => Theme?.BgCrossfadeSeconds ?? 0.35f;
         // ПАРК СОБРАННЫХ СЦЕН (LvnSpineBackdrop.Park): переключение вкладок
         // меню меняло живой фон пересборкой — секундный провал на каждое
         // касание вкладки (устройство Ильи 17.09). Снятая сцена ждёт на паузе,
@@ -118,7 +124,7 @@ namespace Lvn.UI
                     _bgSpine = parked;
                     _bgSpineShown = spine;
                     parked.Resume();
-                    if (parked.Texture != null) _renderer?.SetLiveBackdrop(parked.Texture);
+                    if (parked.Texture != null) _renderer?.SetLiveBackdrop(parked.Texture, BgFadeSeconds);
                     LvnLog.Trace($"[lvn-bg] живой фон из парка: {spine}");
                     return;
                 }
@@ -143,7 +149,7 @@ namespace Lvn.UI
                     tex =>
                     {
                         if (epoch != _stageEpoch || _bgSpineShown != spine) return;
-                        _renderer?.SetLiveBackdrop(tex);
+                        _renderer?.SetLiveBackdrop(tex, BgFadeSeconds);
                         LvnLog.Trace($"[lvn-bg] живой фон встал: {spine}");
                     },
                     () => LvnLog.Warn($"[lvn-bg] живой фон не собрался: {spine} — остаётся полотно"));
@@ -163,7 +169,7 @@ namespace Lvn.UI
                 _bgSpine = null;
             }
             if (!park) _bgSpinePark.Clear();
-            if (_bgSpineShown != null) _renderer?.SetLiveBackdrop(null);
+            if (_bgSpineShown != null) _renderer?.SetLiveBackdrop(null, BgFadeSeconds);
             _bgSpineShown = null;
         }
 
@@ -251,7 +257,7 @@ namespace Lvn.UI
             // Смена фона растворяет прежний кадр (тема ui.stage.bg_fade;
             // авторское `fade=` на команде сильнее). Первый фон сцены проходит
             // мгновенно — под ним ещё занавес входа.
-            float bgFade = NumOr(cmd["fade"], Theme?.BgCrossfadeSeconds ?? 0.35f);
+            float bgFade = NumOr(cmd["fade"], BgFadeSeconds);
             _renderer?.SetBackground(sprite, bgFade);
             // Зум полотна СБРАСЫВАЕТСЯ без явного числа: приближение — свойство
             // конкретного кадра (витрина меню), глава не должна его унаследовать.

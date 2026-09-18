@@ -359,10 +359,10 @@ namespace Lvn.UI.World
 
         /// <summary>Живая текстура фона снаружи (спайн-сцена в текстуре, TR-133):
         /// 3D-набор старше — пока он стоит, чужую текстуру не кладём.</summary>
-        public void SetLiveBackdrop(Texture tex)
+        public void SetLiveBackdrop(Texture tex, float crossfadeSeconds)
         {
             if (Has3DBackdrop) return;
-            _bg.SetLiveTexture(tex);
+            _bg.SetLiveTexture(tex, crossfadeSeconds);
         }
 
         /// <summary>Force the filming mode of the standing set (`bg3d live=`).</summary>

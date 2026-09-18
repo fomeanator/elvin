@@ -39,31 +39,69 @@ namespace Lvn.UI.World
 
         public void SetSprite(Sprite sprite) => SetSprite(sprite, 0f);
 
+        /// <summary>Картинка на полотно. Пока стоит живая текстура, картинка
+        /// ждёт под ней (спрайт полотна приезжает позже кадра живого фона и
+        /// затирал бы его, 16.09) — встанет тем же переходом, когда живую снимут.</summary>
         public void SetSprite(Sprite sprite, float crossfadeSeconds)
         {
             if (sprite == null) return;
-            // ПОКА ИДЁТ ЖИВАЯ ТЕКСТУРА, картинка ждёт под ней: спрайт полотна
-            // приезжает позже кадра живого фона и затирал бы его (16.09).
-            if (_liveTex != null) { _tex = sprite.texture; _wantsArt = true; return; }
-            bool hadArt = _image.texture != null && _tilePx <= 0f;
-            bool differs = _image.texture != sprite.texture;
-            if (crossfadeSeconds > 0.01f && hadArt && differs)
-                BeginCrossfade(crossfadeSeconds);
-            _tile = null; _tilePx = 0f;
             _tex = sprite.texture;
-            _image.texture = _tex;
             _wantsArt = true;
-            _image.enabled = true;   // картинка приехала — полотну снова есть чем рисовать
-            _panGen++; _panX = 0.5f; _panY = 0.5f; // новый фон = центр, прежний пан отменён
-            _driftX = _driftY = 0f;                // …и неподвижен, пока не попросят гулять
+            if (_liveTex != null) return;
+            Place(_tex, crossfadeSeconds, resetPan: true);
+        }
+
+        public void SetLiveTexture(Texture tex) => SetLiveTexture(tex, 0f);
+
+        /// <summary>Живая текстура на полотно (спайн-сцена в RenderTexture, кадр
+        /// 3D-набора). ТОТ ЖЕ ПУТЬ, ЧТО У КАРТИНКИ: та же посадка cover, тот же
+        /// переход — растворение прежнего кадра за <paramref name="crossfadeSeconds"/>,
+        /// проявление первого из черноты. Живой фон вставал и снимался щелчком
+        /// и ложился растяжкой без кропа — «лента в гардеробе меняет фон резко»,
+        /// «сжимает живой фон при смене» (Илья 18.09). Ноль — мгновенно.
+        /// Снятие (<c>null</c>) возвращает картинку, что ждала под ней.</summary>
+        public void SetLiveTexture(Texture tex, float crossfadeSeconds)
+        {
+            _liveTex = tex;
+            var next = tex != null ? tex : _tex;
+            if (next == null)
+            {
+                _fadeGen++;
+                _wantsArt = false;
+                _image.texture = null;
+                _image.color = Color.black;
+                return;
+            }
+            _wantsArt = true;
+            Place(next, crossfadeSeconds, resetPan: tex != null);
+        }
+
+        /// <summary>Что сейчас нарисовано на полотне: живая текстура, если стоит, иначе картинка.</summary>
+        private Texture Shown => _liveTex != null ? _liveTex : _tex;
+
+        /// <summary>ОДИН ПУТЬ ДЛЯ ЛЮБОГО КАДРА. Прежний кадр растворяется (или первый
+        /// проявляется из черноты), новый садится cover-кропом по пропорции полотна.</summary>
+        private void Place(Texture next, float crossfadeSeconds, bool resetPan)
+        {
+            bool hadArt = _image.texture != null && _tilePx <= 0f;
+            bool differs = _image.texture != next;
+            bool smooth = crossfadeSeconds > 0.01f && differs;
+            if (smooth && hadArt) BeginCrossfade(crossfadeSeconds);
+            _tile = null; _tilePx = 0f;
+            _image.texture = next;
+            _image.enabled = true;   // кадр есть — полотну снова есть чем рисовать
+            if (resetPan)
+            {
+                _panGen++; _panX = 0.5f; _panY = 0.5f; // новый фон = центр, прежний пан отменён
+                _driftX = _driftY = 0f;                // …и неподвижен, пока не попросят гулять
+            }
             UpdateCover();
-            // ПЕРВАЯ КАРТИНКА ТОЖЕ ПРИХОДИТ ПЕРЕХОДОМ. Кроссфейд умеет только
-            // «из прежнего кадра в новый», а когда прежнего нет — картинка
-            // вставала щелчком: пустое полотно, и вдруг мир. Именно так
-            // выглядит опоздавшая загрузка («фона нет… а позже появляется» —
-            // Илья 27.08): чёрная витрина, затем хлопок. Проявление из черноты
-            // читается как включение света, а не как сбой.
-            if (crossfadeSeconds > 0.01f && !hadArt) FadeIn(crossfadeSeconds);
+            // ПЕРВЫЙ КАДР ТОЖЕ ПРИХОДИТ ПЕРЕХОДОМ. Кроссфейд умеет только «из
+            // прежнего кадра в новый», а когда прежнего нет — кадр вставал
+            // щелчком: пустое полотно, и вдруг мир. Так выглядит опоздавшая
+            // загрузка («фона нет… а позже появляется» — Илья 27.08).
+            // Проявление из черноты читается как включение света, а не сбой.
+            if (smooth && !hadArt) FadeIn(crossfadeSeconds);
             else { _fadeGen++; _image.color = Color.white; }
         }
 
@@ -193,6 +231,28 @@ namespace Lvn.UI.World
             }
         }
 
+        // СНИМОК ТЕКУЩЕГО КАДРА ДЛЯ РАСТВОРЕНИЯ. Картинка живёт долго — её можно
+        // растворять саму; живая текстура (спайн-сцена в RenderTexture) может
+        // быть снесена парком раньше, чем растворится, — растворяем копию.
+        private RenderTexture _snap;
+        private Texture SnapshotOfCurrent()
+        {
+            var cur = _image.texture;
+            if (cur == null || !(cur is RenderTexture)) return cur;
+            try
+            {
+                if (_snap == null || _snap.width != cur.width || _snap.height != cur.height)
+                {
+                    if (_snap != null) { _snap.Release(); UnityEngine.Object.Destroy(_snap); }
+                    _snap = new RenderTexture(cur.width, cur.height, 0, RenderTextureFormat.ARGB32) { name = "bg-snap" };
+                    _snap.Create();
+                }
+                Graphics.Blit(cur, _snap);
+                return _snap;
+            }
+            catch { return cur; }   // нет графического устройства (стенд) — растворяем как есть
+        }
+
         private void BeginCrossfade(float seconds)
         {
             if (_cross == null)
@@ -208,7 +268,7 @@ namespace Lvn.UI.World
                 _cross.raycastTarget = false;
                 _crossGroup = go.GetComponent<CanvasGroup>();
             }
-            _cross.texture = _image.texture;
+            _cross.texture = SnapshotOfCurrent();
             _cross.uvRect = _image.uvRect;
             _cross.color = _image.color;
             _cross.gameObject.SetActive(true);
@@ -257,32 +317,13 @@ namespace Lvn.UI.World
         /// a 3D set. Passing null hands the background back to flat art.</summary>
         private Texture _liveTex;
 
-        public void SetLiveTexture(Texture tex)
-        {
-            _fadeGen++;   // кадр 3D-набора ставится как есть
-            _liveTex = tex;
-            if (tex == null && _tex != null)
-            {
-                // Живой фон снят — возвращается картинка, что ждала под ним.
-                _image.enabled = true;
-                _image.texture = _tex;
-                _image.color = Color.white;
-                UpdateCover();
-                return;
-            }
-            _wantsArt = tex != null;
-            _image.enabled = true;
-            _tile = null; _tilePx = 0f;
-            if (tex != null) _tex = null; // skip cover-crop: the frame is already the right shape
-            _image.texture = tex;
-            _image.color = tex != null ? Color.white : Color.black;
-            _image.uvRect = new Rect(0f, 0f, 1f, 1f);
-        }
-
         /// <summary>На полотне ЕСТЬ картинка — единственный честный признак
         /// «фон стоит». Флаг у сцены может врать: команда, применённая до
         /// рождения рендерера, ничего не рисует.</summary>
         public bool HasArt => _image != null && _image.texture != null;
+
+        /// <summary>Что сейчас на полотне (картинка или живая текстура) — читают тесты перехода.</summary>
+        public Texture CurrentTexture => _image != null ? _image.texture : null;
 
         /// <summary>
         /// ПОЛОТНУ НЕЧЕМ РИСОВАТЬ — ПУСТЬ НЕ РИСУЕТ.
@@ -330,9 +371,10 @@ namespace Lvn.UI.World
                 _image.uvRect = new Rect(0f, 0f, size.x / _tilePx, size.y / Mathf.Max(1f, tileH));
                 return;
             }
-            if (_tex == null) return;
+            var shown = Shown;
+            if (shown == null) return;
             if (size.x <= 0f || size.y <= 0f) { _image.uvRect = new Rect(0f, 0f, 1f, 1f); return; }
-            float texAspect = (float)_tex.width / Mathf.Max(1, _tex.height);
+            float texAspect = (float)shown.width / Mathf.Max(1, shown.height);
             float slotAspect = size.x / size.y;
             float u = 1f, v = 1f;
             if (texAspect > slotAspect) u = slotAspect / texAspect; // crop sides
