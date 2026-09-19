@@ -24,15 +24,17 @@ namespace Lvn.UI
         {
             private readonly ILvnPinLedger _ledger;
             private readonly List<Sprite> _sprites = new List<Sprite>();
+            private readonly LvnPinBoard<object> _pins = new LvnPinBoard<object>();
             internal LoadingPins(ILvnPinLedger ledger) => _ledger = ledger;
             internal void Hold(Sprite sprite)
             {
                 if (_ledger == null || sprite == null) return;
-                _ledger.PinSprite(sprite, true); _sprites.Add(sprite);
+                _sprites.Add(sprite);
+                _pins.Hold(this, _ledger, _sprites);
             }
             public void Dispose()
             {
-                foreach (var sprite in _sprites) _ledger.PinSprite(sprite, false);
+                _pins.Release(this);
                 _sprites.Clear();
             }
         }
