@@ -23,17 +23,22 @@ def report(path, platform, floor, test_filter=""):
     if total <= 0 or passed <= 0 or len(cases) != total:
         print("    ПУСТОЙ ИЛИ НЕПОЛНЫЙ ПРОГОН: результат не подтверждает выполнение тестов")
         return 1
-    if failed or root.get("result") not in ("Passed", "Skipped"):
+    if failed or root.get("result") not in ("Passed", "Skipped", "Skipped:Ignored"):
         return 1
     if any(c.get("result") not in ("Passed", "Skipped") for c in cases):
         return 1
+    external = sum(any(p.get("name") == "Category" and p.get("value") == "LvnExternalContent"
+                       for p in c.findall("properties/property")) for c in cases)
+    required = total - external
+    if external:
+        print(f"    Внешний контент: {external}; обязательный набор: {required}")
     if test_filter:
         print(f"    Выборочная проверка: {test_filter}; полный набор не проверялся")
-    elif total < floor:
-        print(f"    ТЕСТОВ МЕНЬШЕ ПОЛА: {total} при {floor} — проверки ИСЧЕЗЛИ")
+    elif required < floor:
+        print(f"    ТЕСТОВ МЕНЬШЕ ПОЛА: {required} при {floor} — проверки ИСЧЕЗЛИ")
         return 1
-    elif total > floor:
-        print(f"    (тестов стало больше: {total} при поле {floor} — поднимите пол)")
+    elif required > floor:
+        print(f"    (тестов стало больше: {required} при поле {floor} — поднимите пол)")
     return 0
 
 

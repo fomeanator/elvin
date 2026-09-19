@@ -12,11 +12,15 @@ spec.loader.exec_module(results)
 
 
 class UnityResultsTests(unittest.TestCase):
-    def run_report(self, states, *, filtered=False, total=None, root_result="Passed"):
+    def run_report(self, states, *, filtered=False, total=None, root_result="Passed", external=0):
         passed = states.count("Passed")
         failed = states.count("Failed")
         xml = f'<test-run total="{len(states) if total is None else total}" passed="{passed}" failed="{failed}" result="{root_result}">'
-        xml += "".join(f'<test-case result="{state}" name="test-{i}" />' for i, state in enumerate(states))
+        for i, state in enumerate(states):
+            xml += f'<test-case result="{state}" name="test-{i}">'
+            if i < external:
+                xml += '<properties><property name="Category" value="LvnExternalContent" /></properties>'
+            xml += '</test-case>'
         xml += '</test-run>'
         with tempfile.TemporaryDirectory() as directory:
             path = pathlib.Path(directory) / "results.xml"
@@ -32,6 +36,16 @@ class UnityResultsTests(unittest.TestCase):
 
     def test_full_suite_accepts_reported_skip(self):
         self.assertEqual(0, self.run_report(["Passed", "Passed", "Skipped"]))
+
+    def test_unity_ignored_aggregate_with_passed_cases_is_valid(self):
+        self.assertEqual(0, self.run_report(["Passed", "Passed", "Skipped"], root_result="Skipped:Ignored"))
+
+    def test_optional_content_cannot_hide_missing_required_tests(self):
+        self.assertEqual(1, self.run_report(["Passed"] * 4, external=2))
+
+    def test_optional_content_is_checked_but_not_required(self):
+        self.assertEqual(0, self.run_report(["Passed"] * 5, external=2))
+        self.assertEqual(1, self.run_report(["Failed"] + ["Passed"] * 4, external=2, root_result="Failed(Child)"))
 
     def test_empty_filter_match_is_failure(self):
         self.assertEqual(1, self.run_report([], filtered=True))

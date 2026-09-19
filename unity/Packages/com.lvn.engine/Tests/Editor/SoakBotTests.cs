@@ -100,7 +100,8 @@ namespace Lvn.Tests
             var files = Directory.GetFiles(ScriptsRoot, "*.lvn");
             System.Array.Sort(files);
             foreach (var f in files)
-                yield return new TestCaseData(f).SetName("Soak(" + Path.GetFileName(f) + ")");
+                yield return new TestCaseData(f).SetName("Soak(" + Path.GetFileName(f) + ")")
+                    .SetCategory("LvnExternalContent");
         }
 
         public static IEnumerable<TestCaseData> LoopFixtures()
