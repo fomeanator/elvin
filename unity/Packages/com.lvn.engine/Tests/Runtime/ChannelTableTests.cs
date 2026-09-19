@@ -43,12 +43,15 @@ namespace Lvn.Tests.Runtime
         private AudioClip _clip;
 
         private bool _soundWas;
+        private float _musicWas;
 
         [SetUp]
         public void Setup()
         {
             _soundWas = LvnPrefs.SoundOn;
+            _musicWas = LvnPrefs.VolMusic;
             LvnPrefs.SoundOn = true;
+            LvnPrefs.VolMusic = 1f;
             _go = new GameObject("аудио-проба");
             _audio = _go.AddComponent<StageAudio>();
             _clip = AudioClip.Create("проба", 4410, 1, 44100, false);
@@ -60,6 +63,7 @@ namespace Lvn.Tests.Runtime
             if (_go != null) Object.DestroyImmediate(_go);
             if (_clip != null) Object.DestroyImmediate(_clip);
             LvnPrefs.SoundOn = _soundWas;   // настройка игрока переживает тест
+            LvnPrefs.VolMusic = _musicWas;
         }
 
         private IEnumerator Play(string channel, float volume = 1f)

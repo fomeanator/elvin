@@ -36,6 +36,7 @@ namespace Lvn.Tests
             var savedTranslation = (Dictionary<string, string>)typeof(LvnWords).GetField("_translated", flags).GetValue(null);
             try
             {
+                LvnWallet.Apply("{\"balances\":{\"crystals\":1000},\"inventory\":{}}");
                 LvnWords.Learn(new Dictionary<string, string>
                 {
                     ["gacha.title"] = "Крутка", ["gacha.spin"] = "Крутить", ["gacha.super"] = "Редкое",
@@ -78,9 +79,10 @@ namespace Lvn.Tests
                 });
                 yield return new WaitForSecondsRealtime(0.3f);
                 var spin = screen.Q<Button>("gacha-spin");
+                Assert.IsNotNull(spin, "funded wallet exposes the paid spin action");
                 Assert.Greater(spin.worldBound.height, 40f);
                 Assert.LessOrEqual(spin.worldBound.xMax, panelWidth);
-                Assert.LessOrEqual(spin.worldBound.yMax, panelHeight);
+                Assert.LessOrEqual(spin.worldBound.yMax, panelHeight + 0.01f, "allow float rounding at the panel edge");
                 Assert.IsFalse(float.IsNaN(screen.Q("gacha-strip").resolvedStyle.left));
                 Save(texture, $"gacha-idle-{width}x{height}");
                 var prize = new LvnGacha.Prize { Sku = "wardrobe:Hero:outfit:53", Label = "Редкий наряд" };
@@ -91,7 +93,7 @@ namespace Lvn.Tests
                 screen.Q("gacha-actions").Clear();
                 var reveal = screen.RevealPrizeAsync(new LvnGacha.Spin { Super = true, Prize = prize, WalletSynced = true });
                 yield return null;
-                Assert.Less(screen.Q("gacha-reward").resolvedStyle.opacity, 1f, "reward actually animates");
+                Assert.Less(screen.Q("gacha-reward-art").resolvedStyle.opacity, 1f, "reward actually animates");
                 while (!reveal.IsCompleted) yield return null;
                 Assert.IsFalse(reveal.IsFaulted, reveal.Exception?.ToString());
                 yield return null;
@@ -107,7 +109,9 @@ namespace Lvn.Tests
                     0, VisualElement.MeasureMode.Undefined);
                 Assert.LessOrEqual(measured.y, take.contentRect.height + 1f, "localized action text is not clipped vertically");
                 Assert.AreEqual("Огненный тигр", screen.Q<Label>("gacha-reward-name").text);
-                Assert.IsNotNull(screen.Q("gacha-reward-art").resolvedStyle.backgroundImage.sprite);
+                Assert.IsNotNull(screen.Q("gacha-picture"), "ceremony displays the shared prize card");
+                Assert.IsNotNull(screen.Q("gacha-picture").Q("card-art").resolvedStyle.backgroundImage.sprite,
+                    "the shared card has loaded the actual prize artwork");
                 Save(texture, $"gacha-long-caption-{width}x{height}");
                 var point = take.worldBound.center;
                 var picked = root.panel.Pick(point);
@@ -119,7 +123,7 @@ namespace Lvn.Tests
                 { up.target = picked; picked.SendEvent(up); }
                 yield return null;
                 Assert.AreEqual(DisplayStyle.None, screen.Q("gacha-reward").resolvedStyle.display);
-                Assert.AreEqual(0f, screen.Q("gacha-strip").resolvedStyle.left, "new spin starts with the reel back in view");
+                Assert.IsNull(screen.Q("gacha-blackout"), "Take removes the input-blocking ceremony");
 
                 screen.HideAsTab();
                 // Home is authored on a 1080-unit panel. Check the button in that coordinate system.
@@ -135,6 +139,7 @@ namespace Lvn.Tests
             }
             finally
             {
+                LvnWallet.ResetLocal();
                 LvnWords.Learn(savedBase);
                 LvnWords.Translate(savedTranslation);
                 Object.Destroy(go);

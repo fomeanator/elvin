@@ -20,6 +20,7 @@ namespace Lvn.Tests
         [UnityTest] public IEnumerator ARealBlockedFrameIsAttributedAndPauseIsExcluded()
         {
             _ = LvnPanel.Shared;
+            LvnPerf.Stop(); // isolate capture from earlier scene tests
             LvnPerf.Start(); LvnPerf.Context = "perf-test";
             yield return null; yield return null; yield return null;
             int blocked = Time.frameCount;
@@ -28,7 +29,7 @@ namespace Lvn.Tests
                 var sw = Stopwatch.StartNew();
                 using (LvnPerf.Measure(LvnPerf.Part.FontBuild))
                     while (sw.ElapsedMilliseconds < 30) Thread.SpinWait(100);
-                while (sw.ElapsedMilliseconds < 85) Thread.SpinWait(100);
+                while (sw.ElapsedMilliseconds < LvnPerf.SlowFloorMs + 40) Thread.SpinWait(100);
             }
             yield return null; yield return null;
             LvnPerf.Flush();

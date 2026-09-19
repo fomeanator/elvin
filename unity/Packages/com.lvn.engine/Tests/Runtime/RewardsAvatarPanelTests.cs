@@ -27,13 +27,14 @@ namespace Lvn.Tests
         private RenderTexture _texture;
         private VisualElement _root;
         private Art _art;
-        private string _url, _picked;
+        private string _url, _picked, _auto;
         private bool _offline;
 
         [SetUp] public void SetUp()
         {
             TestPixels.RequireGraphics();
             _url = LvnBackend.BaseUrl; _offline = LvnNetworkStatus.ForceOffline; _picked = LvnAvatars.Picked;
+            _auto = LvnPrefs.GachaAuto; LvnPrefs.GachaAuto = "off";
             LvnNetworkStatus.ForceOffline = false; LvnWallet.ResetLocal();
             _settings = ScriptableObject.CreateInstance<PanelSettings>();
             _texture = new RenderTexture(390, 844, 24); _texture.Create();
@@ -55,9 +56,10 @@ namespace Lvn.Tests
             _root.Clear(); Object.Destroy(_go); Object.Destroy(_settings); Object.Destroy(_texture); _art.Dispose();
             LvnAvatars.Picked = _picked; LvnWallet.ResetLocal();
             LvnBackend.BaseUrl = _url; LvnNetworkStatus.ForceOffline = _offline;
+            LvnPrefs.GachaAuto = _auto;
         }
 
-        [UnityTest] public IEnumerator TouchSpinUpdatesEnergyAndTakeDismissesReward()
+        [UnityTest] public IEnumerator TouchCurrencySpinUpdatesEnergyAndReturnsToIdle()
         {
             using var server = new SpinServer();
             LvnBackend.BaseUrl = server.Root;
@@ -72,15 +74,14 @@ namespace Lvn.Tests
             yield return Until(() => screen.Q<Button>("gacha-spin") != null);
             yield return new WaitForSecondsRealtime(0.4f);
             yield return Tap(screen.Q<Button>("gacha-spin"));
-            yield return Until(() => screen.Q<Button>("gacha-take") != null, 12f);
+            yield return Until(() => server.Spins == 1 && screen.Q<Button>("gacha-spin") != null, 12f);
             Assert.AreEqual(152, LvnWallet.Balance("energy"));
             Assert.AreEqual(50, LvnWallet.Balance("crystals"));
             var energy = bar.Query<LvnWalletPill>().ToList().Find(p => p.Currency == "energy");
             Assert.IsNotNull(energy);
-            Assert.AreEqual("152", energy.Q<Label>().text, "HUD changes before Take and without reopening the screen");
+            Assert.AreEqual("152", energy.Q<Label>().text, "HUD changes without reopening the screen");
             Shot("energy-prize-touch");
-            yield return Tap(screen.Q<Button>("gacha-take"));
-            yield return Until(() => screen.Q<Button>("gacha-spin") != null);
+            Assert.IsNull(screen.Q<Button>("gacha-take"), "currency lands on the reel; only rare prizes have a ceremony");
             Assert.AreEqual(DisplayStyle.None, screen.Q("gacha-reward").resolvedStyle.display);
             Assert.AreEqual(1, server.Spins, "taking a prize must not start or charge another spin");
             screen.RequestCancel(); yield return Until(() => showing.IsCompleted);
@@ -176,6 +177,7 @@ namespace Lvn.Tests
                 var settings = new SettingsScreen(config, _art); _root.Add(settings);
                 var showing = settings.ShowAsync();
                 yield return new WaitForSecondsRealtime(0.4f);
+                yield return OpenSection(settings, "sound");
                 var sliders = settings.Q<ScrollView>().contentContainer.Query<Slider>().ToList();
                 Assert.GreaterOrEqual(sliders.Count, 2);
                 var viewport = settings.Q<ScrollView>().contentViewport;
@@ -199,6 +201,7 @@ namespace Lvn.Tests
                 settings = new SettingsScreen(config, _art); _root.Add(settings);
                 showing = settings.ShowAsync();
                 yield return new WaitForSecondsRealtime(0.4f);
+                yield return OpenSection(settings, "sound");
                 yield return Tap(settings.Q<Button>("settings-sound"));
                 sliders = settings.Q<ScrollView>().contentContainer.Query<Slider>().ToList();
                 Assert.AreEqual(0.7f, sliders[0].value);
@@ -206,6 +209,7 @@ namespace Lvn.Tests
                 Assert.IsTrue(sliders[0].enabledSelf && sliders[1].enabledSelf);
                 Shot("settings-sound");
                 var scroll = settings.Q<ScrollView>();
+                yield return OpenSection(settings, "graphics");
                 foreach (string label in new[] { "2K", "1440p", "1K" })
                 {
                     var button = settings.Query<Button>().ToList().Find(b => b.text == label);
@@ -218,6 +222,7 @@ namespace Lvn.Tests
                 Assert.AreEqual("1k", LvnPrefs.ArtQuality);
                 Shot("settings-quality");
                 var social = settings.Q("settings-social");
+                yield return OpenSection(settings, "data");
                 scroll.ScrollTo(social); yield return null;
                 var buttons = social.Query<Button>().ToList();
                 Assert.AreEqual(3, buttons.Count);
@@ -300,6 +305,7 @@ namespace Lvn.Tests
                 var showing = screen.ShowAsync();
                 yield return new WaitForSecondsRealtime(0.4f);
                 Assert.IsTrue(screen.Query<Label>().ToList().Exists(l => l.text == "Settings"));
+                yield return OpenSection(screen, "text");
                 LvnPerf.Start(); LvnPerf.Context = "settings";
                 var russian = screen.Query<Button>().ToList().Find(b => b.text == "Русский");
                 Assert.IsNotNull(russian);
@@ -334,7 +340,20 @@ namespace Lvn.Tests
             }
         }
 
-        private IEnumerator Tap(Button button)
+        private IEnumerator OpenSection(SettingsScreen screen, string id)
+        {
+            if (screen.Q("settings-body-" + id).resolvedStyle.display == DisplayStyle.None)
+            {
+                var header = screen.Q("settings-sec-" + id);
+                screen.Q<ScrollView>().ScrollTo(header);
+                yield return null;
+                yield return Tap(header);
+                yield return null;
+            }
+            Assert.AreEqual(DisplayStyle.Flex, screen.Q("settings-body-" + id).resolvedStyle.display);
+        }
+
+        private IEnumerator Tap(VisualElement button)
         {
             Assert.IsNotNull(button); Assert.IsTrue(button.enabledInHierarchy);
             yield return null;
