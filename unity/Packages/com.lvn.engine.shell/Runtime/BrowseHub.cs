@@ -436,6 +436,9 @@ namespace Lvn.UI.Screens
         /// <inheritdoc/>
         public void SetContent(LvnManifest manifest)
         {
+            // A manifest update can replace bytes at the same URLs. Ordinary
+            // SetData/return-to-menu refreshes retain the existing poster.
+            LvnSpinePoster.Release(_stageCover);
             _sprites = manifest?.sprites;
             SetData(manifest?.collections, manifest?.titles);
         }

@@ -99,7 +99,7 @@ namespace Lvn.UI.Screens
                 if (spine == null) continue;
                 LvnAsync.Fire(Lvn.UI.LvnSpinePoster.WarmAsync(spine,
                     url => _assets.LoadTextAsync(url, default),
-                    url => _assets.LoadSpriteAsync(url, default)), "SpineWarm");
+                    url => _assets.LoadSpriteAsync(url, default), _assets.Loader), "SpineWarm");
             }
             // СЦЕНЫ НОВЕЛЛ И ФОНОВ МЕНЮ НА СТАРТЕ НЕ ГРЕЕМ. Четыре живых фона
             // разом — четыре многомегабайтных скелета и восемь текстур 2K в

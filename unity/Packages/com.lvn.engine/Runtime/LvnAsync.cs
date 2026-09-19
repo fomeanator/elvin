@@ -34,9 +34,9 @@ namespace Lvn
             catch (OperationCanceledException) { /* отмена — обычный конец фоновой работы */ }
             catch (Exception ex)
             {
-                // Одна строка, а не стек целиком: на устройстве важнее ЧТО
-                // сорвалось, а стек фоновой задачи почти всегда один и тот же.
-                Debug.LogWarning($"[lvn-async] «{what}» не удалось: {ex.GetType().Name}: {ex.Message}");
+                // Preserve the throwing frame: the operation name alone cannot
+                // distinguish an asset failure from a renderer/lifecycle failure.
+                Debug.LogWarning($"[lvn-async] «{what}» не удалось: {ex}");
             }
         }
     }

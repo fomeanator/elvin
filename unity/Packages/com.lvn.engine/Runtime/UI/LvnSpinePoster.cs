@@ -59,10 +59,7 @@ namespace Lvn.UI
         {
             if (host == null || spine == null || loadText == null || loadSprite == null) return;
             if (!LvnSpineBridge.Available) { onFallback?.Invoke(); return; }
-            var origin = new Vector3(20000f + (_seq++ % 64) * Spacing, 20000f, 0f);
-            LvnAsync.Fire(BuildAsync(host, spine, loadText, loadSprite, origin, ledger, onFallback, onPoster,
-                visibilityTarget ?? host),
-                "SpinePoster");
+            AttachOwned(host, spine, loadText, loadSprite, ledger, onFallback, onPoster, visibilityTarget ?? host);
         }
 
         /// <summary>ПРОГРЕТЬ спайн заранее: те же файлы теми же загрузчиками (то
@@ -72,10 +69,11 @@ namespace Lvn.UI
         /// загрузит сам, как раньше.</summary>
         public static async Task WarmAsync(LvnSpineRef spine,
             Func<string, Task<string>> loadText,
-            Func<string, Task<Sprite>> loadSprite)
+            Func<string, Task<Sprite>> loadSprite, ILvnPinLedger ledger = null)
         {
             if (spine == null || loadText == null || loadSprite == null) return;
-            var kit = await LoadKitAsync(spine, loadText, loadSprite);
+            using var loading = new LoadingPins(ledger);
+            var kit = await LoadKitAsync(spine, loadText, loadSprite, loading.Hold);
             if (!kit.Ok || LvnSpineBridge.Prepare == null) return;
             // Разбор json стоит 100-170 мс на главном потоке. Мост умеет сделать
             // его заранее и в стороне; без прогрева они пришлись бы ровно на тот
@@ -108,7 +106,7 @@ namespace Lvn.UI
         }
 
         internal static async Task<Kit> LoadKitAsync(LvnSpineRef spine,
-            Func<string, Task<string>> loadText, Func<string, Task<Sprite>> loadSprite)
+            Func<string, Task<string>> loadText, Func<string, Task<Sprite>> loadSprite, Action<Sprite> pin = null)
         {
             var kit = new Kit();
             kit.Json = await loadText(spine.json);
@@ -120,7 +118,7 @@ namespace Lvn.UI
                 var alt = AtlasWithoutTxt(spine.atlas);
                 if (!string.IsNullOrEmpty(alt))
                 {
-                    try { atlasText = await loadText(alt); spine.atlas = alt; }
+                    try { atlasText = await loadText(alt); }
                     catch { }   // вторая догадка об имени; нет и её — откатимся на обложку
                 }
             }
@@ -135,7 +133,7 @@ namespace Lvn.UI
                 try { spr = await loadSprite(url); }
                 catch { }   // страница атласа не доехала: пустая отсеется ниже, покажем что есть
                 var tex = LiveTexture(spr);
-                if (tex != null) { textures.Add(tex); sprites.Add(spr); }
+                if (tex != null) { pin?.Invoke(spr); textures.Add(tex); sprites.Add(spr); }
             }
             kit.Textures = textures.ToArray();
             kit.Sprites = sprites;
@@ -146,69 +144,79 @@ namespace Lvn.UI
                 try { bg = await loadSprite(spine.bg); }
                 catch { }   // подложка необязательна: без неё фигура стоит на своём фоне
                 kit.Bg = LiveTexture(bg);
-                if (kit.Bg != null) sprites.Add(bg);
+                if (kit.Bg != null) { pin?.Invoke(bg); sprites.Add(bg); }
             }
             return kit;
         }
 
-        private static async Task BuildAsync(VisualElement host, LvnSpineRef spine,
-            Func<string, Task<string>> loadText, Func<string, Task<Sprite>> loadSprite, Vector3 origin,
-            Lvn.Content.ILvnPinLedger ledger, Action onFallback, Action<RenderTexture> onPoster,
-            VisualElement visibilityTarget)
+        private static async Task BuildAsync(Attachment owner, int revision, LvnSpineRef spine,
+            Func<string, Task<string>> loadText, Func<string, Task<Sprite>> loadSprite)
         {
-            var kit = await LoadKitAsync(spine, loadText, loadSprite);
-            // НЕ ВЫШЛО — ЗОВЁМ ЗАПАСНОЙ ХОД. Молчаливый выход оставлял карточку
-            // пустым прямоугольником: обложку на спайн-карточке не ставят, а
-            // фигура не приехала — показывать было нечего.
-            if (!kit.Ok) { onFallback?.Invoke(); return; }
-            if (host.panel == null) return; // элемент исчез, пока грузили
+            using var loading = new LoadingPins(owner.Ledger);
+            try
+            {
+                var kit = await LoadKitAsync(spine, loadText, loadSprite, loading.Hold);
+                if (!owner.Current(revision)) return;
+                var host = owner.Host;
+                // НЕ ВЫШЛО — ЗОВЁМ ЗАПАСНОЙ ХОД. Молчаливый выход оставлял карточку
+                // пустым прямоугольником: обложку на спайн-карточке не ставят, а
+                // фигура не приехала — показывать было нечего.
+                if (!kit.Ok) { owner.Fallback(); return; }
+                if (host.panel == null) { owner.Dispose(); return; } // элемент исчез, пока грузили
 
-            // ЗАКРЕПЛЯЕМ СТРАНИЦЫ. Скелет держит их текстуры в своём материале, а
-            // стриминговое окно про это не знает: выгруженная страница делает
-            // фигуру чёрной/розовой без шанса восстановиться.
-            //
-            // ДЕРЖИТ ДОСКА, а не мы сами: правило «прикрепить новое раньше, чем
-            // отпустить прежнее» живёт у неё одной. Наборы страниц у постеров
-            // пересекаются (один атлас на всех), и отпустив первым, доводишь
-            // счётчик общего спрайта до нуля — окно вправе забрать текстуру
-            // ровно в этот миг.
-            _pins.Hold(host, ledger, kit.Sprites);
+                // ЗАКРЕПЛЯЕМ СТРАНИЦЫ. Скелет держит их текстуры в своём материале, а
+                // стриминговое окно про это не знает: выгруженная страница делает
+                // фигуру чёрной/розовой без шанса восстановиться.
+                //
+                // ДЕРЖИТ ДОСКА, а не мы сами: правило «прикрепить новое раньше, чем
+                // отпустить прежнее» живёт у неё одной. Наборы страниц у постеров
+                // пересекаются (один атлас на всех), и отпустив первым, доводишь
+                // счётчик общего спрайта до нуля — окно вправе забрать текстуру
+                // ровно в этот миг.
+                _pins.Hold(host, owner.Ledger, kit.Sprites);
+                owner.DropRig();
 
-            // ── офф-скрин установка: корень в своём углу мира ─────────────────
-            const float ch = 800f;
-            float hw = host.resolvedStyle.width, hh = host.resolvedStyle.height;
-            float aspect = (hw > 1f && hh > 1f) ? hw / hh : 0.8325f;
-            float cw = Mathf.Round(ch * Mathf.Clamp(aspect, 0.3f, 3f));
-            var rig = BuildRig("lvn-spine-poster", origin, (int)cw, (int)ch);
-            rig.Ticker.VisibilityTarget = visibilityTarget;
-            var root = rig.Root; var crt = rig.Canvas; var rt = rig.Rt;
+                // ── офф-скрин установка: корень в своём углу мира ─────────────────
+                const float ch = 800f;
+                float hw = host.resolvedStyle.width, hh = host.resolvedStyle.height;
+                float aspect = (hw > 1f && hh > 1f) ? hw / hh : 0.8325f;
+                float cw = Mathf.Round(ch * Mathf.Clamp(aspect, 0.3f, 3f));
+                var origin = new Vector3(20000f + (_seq++ % 64) * Spacing, 20000f, 0f);
+                var rig = BuildRig("lvn-spine-poster", origin, (int)cw, (int)ch);
+                owner.Rig = rig; // also owns partial builds when the bridge throws
+                rig.Ticker.VisibilityTarget = owner.VisibilityTarget;
+                var crt = rig.Canvas; var rt = rig.Rt;
 
-            var go = LvnSpineBridge.Create(crt, kit.Json, kit.Atlas, kit.Textures, spine.scale, kit.Bg);
-            if (go == null) { Cleanup(root, rt, host); onFallback?.Invoke(); return; }
-            if (LvnSpineBridge.SetVisible != null) LvnSpineBridge.SetVisible(go, true);
-            // И ВНУТРИ холста тоже в ровень: подгонка по ширине оставляла бы
-            // фигуру в рамке пустоты, а её потом видно как те же полосы —
-            // срезать на композите было бы нечего.
-            if (LvnSpineBridge.Refit != null) LvnSpineBridge.Refit(go, spine.scale, "cover");
-            if (!string.IsNullOrEmpty(spine.auto) && LvnSpineBridge.Play != null)
-                LvnSpineBridge.Play(go, spine.auto, true);
+                var go = LvnSpineBridge.Create(crt, kit.Json, kit.Atlas, kit.Textures, spine.scale, kit.Bg);
+                if (go == null) { owner.Fallback(); return; }
+                if (LvnSpineBridge.SetVisible != null) LvnSpineBridge.SetVisible(go, true);
+                // И ВНУТРИ холста тоже в ровень: подгонка по ширине оставляла бы
+                // фигуру в рамке пустоты, а её потом видно как те же полосы —
+                // срезать на композите было бы нечего.
+                if (LvnSpineBridge.Refit != null) LvnSpineBridge.Refit(go, spine.scale, "cover");
+                if (!string.IsNullOrEmpty(spine.auto) && LvnSpineBridge.Play != null)
+                    LvnSpineBridge.Play(go, spine.auto, true);
 
-            host.style.backgroundImage = Background.FromRenderTexture(rt);
-            // ТЕКСТУРУ ОТДАЁМ В РУКИ, А НЕ ЧЕРЕЗ СТИЛЬ. Тот, кто хочет разделить
-            // постер на несколько элементов, не может прочитать её обратно из
-            // style.backgroundImage: геттер UITK собирает Background из
-            // Texture2D/Sprite/VectorImage и RenderTexture теряет — читалось
-            // пусто, и панели магазина стояли без фигуры (Илья 08.09).
-            onPoster?.Invoke(rt);
-            // COVER: фигура заполняет постер В РОВЕНЬ, без полей сверху и снизу
-            // (Илья). Contain вписывал целиком и оттого оставлял полосы. Cover
-            // масштабирует РАВНОМЕРНО и срезает лишнее по краю — пропорции
-            // сохраняются так же, растяжки нет.
-            host.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
+                host.style.backgroundImage = Background.FromRenderTexture(rt);
+                // ТЕКСТУРУ ОТДАЁМ В РУКИ, А НЕ ЧЕРЕЗ СТИЛЬ. Тот, кто хочет разделить
+                // постер на несколько элементов, не может прочитать её обратно из
+                // style.backgroundImage: геттер UITK собирает Background из
+                // Texture2D/Sprite/VectorImage и RenderTexture теряет — читалось
+                // пусто, и панели магазина стояли без фигуры (Илья 08.09).
+                owner.OnPoster?.Invoke(rt);
+                // COVER: фигура заполняет постер В РОВЕНЬ, без полей сверху и снизу
+                // (Илья). Contain вписывал целиком и оттого оставлял полосы. Cover
+                // масштабирует РАВНОМЕРНО и срезает лишнее по краю — пропорции
+                // сохраняются так же, растяжки нет.
+                host.style.backgroundSize = new BackgroundSize(BackgroundSizeType.Cover);
 
-            EventCallback<DetachFromPanelEvent> onDetach = null;
-            onDetach = _ => { host.UnregisterCallback(onDetach); Cleanup(root, rt, host); };
-            host.RegisterCallback(onDetach);
+                LvnLog.Trace($"[lvn-poster] ready json={spine.json} bg={spine.bg} rt={rt.width}x{rt.height} hosts={_attachments.Count}");
+            }
+            catch
+            {
+                if (owner.Current(revision)) owner.Fallback();
+                throw;
+            }
         }
 
         /// <summary>Сколько раз в секунду постер переснимает фигуру. Экран
@@ -421,23 +429,32 @@ namespace Lvn.UI
             Func<string, Task<string>> loadText, Func<string, Task<Sprite>> loadSprite, Vector3 origin,
             int width, int height, Lvn.Content.ILvnPinLedger ledger, Action<RenderTexture> onTexture, Action onFallback)
         {
-            var kit = await LvnSpinePoster.LoadKitAsync(spine, loadText, loadSprite);
-            if (handle.Released) return;
-            if (!kit.Ok) { handle.Release(); onFallback?.Invoke(); return; }
-            _pins.Hold(handle.PinKey, ledger, kit.Sprites);
+            using var loading = new LvnSpinePoster.LoadingPins(ledger);
+            try
+            {
+                var kit = await LvnSpinePoster.LoadKitAsync(spine, loadText, loadSprite, loading.Hold);
+                if (handle.Released) return;
+                if (!kit.Ok) { handle.Release(); onFallback?.Invoke(); return; }
+                _pins.Hold(handle.PinKey, ledger, kit.Sprites);
 
-            var rig = LvnSpinePoster.BuildRig("lvn-spine-backdrop", origin, width, height);
-            rig.Ticker.AlwaysVisible = !handle.Paused;   // поставлен на паузу до сборки — не рисуем и после
-            handle.Root = rig.Root; handle.Rt = rig.Rt; handle.Ticker = rig.Ticker;
-            var crt = rig.Canvas; var rt = rig.Rt;
-            var go = LvnSpineBridge.Create(crt, kit.Json, kit.Atlas, kit.Textures, spine.scale, kit.Bg);
-            if (go == null) { handle.Release(); onFallback?.Invoke(); return; }
-            if (LvnSpineBridge.SetVisible != null) LvnSpineBridge.SetVisible(go, true);
-            if (LvnSpineBridge.Refit != null) LvnSpineBridge.Refit(go, spine.scale, "cover");
-            if (!string.IsNullOrEmpty(spine.auto) && LvnSpineBridge.Play != null)
-                LvnSpineBridge.Play(go, spine.auto, true);
-            if (handle.Released) return;
-            onTexture?.Invoke(rt);
+                var rig = LvnSpinePoster.BuildRig("lvn-spine-backdrop", origin, width, height);
+                rig.Ticker.AlwaysVisible = !handle.Paused;   // поставлен на паузу до сборки — не рисуем и после
+                handle.Root = rig.Root; handle.Rt = rig.Rt; handle.Ticker = rig.Ticker;
+                var crt = rig.Canvas; var rt = rig.Rt;
+                var go = LvnSpineBridge.Create(crt, kit.Json, kit.Atlas, kit.Textures, spine.scale, kit.Bg);
+                if (go == null) { handle.Release(); onFallback?.Invoke(); return; }
+                if (LvnSpineBridge.SetVisible != null) LvnSpineBridge.SetVisible(go, true);
+                if (LvnSpineBridge.Refit != null) LvnSpineBridge.Refit(go, spine.scale, "cover");
+                if (!string.IsNullOrEmpty(spine.auto) && LvnSpineBridge.Play != null)
+                    LvnSpineBridge.Play(go, spine.auto, true);
+                if (handle.Released) return;
+                onTexture?.Invoke(rt);
+            }
+            catch
+            {
+                if (!handle.Released) { handle.Release(); onFallback?.Invoke(); }
+                throw;
+            }
         }
     }
 }

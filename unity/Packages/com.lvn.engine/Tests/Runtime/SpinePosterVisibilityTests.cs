@@ -31,17 +31,19 @@ namespace Lvn.Tests
         private Camera _camera;
         private int _renders;
         private int _rendersBeforeAnimation;
+        private int _builds;
         private Func<RectTransform, string, string, Texture2D[], float, Texture2D, GameObject> _create;
         private Action<GameObject, bool> _visible;
         private Action<GameObject, float, string> _refit;
 
         [SetUp] public void SetUp()
         {
-            _renders = 0; _rendersBeforeAnimation = 0;
+            _renders = 0; _rendersBeforeAnimation = 0; _builds = 0;
             _create = LvnSpineBridge.Create; _visible = LvnSpineBridge.SetVisible; _refit = LvnSpineBridge.Refit;
             LvnSpineBridge.SetVisible = null; LvnSpineBridge.Refit = null;
             LvnSpineBridge.Create = (parent, json, atlas, textures, scale, bg) =>
             {
+                _builds++;
                 var go = new GameObject("poster-animation", typeof(RectTransform), typeof(PosterAnimationProbe));
                 go.transform.SetParent(parent, false);
                 _animation = go.GetComponent<PosterAnimationProbe>();
@@ -103,6 +105,85 @@ namespace Lvn.Tests
             Assert.Greater(_renders, 0, "positive control: camera really submitted frames");
             Assert.AreEqual(0, _rendersBeforeAnimation,
                 "posters must not sample the previous animation frame from inside LateUpdate");
+        }
+
+        [UnityTest] public IEnumerator RefreshingSamePosterKeepsOneRig()
+        {
+            yield return Settle(); Attach(); yield return Settle();
+            var camera = _camera; var texture = _poster;
+            for (int i = 0; i < 12; i++) Attach();
+            yield return Settle();
+            Assert.AreEqual(1, _builds, "menu refresh must not accumulate invisible duplicate cameras");
+            Assert.AreSame(camera, _camera); Assert.AreSame(texture, _poster);
+            _host.RemoveFromHierarchy(); yield return Settle();
+            Assert.IsTrue(camera == null); Assert.IsTrue(texture == null);
+        }
+
+        [UnityTest] public IEnumerator SupersededLoadCannotOverwriteNewPoster()
+        {
+            yield return Settle();
+            var slow = new TaskCompletionSource<string>();
+            LvnSpinePoster.Attach(_host, new LvnSpineRef { json = "slow.json", atlas = "slow.atlas" },
+                url => url.EndsWith(".json") ? slow.Task : Task.FromResult("page.png\nsize: 2,2\n"),
+                url => Task.FromResult(_sprite), onPoster: _ => Assert.Fail("stale poster won the race"));
+            Attach(); yield return Settle();
+            var texture = _poster; slow.SetResult("{}"); yield return Settle();
+            Assert.AreEqual(1, _builds); Assert.AreSame(texture, _poster);
+        }
+
+        [UnityTest] public IEnumerator ReplacingPosterReleasesOldRig()
+        {
+            yield return Settle(); Attach(); yield return Settle();
+            var oldCamera = _camera; var oldTexture = _poster;
+            LvnSpinePoster.Attach(_host, new LvnSpineRef { json = "other.json", atlas = "other.atlas" },
+                url => Task.FromResult(url.EndsWith(".atlas") ? "page.png\nsize: 2,2\n" : "{}"),
+                url => Task.FromResult(_sprite), onPoster: rt => _poster = rt);
+            yield return Settle();
+            Assert.AreEqual(2, _builds); Assert.IsTrue(oldCamera == null); Assert.IsTrue(oldTexture == null);
+            AssertRenderedRed(_poster);
+        }
+
+        [UnityTest] public IEnumerator FailedBuildReleasesPartialRigAndShowsFallback()
+        {
+            yield return Settle();
+            bool fallback = false;
+            LvnSpineBridge.Create = (parent, json, atlas, textures, scale, bg) =>
+            {
+                _camera = parent.parent.GetComponentInChildren<Camera>();
+                throw new NullReferenceException("poster regression probe");
+            };
+            LogAssert.Expect(LogType.Warning, new System.Text.RegularExpressions.Regex("\\[lvn-async\\].*SpinePoster.*poster regression probe"));
+            LvnSpinePoster.Attach(_host, new LvnSpineRef { json = "test.json", atlas = "test.atlas" },
+                url => Task.FromResult(url.EndsWith(".atlas") ? "page.png\nsize: 2,2\n" : "{}"),
+                url => Task.FromResult(_sprite), onFallback: () => fallback = true);
+            yield return Settle();
+            Assert.IsTrue(fallback); Assert.IsTrue(_camera == null, "exception must not leak a live camera");
+        }
+
+        private sealed class PinLedger : ILvnPinLedger
+        {
+            internal int Balance;
+            public void PinSprite(Sprite sprite, bool pinned) => Balance += pinned ? 1 : -1;
+        }
+
+        [UnityTest] public IEnumerator AtlasStaysPinnedWhileBackgroundLoadsAndDetachBalancesPins()
+        {
+            yield return Settle();
+            var ledger = new PinLedger();
+            var background = new TaskCompletionSource<Sprite>();
+            bool pageWasPinned = false;
+            Task<Sprite> Load(string url)
+            {
+                if (url == "back.jpg") { pageWasPinned = ledger.Balance > 0; return background.Task; }
+                return Task.FromResult(_sprite);
+            }
+            LvnSpinePoster.Attach(_host, new LvnSpineRef { json = "test.json", atlas = "test.atlas", bg = "back.jpg" },
+                url => Task.FromResult(url.EndsWith(".atlas") ? "page.png\nsize: 2,2\n" : "{}"), Load, ledger);
+            Assert.IsTrue(pageWasPinned, "the background download must not evict the atlas page");
+            _host.RemoveFromHierarchy();
+            background.SetResult(_sprite); yield return Settle();
+            Assert.AreEqual(0, _builds, "detached in-flight request must not create a rig");
+            Assert.AreEqual(0, ledger.Balance, "cancelled load releases every temporary page pin");
         }
 
         [UnityTest] public IEnumerator HiddenScreenStopsActualCameraAndAnimationThenResumesSameTexture()
