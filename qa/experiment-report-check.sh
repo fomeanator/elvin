@@ -69,7 +69,7 @@ bad=""; note() { bad="$bad\n  $1"; }
 PLAYERS=200
 python3 - "$B" "${BITE:-}" "$PLAYERS" > "$W/sent.json" <<'PY'
 import json, sys, urllib.request, concurrent.futures
-from collections import Counter
+from collections import Counter, defaultdict
 B, bite, n = sys.argv[1], sys.argv[2], int(sys.argv[3])
 
 def post(path, body, token=None):
@@ -87,21 +87,40 @@ def get(path, token):
 # Доля дочитавших на группу. Укус равняет группы: значимости взяться неоткуда.
 finish_rate = {"a": 0.5, "b": 0.5 if bite else 0.8}
 
-def one(i):
+def register(i):
     tok = post("/v1/auth/register", {"device_id": f"опыт-{i:06d}-abcdefgh"})["token"]
     groups = get("/v1/experiments", tok)["assignments"]
     price, noise = groups.get("цена", ""), groups.get("шум", "")
+    assert price in ('a', 'b') and noise in ('a', 'b'), groups
+    return tok, price, noise
+
+# UUID игроков случайны: индекс регистрации не гарантирует одинаковые доли
+# внутри назначенных групп. Берём одинаковое число игроков из каждой пары
+# назначений, кратное десяти, и задаём 50/80 процентов в каждой ячейке.
+# Во второй группе шума дочитывает один дополнительный игрок на ячейку:
+# малая, заведомо незначимая разница позволяет проверить need_players.
+# Укус равняет первый опыт и не зависит от случайной выборки.
+cells = defaultdict(list)
+with concurrent.futures.ThreadPoolExecutor(max_workers=16) as ex:
+    for tok, price, noise in ex.map(register, range(n)):
+        cells[price, noise].append(tok)
+count = min(len(cells[p, q]) for p in ('a', 'b') for q in ('a', 'b')) // 10 * 10
+assert count >= 20, 'недостаточно игроков для сбалансированных групп'
+
+def one(row):
+    tok, price, noise, i = row
     props = {"ab_цена": price, "ab_шум": noise}
     events = [{"name": "chapter_start", "props": props}]
-    # Дочитывание: по первому опыту — разная доля, по второму — одинаковая.
-    if (i % 100) / 100.0 < finish_rate.get(price, 0.5):
+    if i < round(count * finish_rate[price]) + (1 if noise == 'b' else 0):
         events.append({"name": "chapter_finish", "props": props})
     post("/v1/analytics/events", events, tok)
     return price, noise, len(events) > 1
 
 starts, finishes = Counter(), Counter()
+players = [(tok, price, noise, i) for (price, noise), tokens in cells.items()
+           for i, tok in enumerate(tokens[:count])]
 with concurrent.futures.ThreadPoolExecutor(max_workers=16) as ex:
-    for price, noise, finished in ex.map(one, range(n)):
+    for price, noise, finished in ex.map(one, players):
         starts[price] += 1
         if finished: finishes[price] += 1
 json.dump({"starts": dict(starts), "finishes": dict(finishes)}, sys.stdout, ensure_ascii=False)
