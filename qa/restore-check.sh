@@ -13,8 +13,7 @@
 #   1. поднимает сервер и заводит на нём то, что теряют при пожаре:
 #      аккаунт по device_id, кошелёк с историей, сейв игрока;
 #   2. снимает бэкап ТЕМ ЖЕ скриптом, что на проде;
-#   3. разворачивает архив в ЧИСТЫЙ каталог (контент кладётся из выкладки —
-#      его снимок и не везёт, он пересобирается импортом);
+#   3. разворачивает архив в ЧИСТЫЙ каталог, включая авторские правки;
 #   4. поднимает второй сервер и спрашивает у него то же самое.
 #
 # Совпасть обязаны три вещи: тот же device_id даёт ТОТ ЖЕ user id, кошелёк
@@ -62,6 +61,12 @@ PA="$(free_port 8101 8103 8105 8107)"; PB="$(free_port 8102 8104 8106 8108)"
 # ── 1. Живой сервер с данными, которые нельзя пересобрать ───────────────────
 mkdir -p "$W/live/content"
 printf '{"titles":[{"id":"probe","name":"Проба"}]}' > "$W/live/content/manifest.json"
+mkdir -p "$W/live/content/scripts" "$W/live/content/.history" "$W/live/content/_sources"
+printf '{"scene":"probe","script":[]}' > "$W/live/content/scripts/probe.lvn"
+printf '{"skins":[]}' > "$W/live/content/skins.json"
+printf '{"cases":[]}' > "$W/live/content/gacha.json"
+printf 'previous author revision' > "$W/live/content/.history/probe.txt"
+printf 'scene probe\n' > "$W/live/content/_sources/probe.lvns"
 serve "$W/live/content" "$PA" || exit 2
 
 DEV="stand-device-0123456789abcdef"
@@ -95,9 +100,15 @@ mkdir -p "$W/restored/content"
 if [ -z "$BITE" ]; then
   tar -xzf "$ARCHIVE" -C "$W/restored/content"
 fi
-# Контент снимок не везёт — он пересобирается выкладкой. Кладём как при
-# настоящем восстановлении: свежий контент плюс данные из снимка.
-cp "$W/live/content/manifest.json" "$W/restored/content/manifest.json"
+# В отрицательном прогоне даём только пустой манифест, чтобы сервер смог
+# ответить. Исправный прогон не получает НИ ОДНОГО файла помимо архива.
+if [ -n "$BITE" ]; then
+  printf '{"titles":[]}' > "$W/restored/content/manifest.json"
+fi
+same_content=1
+for file in manifest.json skins.json gacha.json scripts/probe.lvn .history/probe.txt _sources/probe.lvns; do
+  cmp -s "$W/live/content/$file" "$W/restored/content/$file" || same_content=0
+done
 serve "$W/restored/content" "$PB" || exit 2
 
 # ── 4. Спрашиваем у поднятого то же самое ──────────────────────────────────
@@ -117,15 +128,16 @@ same_gold=$([ "$gold2" = "$before_gold" ] && echo 1 || echo 0)
 same_save=$([ "$save2" = "42" ] && echo 1 || echo 0)
 
 if [ -n "$BITE" ]; then
-  if [ "$same_user$same_gold$same_save" = "111" ]; then
+  if [ "$same_user$same_gold$same_save$same_content" = "1111" ]; then
     echo "СТЕНД СЛЕП: без снимка всё «совпало» — он не проверяет ничего"
     exit 2
   fi
-  echo "укус чист: без снимка проверки краснеют (аккаунт=$same_user, кошелёк=$same_gold, сейв=$same_save)"
+  echo "укус чист: без снимка проверки краснеют (аккаунт=$same_user, кошелёк=$same_gold, сейв=$same_save, контент=$same_content)"
   exit 0
 fi
 
 fail=0
+[ "$same_content" = "1" ] || { echo "РВЁТСЯ: авторские правки и история не восстановились из архива"; fail=1; }
 [ "$same_user" = "1" ] || { echo "РВЁТСЯ: тот же device_id получил ДРУГОЙ аккаунт — игрок не найдёт себя"; fail=1; }
 [ "$same_gold" = "1" ] || { echo "РВЁТСЯ: кошелёк не восстановился ($gold2 вместо $before_gold) — покупки потеряны"; fail=1; }
 [ "$same_save" = "1" ] || { echo "РВЁТСЯ: сейв не читается прежним ключом — прогресс потерян"; fail=1; }
