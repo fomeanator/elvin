@@ -47,6 +47,25 @@ namespace Lvn.Tests
         /// <summary>Вводная: ОДНА глава, и её номер — ноль.</summary>
         private static LvnTitle Пилот() => Title(Ноль, ("pilot", 0));
 
+        [Test]
+        public void StageCanBuildBeforeTitleIsAssigned()
+        {
+            var screen = new TitleDetailScreen(new TestAssets());
+            string warning = null;
+            void Log(string message, string stack, UnityEngine.LogType type)
+            {
+                if (message.Contains("redress")) warning = message;
+            }
+            UnityEngine.Application.logMessageReceived += Log;
+            try
+            {
+                screen.SetContent(new LvnManifest { ui = new LvnUiConfig { browse = new BrowseConfig { skin = "/test-skin" } } });
+                screen.Rebuild();
+                Assert.IsNull(warning, "boot builds the dressed screen before selecting a title");
+            }
+            finally { UnityEngine.Application.logMessageReceived -= Log; }
+        }
+
         [SetUp]
         [TearDown]
         public void Стереть()

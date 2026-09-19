@@ -79,7 +79,7 @@ namespace Lvn.UI.Screens
         // ПЕРЕОПРЕДЕЛЕНИЯ: заполнены хостом (встраивающая игра вправе показать
         // своё) — берём их, пусты — спрашиваем саму новеллу.
         private string ShownName
-            => !string.IsNullOrEmpty(TitleName) ? TitleName : Lvn.Content.LvnWords.Name("title", Title?.id, Title?.name);
+            => !string.IsNullOrEmpty(TitleName) ? TitleName : Lvn.Content.LvnWords.Name("title", Title?.id, Title?.name) ?? string.Empty;
         private string ShownHero
         {
             get
