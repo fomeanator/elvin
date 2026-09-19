@@ -265,6 +265,8 @@ namespace Lvn.UI
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color(0f, 0f, 0f, 0f);
             cam.targetTexture = rt;
+            // Produce the texture before the scene camera (depth -50) samples it.
+            cam.depth = -100f;
             cam.allowHDR = false; cam.allowMSAA = false;
             cam.enabled = false;
             var driver = camGo.AddComponent<Ticker>();

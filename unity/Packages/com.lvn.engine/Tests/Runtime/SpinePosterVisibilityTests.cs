@@ -14,7 +14,9 @@ namespace Lvn.Tests
     public class PosterAnimationProbe : MonoBehaviour
     {
         public int Updates;
+        public int LastLateFrame = -1;
         private void Update() => Updates++;
+        private void LateUpdate() => LastLateFrame = Time.frameCount;
     }
 
     public class SpinePosterVisibilityTests
@@ -28,12 +30,14 @@ namespace Lvn.Tests
         private PosterAnimationProbe _animation;
         private Camera _camera;
         private int _renders;
+        private int _rendersBeforeAnimation;
         private Func<RectTransform, string, string, Texture2D[], float, Texture2D, GameObject> _create;
         private Action<GameObject, bool> _visible;
         private Action<GameObject, float, string> _refit;
 
         [SetUp] public void SetUp()
         {
+            _renders = 0; _rendersBeforeAnimation = 0;
             _create = LvnSpineBridge.Create; _visible = LvnSpineBridge.SetVisible; _refit = LvnSpineBridge.Refit;
             LvnSpineBridge.SetVisible = null; LvnSpineBridge.Refit = null;
             LvnSpineBridge.Create = (parent, json, atlas, textures, scale, bg) =>
@@ -65,7 +69,13 @@ namespace Lvn.Tests
             Object.Destroy(_sprite); Object.Destroy(_texture);
         }
 
-        private void OnRender(Camera camera) { if (camera == _camera) _renders++; }
+        private void OnRender(Camera camera)
+        {
+            if (camera != _camera) return;
+            _renders++;
+            if (_animation != null && _animation.LastLateFrame != Time.frameCount)
+                _rendersBeforeAnimation++;
+        }
         private static VisualElement Box(float width, float height)
         {
             var box = new VisualElement();
@@ -81,6 +91,18 @@ namespace Lvn.Tests
         {
             for (int i = 0; i < 5; i++) yield return null;
             yield return new WaitForSecondsRealtime(.12f);
+        }
+
+        [UnityTest] public IEnumerator PosterRendersAfterAnimationLateUpdate()
+        {
+            yield return Settle(); Attach(); yield return Settle();
+            // A component added mid-frame gets its first Update next frame.
+            // Measure the established animation loop, not that initial draw.
+            _renders = 0; _rendersBeforeAnimation = 0;
+            yield return Settle();
+            Assert.Greater(_renders, 0, "positive control: camera really submitted frames");
+            Assert.AreEqual(0, _rendersBeforeAnimation,
+                "posters must not sample the previous animation frame from inside LateUpdate");
         }
 
         [UnityTest] public IEnumerator HiddenScreenStopsActualCameraAndAnimationThenResumesSameTexture()

@@ -49,6 +49,7 @@ namespace Lvn.UI
             /// <summary>Рисовать всегда — у живого фона сцены нет элемента-хозяина.</summary>
             public bool AlwaysVisible;
             private float _last = -1f;
+            private LvnPerf.Scope _renderScope;
 
             private bool SyncVisibility()
             {
@@ -68,11 +69,24 @@ namespace Lvn.UI
             {
                 if (Camera == null) { Destroy(this); return; }
                 // Recheck after UI callbacks: a screen can be hidden during Update.
-                if (!SyncVisibility()) return;
+                if (!SyncVisibility()) { Camera.enabled = false; return; }
                 float now = Time.unscaledTime;
-                if (!ShouldRender(_last, now)) return;
+                Camera.enabled = ShouldRender(_last, now);
+                if (!Camera.enabled) return;
                 _last = now;
-                using (LvnPerf.Measure(LvnPerf.Part.PosterRender)) Camera.Render();
+                // Let Unity submit this camera in its normal render phase,
+                // after all animation/Canvas LateUpdates. Camera.Render here
+                // forced a separate submission from each poster on the main
+                // thread (observed ~1 s waits on Android). Keep the same 30 Hz
+                // budget; scheduling does not add renders on skipped frames.
+            }
+
+            private void OnPreCull() => _renderScope = LvnPerf.Measure(LvnPerf.Part.PosterRender);
+            private void OnPostRender() { _renderScope.Dispose(); _renderScope = default; }
+            private void OnDisable()
+            {
+                if (Camera != null) Camera.enabled = false;
+                _last = -1f;
             }
         }
     }
