@@ -41,12 +41,15 @@ type performanceClient struct {
 }
 
 type performanceReport struct {
-	Day      string               `json:"day"`
-	Clients  []*performanceClient `json:"clients"`
-	Total    int                  `json:"total_clients"`
-	Windows  int                  `json:"windows"`
-	Contract string               `json:"metric_contract"`
+	Day       string               `json:"day"`
+	Clients   []*performanceClient `json:"clients"`
+	Total     int                  `json:"total_clients"`
+	Windows   int                  `json:"windows"`
+	Contract  string               `json:"metric_contract"`
+	Compacted bool                 `json:"compacted,omitempty"`
 }
+
+const performanceContract = "received foreground windows only; ranked by frames >1.25x device budget; fps=frames/seconds; p95/p99=max window percentile; device+build grouping; short samples are not conclusive"
 
 // performanceShort — короткие ключи строк окна (формат v2, TR-86: «вместо
 // текста коды») → полные имена, которыми живёт сводка. Старые строки идут
@@ -204,6 +207,7 @@ func (s *ClientLogService) handlePerformance(w http.ResponseWriter, r *http.Requ
 	}
 	clients := []*performanceClient{}
 	windows := 0
+	compacted := false
 	f, err := os.Open(filepath.Join(s.dir, day+".jsonl"))
 	if err == nil {
 		defer f.Close()
@@ -216,6 +220,29 @@ func (s *ClientLogService) handlePerformance(w http.ResponseWriter, r *http.Requ
 		// mutex is held while scanning a whole day's diagnostics.
 		clients, windows, err = readPerformance(io.LimitReader(f, stat.Size()), r.URL.Query().Get("device"), r.URL.Query().Get("app"))
 	}
+	if os.IsNotExist(err) {
+		// loadSummary reads an atomically published file; ranking never needs
+		// the intake mutex or a scan of compressed diagnostic tails.
+		if sum := s.loadSummary(day); sum != nil {
+			if sum.Performance == nil {
+				writeJSON(w, http.StatusGone, map[string]any{
+					"error": "detailed_performance_expired", "day": day, "compacted": true,
+					"message":      "Detailed frame metrics were not retained in this older archive. Session summaries remain available.",
+					"sessions_url": "/v1/admin/client-logs/sessions?day=" + day,
+				})
+				return
+			}
+			compacted = true
+			device, app := r.URL.Query().Get("device"), r.URL.Query().Get("app")
+			for _, client := range sum.Performance.Clients {
+				if client == nil || (device != "" && !strings.HasPrefix(client.Device, device)) || (app != "" && client.App != app) {
+					continue
+				}
+				clients = append(clients, client)
+				windows += client.Windows
+			}
+		}
+	}
 	if err != nil && !os.IsNotExist(err) {
 		http.Error(w, "log read failed", http.StatusInternalServerError)
 		return
@@ -225,5 +252,5 @@ func (s *ClientLogService) handlePerformance(w http.ResponseWriter, r *http.Requ
 		clients = clients[:n]
 	}
 	writeJSON(w, http.StatusOK, performanceReport{Day: day, Clients: clients, Total: total, Windows: windows,
-		Contract: "received foreground windows only; ranked by frames >1.25x device budget; fps=frames/seconds; p95/p99=max window percentile; device+build grouping; short samples are not conclusive"})
+		Contract: performanceContract, Compacted: compacted})
 }

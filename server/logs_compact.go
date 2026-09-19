@@ -53,18 +53,19 @@ type logSessionRow struct {
 }
 
 type logDaySummary struct {
-	Day        string           `json:"day"`
-	Lines      int              `json:"lines"`
-	Kept       int              `json:"kept"`
-	RawBytes   int64            `json:"raw_bytes"`
-	KeptBytes  int64            `json:"kept_bytes"`
-	Devices    int              `json:"devices"`
-	Deviations int              `json:"deviations"`
-	Levels     map[string]int   `json:"levels"`
-	Tags       map[string]int   `json:"tags"`
-	Templates  []nameCount      `json:"templates"` // самые частые строки (числа → #)
-	Sessions   []*logSessionRow `json:"sessions"`
-	CompactAt  string           `json:"compacted_at"`
+	Day         string             `json:"day"`
+	Lines       int                `json:"lines"`
+	Kept        int                `json:"kept"`
+	RawBytes    int64              `json:"raw_bytes"`
+	KeptBytes   int64              `json:"kept_bytes"`
+	Devices     int                `json:"devices"`
+	Deviations  int                `json:"deviations"`
+	Levels      map[string]int     `json:"levels"`
+	Tags        map[string]int     `json:"tags"`
+	Templates   []nameCount        `json:"templates"` // самые частые строки (числа → #)
+	Sessions    []*logSessionRow   `json:"sessions"`
+	CompactAt   string             `json:"compacted_at"`
+	Performance *performanceReport `json:"performance,omitempty"`
 }
 
 // logLineKept — что достойно архива: всё, кроме серой массы. Серая масса —
@@ -242,6 +243,12 @@ func (s *ClientLogService) compactDay(day string) error {
 			sum.Kept++
 		}
 	}
+	if err := sc.Err(); err != nil {
+		gz.Close()
+		out.Close()
+		os.Remove(tmp)
+		return err // Do not delete raw input after an incomplete scan.
+	}
 	if err := gz.Close(); err != nil {
 		out.Close()
 		os.Remove(tmp)
@@ -262,8 +269,20 @@ func (s *ClientLogService) compactDay(day string) error {
 	sum.Templates = topCounts(templates, summaryTemplates)
 	sum.Sessions = sessionsSorted(rows, order)
 	sum.CompactAt = time.Now().UTC().Format(time.RFC3339)
+	// Window lines are discarded from the compressed log. Preserve the exact
+	// device/build totals before removing them; session averages cannot rebuild
+	// frame-weighted FPS, slow-frame shares or deduplicated window counts.
+	if _, err := in.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+	clients, windows, err := readPerformance(in, "", "")
+	if err != nil {
+		return err
+	}
+	sum.Performance = &performanceReport{Day: day, Clients: clients,
+		Total: len(clients), Windows: windows, Contract: performanceContract}
 	data, _ := json.Marshal(sum)
-	if err := os.WriteFile(s.summaryPath(day), data, 0o600); err != nil {
+	if err := atomicWrite(s.summaryPath(day), data, 0o600); err != nil {
 		return err
 	}
 	if err := os.Remove(raw); err != nil {
