@@ -48,6 +48,9 @@ done
 fail=0
 log() { echo "[$(date +%H:%M:%S)] $*"; }
 
+python3 "$REPO_ROOT/qa/test-unity-results.py" > "$OUT/unity-results-check.log" 2>&1 \
+  || { log "FAIL: проверка вердикта Unity — $OUT/unity-results-check.log"; fail=1; }
+
 # Другой batchmode на TestHost — ждём его: прогон-в-прогон роняет оба.
 # Якорь требует исполняемый Unity, а [U] не совпадает с текстом самого
 # шаблона в argv pgrep. Оболочка с упоминанием Unity в -c тоже не подходит.
@@ -747,36 +750,7 @@ if [ ! -f "$2" ]; then
   # Licensing 505 встречается и при PASS; хвост лога не доказывает причину.
   return 1
 fi
-python3 - "$2" "$1" "$3" <<'PY'
-import sys, xml.etree.ElementTree as ET
-try:
-    r = ET.parse(sys.argv[1]).getroot()
-except Exception as e:
-    print(f"  {sys.argv[2]}: не удалось прочитать результаты ({e})"); sys.exit(1)
-total, passed, failed = r.get('total'), r.get('passed'), r.get('failed')
-# ПРОПУСК — НЕ УСПЕХ, а отсутствие ответа. Тест, который «зелёный» только
-# потому, что раскладки не хватило (нет Unity-пакетов, нет node, нет
-# server/content), сообщает ровно ноль — а выглядит как проверенный. Считаем
-# и НАЗЫВАЕМ их: пока их число видно, никто не примет тишину за подтверждение.
-skipped = [tc for tc in r.iter('test-case') if tc.get('result') == 'Skipped']
-tail = f", {len(skipped)} skipped" if skipped else ""
-print(f"  {sys.argv[2]}: {passed}/{total} passed, {failed} failed{tail}")
-for tc in skipped[:10]:
-    why = (tc.findtext('reason/message') or '').strip().splitlines()
-    print("    skipped:", tc.get('name'), "—", (why[0] if why else "причина не названа")[:80])
-if len(skipped) > 10:
-    print(f"    … и ещё {len(skipped) - 10}")
-for tc in r.iter('test-case'):
-    if tc.get('result') not in (None, 'Passed', 'Skipped'):
-        print("   ", tc.get('result'), tc.get('fullname'))
-floor = int(sys.argv[3]) if len(sys.argv) > 3 and sys.argv[3] else 0
-if floor and int(total) < floor:
-    print(f"    ТЕСТОВ МЕНЬШЕ ПОЛА: {total} при {floor} — проверки не упали, а ИСЧЕЗЛИ")
-    sys.exit(1)
-if floor and int(total) > floor:
-    print(f"    (тестов стало больше: {total} при поле {floor} — поднимите пол)")
-sys.exit(0 if failed == '0' else 1)
-PY
+python3 "$REPO_ROOT/qa/unity-results.py" "$2" "$1" "$3" "$FILTER"
 }
 
 # ── 1. EditMode: вся пирамида (юнит + контракт + соук) ──────────────────────

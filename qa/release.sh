@@ -7,8 +7,8 @@
 # Зачем: сборка из рабочего дерева не отвечает на вопрос «что в APK» — в
 # дереве лежит незакоммиченное нескольких людей, и «где мои правки» потом не
 # разобрать. Здесь APK собирается ТОЛЬКО из коммита на origin, в отдельном
-# дереве (~/ominis/builds/release-<канал>), после трёх проверок (компиляция,
-# Go-стражи, стенд утечек), а хэш коммита и канал зашиваются в сборку
+# дереве (~/ominis/builds/release-<канал>), после полного prebuild и стенда
+# утечек, а хэш коммита и канал зашиваются в сборку
 # (Настройки → Версия, строка [lvn-build] в логе устройства).
 #
 # Проект сборки ОДИН (клонов не бывает): на время сборки его пакеты указывают
@@ -73,16 +73,13 @@ fi
 [ -z "$(git -C "$TREE" status --porcelain --untracked-files=no)" ] || die "в дереве релиза есть незакоммиченное — так не бывает, разберись"
 ln -sfn "$REPO/sandbox/Library" "$TREE/sandbox/Library"   # Roslyn-проверке нужна Library с DLL
 SHA=$(git -C "$TREE" rev-parse --short HEAD)
-STAMP=$(date +%Y%m%d-%H%M)
+STAMP=$(date +%Y%m%d-%H%M%S)
 NAME="$PREFIX-$STAMP"
 say "релиз $CH: origin/$REF = $SHA → $NAME"
 
-# ── 2. три проверки ───────────────────────────────────────────────────────
-say "компиляция C# (Roslyn)…"
-( cd "$TREE" && qa/csharp-check.sh > "$HOME/ominis/builds/$NAME.csharp.log" 2>&1 ) || die "C# не собирается — $HOME/ominis/builds/$NAME.csharp.log"
-say "Go-стражи…"
-( cd "$TREE/tools/lvnconv" && go test ./lvn/ -count=1 > "$HOME/ominis/builds/$NAME.guards.log" 2>&1 ) || {
-  grep "^--- FAIL" "$HOME/ominis/builds/$NAME.guards.log" | head; die "стражи красные — $HOME/ominis/builds/$NAME.guards.log"; }
+# ── 2. полный цикл из того же коммита, который попадёт в APK ───────────────
+say "приёмка: Go, C#, EditMode, PlayMode с графикой…"
+( cd "$TREE" && bash qa/prebuild.sh > "$HOME/ominis/builds/$NAME.prebuild.log" 2>&1 ) || die "prebuild красный — $HOME/ominis/builds/$NAME.prebuild.log"
 # Стенд утечек — ворота ПЕРЕД публикацией: dev сверяется с main (что уедет
 # новым), prod — с прошлым prod-выпуском (всё в main уже опубликовано, и
 # старые коммиты с давно известным содержимым тут не судятся).
@@ -106,11 +103,13 @@ trap restore EXIT
 sed -i '' "s#file:$REPO/unity/Packages/#file:$TREE/unity/Packages/#g" "$MANIFEST"
 grep -q "file:$TREE/unity/Packages/com.lvn.engine\"" "$MANIFEST" || die "не удалось перенаправить пакеты на $TREE"
 OUT="$HOME/ominis/builds/$NAME.apk"; LOG="$HOME/ominis/builds/$NAME.log"
+[ ! -e "$OUT" ] || die "файл $OUT уже существует — старый APK не перезаписываем"
 say "Unity batchmode → $OUT"
 LVN_BUILD_OUT="$OUT" LVN_BUILD_COMMIT="$SHA" LVN_BUILD_CHANNEL="$CH" LVN_APP_ID_SUFFIX="$SUFFIX" \
   "$UNITY" -batchmode -quit -projectPath "$PROJ" -buildTarget Android \
   -executeMethod Lvn.EditorTools.CliBuild.Android -logFile "$LOG"; RC=$?
 restore; trap - EXIT
+[ "$RC" -eq 0 ] || die "Unity завершилась с ошибкой (exit $RC) — $LOG"
 [ -s "$OUT" ] || { grep -n "error CS\|Exception\|\[lvn-build\]" "$LOG" | head -20; die "APK не собрался (exit $RC) — $LOG"; }
 
 # ── 4. манифест APK: тема, ярлык, диплинки, имя пакета ───────────────────
