@@ -56,7 +56,11 @@ namespace Lvn.UI
             try { el.text = text(); }
             catch (System.Exception e)
             {
-                Debug.LogWarning($"[lvn-redress] подпись не собралась при привязке: {e.Message}");
+                // Warning stacks are intentionally omitted by the log shipper.
+                // Preserve the failing supplier here, otherwise all broken
+                // labels arrive as indistinguishable NullReference messages.
+                Debug.LogWarning($"[lvn-redress] подпись не собралась при привязке: "
+                    + $"{el.GetType().Name}#{el.name}, source={text.Method.DeclaringType?.Name}.{text.Method.Name}: {e}");
             }
             return el;
         }
